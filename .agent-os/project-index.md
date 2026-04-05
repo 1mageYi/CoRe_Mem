@@ -13,14 +13,14 @@
 
 ## Active Workstreams
 
-- `WS-002` `[doing]`: 基础工程与环境固定
+- `WS-002` `[doing]`: WSL 环境重建与平台迁移
 - `WS-003` `[doing]`: Benchmark adapters 与 dry-run 接入
 - `WS-005` `[doing]`: 实验入口、输出与运行元数据
 - `WS-006` `[doing]`: 初始测试体系
 
 ## Top Next Action
 
-- `TD-002` `[doing]`: 创建并固定 conda 环境 `core_mem`，并解决当前 conda plugin/权限问题。
+- `TD-002` `[doing]`: 在 WSL 中创建新的 `core_mem` conda 环境，并验证 verifier / pytest / benchmark dry-run。
 
 ## Active Blockers
 
@@ -32,6 +32,7 @@
 - 2026-04-04: 确认文档系统采用 `docs/` 与 `.agent-os/` 并存模式。
 - 2026-04-05: 完成 stage-1 平台从骨架到可执行 dry-run 的升级，支持官方 PersonaMem / LongMemEval-S 文件格式读取。
 - 2026-04-05: 增加 OpenAI-compatible provider 实际调用逻辑、配置加载、结构化输出目录与更完整的测试集。
+- 2026-04-05: 决定放弃 Windows 本地环境，迁移到 WSL；仓库将只保留平台中立代码、文档和 agent 状态。
 
 ## Read Next
 

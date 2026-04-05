@@ -2,9 +2,9 @@
 
 ## Doing
 
-- `TD-002` `[doing]` 创建并固定 conda 环境 `core_mem`，Python 版本为 `3.10`。
-  - Reason: 第一阶段要求固定专属环境，且后续 benchmark 运行必须从冻结环境启动。
-  - Evidence target: `core_mem` 环境存在，可安装项目依赖，可运行基础测试。
+- `TD-002` `[doing]` 在 WSL 中创建并固定 conda 环境 `core_mem`，Python 版本为 `3.10`。
+  - Reason: Windows 本地环境已放弃，新的可复现执行基线必须在 WSL 中重建。
+  - Evidence target: WSL 中的 `core_mem` 环境存在，并可运行 verifier、pytest 与 benchmark dry-run。
 
 - `TD-006` `[doing]` 接入 PersonaMem 32k 官方主任务与评测协议。
   - Reason: PersonaMem 是第一阶段主 benchmark，也是最接近 personalized memory 设定的硬要求。

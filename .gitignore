@@ -5,3 +5,5 @@ research-results.tsv
 autoresearch-lessons.md
 outputs/runs/
 outputs/logs/
+.conda_envs/
+.conda_pkgs/

@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-002` 固定并创建 conda 环境 `core_mem`（Python 3.10）。
+- `TD-002` 在 WSL 中创建并固定 conda 环境 `core_mem`（Python 3.10）。
 - `TD-006` 接入 PersonaMem 32k 官方主任务与评测协议。
 - `TD-008` 接入 LongMemEval-S 官方评测协议。
 - `TD-010` 建立实验总入口与分步骤脚本。

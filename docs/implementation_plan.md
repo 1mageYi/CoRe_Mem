@@ -30,7 +30,8 @@
 - Status: in progress
 - Notes:
   - 配置系统、provider adapter、输出目录与 dry-run run metadata 已落地
-  - conda 环境 `core_mem` 尚未真正创建完成
+  - Windows-local environment bootstrap 已放弃
+  - 下一步应在 WSL 中重新创建 `core_mem` conda 环境
 
 ### 阶段 C：Benchmark adapter
 
@@ -59,6 +60,7 @@
 - Status: in progress
 - Notes:
   - 初始 unit tests 与 E2E dry-run smoke test 已建立
+  - WSL 环境中的 `pytest` 仍需重建后再验证
   - 分步骤脚本和更完整的复现路径仍待补齐
 
 ### 阶段 F：正式运行与结果整理

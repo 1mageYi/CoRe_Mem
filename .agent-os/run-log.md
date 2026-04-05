@@ -51,3 +51,40 @@
   - 创建并固定 conda 环境 `core_mem`
   - 下载并接入 PersonaMem 32k 与 LongMemEval-S 官方数据
   - 推进 official protocol 的正式运行与结果产出
+
+## 2026-04-05 Session 004
+
+- Worked on: 项目内 conda 环境的真实创建与环境复现固化
+- State changed:
+  - 创建了项目内 prefix conda 环境 `.conda_envs/core_mem`
+  - 固化了 `configs/condarc.project.yaml`
+  - 添加了 `scripts/bootstrap_conda_env.ps1` 与 `scripts/run_in_core_mem.ps1`
+  - 扩展 verifier，使其检查 project-local condarc、bootstrap scripts 和环境内 `python.exe`
+  - 修复 `pytest.ini`，避免新环境下递归进入 `.conda_envs` 与 `.conda_pkgs`
+- Evidence / artifacts:
+  - `.conda_envs/core_mem/python.exe`
+  - `scripts/bootstrap_conda_env.ps1`
+  - `scripts/run_in_core_mem.ps1`
+  - 项目内 conda 环境下 `python --version` -> `3.10.20`
+  - 项目内 conda 环境下 `pytest` 通过（9 tests）
+  - 项目内 conda 环境下 `scripts/run_experiment.py --verify-only` 输出 `20`
+- Next likely action:
+  - 下载 PersonaMem 32k 官方数据
+  - 开始主 benchmark 的正式 protocol 运行
+
+## 2026-04-05 Session 005
+
+- Worked on: 从 Windows 本地执行迁移到 WSL 的 handoff 清理
+- State changed:
+  - 删除了 Windows-specific environment bootstrap / condarc 文件
+  - 将仓库重新收敛到平台中立状态
+  - 将 agent state 文档改为“下一步在 WSL 中重建 conda 环境”
+- Evidence / artifacts:
+  - 删除 `configs/condarc.project.yaml`
+  - 删除 `scripts/bootstrap_conda_env.ps1`
+  - 删除 `scripts/run_in_core_mem.ps1`
+  - `docs/current_status.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 已切换到 WSL handoff 状态
+- Next likely action:
+  - 在 WSL 中 `git clone` 当前分支
+  - 创建 Linux 下的 `core_mem` conda 环境
+  - 用新环境复验 `verify_stage1_status.py`、`pytest` 和 benchmark dry-run
