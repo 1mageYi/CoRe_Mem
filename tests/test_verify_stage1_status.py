@@ -26,3 +26,7 @@ def test_core_memory_state_serializes_residual_slots():
     assert payload["core_vector"] == [0.1, 0.2]
     assert payload["residual_slots"][0]["support"] == ["s1"]
 
+
+def test_stage1_verifier_score_reflects_expanded_readiness_checks():
+    score, _ = compute_status(REPO_ROOT)
+    assert score == 16

@@ -11,15 +11,15 @@
 
 ## 当前状态
 
-- 文档状态：initializing
-- 代码状态：not started
-- 环境状态：not started
-- benchmark 适配状态：not started
-- 测试状态：not started
+- 文档状态：initialized
+- 代码状态：platform skeleton + benchmark dry-run ready
+- 环境状态：specified but not yet materialized as conda env
+- benchmark 适配状态：PersonaMem / LongMemEval-S official file formats can be loaded in dry-run mode
+- 测试状态：initial unit tests + E2E smoke test passing
 
 ## 当前最重要的下一步
 
-- 初始化 repo 文档系统并建立第一批执行项，使后续实现可以直接围绕 `docs/requirements.md` 推进。
+- 创建并固定 conda 环境 `core_mem`，然后继续推进 PersonaMem 32k 的正式数据接入与官方协议运行。
 
 ## 关键约束
 
@@ -31,5 +31,7 @@
 ## 风险与待定项
 
 - 具体 embedding model 尚未锁定
+- conda 在当前机器上存在 plugin/权限异常，后续环境创建需要绕过插件或调整命令方式
+- PersonaMem 与 LongMemEval-S 目前仅完成官方文件格式 dry-run，尚未完成正式评测运行
 - PersonaMem `128k / 1M` 只要求保留启动能力，第一阶段不做正式结果
 - 图不是第一阶段硬要求，但结果数据与表格是硬要求

@@ -3,11 +3,21 @@ project:
   stage: stage1
 llm:
   provider: aliyun_openai_compatible
+  api_key_env: ALIYUN_API_KEY
   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
   model: qwen3-235b-a22b-instruct-2507
+  temperature: 0.0
+  max_tokens: 512
+  timeout_seconds: 120
 benchmarks:
   primary: personamem
   secondary: longmemeval_s
+  personamem:
+    data_root: data/personamem
+    variant: 32k
+    task: multiple_choice
+  longmemeval:
+    data_root: data/longmemeval
+    subset: s
 outputs:
   root: outputs
-

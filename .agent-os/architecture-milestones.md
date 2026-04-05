@@ -22,24 +22,25 @@
 ## Milestones
 
 - `MS-001` `[doing]` 项目系统初始化完成
+- `MS-001` `[done]` 项目系统初始化完成
   - Acceptance:
     - `AGENTS.md` 与 `CLAUDE.md` 就位
     - `docs/` 与 `.agent-os/` 基础文档齐全
     - 文档恢复路径可用
 
-- `MS-002` `[backlog]` 环境与基础工程骨架完成
+- `MS-002` `[doing]` 环境与基础工程骨架完成
   - Acceptance:
     - conda 环境 `core_mem` 固定
     - 依赖管理明确
     - 配置系统与 provider adapter 就位
 
-- `MS-003` `[backlog]` PersonaMem 32k 接入并跑通官方协议
+- `MS-003` `[doing]` PersonaMem 32k 接入并跑通官方协议
   - Acceptance:
     - 数据可获取
     - 主任务可运行
     - 官方评测协议可运行
 
-- `MS-004` `[backlog]` LongMemEval-S 接入并跑通官方协议
+- `MS-004` `[doing]` LongMemEval-S 接入并跑通官方协议
   - Acceptance:
     - 数据可获取
     - 官方协议可运行
@@ -48,7 +49,7 @@
   - Acceptance:
     - writer / core updater / residual manager / reader 可运行
 
-- `MS-006` `[backlog]` 测试与复现闭环完成
+- `MS-006` `[doing]` 测试与复现闭环完成
   - Acceptance:
     - unit tests 完整
     - E2E smoke test 可运行

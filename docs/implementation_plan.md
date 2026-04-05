@@ -19,6 +19,7 @@
 - 建立 `AGENTS.md` 与文档系统
 - 固定目录结构
 - 固定环境约束
+- Status: done
 
 ### 阶段 B：基础工程骨架
 
@@ -26,6 +27,10 @@
 - 配置系统
 - API provider adapter
 - 输出目录与结果记录规范
+- Status: in progress
+- Notes:
+  - 配置系统、provider adapter、输出目录与 dry-run run metadata 已落地
+  - conda 环境 `core_mem` 尚未真正创建完成
 
 ### 阶段 C：Benchmark adapter
 
@@ -33,6 +38,10 @@
 - PersonaMem 128k / 1M 启动开关预留
 - LongMemEval-S 接入
 - 官方协议对齐
+- Status: in progress
+- Notes:
+  - PersonaMem / LongMemEval-S 官方文件格式已可在 dry-run 模式下读取
+  - 正式数据下载与官方 protocol 运行仍待完成
 
 ### 阶段 D：CoRe Memory 方法实现
 
@@ -47,6 +56,10 @@
 - 核心模块 unit tests
 - 最小 E2E smoke test
 - 总入口与分步骤脚本
+- Status: in progress
+- Notes:
+  - 初始 unit tests 与 E2E dry-run smoke test 已建立
+  - 分步骤脚本和更完整的复现路径仍待补齐
 
 ### 阶段 F：正式运行与结果整理
 

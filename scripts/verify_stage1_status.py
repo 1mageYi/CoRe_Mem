@@ -9,7 +9,9 @@ from pathlib import Path
 CHECKS = {
     "environment_spec": "environment.yml",
     "default_config": "configs/defaults.yaml",
+    "config_loader": "src/core_mem/config.py",
     "provider_adapter": "src/core_mem/providers/openai_compatible.py",
+    "common_benchmark_schema": "src/core_mem/benchmarks/common.py",
     "personamem_adapter": "src/core_mem/benchmarks/personamem.py",
     "longmemeval_adapter": "src/core_mem/benchmarks/longmemeval.py",
     "core_memory_module": "src/core_mem/memory/core.py",
@@ -17,6 +19,10 @@ CHECKS = {
     "stage1_verifier": "scripts/verify_stage1_status.py",
     "unit_test": "tests/test_verify_stage1_status.py",
     "smoke_test": "tests/test_smoke_pipeline.py",
+    "adapter_test": "tests/test_benchmark_adapters.py",
+    "provider_test": "tests/test_provider_adapter.py",
+    "fixture_personamem_questions": "tests/fixtures/personamem/questions_32k.csv",
+    "fixture_longmemeval": "tests/fixtures/longmemeval/longmemeval_s_cleaned.json",
 }
 
 
@@ -45,4 +51,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

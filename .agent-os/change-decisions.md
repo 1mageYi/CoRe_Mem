@@ -22,3 +22,9 @@
 
 - 决定第一阶段接受 negative result。
 - 第一阶段成功标准为“系统完整、实验可运行、结论可信”，而不是“优于 baseline”。
+
+## `CD-005` 2026-04-05
+
+- 决定 PersonaMem 第一阶段先对齐官方 `32k` multiple-choice 主任务。
+- 决定 LongMemEval 第一阶段先对齐官方 `S cleaned` 数据与官方 protocol。
+- 决定 `128k / 1M` 只保留启动开关，不要求第一阶段正式结果。

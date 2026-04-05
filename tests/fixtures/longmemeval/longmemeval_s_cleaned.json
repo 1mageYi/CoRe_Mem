@@ -1,0 +1,22 @@
+[
+  {
+    "question_id": "lm_1",
+    "question_type": "knowledge-update",
+    "question": "What drink does the user prefer now?",
+    "answer": "Matcha",
+    "question_date": "2026-03-01",
+    "haystack_session_ids": ["s1", "s2"],
+    "haystack_dates": ["2026-01-10", "2026-02-20"],
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I drink coffee every day."},
+        {"role": "assistant", "content": "Coffee preference noted."}
+      ],
+      [
+        {"role": "user", "content": "I switched to matcha recently."},
+        {"role": "assistant", "content": "Updated your drink preference to matcha."}
+      ]
+    ],
+    "answer_session_ids": ["s2"]
+  }
+]
