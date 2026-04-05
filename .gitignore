@@ -1,0 +1,5 @@
+__pycache__/
+.pytest_cache/
+autoresearch-state.json
+research-results.tsv
+
