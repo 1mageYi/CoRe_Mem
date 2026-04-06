@@ -2,15 +2,9 @@
 
 ## Doing
 
-- `TD-001` `[doing]` 初始化项目文档系统并建立根契约、真源文档和状态文档。
-  - Reason: 这是所有后续实现与恢复的前置条件。
-  - Evidence target: 文档文件齐全，恢复路径明确。
+- `TD-004` `[doing]` 调研并确定第一阶段使用的 pretrained embedding model。
 
 ## Ready
-
-- `TD-002` `[ready]` 创建并固定 conda 环境 `core_mem`，Python 版本为 `3.10`。
-- `TD-003` `[ready]` 建立基础目录结构、配置机制与输出目录规范。
-- `TD-004` `[ready]` 调研并确定第一阶段使用的 pretrained embedding model。
 
 ## Backlog
 
@@ -28,7 +22,12 @@
 
 ## Done
 
-- None
+- `TD-001` `[done]` 初始化项目文档系统并建立根契约、真源文档和状态文档。
+  - Evidence: `AGENTS.md`、`CLAUDE.md`、`docs/`、`.agent-os/` 全部就位，恢复路径可用。
+- `TD-002` `[done]` 创建环境管理方案（venv 替代 conda，`CD-005`），Python 3.10。
+  - Evidence: `pyproject.toml` 锁定 `requires-python = "==3.10.*"`，`requirements.txt` 就位。
+- `TD-003` `[done]` 建立基础目录结构、配置机制与输出目录规范。
+  - Evidence: `src/`、`scripts/`、`configs/`、`outputs/`、`tests/` 已创建；`configs/default.toml`、`.gitignore`、`.env.example` 就位。
 
 ## Verified
 

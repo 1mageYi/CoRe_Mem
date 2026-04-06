@@ -161,7 +161,7 @@
 
 ## 环境与外部依赖规则
 
-1. 固定使用 conda 环境：`core_mem`
+1. 固定使用 venv 环境：`core_mem`
 2. Python 版本固定：`3.10`
 3. 默认外部 LLM provider 为阿里云兼容 OpenAI API
 4. 默认 `base_url`：`https://dashscope.aliyuncs.com/compatible-mode/v1`

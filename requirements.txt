@@ -1,0 +1,17 @@
+# Core dependencies
+openai>=1.0
+python-dotenv>=1.0
+numpy>=1.24
+pydantic>=2.0
+pydantic-settings>=2.0
+
+# Embedding (RSK-001: specific model TBD)
+sentence-transformers>=2.2
+torch>=2.0
+
+# Testing
+pytest>=7.0
+pytest-asyncio>=0.21
+
+# Linting
+ruff>=0.4

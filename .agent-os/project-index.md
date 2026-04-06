@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`
-- Top next action: `TD-001`
-- Active workstreams: `WS-001`, `WS-002`
+- Top next action: `TD-004`
+- Active workstreams: `WS-002`
 - Active blockers: `none`
 
 ## Objective Summary
@@ -13,12 +13,12 @@
 
 ## Active Workstreams
 
-- `WS-001` `[doing]`: 项目系统初始化与恢复路径建设
-- `WS-002` `[ready]`: 第一阶段方法与 benchmark 实现准备
+- `WS-001` `[done]`: 项目系统初始化与恢复路径建设
+- `WS-002` `[doing]`: 第一阶段方法与 benchmark 实现准备
 
 ## Top Next Action
 
-- `TD-001` `[doing]`: 初始化项目文档系统并建立后续执行所需的根契约、真源文档与状态文档。
+- `TD-004` `[doing]`: 调研并确定第一阶段使用的 pretrained embedding model。
 
 ## Active Blockers
 
@@ -28,6 +28,8 @@
 
 - 2026-04-04: 锁定第一阶段目标、benchmark、范围、硬约束和验收标准。
 - 2026-04-04: 确认文档系统采用 `docs/` 与 `.agent-os/` 并存模式。
+- 2026-04-06: 环境管理从 conda 切换为 venv（`CD-005`）。
+- 2026-04-06: 完成目录结构、依赖文件、模块骨架创建（`TD-001`/`TD-002`/`TD-003` done）。
 
 ## Read Next
 

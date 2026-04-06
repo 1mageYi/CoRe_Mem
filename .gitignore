@@ -1,0 +1,36 @@
+# Environment
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs (keep structure, ignore run artifacts)
+outputs/runs/*
+outputs/logs/*
+outputs/figures/*
+outputs/tables/*
+!outputs/runs/.gitkeep
+!outputs/logs/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep
+
+# Model cache
+models/
+.cache/

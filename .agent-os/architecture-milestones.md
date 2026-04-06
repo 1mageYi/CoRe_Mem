@@ -21,7 +21,7 @@
 
 ## Milestones
 
-- `MS-001` `[doing]` 项目系统初始化完成
+- `MS-001` `[done]` 项目系统初始化完成
   - Acceptance:
     - `AGENTS.md` 与 `CLAUDE.md` 就位
     - `docs/` 与 `.agent-os/` 基础文档齐全

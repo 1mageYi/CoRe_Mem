@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "core-mem"
+version = "0.1.0"
+description = "Bounded cross-session personalized memory framework"
+requires-python = "==3.10.*"
+dependencies = [
+    "openai>=1.0",
+    "python-dotenv>=1.0",
+    "numpy>=1.24",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.4",
+]
+embedding = [
+    # RSK-001: pretrained embedding model TBD
+    "sentence-transformers>=2.2",
+    "torch>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
