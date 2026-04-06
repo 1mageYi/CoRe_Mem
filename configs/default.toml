@@ -1,6 +1,16 @@
 [memory]
 core_slots = 32
 residual_slots = 64
+merge_threshold = 0.5
+core_threshold = 0.5
+promotion_merge_count = 5
+stability_window = 3
+stability_epsilon = 0.05
+recency_weight = 1.5
+
+[embedding]
+model_name = "sentence-transformers/all-MiniLM-L6-v2"
+dim = 384
 
 [llm]
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"

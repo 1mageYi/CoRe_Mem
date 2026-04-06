@@ -1,26 +1,29 @@
-# TODO
+# TODO（人类可读视图）
 
-## Doing
+> 与 `.agent-os/todo.md` 同步。
 
-- `TD-004` 调研并确定第一阶段使用的 pretrained embedding model。
+## 进行中
 
-## Backlog
+- Writer fact 提取逻辑（LLM prompt-based extraction）
 
-- `TD-005` 实现阿里云 OpenAI-compatible provider adapter。
-- `TD-006` 接入 PersonaMem 32k 官方主任务与评测协议。
-- `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
-- `TD-008` 接入 LongMemEval-S 官方评测协议。
-- `TD-009` 实现 vanilla CoRe Memory 核心模块。
-- `TD-010` 建立实验总入口与分步骤脚本。
-- `TD-011` 建立 unit tests 与最小 E2E smoke test。
+## 就绪
 
-## Done
+- 实现阿里云 OpenAI-compatible provider adapter
+- 接入 PersonaMem 32k 官方主任务与评测协议
 
-- `TD-001` 初始化项目文档系统与根契约文件。
-- `TD-002` 创建环境管理方案（venv，Python 3.10）。
-- `TD-003` 建立目录结构、配置机制与输出规范。
+## 待办
 
-## Notes
+- PersonaMem 128k / 1M 启动开关
+- 接入 LongMemEval-S 官方协议
+- 建立实验总入口与分步骤脚本
+- 实现 Reader（query → top-k core + top-j residual 检索）
+- 训练 vec2text 模型解码 latent 信息
 
-- 真实 runtime 状态以 `.agent-os/todo.md` 为准。
-- 本文件用于面向人类的同步视图。
+## 已完成
+
+- 初始化项目文档系统
+- 创建环境管理方案（venv，Python 3.10）
+- 建立基础目录结构、配置机制
+- 确定 embedding model（`all-MiniLM-L6-v2`）
+- **实现 write path 核心模块**：slot、embedding、residual_manager、core_updater、writer
+- **建立 unit tests**：28 个测试全部通过

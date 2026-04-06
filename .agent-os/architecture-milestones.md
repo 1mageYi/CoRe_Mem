@@ -13,9 +13,14 @@
 
 第一阶段采用 training-light 路线：
 
-- pretrained embedding model 作为基础表示层
+- `all-MiniLM-L6-v2` 作为基础 embedding 表示层（384 维）
 - 阿里云兼容 OpenAI API 作为主要 LLM 调用
 - vanilla CoRe Memory 作为主方法
+  - 合并机制：在线质心（Online Centroid），recency_weight=1.5
+  - Core: 32 slot，Residual: 64 slot
+  - Residual 驱逐：merge_count 最低优先
+  - Core 驱逐：强制合并进 cos_sim 最近的 core slot
+  - 持久化：safetensors + JSON
 - benchmark adapters 直接对齐官方协议
 - 结果与元数据统一沉淀到 `outputs/`
 
@@ -27,11 +32,11 @@
     - `docs/` 与 `.agent-os/` 基础文档齐全
     - 文档恢复路径可用
 
-- `MS-002` `[backlog]` 环境与基础工程骨架完成
+- `MS-002` `[done]` 环境与基础工程骨架完成
   - Acceptance:
-    - conda 环境 `core_mem` 固定
-    - 依赖管理明确
-    - 配置系统与 provider adapter 就位
+    - venv 环境 Python 3.10 固定（`CD-005` 改用 venv）
+    - 依赖管理明确（`pyproject.toml` + `requirements.txt`）
+    - 配置系统就位（`configs/default.toml` + `config.py`）
 
 - `MS-003` `[backlog]` PersonaMem 32k 接入并跑通官方协议
   - Acceptance:
@@ -44,11 +49,14 @@
     - 数据可获取
     - 官方协议可运行
 
-- `MS-005` `[backlog]` Vanilla CoRe Memory 主干实现完成
+- `MS-005` `[partial]` Vanilla CoRe Memory 主干实现完成
+  - Write path done: writer / core updater / residual manager 可运行
+  - Read path pending: reader 未实现
   - Acceptance:
     - writer / core updater / residual manager / reader 可运行
 
-- `MS-006` `[backlog]` 测试与复现闭环完成
+- `MS-006` `[partial]` 测试与复现闭环完成
+  - Write path tests done: 28 个 unit tests 通过
   - Acceptance:
     - unit tests 完整
     - E2E smoke test 可运行
