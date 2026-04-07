@@ -33,3 +33,27 @@
 
 - 决定停止在 Windows 本地继续折腾环境，并迁移到 WSL 作为后续主执行平台。
 - 决定仓库只保留平台中立代码、文档与 agent 状态，Windows-specific bootstrap 不进入 handoff commit。
+
+## `CD-007` 2026-04-05
+
+- 用户允许为了创建和管理默认 conda named env `core_mem` 修改 repo 外的 conda 环境路径。
+- 除环境相关路径外，任何 repo 工作区之外目录的修改都必须先向用户确认，不能因为 sandbox 放开而自动执行。
+
+## `CD-008` 2026-04-05
+
+- 用户已明确批准在保持默认 provider 真相不变的前提下，临时使用 Google AI Studio 的 OpenAI-compatible 端点推进正式 benchmark。
+- 当前批准的临时模型为 `gemini-2.5-flash`，配置文件为 `configs/gemini_flash.yaml`。
+
+## `CD-009` 2026-04-06
+
+- 用户明确确认第二阶段为 `V2.0 structured latent-slot memory`，并要求将其写入真源 `docs/requirements.md`。
+- 第二阶段主线锁定为：
+  - `Light Cross-Attention Resampler`
+  - `Flan-T5-based belief JSON decoder`
+  - LoRA/adapter + resampler/projection 可训练
+  - `Belief JSON` 作为主输出目标
+- 第二阶段数据策略锁定为 `public-datasets-first, synthetic-minimal`。
+- benchmark 继续作为 evaluation source，而不是第二阶段 primary training source。
+- 第一阶段 v1 可保留为 naive baseline；第二阶段作为 stage-2 研究主线推进。
+- 第二阶段 observation parser 采用混合策略，默认 `rule-first, model-second`。
+- 第二阶段当前默认 backbone 为 `Flan-T5-base`；更纯的 `Optimus-like` 路线仅作为 ablation 或后续升级。
