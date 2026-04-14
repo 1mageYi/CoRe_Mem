@@ -12,6 +12,8 @@
 ## Backlog
 
 - `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
+- `TD-021` 把第二阶段真正的 latent memory 主链路做实。
+- `TD-022` 建立 stage-2 benchmark memory-mediated canary runner，并接入可用 provider 配置。
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。
 - `TD-020` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
 ## Done
@@ -40,6 +42,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system skeleton、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`pytest` 当前为 `56 tests`。
 - 当前最大的未完成点已经从“评测体系还没写完”切换为“是否继续补默认 `flan-t5-base` 非 tiny run 与 benchmark canary 证据”。
+- 当前新的最高优先级未完成点是：先让 `slot/query encoder -> latent composition -> belief decoder -> answer projection` 成为真实被训练和被推理主链路消费的 latent memory 系统，再进入 stage-2 benchmark canary。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

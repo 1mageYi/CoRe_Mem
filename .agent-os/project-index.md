@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-018`
+- Top next action: `TD-021`
 - Active workstreams: `WS-009`
 - Active blockers: `BL-004`
 
@@ -18,11 +18,12 @@
 - `WS-007` `[done]`: Stage-2 `V2.0` 主线模型骨架与直训链路已推进到可直接训练
 - `WS-008` `[done]`: Stage-2 数据、parser 与训练管线首批骨架
 - `WS-009` `[doing]`: Stage-2 本地 intrinsic evaluation 已扩展到 experiment registry + 完整 ablation matrix；下一步转向 canary 或默认 backbone 非 tiny run
+- `WS-010` `[doing]`: Stage-2 当前执行优先级调整为“先把真正的 latent memory 主链路做实，再接 benchmark canary”
 
 ## Top Next Action
 
-- `TD-018` `[backlog]`: 建立第二阶段 benchmark canary protocol 与结果记录。
-  - Needed: 当前本地 tiny-backend `gpu3` train/eval/ablation matrix 已全部登记完成，`stage2_experiment_completion_score=13/13`；下一步若继续推进，应优先将完成的本地版本沉淀为 canary 结果，或单独补默认 `flan-t5-base` 非 tiny run 证据
+- `TD-021` `[backlog]`: 把第二阶段真正的 latent memory 主链路做实。
+  - Needed: 当前 `stage2_experiment_completion_score=13/13` 只证明 tiny-backend 本地 train/eval/ablation matrix 已登记完成；下一步必须先补齐可学习 encoder、被 decoder 消费的 composed latent 与更真实的 answer projection，避免把 deterministic skeleton 误称为完整 `V2.0`
 
 ## Active Blockers
 

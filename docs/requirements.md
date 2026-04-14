@@ -117,6 +117,19 @@
 5. belief-state recovery
 6. local-first evaluation protocol
 
+### 2.2.1 第二阶段当前执行优先级
+
+在继续扩大 benchmark 运行之前，第二阶段当前执行优先级必须先放在 **把真正的 latent memory 主链路做实**。
+
+这里的“做实”至少包括：
+
+1. `slot/query encoding` 不再只是 hash/skeleton 占位，而是存在真正可学习的实现路径
+2. `latent composition` 的输出必须被 decoder 在推理主链路中真实消费
+3. `belief -> answer` 必须建立在 composed latent / belief recovery 上，而不是退化为只读 retrieval gloss 的规则捷径
+4. 在满足以上条件后，才进入 stage-2 benchmark canary，验证 memory-mediated inference 是否成立
+
+因此，`gpu3 + tiny backend` 的本地 train/eval/ablation 完成态只能说明 pipeline 可运行，**不能**单独视为 `V2.0 structured latent-slot memory` 已经完成。
+
 ### 2.3 第二阶段不要求立即达成的事项
 
 第二阶段当前不要求：

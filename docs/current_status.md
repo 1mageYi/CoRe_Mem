@@ -25,7 +25,11 @@
 
 ## 当前最重要的下一步
 
-- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前已经完成 `gpu3 + tiny backend` 的本地 train/eval/ablation registry，下一步若继续推进，更适合做 benchmark canary 或补默认 `flan-t5-base` 非 tiny run 证据，而不是继续补 local eval 接口本身。
+- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前最重要的下一步已经从“继续补 local eval 接口 / canary 记录”切换为“先把真正的 latent memory 主链路做实”。
+- 具体来说，下一步优先级应为：
+  1. 让 `slot/query encoder`、`resampler`、`decoder` 形成真正可学习且被推理主链路消费的 latent memory 闭环
+  2. 用 local eval 证明这条 latent path 不是空转的 skeleton
+  3. 在此之后，再把 stage-2 memory-mediated inference 接到 benchmark canary
 
 ## 关键约束
 
@@ -46,3 +50,4 @@
 - `sentence-transformers` 依赖已经进入 `core_mem` 环境；stage-2 训练配置中的 Hugging Face cache 现已锁到 repo 内，但真正开始全量 `Flan-T5` 训练时仍会触发首次权重下载与较长训练时间
 - 在当前 `datasets` 版本下，测试过的多个常见脚本型 HF dataset IDs 会返回 “dataset scripts are no longer supported”；当前已通过直接下载官方/作者源并自行规范化绕过该问题，但后续若继续扩展数据集，仍应优先采用 raw-source + normalization 路线
 - 当前 `stage2_experiment_completion_score=13/13` 的证据对应 `configs/stage2_train_tiny.yaml` 在 `gpu3` 上的本地 train/eval/ablation matrix；默认 `google/flan-t5-base` backbone 的非 tiny 全量 run 仍未验证，不能把当前状态误称为该默认 backbone 已 train-complete
+- 当前 stage-2 的推理闭环和设计声明仍不完全一致：`StructuredMemorySystem.query()` 已计算 `composed_memory`，但当前 decoder 主链路尚未真实消费该 latent block；因此当前实现更接近 `retrieval + rule belief constructor skeleton`，而非已完成的 learned latent memory system

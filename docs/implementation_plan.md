@@ -152,7 +152,7 @@
   - `src/core_mem/v2/encoder.py`、`lifecycle.py`、`consolidation.py`、`resampler.py`、`decoder.py`、`projection.py`、`system.py` 已落地第一版 deterministic skeleton
   - 已有 `tests/test_stage2_model_skeleton.py` 覆盖 parser -> memory update -> belief decode -> answer projection 的最小链路
   - `src/core_mem/v2/training.py` 与 `scripts/train_stage2.py --execute-train` 已提供真实训练执行路径，并通过 tiny offline backend 做了最小 smoke 验证
-  - 下一步要把现有 skeleton 更紧地接到真实公开数据训练样本、richer consolidation 细节与 local eval 主链路
+  - 当前最重要的下一步不是继续扩大 benchmark，而是把现有 skeleton 升级为真正的 latent memory 主链路：可学习 encoder、被 decoder 消费的 composed latent，以及更真实的 answer projection
 
 ### 阶段 J：本地 intrinsic evaluation
 
@@ -219,9 +219,9 @@
 
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
-3. 将已完成的本地 tiny-backend ablation matrix 沉淀为 canary 结果或对比表
-4. 如需靠近默认主线，再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据
-5. 在用户要求时，再决定哪些版本上 benchmark canary / full benchmark
+3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
+4. 在 latent path 成立后，再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据
+5. 最后再把 stage-2 memory-mediated inference 接到 benchmark canary / full benchmark
 
 ## 当前不做
 

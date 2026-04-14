@@ -9,6 +9,14 @@
 - `TD-007` `[backlog]` 为 PersonaMem 128k / 1M 提供启动开关。
   - Reason: 第一阶段只要求保留启动能力。
 
+- `TD-021` `[backlog]` 把第二阶段真正的 latent memory 主链路做实。
+  - Reason: 当前 `stage2_experiment_completion_score=13/13` 只证明 tiny-backend 本地 train/eval/ablation matrix 已登记完成，但 decoder 仍未真实消费 composed latent，encoder/resampler 也仍以 skeleton 为主。
+  - Evidence target: 可学习 query/slot encoder、被 decoder 主链路消费的 composed latent、以及与 answer projection 一致的 latent-conditioned belief recovery 证据。
+
+- `TD-022` `[backlog]` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
+  - Reason: benchmark 很重要，但应在 latent memory 主链路做实之后再验证真实 inference 闭环。
+  - Evidence target: 至少一条可追溯的 PersonaMem 或 LongMemEval-S stage-2 canary 运行结果。
+
 - `TD-018` `[backlog]` 建立第二阶段 benchmark canary protocol 与结果记录。
   - Reason: `gpu3 + tiny backend` 的 stage-2 本地 train/eval/ablation matrix 已全部完成并登记；下一步若继续推进，更应该把这个完成态沉淀为 canary 结果和对比表。
   - Evidence target: PersonaMem 64 / LongMemEval-S 64 的固定 canary 运行结果、输出表和记录规范。
