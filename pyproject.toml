@@ -26,6 +26,12 @@ embedding = [
     "sentence-transformers>=2.2",
     "torch>=2.0",
 ]
+vec2text-demo = [
+    "vec2text>=0.0.13",
+    "sentence-transformers>=2.2",
+    "transformers>=4.30",
+    "torch>=2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
