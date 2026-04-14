@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -98,7 +99,10 @@ def stage2_train_execute(
     max_steps: int | None,
     max_train_examples: int | None,
     device: str,
+    cuda_visible_devices: str | None,
 ) -> dict[str, Any]:
+    if cuda_visible_devices is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     config = _load_yaml(config_path)
     manifest = _load_json(prepared_manifest_path)
     run_dir = output_root / "runs" / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_stage2_train_exec"
@@ -128,8 +132,10 @@ def stage2_train_execute(
         "checkpoint_dir": artifact_paths["checkpoint_dir"],
         "num_examples": metrics["num_examples"],
         "num_steps": metrics["num_steps"],
+        "optimizer_steps": metrics["optimizer_steps"],
         "final_loss": metrics["final_loss"],
         "device": device,
+        "cuda_visible_devices": cuda_visible_devices,
     }
     (run_dir / "execution_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -145,6 +151,7 @@ def main() -> int:
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--max-train-examples", type=int)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--cuda-visible-devices")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -156,6 +163,7 @@ def main() -> int:
             max_steps=args.max_steps,
             max_train_examples=args.max_train_examples,
             device=args.device,
+            cuda_visible_devices=args.cuda_visible_devices,
         )
     else:
         payload = stage2_train_plan(

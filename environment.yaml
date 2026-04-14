@@ -7,7 +7,10 @@ dependencies:
   - pytest
   - pyyaml
   - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.5.1+cu124
       - accelerate
       - datasets
+      - fsspec==2026.2.0
       - peft
       - sentence-transformers

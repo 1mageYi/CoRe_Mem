@@ -62,9 +62,37 @@ def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["num_steps"] == 1
+    assert payload["optimizer_steps"] == 1
     assert payload["num_examples"] == 4
     assert Path(payload["metrics_path"]).exists()
     assert Path(payload["checkpoint_dir"]).exists()
+
+
+def test_train_stage2_respects_gradient_accumulation(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "3",
+        "--max-train-examples",
+        "6",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["num_steps"] == 2
+    assert payload["optimizer_steps"] == 2
 
 
 def test_stage2_train_plan_emits_direct_train_launcher(tmp_path: Path):

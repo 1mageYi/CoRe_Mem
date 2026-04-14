@@ -67,6 +67,50 @@ def test_eval_script_writes_json_and_csv_outputs(tmp_path: Path):
     assert Path(payload["budget_table_path"]).exists()
 
 
+def test_eval_script_can_include_checkpoint_metrics(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    train = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--json",
+    )
+    assert train.returncode == 0, train.stderr
+    train_payload = json.loads(train.stdout)
+
+    result = _run(
+        "scripts/eval_stage2_local.py",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--checkpoint-dir",
+        train_payload["checkpoint_dir"],
+        "--train-config",
+        "configs/stage2_train_tiny.yaml",
+        "--max-eval-examples",
+        "4",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "trained_eval" in payload
+    assert 0.0 <= payload["trained_eval"]["metrics"]["exact_match"] <= 1.0
+
+
 def test_module_inventory_payload_is_stable():
     names = {item["name"] for item in module_inventory_payload()}
     assert names == {

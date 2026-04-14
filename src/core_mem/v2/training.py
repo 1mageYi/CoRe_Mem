@@ -196,6 +196,45 @@ class TinySeq2SeqModel(nn.Module):
         return type("TinySeq2SeqOutput", (), {"loss": loss, "logits": logits})
 
 
+def _decode_char_tokens(tokens: list[int]) -> str:
+    payload = bytearray()
+    for token in tokens:
+        if token in {CharTokenizer.pad_token_id, CharTokenizer.bos_token_id}:
+            continue
+        if token == CharTokenizer.eos_token_id:
+            break
+        if token >= 4:
+            payload.append(token - 4)
+    return payload.decode("utf-8", errors="ignore").strip()
+
+
+def _normalize_text(text: str) -> str:
+    stripped = " ".join(text.strip().split())
+    if not stripped:
+        return ""
+    try:
+        return json.dumps(json.loads(stripped), ensure_ascii=False, sort_keys=True)
+    except json.JSONDecodeError:
+        return stripped
+
+
+def _token_f1(prediction: str, target: str) -> float:
+    pred_tokens = _normalize_text(prediction).split()
+    target_tokens = _normalize_text(target).split()
+    if not pred_tokens and not target_tokens:
+        return 1.0
+    pred_counts: dict[str, int] = {}
+    target_counts: dict[str, int] = {}
+    for token in pred_tokens:
+        pred_counts[token] = pred_counts.get(token, 0) + 1
+    for token in target_tokens:
+        target_counts[token] = target_counts.get(token, 0) + 1
+    overlap = sum(min(pred_counts.get(token, 0), target_counts.get(token, 0)) for token in pred_counts)
+    precision = overlap / len(pred_tokens) if pred_tokens else 0.0
+    recall = overlap / len(target_tokens) if target_tokens else 0.0
+    return (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
+
+
 def configure_hf_cache(config: dict[str, Any]) -> dict[str, str]:
     cache_root = config.get("runtime", {}).get("hf_cache", {}).get("root")
     if not cache_root:
@@ -246,6 +285,144 @@ def build_runtime_components(config: dict[str, Any]) -> tuple[Any, Any]:
     return model, tokenizer
 
 
+def load_runtime_components(
+    config: dict[str, Any],
+    checkpoint_dir: Path,
+    *,
+    device: str = "cpu",
+) -> tuple[Any, Any]:
+    backbone = config.get("model", {}).get("backbone", "google/flan-t5-base")
+    if backbone == "__tiny_debug_seq2seq__":
+        tokenizer = CharTokenizer()
+        model = TinySeq2SeqModel(tokenizer.vocab_size)
+        state_dict = torch.load(checkpoint_dir / "tiny_model.pt", map_location=device, weights_only=True)
+        model.load_state_dict(state_dict)
+        model.to(device)
+        model.eval()
+        return model, tokenizer
+
+    from peft import PeftModel
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+    env_updates = configure_hf_cache(config)
+    cache_dir = env_updates.get("HF_HUB_CACHE")
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir / "tokenizer", cache_dir=cache_dir)
+    base_model = AutoModelForSeq2SeqLM.from_pretrained(backbone, cache_dir=cache_dir)
+    model = PeftModel.from_pretrained(base_model, checkpoint_dir)
+    model.to(device)
+    model.eval()
+    return model, tokenizer
+
+
+def generate_prediction_text(
+    model: Any,
+    tokenizer: Any,
+    example: TrainingExample,
+    *,
+    max_source_length: int,
+    max_target_length: int,
+    device: str,
+) -> str:
+    if isinstance(tokenizer, CharTokenizer):
+        input_ids = torch.tensor([tokenizer.encode(example.input_text, max_source_length)], dtype=torch.long, device=device)
+        attention_mask = torch.tensor(
+            [[1 if token != tokenizer.pad_token_id else 0 for token in input_ids[0].tolist()]],
+            dtype=torch.long,
+            device=device,
+        )
+        with torch.no_grad():
+            output = model(input_ids=input_ids, attention_mask=attention_mask)
+        predicted_ids = output.logits.argmax(dim=-1)[0].detach().cpu().tolist()
+        return _decode_char_tokens(predicted_ids)
+
+    encoded = tokenizer(
+        example.input_text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=max_source_length,
+    )
+    encoded = {key: value.to(device) for key, value in encoded.items()}
+    with torch.no_grad():
+        generated = model.generate(
+            **encoded,
+            max_new_tokens=max_target_length,
+        )
+    return tokenizer.decode(generated[0], skip_special_tokens=True).strip()
+
+
+def evaluate_stage2_checkpoint(
+    config: dict[str, Any],
+    prepared_manifest_path: Path,
+    checkpoint_dir: Path,
+    *,
+    tasks: list[str] | None = None,
+    max_eval_examples: int | None = None,
+    device: str = "cpu",
+) -> dict[str, Any]:
+    examples = build_training_examples(prepared_manifest_path, tasks=tasks)
+    if max_eval_examples is not None:
+        examples = examples[:max_eval_examples]
+    if not examples:
+        raise ValueError("No evaluation examples were prepared for stage-2 checkpoint eval.")
+
+    model, tokenizer = load_runtime_components(config, checkpoint_dir, device=device)
+    batching = config.get("training", {}).get("batching", {})
+    max_source_length = int(batching.get("max_source_length", 256))
+    max_target_length = int(batching.get("max_target_length", 192))
+
+    overall_exact: list[float] = []
+    overall_token_f1: list[float] = []
+    per_task: dict[str, dict[str, list[float] | int]] = {}
+    samples: list[dict[str, Any]] = []
+    for example in examples:
+        prediction = generate_prediction_text(
+            model,
+            tokenizer,
+            example,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+            device=device,
+        )
+        target = example.target_text
+        exact = float(_normalize_text(prediction) == _normalize_text(target))
+        token_f1 = _token_f1(prediction, target)
+        overall_exact.append(exact)
+        overall_token_f1.append(token_f1)
+        stats = per_task.setdefault(example.task_name, {"exact_match": [], "token_f1": [], "count": 0})
+        stats["exact_match"].append(exact)
+        stats["token_f1"].append(token_f1)
+        stats["count"] = int(stats["count"]) + 1
+        samples.append(
+            {
+                "task_name": example.task_name,
+                "input_preview": example.input_text[:240],
+                "prediction_preview": prediction[:240],
+                "target_preview": target[:240],
+                "exact_match": exact,
+                "token_f1": token_f1,
+            }
+        )
+
+    summarized_tasks = {
+        task_name: {
+            "count": int(stats["count"]),
+            "exact_match": sum(stats["exact_match"]) / len(stats["exact_match"]) if stats["exact_match"] else 0.0,
+            "token_f1": sum(stats["token_f1"]) / len(stats["token_f1"]) if stats["token_f1"] else 0.0,
+        }
+        for task_name, stats in per_task.items()
+    }
+    return {
+        "checkpoint_dir": str(checkpoint_dir),
+        "num_examples": len(examples),
+        "metrics": {
+            "exact_match": sum(overall_exact) / len(overall_exact) if overall_exact else 0.0,
+            "token_f1": sum(overall_token_f1) / len(overall_token_f1) if overall_token_f1 else 0.0,
+        },
+        "per_task": summarized_tasks,
+        "sample_previews": samples[:16],
+    }
+
+
 def train_stage2_model(
     config: dict[str, Any],
     prepared_manifest_path: Path,
@@ -269,6 +446,7 @@ def train_stage2_model(
     max_source_length = int(batching.get("max_source_length", 256))
     max_target_length = int(batching.get("max_target_length", 192))
     batch_size = int(batching.get("per_device_batch_size", 4))
+    grad_accumulation = max(int(batching.get("gradient_accumulation_steps", 1)), 1)
     epochs = int(batching.get("num_train_epochs", 1))
     dataset = PreparedSeq2SeqDataset(
         examples,
@@ -284,8 +462,10 @@ def train_stage2_model(
     )
 
     step = 0
+    optimizer_steps = 0
     loss_history: list[float] = []
     for _ in range(epochs):
+        optimizer.zero_grad(set_to_none=True)
         for batch in loader:
             step += 1
             batch = {key: value.to(device) for key, value in batch.items()}
@@ -293,18 +473,26 @@ def train_stage2_model(
             loss = output.loss
             if loss is None:
                 raise RuntimeError("Training model did not return a loss.")
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad(set_to_none=True)
+            scaled_loss = loss / grad_accumulation
+            scaled_loss.backward()
+            if step % grad_accumulation == 0:
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                optimizer_steps += 1
             loss_history.append(float(loss.detach().cpu().item()))
             if max_steps is not None and step >= max_steps:
                 break
         if max_steps is not None and step >= max_steps:
             break
+    if step % grad_accumulation != 0:
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+        optimizer_steps += 1
 
     return {
         "num_examples": len(examples),
         "num_steps": step,
+        "optimizer_steps": optimizer_steps,
         "loss_history": loss_history,
         "final_loss": loss_history[-1] if loss_history else None,
         "model": model,

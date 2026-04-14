@@ -1,0 +1,29 @@
+{
+  "datasets": {
+    "sgd": {
+      "enabled": true,
+      "path": "data/stage2_public/sgd/normalized.jsonl",
+      "format": "normalized_jsonl"
+    },
+    "multiwoz24": {
+      "enabled": true,
+      "path": "data/stage2_public/multiwoz24/normalized.jsonl",
+      "format": "normalized_jsonl"
+    },
+    "personachat": {
+      "enabled": true,
+      "path": "data/stage2_public/personachat/normalized.jsonl",
+      "format": "normalized_jsonl"
+    },
+    "mquake": {
+      "enabled": true,
+      "path": "data/stage2_public/mquake/normalized.jsonl",
+      "format": "normalized_jsonl"
+    },
+    "recoe": {
+      "enabled": false,
+      "path": "data/stage2_public/recoe/normalized.jsonl",
+      "format": "normalized_jsonl"
+    }
+  }
+}
