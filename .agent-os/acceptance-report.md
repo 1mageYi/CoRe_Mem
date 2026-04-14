@@ -58,7 +58,7 @@
 - `EV-006` -> `AC-006` 单元测试与 E2E smoke test
   - Status: verified
   - Evidence:
-    - 当前 `pytest` 通过，共 31 个测试
+    - 当前 `pytest` 通过，共 56 个测试
     - 已包含 provider、config、benchmark adapter、verifier、E2E dry-run smoke test、step scripts smoke test、protocol alignment tests、traceability tests、core memory tests
     - 已新增 acceptance verifier test、resumable runner test、Gemini 配置 / rate-limit retry tests 与 benchmark supervisor tests
 
@@ -72,35 +72,59 @@
 ## Stage 2 Planning And Design Tracking
 
 - `EV-008` -> `AC-008` 第二阶段 `V2.0` 设计文档与真源条款
-  - Status: partial
+  - Status: verified
   - Evidence:
-    - `docs/requirements.md` 已新增第二阶段目标、范围、训练、数据与评测条款
-    - `docs/v2_design.md` 已新增并对齐第二阶段设计真相
-    - `docs/implementation_plan.md` 已新增第二阶段阶段拆分
+    - `docs/requirements.md` 已细化第二阶段目标、范围、训练、数据、评测、输出与 pending benchmark 规则
+    - `docs/v2_design.md` 已细化到 schema、dataset-to-task mapping 与 metric-to-module mapping
+    - `docs/implementation_plan.md` 已将 stage-2 调整为当前执行主线
+    - `scripts/verify_stage2_acceptance.py` 当前将 `AC-008` 判为 passed
 
 - `EV-009` -> `AC-009` 第二阶段 observation / slot / belief 规范
-  - Status: partial
+  - Status: verified
   - Evidence:
-    - `docs/requirements.md` 已锁定 `Observation JSON` 与 `Belief JSON` 的必要字段
-    - `docs/v2_design.md` 已写入 observation、slot、belief 三者关系与训练样本单位
+    - `docs/requirements.md` 已锁定 `Observation JSON`、`Slot Record` 与 `Belief JSON` 的必要字段
+    - `docs/v2_design.md` 已写入 observation、slot、belief 三者关系、schema、字段语义与训练样本单位
+    - `scripts/verify_stage2_acceptance.py` 当前将 `AC-009` 判为 passed
 
 - `EV-010` -> `AC-010` 第二阶段主线实现骨架
-  - Status: unverified
+  - Status: verified
   - Evidence:
-    - 当前只有设计与文档真相；代码实现尚未开始
+    - `src/core_mem/v2/__init__.py`、`src/core_mem/v2/schemas.py`、`src/core_mem/v2/parser.py`、`src/core_mem/v2/datasets.py` 已落地
+    - `src/core_mem/v2/encoder.py`、`src/core_mem/v2/lifecycle.py`、`src/core_mem/v2/consolidation.py`、`src/core_mem/v2/resampler.py`、`src/core_mem/v2/decoder.py`、`src/core_mem/v2/projection.py`、`src/core_mem/v2/system.py` 已落地
+    - `tests/test_stage2_schemas.py`、`tests/test_stage2_parser.py` 已覆盖 Observation / Slot / Belief schema 与 rule-first parser skeleton
+    - `tests/test_stage2_model_skeleton.py` 已覆盖主线 memory system 的最小 observe/query smoke path，以及 belief evidence / answer projection
+    - `scripts/verify_stage2_acceptance.py` 当前将 `AC-010` 判为 passed
 
 - `EV-011` -> `AC-011` 第二阶段训练与本地 intrinsic evaluation 管线
-  - Status: unverified
+  - Status: verified
   - Evidence:
-    - 当前只有设计与 protocol；脚本、数据接入和本地结果尚未产生
+    - `scripts/prepare_stage2_data.py` 已生成 `outputs_v2/artifacts/stage2_prepared_samples_manifest.json`
+    - `scripts/prepare_stage2_data.py` 现在已支持 `configs/stage2_data_sources.json` 驱动的 source-config 模式，能够在非 demo 输入下生成 prepared manifests
+    - `scripts/stage2_data_preflight.py` 已能机械报告 `data/stage2_public/` 中公开数据源的 available/missing 状态，当前已返回 `missing=[]`
+    - `scripts/normalize_stage2_public_data.py` 已从真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` raw sources 生成 5 份 `normalized.jsonl`
+    - `prepare_stage2_data.py` 当前已支持 `--max-rows-per-dataset`，可在严格 source 模式下构建受控 public-data manifests
+    - `scripts/train_stage2.py` 已生成 `outputs_v2/runs/20260407T042125Z_stage2_train_plan/training_plan.json`
+    - `scripts/train_stage2.py` 现在已支持 `--execute-train`，并通过 `configs/stage2_train_tiny.yaml` 在 `outputs_v2/runs/20260414T020438Z_stage2_train_exec/training_metrics.json` 和 `outputs_v2/runs/20260414T043225Z_stage2_train_exec/training_metrics.json` 跑通最小训练执行链；后者直接消费真实 public-data prepared manifest
+    - `configs/stage2_train.yaml` 已锁定 backbone / resampler / LoRA / batching 配置，并新增 repo-local Hugging Face cache root
+    - `outputs_v2/runs/20260414T043221Z_stage2_train_plan/launch_stage2_training.sh` 现已是直接可执行的 `--execute-train` 启动脚本
+    - `environment.yaml` 已补充 `datasets`、`peft`、`accelerate` 依赖，并已在 `core_mem` 环境实际安装验证
+    - `outputs_v2/checkpoints/stage2_smoke_checkpoint.json` 已作为 smoke execution artifact 写出
+    - `scripts/verify_stage2_acceptance.py` 当前将 `AC-011` 判为 passed
 
 - `EV-012` -> `AC-012` 第二阶段本地评估、budget sweep 与核心 ablation 记录机制
-  - Status: unverified
+  - Status: verified
   - Evidence:
-    - `docs/requirements.md` 与 `docs/v2_design.md` 已锁定本地指标家族、budget sweep 与 ablation 集，但实际运行证据尚未产生
+    - `scripts/eval_stage2_local.py` 现已支持 `--top-k`、`--budget`、`--dataset`
+    - `src/core_mem/v2/eval_local.py` 已实现模块级、家族级和 budget-sweep 评测逻辑
+    - `docs/stage2_local_evaluation.md` 已完整说明接口、指标定义、模块映射与使用方式
+    - `outputs_v2/evals_local/20260414T055852Z_stage2_local_eval.json` 已生成最新真实 local eval 结果
+    - `outputs_v2/tables/20260414T055852Z_stage2_local_eval_summary.csv` 与 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_budget_sweep.csv` 已落地
+    - `docs/requirements.md` 与 `docs/v2_design.md` 已锁定 budget sweep 与核心 ablation 集；当前 repo 已具备记录这些结果的机械化路径
 
 - `EV-013` -> `AC-013` 第二阶段 benchmark canary 与正式评测隔离协议
-  - Status: partial
+  - Status: verified
   - Evidence:
     - `docs/requirements.md` 已写入 `local-first` 与 canary-first 协议
     - `docs/v2_design.md` 已写入 canary 设计与 benchmark 作为 evaluation source 的原则
+    - `scripts/run_stage2_canary.py` 已生成 `outputs_v2/evals_benchmark/20260407T042120Z_stage2_canary_plan.json`
+    - `outputs_v2/evals_benchmark/20260407T042120Z_personamem_canary.json` 与 `outputs_v2/evals_benchmark/20260407T042120Z_longmemeval_canary.json` 已落地，且二者均固定为 `64` 条

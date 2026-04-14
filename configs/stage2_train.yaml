@@ -1,0 +1,44 @@
+project:
+  name: core_mem_v2
+  stage: stage2
+
+runtime:
+  hf_cache:
+    root: .cache/huggingface/stage2_train
+
+model:
+  backbone: google/flan-t5-base
+  query_encoder_share_backbone: true
+  resampler:
+    top_k: 8
+    latent_queries: 8
+    slot_tokens: 8
+    hidden_dim: 768
+    layers: 2
+    heads: 12
+    dropout: 0.1
+  lora:
+    rank: 16
+    alpha: 32
+    dropout: 0.05
+
+training:
+  tasks:
+    - slot_autoencoding
+    - retrieval_alignment
+    - lifecycle_prediction
+    - composition_to_belief
+  batching:
+    per_device_batch_size: 4
+    gradient_accumulation_steps: 8
+    num_train_epochs: 3
+  optimizer:
+    lr: 0.0001
+    weight_decay: 0.01
+  outputs:
+    root: outputs_v2
+    checkpoint_dir: outputs_v2/checkpoints
+    run_dir: outputs_v2/runs
+
+data:
+  prepared_manifest: outputs_v2/artifacts/stage2_prepared_samples_manifest.json

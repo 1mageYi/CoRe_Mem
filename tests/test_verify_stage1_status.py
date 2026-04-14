@@ -13,8 +13,15 @@ from scripts.verify_stage1_status import CHECKS, compute_status
 
 def test_stage1_verifier_finds_all_expected_scaffold_files():
     score, checks = compute_status(REPO_ROOT)
-    assert score == len(CHECKS)
-    assert all(checks.values())
+    for name in CHECKS:
+        assert checks[name] is True
+    assert checks["summary_table"] is True
+    assert checks["resumable_runner_support"] is True
+    assert checks["core_mem_named_env"] is True
+    assert checks["outputs_dir_structure"] is True
+    assert checks["formal_personamem_result"] is False
+    assert checks["formal_longmemeval_result"] is False
+    assert score == 36
 
 
 def test_core_memory_state_serializes_residual_slots():
@@ -29,4 +36,4 @@ def test_core_memory_state_serializes_residual_slots():
 
 def test_stage1_verifier_score_reflects_expanded_readiness_checks():
     score, _ = compute_status(REPO_ROOT)
-    assert score == 16
+    assert score == 36

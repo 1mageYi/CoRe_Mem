@@ -57,3 +57,33 @@
 - 第一阶段 v1 可保留为 naive baseline；第二阶段作为 stage-2 研究主线推进。
 - 第二阶段 observation parser 采用混合策略，默认 `rule-first, model-second`。
 - 第二阶段当前默认 backbone 为 `Flan-T5-base`；更纯的 `Optimus-like` 路线仅作为 ablation 或后续升级。
+
+## `CD-010` 2026-04-06
+
+- 用户进一步确认：stage-2 是当前执行主线。
+- stage-1 formal benchmark 保留为 baseline / acceptance 相关的 pending 项，直到用户明确要求 AI 去跑。
+- 第二阶段真源文档必须写清：
+  - `Observation JSON`
+  - `Slot Record`
+  - `Belief JSON`
+  - 数据集到训练任务的精确映射
+  - 指标到模块的精确映射
+- 若 stage-2 文档与此前模糊表述冲突，以本轮确认后的细化版本为准。
+
+## `CD-011` 2026-04-13
+
+- 用户批准由 agent 自行在网上查找并下载第二阶段公开训练数据源，但要求若累计体量超过 `100GB` 必须先暂停并提醒。
+- 当前第二阶段公开数据默认下载到 repo 内 `data/stage2_public/`，不写 repo 外缓存目录。
+- 为遵守外部目录修改规则，stage-2 训练配置中的 Hugging Face cache 也默认锁到 repo 内路径，而不是用户家目录默认缓存。
+
+## `CD-012` 2026-04-14
+
+- 第二阶段本地评测的默认输出契约锁定为：
+  - detailed JSON report
+  - summary CSV
+  - budget sweep CSV
+- 第二阶段本地评测文档固定放在 `docs/stage2_local_evaluation.md`。
+- local eval 默认必须同时暴露：
+  - 指标家族视图
+  - 模块视图
+  - budget sweep 视图

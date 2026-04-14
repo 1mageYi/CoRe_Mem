@@ -1,0 +1,91 @@
+from pathlib import Path
+import json
+import subprocess
+import sys
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from core_mem.v2.training import build_training_examples
+
+
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, *args],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_build_training_examples_reads_all_stage2_tasks(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    examples = build_training_examples(manifest)
+    assert len(examples) == 4
+    assert {example.task_name for example in examples} == {
+        "slot_autoencoding",
+        "retrieval_alignment",
+        "lifecycle_prediction",
+        "composition_to_belief",
+    }
+
+
+def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["num_steps"] == 1
+    assert payload["num_examples"] == 4
+    assert Path(payload["metrics_path"]).exists()
+    assert Path(payload["checkpoint_dir"]).exists()
+
+
+def test_stage2_train_plan_emits_direct_train_launcher(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    launch_script = Path(payload["run_dir"]) / "launch_stage2_training.sh"
+    assert launch_script.exists()
+    content = launch_script.read_text(encoding="utf-8")
+    assert "--execute-train" in content

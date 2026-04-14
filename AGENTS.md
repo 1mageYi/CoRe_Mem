@@ -4,19 +4,22 @@
 
 ## 项目定位
 
-本项目是一个以研究为核心的代码仓库。第一阶段目标是实现并验证一个 bounded cross-session personalized memory framework，其具体实例为 vanilla CoRe Memory，并在指定 benchmark 上完成可复现的实验运行。
+本项目是一个以研究为核心的代码仓库。
+
+- 第一阶段目标：实现并验证一个 bounded cross-session personalized memory framework，其具体实例为 `vanilla CoRe Memory`，并在指定 benchmark 上完成可复现的实验运行。
+- 第二阶段目标：在保留第一阶段平台和 v1 naive baseline 参考价值的前提下，推进 `V2.0 structured latent-slot memory` 研究路线。
 
 ## 最高优先级真源文档
 
 项目最高优先级真源文档为：
 
-- [`docs/requirements.md`](C:\Users\73257\OneDrive\Columbia\26SP\6998 CLMM\final_project\CoRe_Mem\docs\requirements.md)
+- [`docs/requirements.md`](/home/image/workspace/CoRe_Mem/docs/requirements.md)
 
 规则：
 
-1. `docs/requirements.md` 是关于目标、范围、硬约束、第一阶段验收标准与非目标的唯一最高真源。
+1. `docs/requirements.md` 是关于目标、范围、硬约束、分阶段验收标准与非目标的唯一最高真源。
 2. 若 `docs/requirements.md` 与其他任何文档冲突，以 `docs/requirements.md` 为准。
-3. 未经用户明确要求，不得擅自修改其中的最终目标、第一阶段目标、第一阶段验收标准、非目标和硬约束。
+3. 未经用户明确要求，不得擅自修改其中的最终目标、第一阶段目标、第二阶段目标、任一阶段验收标准、非目标和硬约束。
 4. 若当前任务与 `docs/requirements.md` 未对齐，或该文档尚未覆盖相关目标与验收标准，必须先指出缺口，不得自行扩展范围。
 
 ## 恢复顺序
@@ -136,7 +139,7 @@
 
 失败探索是项目知识的一部分，不得因为结果不好看而省略。
 
-## 第一阶段边界
+## 阶段边界
 
 第一阶段只做：
 
@@ -159,6 +162,27 @@
 - LoCoMo 正式实验
 - 报告写作作为硬验收
 
+第二阶段当前主线为：
+
+- `V2.0 structured latent-slot memory`
+- `structured latent slots` 而非文本 chunk RAG
+- `core + residual` 双银行 memory
+- `latent composition -> belief decoding -> answer projection`
+- 主 decoder 路线为 `Flan-T5-based belief JSON decoder`
+- 训练策略为 `public-datasets-first, synthetic-minimal`
+- benchmark 继续作为 evaluation source，而非 primary training source
+
+第二阶段默认保留：
+
+- 第一阶段 v1 作为 naive baseline 与可追溯参考
+- 第一阶段平台、脚本、结果与状态文档
+
+当前执行规则：
+
+1. 当前执行主线为第二阶段 `V2.0 structured latent-slot memory`。
+2. 第一阶段 formal benchmark 在用户明确要求 AI 去跑之前，默认视为 pending，不主动继续消耗 API。
+3. `.agent-os/project-index.md` 与 `.agent-os/todo.md` 必须反映“stage-2 主线 / stage-1 待触发”的 runtime truth。
+
 ## 环境与外部依赖规则
 
 1. 固定使用 conda 环境：`core_mem`
@@ -168,6 +192,13 @@
 5. 默认模型：`qwen3-235b-a22b-instruct-2507`
 6. API key 不得写入仓库文件；仅允许通过环境变量或本地 `.env` 管理
 7. 若需更换 provider、主要模型或核心环境版本，必须先得到用户明确批准
+
+## 外部目录修改规则
+
+1. 允许为了创建、更新或删除 `core_mem` conda 环境而修改默认 conda envs 目录中的环境路径与 conda 自身的必要元数据路径。
+2. 除上述环境相关路径外，任何 repo 工作区之外的目录一律视为外部目录。
+3. 对任何外部目录的写入、删除、重命名、移动或配置修改，必须先得到用户明确批准。
+4. 若外部路径修改并非创建或管理 `core_mem` 环境所必需，也不得因为当前 sandbox 已放开而擅自执行。
 
 ## 测试纪律
 
@@ -192,6 +223,7 @@
    - run timestamp
    - commit hash
 4. 图不是第一阶段硬要求，但结果数据和表格是硬要求
+5. 第二阶段训练、评测与分析产物统一放在 `outputs_v2/`
 
 ## 语言规则
 
@@ -204,12 +236,13 @@
 以下情况必须先问用户，不得自行决定：
 
 1. 需要修改 `docs/requirements.md` 的核心条款
-2. 需要扩大第一阶段范围
+2. 需要扩大任何已锁定阶段的范围
 3. 需要切换主要 benchmark 目标
 4. 需要切换主要 API provider 或主模型
 5. 需要引入重型训练或超出当前资源约束的方案
-6. 需要改变第一阶段验收标准
+6. 需要改变任一阶段验收标准
 7. 遇到无法从文件和现有代码中推断的人类判断问题
+8. 需要修改除 conda 环境相关路径外的任何外部目录
 
 ## 默认执行原则
 

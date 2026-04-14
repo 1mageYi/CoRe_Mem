@@ -6,3 +6,8 @@ dependencies:
   - pip
   - pytest
   - pyyaml
+  - pip:
+      - accelerate
+      - datasets
+      - peft
+      - sentence-transformers

@@ -7,6 +7,11 @@
 1. 第一阶段：完成 `vanilla CoRe Memory` 平台、benchmark、复现与结果闭环。
 2. 第二阶段：在保留第一阶段 v1 作为 naive baseline 参考的前提下，实现并验证 `V2.0 structured latent-slot memory`。
 
+当前执行主线：
+
+- **Stage-2 是当前主线**
+- **Stage-1 formal benchmark 作为 baseline / acceptance 相关的 pending 项保留，直到用户明确要求 AI 去跑**
+
 ## 第一阶段总策略
 
 第一阶段只实现 `vanilla CoRe Memory` 的最小完整闭环，并优先确保：
@@ -90,7 +95,7 @@
 - PersonaMem 正式结果
 - LongMemEval-S 正式结果
 - 表格与结果数据沉淀
-- Status: blocked by provider
+- Status: pending by user trigger + blocked by provider
 
 ## 第二阶段总策略
 
@@ -123,7 +128,14 @@
 - belief JSON target generation
 - public datasets ingestion
 - minimal synthetic corner-case builder
-- Status: ready
+- Status: done
+- Notes:
+  - `src/core_mem/v2/` 已落地 Observation / Slot / Belief schema、relation normalization、rule-first parser 与 dataset-task registry
+  - `scripts/prepare_stage2_data.py` 已可写出 prepared manifest、dataset registry 与 task registry
+  - `scripts/train_stage2.py`、`scripts/eval_stage2_local.py`、`scripts/run_stage2_canary.py` 与 `configs/stage2_train.yaml` 已形成首批 stage2 pipeline
+  - `outputs_v2/` 已产出 smoke train plan、smoke local eval 与 fixed canary manifests
+  - `prepare_stage2_data.py` 现在已经支持 source-config 驱动的非 demo prepared-manifest 构建
+  - 当前缺口是把真实公开数据文件放入 `data/stage2_public/`
 
 ### 阶段 I：V2.0 主线实现
 
@@ -135,7 +147,12 @@
 - light cross-attention resampler
 - Flan-T5 belief decoder
 - answer projection
-- Status: backlog
+- Status: doing
+- Notes:
+  - `src/core_mem/v2/encoder.py`、`lifecycle.py`、`consolidation.py`、`resampler.py`、`decoder.py`、`projection.py`、`system.py` 已落地第一版 deterministic skeleton
+  - 已有 `tests/test_stage2_model_skeleton.py` 覆盖 parser -> memory update -> belief decode -> answer projection 的最小链路
+  - `src/core_mem/v2/training.py` 与 `scripts/train_stage2.py --execute-train` 已提供真实训练执行路径，并通过 tiny offline backend 做了最小 smoke 验证
+  - 下一步要把现有 skeleton 更紧地接到真实公开数据训练样本、richer consolidation 细节与 local eval 主链路
 
 ### 阶段 J：本地 intrinsic evaluation
 
@@ -146,6 +163,9 @@
 - compression metrics
 - budget sweep
 - Status: backlog
+- Notes:
+  - local eval smoke 脚本与一份最小 `outputs_v2/evals_local/*.json` 结果已经落地
+  - 下一步在主线模型骨架接上后扩展到完整 budget sweep / ablation 记录
 
 ### 阶段 K：Benchmark canary 与正式评测
 
@@ -153,6 +173,8 @@
 - LongMemEval-S canary
 - 选择性推进 full benchmark
 - Status: backlog
+- Notes:
+  - canary manifest 生成器已经落地，并已固定产出 PersonaMem 64 / LongMemEval-S 64 manifests
 
 ## 第二阶段默认技术路线
 
@@ -174,6 +196,11 @@
   - `Training Millions of Personalized Dialogue Agents`
   - `MQUAKE`
   - `ReCoE`
+- 任务到数据映射：
+  - `Slot Autoencoding` <- `SGD` / `MultiWOZ` / `Persona-Chat` / `Training Millions...`
+  - `Retrieval Alignment` <- `Persona-Chat` / `Training Millions...` / `SGD` / `MultiWOZ` + `MQUAKE` / `ReCoE` hard negatives
+  - `Lifecycle Prediction` <- `MQUAKE` / `ReCoE` / `SGD-MultiWOZ state changes` + minimal synthetic
+  - `Composition-to-Belief Decoding` <- `SGD` / `MultiWOZ` / `Persona-Chat` / `Training Millions...` / `MQUAKE` / `ReCoE` + minimal synthetic
 
 ## 第二阶段主要 ablation
 
@@ -188,9 +215,11 @@
 
 ## 当前优先顺序
 
-1. 保持第一阶段正式 benchmark 阻塞真相不变
-2. 推进第二阶段 observation / belief / data pipeline 实现
-3. 再进入 V2.0 主线模型与本地 intrinsic evaluation
+1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
+2. 保持第二阶段 public-data normalization / strict prepare / direct-train 能力可复验
+3. 用第二阶段本地 intrinsic evaluation 体系跑更完整的 budget sweep
+4. 将 local intrinsic eval 结果沉淀为更系统的 ablation 记录
+5. 在用户要求时，再决定哪些版本上 benchmark canary / full benchmark
 
 ## 当前不做
 

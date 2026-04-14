@@ -95,12 +95,15 @@ class PersonaMemAdapter:
             options_block = "\n".join(
                 f"{idx + 1}. {option}" for idx, option in enumerate(question.all_options)
             )
+            answer_instruction = "Return the exact best option text."
+            if self._options_use_labels(question.all_options) and question.correct_answer.startswith("("):
+                answer_instruction = "Return only the best option label, for example (a)."
             prompt = (
                 "You are answering a PersonaMem multiple-choice personalization question.\n\n"
                 f"Context:\n{rendered_context}\n\n"
                 f"User query:\n{question.user_question_or_message}\n\n"
                 f"Options:\n{options_block}\n\n"
-                "Return the exact best option text."
+                f"{answer_instruction}"
             )
             records.append(
                 PromptRecord(
@@ -113,6 +116,7 @@ class PersonaMemAdapter:
                         "question_type": question.question_type,
                         "topic": question.topic,
                         "shared_context_id": question.shared_context_id,
+                        "prompt_version": "personamem_mc_v1",
                     },
                 )
             )
@@ -137,11 +141,17 @@ class PersonaMemAdapter:
         raise ValueError("PersonaMem all_options must parse to a list.")
 
     @staticmethod
+    def _options_use_labels(options: list[str]) -> bool:
+        return bool(options) and all(option.startswith("(") and ")" in option[:4] for option in options)
+
+    @staticmethod
     def _extract_context_id(payload: dict[str, Any], line_idx: int) -> str:
         for key in ("shared_context_id", "context_id", "id"):
             value = payload.get(key)
             if value:
                 return str(value)
+        if len(payload) == 1:
+            return str(next(iter(payload.keys())))
         return f"line_{line_idx}"
 
     @staticmethod
@@ -149,6 +159,8 @@ class PersonaMemAdapter:
         for key in ("shared_context", "context", "messages", "conversation"):
             if key in payload:
                 return payload[key]
+        if len(payload) == 1:
+            return next(iter(payload.values()))
         return payload
 
     @staticmethod

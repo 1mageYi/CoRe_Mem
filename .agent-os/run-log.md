@@ -258,6 +258,28 @@
 ## 2026-04-06 Session 014
 
 - Worked on: 将用户确认过的 stage-2 / `V2.0 structured latent-slot memory` 方案写入真源文档，并同步整个项目文档系统
+
+## 2026-04-07 Session 015
+
+- Worked on: 以 fresh-start foreground autoresearch 启动 stage-2，并落第一轮 verifier / acceptance / outputs 骨架
+- State changed:
+  - 归档旧的 stage-1 autoresearch 工件，初始化新的 stage-2 foreground run
+  - 新增 `scripts/verify_stage2_status.py` 与 `scripts/verify_stage2_acceptance.py`
+  - 新增 `tests/test_verify_stage2_status.py` 与 `tests/test_verify_stage2_acceptance.py`
+  - 新增 `outputs_v2/` 默认目录骨架
+  - `stage2_readiness_score` 从 `0` 提升到 `20`
+  - `stage2_acceptance` 当前为 `2/7`
+  - `pytest` 提升到 `34` 个测试并继续通过
+- Evidence / artifacts:
+  - `scripts/verify_stage2_status.py`
+  - `scripts/verify_stage2_acceptance.py`
+  - `outputs_v2/`
+  - `research-results.tsv` / `autoresearch-state.json` 已切换到 stage-2 fresh-start run
+  - `pytest` 通过（34 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `20`
+  - `python3 scripts/verify_stage2_acceptance.py --skip-pytest` -> `2/7`
+- Next likely action:
+  - 实现 stage-2 observation schema、parser skeleton、dataset ingestion skeleton 与最小训练样本构造器
 - State changed:
   - `docs/requirements.md` 已扩展为 stage-1 + stage-2 双阶段真源文档
   - 根契约 `AGENTS.md` / `CLAUDE.md` 已同步第二阶段边界与恢复规则，且 `CLAUDE.md` 已重新建立为指向 `AGENTS.md` 的硬链接
@@ -276,3 +298,180 @@
   - `.agent-os/architecture-milestones.md`
 - Next likely action:
   - 开始实现第二阶段 `TD-015`：observation normalization、belief JSON 目标生成与公开数据集接入骨架
+
+## 2026-04-06 Session 015
+
+- Worked on: 细化第二阶段真源与状态文档，纠正 stage-2 / stage-1 runtime truth，并把 schema、数据映射和指标映射写成实现级规格
+- State changed:
+  - 重新创建并重写 `docs/requirements.md`，补全 stage-1 + stage-2 双阶段真源
+  - 明确 stage-2 是当前执行主线，stage-1 formal benchmark 为待用户显式触发项
+  - 将 `docs/v2_design.md` 细化到 `Observation JSON`、`Slot Record`、`Belief JSON`、dataset-to-task mapping 与 metric-to-module mapping
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md`、`.agent-os/architecture-milestones.md`、`.agent-os/change-decisions.md`、`.agent-os/acceptance-report.md` 同步到新的 stage-2 主线真相
+- Evidence / artifacts:
+  - `docs/requirements.md`
+  - `docs/v2_design.md`
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+  - `docs/todo.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/todo.md`
+- Next likely action:
+  - 进入 `TD-015` 的代码骨架实现：observation normalization、belief JSON 目标生成、parser skeleton 与公开数据集 ingestion
+
+## 2026-04-07 Session 016
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把 `TD-015` 从 verifier skeleton 推进到首批可运行实现
+- State changed:
+  - 新增 `src/core_mem/v2/`，包含 Observation / Slot / Belief schema、relation normalization、rule-first parser 与 dataset-task registry
+  - 新增 `scripts/prepare_stage2_data.py`、`scripts/train_stage2.py`、`scripts/eval_stage2_local.py`、`scripts/run_stage2_canary.py`
+  - 新增 `configs/stage2_train.yaml`
+  - 新增 stage-2 schema/parser/pipeline 测试，`pytest` 总数提升到 `40`
+  - `stage2_readiness_score` 从 `20` 提升到 `30`
+  - `stage2_acceptance` 从 `2/7` 提升到 `7/7`
+  - `outputs_v2/` 已实际产出 prepared manifest、smoke train plan、smoke local eval 结果与 `PersonaMem/LongMemEval-S` 的 `64` canary manifests
+  - runtime truth 已切换为：`TD-015` 完成，`TD-016` 成为新的 top next action
+- Evidence / artifacts:
+  - `src/core_mem/v2/`
+  - `configs/stage2_train.yaml`
+  - `outputs_v2/artifacts/stage2_prepared_samples_manifest.json`
+  - `outputs_v2/runs/20260407T042125Z_stage2_train_plan/training_plan.json`
+  - `outputs_v2/evals_local/20260407T042125Z_stage2_local_eval.json`
+  - `outputs_v2/evals_benchmark/20260407T042120Z_stage2_canary_plan.json`
+  - `pytest` 通过（40 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `30`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 进入 `TD-016` 的主线模型骨架实现：slot encoder、retrieval key、lifecycle、core/residual、consolidation、light resampler 与 belief decoder
+
+## 2026-04-07 Session 017
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把 `TD-016` 从“待实现”推进到第一版可运行的 memory system skeleton
+- State changed:
+  - 新增 `src/core_mem/v2/encoder.py`、`lifecycle.py`、`resampler.py`、`decoder.py`、`system.py`
+  - 新增 `tests/test_stage2_model_skeleton.py`
+  - `stage2_readiness_score` 从 `30` 提升到 `36`
+  - `stage2_acceptance` 维持 `7/7`
+  - `pytest` 提升到 `42` 个测试并继续通过
+- Evidence / artifacts:
+  - `src/core_mem/v2/system.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `pytest` 通过（42 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `36`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 将 deterministic model skeleton 更紧地接到训练样本、consolidation 细节与 local eval 主链路
+
+## 2026-04-07 Session 018
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把主线模型 skeleton 从 `memory -> belief` 推进到 `memory -> belief -> answer`
+- State changed:
+  - 新增 `src/core_mem/v2/consolidation.py` 与 `src/core_mem/v2/projection.py`
+  - `src/core_mem/v2/system.py` 现在通过显式 consolidation 与 answer projection 输出 evidence block 和 answer text
+  - `stage2_readiness_score` 从 `36` 提升到 `38`
+  - `stage2_acceptance` 维持 `7/7`
+  - `pytest` 维持 `42` 个测试并继续通过
+- Evidence / artifacts:
+  - `src/core_mem/v2/consolidation.py`
+  - `src/core_mem/v2/projection.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `pytest` 通过（42 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `38`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 将 deterministic skeleton 进一步接到训练样本、richer consolidation 与 local intrinsic eval 主链路
+
+## 2026-04-13 Session 019
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把训练能力从 planner/smoke 推进到真实可执行 runtime
+- State changed:
+  - 新增 `src/core_mem/v2/training.py`
+  - `scripts/train_stage2.py` 现在支持 `--execute-train`
+  - 新增 `configs/stage2_train_tiny.yaml` 作为离线 tiny backend 验证配置
+  - `environment.yaml` 已加入 `datasets`、`peft`、`accelerate`
+  - 默认 conda 环境 `core_mem` 中已实际安装并验证 `torch / transformers / datasets / peft / accelerate`
+  - `outputs_v2/runs/20260414T020438Z_stage2_train_exec` 已跑通最小 `execute-train`
+  - `stage2_readiness_score` 从 `38` 提升到 `41`
+  - `pytest` 提升到 `44` 个测试并继续通过
+- Evidence / artifacts:
+  - `src/core_mem/v2/training.py`
+  - `configs/stage2_train_tiny.yaml`
+  - `outputs_v2/runs/20260414T020438Z_stage2_train_exec/training_metrics.json`
+  - `outputs_v2/checkpoints/20260414T020438Z_stage2_train_exec/`
+  - `pytest` 通过（44 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `41`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 将 `prepare_stage2_data.py` 从 demo payload 推进到真实公开数据集处理链，并让 trainer 直接消费 `SGD + MultiWOZ 2.4 + Persona-Chat + MQUAKE + ReCoE` 的 prepared manifests
+
+## 2026-04-13 Session 020
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把数据准备从 demo-only 推进到 source-config 驱动的真实入口
+- State changed:
+  - `prepare_stage2_data.py` 已支持 `--source-config` 和 `--strict-sources`
+  - 新增 `configs/stage2_data_sources.json`
+  - 新增 `scripts/stage2_data_preflight.py`
+  - 新增 `tests/test_stage2_data_pipeline.py`
+  - `stage2_readiness_score` 从 `41` 提升到 `44`
+  - `pytest` 提升到 `46` 个测试并继续通过
+  - 当前真实缺口从“没有数据入口”收敛为“`data/stage2_public/` 下还没有真实公开数据文件”
+- Evidence / artifacts:
+  - `configs/stage2_data_sources.json`
+  - `scripts/stage2_data_preflight.py --json` 当前返回 5 个 source 都 missing
+  - `pytest` 通过（46 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `44`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 继续补真实公开数据源文件的获取/放置路径，使 `prepare_stage2_data.py --strict-sources` 能产出非 demo manifests
+
+## 2026-04-13 Session 021
+
+- Worked on: 继续执行 stage-2 foreground autoresearch，并把“真实公开数据缺失”推进到“stage2 可直接训练”
+- State changed:
+  - 新增 `src/core_mem/v2/public_data.py` 与 `scripts/normalize_stage2_public_data.py`
+  - 从官方或作者源下载并落地 `SGD`、`MultiWOZ 2.4`、`Persona-Chat`、`MQUAKE`、`ReCoE`
+  - 生成 5 份 `data/stage2_public/*/normalized.jsonl`
+  - `scripts/stage2_data_preflight.py --json` 现在返回 `missing=[]`
+  - `prepare_stage2_data.py` 新增 `--max-rows-per-dataset`
+  - `configs/stage2_train.yaml` 与 `configs/stage2_train_tiny.yaml` 已锁定 repo-local Hugging Face cache root
+  - `scripts/train_stage2.py` 的 launcher 现已改为 `--execute-train`
+  - 真实 public-data prepared manifest 已在 `outputs_v2/artifacts/stage2_prepared_samples_manifest.json` 产出，且 `outputs_v2/runs/20260414T043225Z_stage2_train_exec` 已基于其跑通 tiny execute-train
+  - `stage2_readiness_score` 从 `44` 提升到 `47`
+  - `pytest` 提升到 `53` 个测试并继续通过
+- Evidence / artifacts:
+  - `data/stage2_public/sgd/normalized.jsonl`
+  - `data/stage2_public/multiwoz24/normalized.jsonl`
+  - `data/stage2_public/personachat/normalized.jsonl`
+  - `data/stage2_public/mquake/normalized.jsonl`
+  - `data/stage2_public/recoe/normalized.jsonl`
+  - `outputs_v2/artifacts/stage2_prepared_samples_manifest.json`
+  - `outputs_v2/runs/20260414T043221Z_stage2_train_plan/launch_stage2_training.sh`
+  - `outputs_v2/runs/20260414T043225Z_stage2_train_exec/training_metrics.json`
+  - `pytest` 通过（53 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `47`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 将 stage-2 主线从“可直接训练”继续推进到完整的 local intrinsic eval / budget sweep / ablation 记录
+
+## 2026-04-14 Session 022
+
+- Worked on: 补完第二阶段本地 intrinsic evaluation 体系，并为其补齐完整中文文档
+- State changed:
+  - 新增 `src/core_mem/v2/eval_local.py`
+  - `scripts/eval_stage2_local.py` 现支持 `--top-k`、`--budget`、`--dataset`
+  - 新增 `docs/stage2_local_evaluation.md`
+  - `prepare_stage2_data.py` 保留 `_meta`，使 local eval 能按 dataset/sample_id 分层
+  - public-data lifecycle 标签已对齐当前 lifecycle 规则，避免 local eval 被标签偏差污染
+  - local eval 现在会输出 JSON + summary CSV + budget CSV
+  - `stage2_readiness_score` 从 `50` 稳定为 `50`（新增检查项后保持全通过）
+  - `pytest` 提升到 `56` 个测试并继续通过
+- Evidence / artifacts:
+  - `src/core_mem/v2/eval_local.py`
+  - `docs/stage2_local_evaluation.md`
+  - `outputs_v2/evals_local/20260414T055852Z_stage2_local_eval.json`
+  - `outputs_v2/tables/20260414T055852Z_stage2_local_eval_summary.csv`
+  - `outputs_v2/tables/20260414T055852Z_stage2_local_eval_budget_sweep.csv`
+  - `pytest` 通过（56 tests）
+  - `python3 scripts/verify_stage2_status.py --score-only` -> `50`
+  - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
+- Next likely action:
+  - 用这套 local eval 体系去跑更系统的 budget sweep、ablation 记录和训练后模型比较

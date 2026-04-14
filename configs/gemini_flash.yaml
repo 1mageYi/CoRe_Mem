@@ -1,0 +1,32 @@
+project:
+  name: core_mem
+  stage: stage1
+llm:
+  provider: google_ai_studio_openai_compatible
+  api_key_env: GEMINI_API_KEY
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai
+  model: gemini-2.5-flash
+  temperature: 0.0
+  max_tokens: 512
+  timeout_seconds: 45
+  max_retries: 1
+  retry_backoff_seconds: 1.0
+  min_request_interval_seconds: 8.0
+  max_retry_delay_seconds: 5.0
+embedding:
+  provider: sentence_transformers
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  normalize: true
+  device: cpu
+benchmarks:
+  primary: personamem
+  secondary: longmemeval_s
+  personamem:
+    data_root: data/personamem
+    variant: 32k
+    task: multiple_choice
+  longmemeval:
+    data_root: data/longmemeval
+    subset: s
+outputs:
+  root: outputs

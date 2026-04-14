@@ -9,6 +9,11 @@ llm:
   temperature: 0.0
   max_tokens: 512
   timeout_seconds: 120
+embedding:
+  provider: sentence_transformers
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  normalize: true
+  device: cpu
 benchmarks:
   primary: personamem
   secondary: longmemeval_s

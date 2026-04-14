@@ -23,3 +23,13 @@
   - 如果第二阶段方法要训练 latent memory，benchmark-derived proxy supervision 更适合做 intrinsic eval、ablation 和 failure analysis，而不是主要训练信号；否则很容易产生 benchmark leakage 争议。
   - 对第二阶段来说，`public-datasets-first, synthetic-minimal` 比“大量自生成 memory worlds”更有说服力，也更符合论文写作中的数据可信度预期。
   - 如果方法主线是 `structured latent slots`，那么“直接取 gloss 当答案证据”会过于接近压缩版 RAG；必须保留 `latent composition -> belief decoding` 这一层，才能维持方法边界。
+
+- 2026-04-13:
+  - `prepare_stage2_data.py` 先做 source-config 入口和 preflight，再做真实数据抓取，比一开始就把下载逻辑写死进 trainer 更稳；这样可以把“代码没写完”和“数据源没到位”分开。
+  - 在当前 `datasets` 版本下，测试过的多个常见脚本型 HF dataset IDs（如 `gem/schema_guided_dialog`、`schema_guided_dstc8`、`multi_woz_v22`、`bavard/personachat_truecased`）会直接返回 “dataset scripts are no longer supported”；后续如果要自动取数，不能默认依赖旧式脚本型 HF loader，需要更明确的抓取策略或直接提供原始数据文件。
+  - 真实公开数据一旦全部规范化，`prepare_stage2_data.py` 直接吃全量 `normalized.jsonl` 会让 smoke 级验证变得过重；补一个 `--max-rows-per-dataset` 开关，可以同时保留全量真实语料与轻量、可机械复验的 public-data slice。
+  - 如果 stage-2 要遵守“repo 外目录修改需先确认”的契约，那么首次 Hugging Face 权重和 tokenizer 下载就不能默认落到 `~/.cache`；应在训练配置中显式锁定 repo-local cache root，再把 launcher 直接写成 `--execute-train`。
+- 2026-04-14:
+  - local eval 如果只输出一个混合均值，很快就会失去诊断价值；必须至少同时保留 `families`、`modules`、`budget_sweep` 三个视图，才能回答“到底是哪个模块出了问题”。
+  - prepared task rows 如果不保留 `dataset/sample_id` 元信息，update/progression 和 dataset-specific 分层评测基本做不起来；所以 `_meta` 必须在 prepare 阶段保留下来，而不是等 eval 再猜。
+  - public-data lifecycle 标签必须和当前 lifecycle 规则一致，否则 local eval 会把“标签构造偏差”误判成模块退化。

@@ -79,7 +79,7 @@ class LongMemEvalAdapter:
                 f"Timestamped history:\n{history}\n\n"
                 f"Question date: {question.question_date}\n"
                 f"Question: {question.question}\n\n"
-                "Answer concisely using only the history."
+                "Return only the exact answer phrase from the history, with no leading article, verb, or extra words."
             )
             records.append(
                 PromptRecord(
@@ -90,6 +90,7 @@ class LongMemEvalAdapter:
                     metadata={
                         "question_type": question.question_type,
                         "answer_session_ids": question.answer_session_ids,
+                        "prompt_version": "longmemeval_s_v1",
                     },
                 )
             )
