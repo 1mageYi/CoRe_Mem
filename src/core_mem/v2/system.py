@@ -115,7 +115,7 @@ class StructuredMemorySystem:
         )
         selected = ranked[: self.top_k]
         composed = self.resampler.compose(query_vector, selected)
-        belief = self.decoder.decode(query_id, query_text, selected)
+        belief = self.decoder.decode(query_id, query_text, selected, composed_memory=composed)
         return QueryResult(
             selected_slots=selected,
             composed_memory=composed,

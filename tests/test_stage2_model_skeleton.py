@@ -30,6 +30,31 @@ def test_structured_memory_system_answers_from_active_slot():
     assert "drink_preference" in result.evidence_block
 
 
+def test_structured_memory_system_encoder_and_composed_memory_shapes_are_stable():
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I like matcha latte.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    slot = [*system.state.core_slots, *system.state.residual_slots][0]
+    query_vector = system.query_encoder.encode("What drink does the user like now?")
+    composed = system.resampler.compose(query_vector, [slot])
+    belief = system.decoder.decode("query-shape", "What drink does the user like now?", [slot], composed_memory=composed)
+
+    assert len(query_vector) == system.query_encoder.dimension
+    assert len(slot.retrieval_key) == system.slot_encoder.config.retrieval_dim
+    assert len(slot.latent_tokens) == system.slot_encoder.config.slot_tokens
+    assert all(len(token) == system.slot_encoder.config.token_dim for token in slot.latent_tokens)
+    assert len(composed) == system.resampler.latent_queries
+    assert all(len(token) == system.resampler.token_dim for token in composed)
+    assert belief.belief_items[0].support_slot_ids == [slot.slot_id]
+
+
 def test_structured_memory_system_overwrite_marks_old_slot_inactive():
     system = StructuredMemorySystem()
     system.observe_turn(
