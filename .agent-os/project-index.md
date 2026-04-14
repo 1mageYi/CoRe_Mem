@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-017`
+- Top next action: `TD-018`
 - Active workstreams: `WS-009`
 - Active blockers: `BL-004`
 
@@ -17,12 +17,12 @@
 
 - `WS-007` `[done]`: Stage-2 `V2.0` 主线模型骨架与直训链路已推进到可直接训练
 - `WS-008` `[done]`: Stage-2 数据、parser 与训练管线首批骨架
-- `WS-009` `[doing]`: Stage-2 本地 intrinsic evaluation 与 canary 协议细化
+- `WS-009` `[doing]`: Stage-2 本地 intrinsic evaluation 已扩展到 experiment registry + 完整 ablation matrix；下一步转向 canary 或默认 backbone 非 tiny run
 
 ## Top Next Action
 
-- `TD-017` `[doing]`: 建立第二阶段本地 intrinsic evaluation 的完整指标与 budget sweep。
-  - Needed: 当前 local eval 已从 skeleton 升级为模块级 + 家族级 + budget-sweep 评测体系，并已产出 JSON + summary CSV + budget CSV；下一步优先把这套体系用于更系统的训练后模型比较与 ablation 结果沉淀
+- `TD-018` `[backlog]`: 建立第二阶段 benchmark canary protocol 与结果记录。
+  - Needed: 当前本地 tiny-backend `gpu3` train/eval/ablation matrix 已全部登记完成，`stage2_experiment_completion_score=13/13`；下一步若继续推进，应优先将完成的本地版本沉淀为 canary 结果，或单独补默认 `flan-t5-base` 非 tiny run 证据
 
 ## Active Blockers
 
@@ -47,6 +47,7 @@
 - 2026-04-13: `scripts/train_stage2.py` 的 planner launcher 现已输出真正的 `--execute-train` 启动脚本；`configs/stage2_train.yaml` 与 `configs/stage2_train_tiny.yaml` 现均锁定 repo-local Hugging Face cache root，避免首次权重下载写到 repo 外目录。当前 `stage2_readiness_score=47`、`stage2_acceptance=7/7`、`pytest=53 tests`。
 - 2026-04-14: 新增 `src/core_mem/v2/eval_local.py` 与 [stage2_local_evaluation.md](/home/image/workspace/CoRe_Mem/docs/stage2_local_evaluation.md)，将 local eval 从 placeholder 提升为模块级 / 指标家族级 / budget-sweep 评测体系；`scripts/eval_stage2_local.py` 现支持 `--top-k`、`--budget`、`--dataset`，并输出 JSON + summary CSV + budget CSV。
 - 2026-04-14: 当前真实 public-data slice 的 local eval 结果已落地在 `outputs_v2/evals_local/20260414T055852Z_stage2_local_eval.json`，并产出对应 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_summary.csv` 与 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_budget_sweep.csv`；`stage2_readiness_score=50`、`stage2_acceptance=7/7`、`pytest=56 tests`。
+- 2026-04-14: 新增 `src/core_mem/v2/experiments.py`，并将 `scripts/train_stage2.py` / `scripts/eval_stage2_local.py` 扩展为支持 preset ablation variants、experiment registry 自动登记与 checkpoint-aware local eval；`outputs_v2/artifacts/stage2_experiment_index.json` 当前已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13/13`，对应 `research-results.tsv` / `autoresearch-state.json` 已记录完整 background run 轨迹。当前证据对应的是 `gpu3 + configs/stage2_train_tiny.yaml` 的本地 train/eval 完成态，而非默认 `flan-t5-base` 的非 tiny 全量 run。
 
 ## Read Next
 

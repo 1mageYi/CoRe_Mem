@@ -114,12 +114,14 @@
 - `EV-012` -> `AC-012` 第二阶段本地评估、budget sweep 与核心 ablation 记录机制
   - Status: verified
   - Evidence:
-    - `scripts/eval_stage2_local.py` 现已支持 `--top-k`、`--budget`、`--dataset`
-    - `src/core_mem/v2/eval_local.py` 已实现模块级、家族级和 budget-sweep 评测逻辑
+    - `scripts/eval_stage2_local.py` 现已支持 `--top-k`、`--budget`、`--dataset`、`--experiment-id`
+    - `src/core_mem/v2/eval_local.py` 已实现模块级、家族级、budget-sweep 和 variant-aware 评测逻辑
     - `docs/stage2_local_evaluation.md` 已完整说明接口、指标定义、模块映射与使用方式
-    - `outputs_v2/evals_local/20260414T055852Z_stage2_local_eval.json` 已生成最新真实 local eval 结果
-    - `outputs_v2/tables/20260414T055852Z_stage2_local_eval_summary.csv` 与 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_budget_sweep.csv` 已落地
-    - `docs/requirements.md` 与 `docs/v2_design.md` 已锁定 budget sweep 与核心 ablation 集；当前 repo 已具备记录这些结果的机械化路径
+    - `src/core_mem/v2/experiments.py` 已锁定 `mainline + 11` 个必做 ablation 的 preset variant
+    - `outputs_v2/artifacts/stage2_experiment_index.json` 当前已登记 12 个 completed experiments
+    - `scripts/verify_stage2_experiment_status.py --score-only` 当前返回 `13`
+    - `outputs_v2/evals_local/20260414T074458Z_stage2_local_eval.json` 与同批 `outputs_v2/tables/*` 已作为最新 ablation registry 产物落地
+    - `docs/requirements.md` 与 `docs/v2_design.md` 已锁定 budget sweep 与核心 ablation 集；当前 repo 已具备记录并机械验证这些结果的路径
 
 - `EV-013` -> `AC-013` 第二阶段 benchmark canary 与正式评测隔离协议
   - Status: verified

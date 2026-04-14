@@ -259,6 +259,25 @@
 
 - Worked on: 将用户确认过的 stage-2 / `V2.0 structured latent-slot memory` 方案写入真源文档，并同步整个项目文档系统
 
+## 2026-04-14 Session 015
+
+- Worked on: 由 background autoresearch runtime 驱动，完成 stage-2 本地 tiny-backend `gpu3` train/eval/ablation matrix，并补 experiment registry
+- State changed:
+  - 新增 `src/core_mem/v2/experiments.py`
+  - `scripts/train_stage2.py` / `scripts/eval_stage2_local.py` 现支持 preset ablation variants、checkpoint-aware local eval 与 `stage2_experiment_index.json` 自动登记
+  - `research-results.tsv` / `autoresearch-state.json` 已初始化并完整记录本次 background run
+  - `outputs_v2/artifacts/stage2_experiment_index.json` 当前已登记 `mainline + 11` 个必做 ablation
+  - `scripts/verify_stage2_experiment_status.py --score-only` 已从 baseline `1` 提升到 `13`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/stage2_experiment_index.json`
+  - `outputs_v2/runs/20260414T074034Z_stage2_train_exec/`
+  - `outputs_v2/evals_local/20260414T074458Z_stage2_local_eval.json`
+  - `conda run -n core_mem pytest -q tests/test_stage2_training_runtime.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py` 通过（18 tests）
+- Next likely action:
+  - 如需继续推进 stage-2，优先补 benchmark canary 结果或默认 `flan-t5-base` backbone 的非 tiny `gpu3` 训练证据；stage-1 formal benchmark 继续保持 pending by explicit user trigger
+
 ## 2026-04-07 Session 015
 
 - Worked on: 以 fresh-start foreground autoresearch 启动 stage-2，并落第一轮 verifier / acceptance / outputs 骨架

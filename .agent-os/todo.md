@@ -2,11 +2,7 @@
 
 ## Doing
 
-- `TD-017` `[doing]` 建立第二阶段本地 intrinsic evaluation 的完整指标与 budget sweep。
-  - Reason: local eval 脚本与 smoke 结果已落地，下一步可以在主线模型骨架接上后扩展到完整 retrieval / belief / update / compression / locality 指标与 budget sweep。
-  - Evidence target: budget sweep 配置、指标表、ablation 记录骨架与 `outputs_v2/evals_local/` 下的可追溯结果。
-  - Current evidence: `scripts/eval_stage2_local.py` 现已基于 `src/core_mem/v2/eval_local.py` 输出 parser / slot / retrieval / belief / update / locality / compression 的模块级与家族级指标；当前支持 `--top-k`、`--budget`、`--dataset`，并会产出 JSON + summary CSV + budget CSV；配套说明文档已落在 `docs/stage2_local_evaluation.md`。真实 public-data slice 的最新结果已写入 `outputs_v2/evals_local/20260414T055852Z_stage2_local_eval.json`，对应表格为 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_summary.csv` 与 `outputs_v2/tables/20260414T055852Z_stage2_local_eval_budget_sweep.csv`；当前 `stage2_readiness_score=50`，`stage2_acceptance=7/7`，`pytest=56 tests`。
-  - Next evidence gap: 评测体系本身已经就位；下一步更偏“使用这套体系去跑系统化 sweep / ablation / 训练后对比”，而不是继续补接口本身。
+- None
 
 ## Backlog
 
@@ -14,8 +10,12 @@
   - Reason: 第一阶段只要求保留启动能力。
 
 - `TD-018` `[backlog]` 建立第二阶段 benchmark canary protocol 与结果记录。
-  - Reason: canary manifest 生成器已经落地，但后续仍需要在主线模型版本稳定后补齐 canary 运行记录、输出表和比较基线。
+  - Reason: `gpu3 + tiny backend` 的 stage-2 本地 train/eval/ablation matrix 已全部完成并登记；下一步若继续推进，更应该把这个完成态沉淀为 canary 结果和对比表。
   - Evidence target: PersonaMem 64 / LongMemEval-S 64 的固定 canary 运行结果、输出表和记录规范。
+
+- `TD-020` `[backlog]` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
+  - Reason: 当前 `stage2_experiment_completion_score=13/13` 的证据是 `configs/stage2_train_tiny.yaml` 本地运行矩阵；默认 backbone 的非 tiny 全量 run 仍未验证。
+  - Evidence target: 至少一条默认 `configs/stage2_train.yaml` 的可追溯 train/eval artifact。
 
 ## Blocked
 
@@ -49,6 +49,9 @@
 - `TD-019` `[done]` 获取并接入第二阶段真实公开数据源文件。
   - Reason: 五个目标公开数据源已下载、规范化并通过 preflight 与 strict prepare 验证。
   - Evidence target: `stage2_data_preflight.py` 不再报 missing，且 `prepare_stage2_data.py --strict-sources` 能产出非 demo manifests。
+- `TD-017` `[done]` 建立第二阶段本地 intrinsic evaluation 的完整指标、budget sweep 与 experiment registry。
+  - Reason: local eval 已从 skeleton 扩展到模块级/家族级/budget-sweep 评测体系，并已被实际用于 `mainline + 11` 个必做 ablation 的 `gpu3` 本地 train/eval 登记。
+  - Evidence target: `outputs_v2/artifacts/stage2_experiment_index.json`、`outputs_v2/evals_local/`、`outputs_v2/tables/` 与 `scripts/verify_stage2_experiment_status.py --score-only = 13`。
 
 ## Verified
 

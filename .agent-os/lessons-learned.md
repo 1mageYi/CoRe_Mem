@@ -33,3 +33,5 @@
   - local eval 如果只输出一个混合均值，很快就会失去诊断价值；必须至少同时保留 `families`、`modules`、`budget_sweep` 三个视图，才能回答“到底是哪个模块出了问题”。
   - prepared task rows 如果不保留 `dataset/sample_id` 元信息，update/progression 和 dataset-specific 分层评测基本做不起来；所以 `_meta` 必须在 prepare 阶段保留下来，而不是等 eval 再猜。
   - public-data lifecycle 标签必须和当前 lifecycle 规则一致，否则 local eval 会把“标签构造偏差”误判成模块退化。
+  - 如果 verifier 只检查 experiment registry，而没有任何代码路径去维护它，那么 completion score 会永远卡死在 baseline；应先补 `outputs_v2/artifacts/stage2_experiment_index.json` 的 authoritative writer，再谈自动运行矩阵。
+  - background autoresearch 的 shell loop 很容易在复杂 quoting 上出错，导致“实验已完成但未记账”；对需要“每完成一个实验立刻记账”的序列任务，用 Python driver 调 subprocess 更稳。

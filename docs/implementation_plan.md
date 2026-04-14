@@ -162,10 +162,12 @@
 - specificity / locality metrics
 - compression metrics
 - budget sweep
-- Status: backlog
+- Status: done
 - Notes:
-  - local eval smoke 脚本与一份最小 `outputs_v2/evals_local/*.json` 结果已经落地
-  - 下一步在主线模型骨架接上后扩展到完整 budget sweep / ablation 记录
+  - `scripts/eval_stage2_local.py` 现已支持模块级、家族级、budget-sweep 与 checkpoint-aware local eval
+  - `scripts/train_stage2.py` 现已支持 preset ablation variants、registry 自动登记与 local eval 联动
+  - `outputs_v2/artifacts/stage2_experiment_index.json` 当前已记录 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13/13`
+  - 当前完成态基于 `configs/stage2_train_tiny.yaml` 的 `gpu3` 本地运行；默认 backbone 非 tiny 证据仍待补
 
 ### 阶段 K：Benchmark canary 与正式评测
 
@@ -216,9 +218,9 @@
 ## 当前优先顺序
 
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
-2. 保持第二阶段 public-data normalization / strict prepare / direct-train 能力可复验
-3. 用第二阶段本地 intrinsic evaluation 体系跑更完整的 budget sweep
-4. 将 local intrinsic eval 结果沉淀为更系统的 ablation 记录
+2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
+3. 将已完成的本地 tiny-backend ablation matrix 沉淀为 canary 结果或对比表
+4. 如需靠近默认主线，再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据
 5. 在用户要求时，再决定哪些版本上 benchmark canary / full benchmark
 
 ## 当前不做

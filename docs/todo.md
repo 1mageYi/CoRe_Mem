@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-017` 建立第二阶段本地 intrinsic evaluation 管线与 budget sweep。
+- None
 
 ## Blocked
 
@@ -12,9 +12,8 @@
 ## Backlog
 
 - `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
-- `TD-017` 建立第二阶段本地 intrinsic evaluation 管线与 budget sweep。
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。
-
+- `TD-020` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
 ## Done
 
 - `TD-001` 初始化项目文档系统与根契约文件。
@@ -31,6 +30,7 @@
 - `TD-015` 搭建第二阶段 `V2.0` 的 observation normalization、belief JSON 目标生成、parser skeleton 与公开数据集接入骨架。
 - `TD-016` 实现第二阶段 `V2.0` 主线模型骨架，并打通 direct-train 链路。
 - `TD-019` 获取并接入第二阶段真实公开数据源文件。
+- `TD-017` 建立第二阶段本地 intrinsic evaluation 管线、budget sweep 与 experiment registry，并在 `gpu3` 上完成 `mainline + 11` 个必做 ablation 的 tiny-backend 本地 train/eval 登记。
 
 ## Notes
 
@@ -39,7 +39,7 @@
 - 第一阶段剩余未过项仍主要是正式 benchmark 两项，但当前不作为默认主动执行主线。
 - 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system skeleton、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`pytest` 当前为 `56 tests`。
-- 当前最大的未完成点已经从“评测体系还没写完”切换为“如何用这套评测体系去做更系统的训练后比较、budget sweep 与 ablation 结果沉淀”。
+- 当前最大的未完成点已经从“评测体系还没写完”切换为“是否继续补默认 `flan-t5-base` 非 tiny run 与 benchmark canary 证据”。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`
