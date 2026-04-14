@@ -12,6 +12,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
+from core_mem.v2.experiments import dataset_allowed_for_variant
+
 
 @dataclass(frozen=True)
 class TrainingExample:
@@ -37,6 +39,26 @@ def build_training_examples(prepared_manifest_path: Path, tasks: list[str] | Non
         if task_name not in requested:
             continue
         for row in load_jsonl(Path(file_path)):
+            examples.append(serialize_task_example(task_name, row))
+    return examples
+
+
+def build_training_examples_with_variant(
+    prepared_manifest_path: Path,
+    *,
+    tasks: list[str] | None = None,
+    disabled_pools: list[str] | None = None,
+) -> list[TrainingExample]:
+    manifest = load_prepared_manifest(prepared_manifest_path)
+    requested = set(tasks or manifest["task_files"].keys())
+    examples: list[TrainingExample] = []
+    for task_name, file_path in manifest["task_files"].items():
+        if task_name not in requested:
+            continue
+        for row in load_jsonl(Path(file_path)):
+            dataset_name = str((row.get("_meta", {}) or {}).get("dataset", "unknown"))
+            if not dataset_allowed_for_variant(dataset_name, disabled_pools):
+                continue
             examples.append(serialize_task_example(task_name, row))
     return examples
 
@@ -430,10 +452,12 @@ def train_stage2_model(
     max_steps: int | None = None,
     max_train_examples: int | None = None,
     device: str = "cpu",
+    disabled_pools: list[str] | None = None,
 ) -> dict[str, Any]:
-    examples = build_training_examples(
+    examples = build_training_examples_with_variant(
         prepared_manifest_path,
         tasks=list(config.get("training", {}).get("tasks", [])) or None,
+        disabled_pools=disabled_pools,
     )
     if max_train_examples is not None:
         examples = examples[:max_train_examples]

@@ -15,6 +15,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.eval_local import evaluate_local
+from core_mem.v2.experiments import variant_payload_for_experiment
 from core_mem.v2.training import evaluate_stage2_checkpoint
 import yaml
 
@@ -54,6 +55,7 @@ def run_local_eval(
     top_k: int,
     budgets: list[int],
     datasets: list[str] | None,
+    variant: dict[str, object] | None,
     checkpoint_dir: Path | None,
     train_config_path: Path | None,
     eval_device: str,
@@ -65,6 +67,7 @@ def run_local_eval(
         top_k=top_k,
         budgets=budgets,
         datasets=datasets,
+        variant=variant,
     )
     summary = payload["summary"]
     eval_dir = output_root / "evals_local"
@@ -101,6 +104,7 @@ def run_local_eval(
         "families": summary["families"],
         "modules": summary["modules"],
         "budget_sweep": summary["budget_sweep"],
+        "variant": summary.get("variant", {}),
         "result_path": str(result_path),
         "summary_table_path": str(summary_path),
         "budget_table_path": str(budget_path),
@@ -117,6 +121,8 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=8)
     parser.add_argument("--budget", type=int, action="append", help="Repeat to override default budget sweep.")
     parser.add_argument("--dataset", action="append", help="Optional dataset filter, e.g. sgd or personachat.")
+    parser.add_argument("--experiment-id", help="Optional stage-2 experiment preset.")
+    parser.add_argument("--variant-json", help="Optional JSON object with eval variant overrides.")
     parser.add_argument("--checkpoint-dir", help="Optional trained checkpoint dir for checkpoint-aware local eval.")
     parser.add_argument("--train-config", help="Optional config snapshot path used to train the checkpoint.")
     parser.add_argument("--eval-device", default="cpu")
@@ -124,12 +130,19 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
+    variant: dict[str, object] = {}
+    if args.experiment_id:
+        variant.update(variant_payload_for_experiment(args.experiment_id))
+    if args.variant_json:
+        variant.update(json.loads(args.variant_json))
+
     payload = run_local_eval(
         Path(args.prepared_manifest),
         Path(args.output_root),
         top_k=args.top_k,
         budgets=args.budget or [1, 2, 4, 8],
         datasets=args.dataset,
+        variant=variant,
         checkpoint_dir=Path(args.checkpoint_dir) if args.checkpoint_dir else None,
         train_config_path=Path(args.train_config) if args.train_config else None,
         eval_device=args.eval_device,

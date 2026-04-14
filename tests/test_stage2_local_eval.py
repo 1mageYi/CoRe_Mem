@@ -111,6 +111,27 @@ def test_eval_script_can_include_checkpoint_metrics(tmp_path: Path):
     assert 0.0 <= payload["trained_eval"]["metrics"]["exact_match"] <= 1.0
 
 
+def test_eval_script_accepts_experiment_variant(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/eval_stage2_local.py",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--experiment-id",
+        "ablation_without_synthetic_pool",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["variant"]["disabled_pools"] == ["minimal_synthetic"]
+
+
 def test_module_inventory_payload_is_stable():
     names = {item["name"] for item in module_inventory_payload()}
     assert names == {

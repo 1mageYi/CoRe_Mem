@@ -117,3 +117,37 @@ def test_stage2_train_plan_emits_direct_train_launcher(tmp_path: Path):
     assert launch_script.exists()
     content = launch_script.read_text(encoding="utf-8")
     assert "--execute-train" in content
+
+
+def test_train_stage2_can_register_experiment_outputs(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--experiment-id",
+        "mainline",
+        "--register-experiment",
+        "--max-eval-examples",
+        "4",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert Path(payload["local_eval_path"]).exists()
+    assert Path(payload["experiment_index_path"]).exists()
+    index_payload = json.loads(Path(payload["experiment_index_path"]).read_text(encoding="utf-8"))
+    assert index_payload["experiments"]["mainline"]["completed"] is True

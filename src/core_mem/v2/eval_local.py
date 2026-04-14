@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import hashlib
 import json
 import math
 from pathlib import Path
 from typing import Any
 
 from core_mem.v2.consolidation import ConsolidationManager
-from core_mem.v2.decoder import BeliefDecoder
+from core_mem.v2.decoder import BeliefDecoder, _infer_query_type
 from core_mem.v2.encoder import QueryEncoder, SlotEncoder
 from core_mem.v2.lifecycle import LifecycleDecision, LifecycleManager
 from core_mem.v2.parser import Stage2ObservationParser
 from core_mem.v2.projection import AnswerProjection
 from core_mem.v2.resampler import LightResampler
+from core_mem.v2.experiments import dataset_allowed_for_variant
 from core_mem.v2.schemas import BeliefItem, BeliefState, Observation, SlotRecord
 from core_mem.v2.system import StructuredMemoryState, StructuredMemorySystem
-from core_mem.v2.vector_ops import dot_product
+from core_mem.v2.vector_ops import dot_product, mean_vectors
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -82,6 +84,22 @@ def _rank_slots(query_encoder: QueryEncoder, query: str, slots: list[SlotRecord]
     return sorted(slots, key=lambda slot: dot_product(query_vector, slot.retrieval_key), reverse=True)
 
 
+def _rank_slots_with_variant(
+    query_encoder: QueryEncoder,
+    query: str,
+    slots: list[SlotRecord],
+    *,
+    assignment_mode: str,
+) -> list[SlotRecord]:
+    ranked = _rank_slots(query_encoder, query, slots)
+    if assignment_mode != "randomized":
+        return ranked
+    return sorted(
+        ranked,
+        key=lambda slot: f"{slot.slot_id}|{query}",
+    )
+
+
 def _gold_answer(query: str, belief_payload: dict[str, Any], projection: AnswerProjection) -> str:
     belief = BeliefState.from_dict(belief_payload)
     return projection.project_answer(query, belief)
@@ -122,6 +140,161 @@ def _state_from_slots(slots: list[SlotRecord]) -> StructuredMemoryState:
     )
 
 
+def _state_from_slots_with_variant(
+    slots: list[SlotRecord],
+    *,
+    bank_mode: str,
+    assignment_mode: str,
+) -> StructuredMemoryState:
+    adjusted = list(slots)
+    if assignment_mode == "randomized":
+        randomized: list[SlotRecord] = []
+        for slot in adjusted:
+            digest = hashlib.sha1(slot.slot_id.encode("utf-8")).hexdigest()
+            randomized.append(replace(slot, bank="core" if int(digest, 16) % 2 == 0 else "residual"))
+        adjusted = randomized
+    if bank_mode == "single":
+        adjusted = [replace(slot, bank="residual") for slot in adjusted]
+    return _state_from_slots(adjusted)
+
+
+@dataclass(frozen=True)
+class MeanPoolingResampler:
+    latent_queries: int = 8
+
+    def compose(self, query_vector: list[float], slots: list[SlotRecord]) -> list[list[float]]:
+        del query_vector
+        if not slots:
+            return []
+        all_tokens = [token for slot in slots for token in slot.latent_tokens]
+        anchor = mean_vectors(all_tokens)
+        return [list(anchor) for _ in range(self.latent_queries)]
+
+
+@dataclass(frozen=True)
+class DirectAnswerBeliefDecoder:
+    def decode(self, query_id: str, query_text: str, slots: list[SlotRecord]) -> BeliefState:
+        del query_text
+        if not slots:
+            return BeliefState(query_id=query_id, entity="user", query_type="single_fact", belief_items=[], global_consistency="low")
+        top_slot = slots[0]
+        return BeliefState(
+            query_id=query_id,
+            entity="user",
+            query_type="single_fact",
+            belief_items=[
+                BeliefItem(
+                    relation="other_fact",
+                    value=top_slot.canonical_gloss,
+                    status="active",
+                    time_scope="current",
+                    confidence=top_slot.confidence,
+                    support_slot_ids=[top_slot.slot_id],
+                )
+            ],
+            global_consistency="medium",
+        )
+
+
+@dataclass(frozen=True)
+class OptimusLikeBeliefDecoder:
+    max_items: int = 1
+
+    def decode(self, query_id: str, query_text: str, slots: list[SlotRecord]) -> BeliefState:
+        belief_items: list[BeliefItem] = []
+        for slot in reversed(slots):
+            if not slot.active_flag:
+                continue
+            belief_items.append(
+                BeliefItem(
+                    relation=slot.relation,
+                    value=slot.canonical_gloss.split("=")[-1].strip() if "=" in slot.canonical_gloss else slot.canonical_gloss,
+                    status="active",
+                    time_scope="current",
+                    confidence=max(slot.confidence - 0.1, 0.0),
+                    support_slot_ids=[slot.slot_id],
+                )
+            )
+            if len(belief_items) >= self.max_items:
+                break
+        return BeliefState(
+            query_id=query_id,
+            entity="user",
+            query_type=_infer_query_type(query_text),
+            belief_items=belief_items,
+            global_consistency="medium" if belief_items else "low",
+        )
+
+
+@dataclass(frozen=True)
+class VariantLifecycleManager:
+    base: LifecycleManager
+    overwrite_mode: str
+
+    def decide(self, observation: Observation, slots: list[SlotRecord]) -> LifecycleDecision:
+        decision = self.base.decide(observation, slots)
+        if self.overwrite_mode == "merge_only" and decision.action == "overwrite":
+            return LifecycleDecision(
+                action="merge",
+                matched_slot_id=decision.matched_slot_id,
+                promote=decision.promote,
+                stale_old=False,
+            )
+        return decision
+
+
+@dataclass(frozen=True)
+class VariantConsolidationManager:
+    base: ConsolidationManager
+    bank_mode: str
+    assignment_mode: str
+
+    def apply(
+        self,
+        core_slots: list[SlotRecord],
+        residual_slots: list[SlotRecord],
+        decision: LifecycleDecision,
+    ) -> tuple[list[SlotRecord], list[SlotRecord]]:
+        next_core, next_residual = self.base.apply(core_slots, residual_slots, decision)
+        slots = [*next_core, *next_residual]
+        if self.assignment_mode == "randomized":
+            randomized: list[SlotRecord] = []
+            for slot in slots:
+                digest = hashlib.sha1(slot.slot_id.encode("utf-8")).hexdigest()
+                randomized.append(replace(slot, bank="core" if int(digest, 16) % 2 == 0 else "residual"))
+            slots = randomized
+        if self.bank_mode == "single":
+            return [], [replace(slot, bank="residual") for slot in slots]
+        return _state_from_slots(slots).core_slots, _state_from_slots(slots).residual_slots
+
+
+def _variant_components(top_k: int, variant: dict[str, Any]) -> tuple[Any, Any, Any, Any]:
+    resampler_type = str(variant.get("resampler_type", "light"))
+    decoder_type = str(variant.get("decoder_type", "belief_json"))
+    overwrite_mode = str(variant.get("overwrite_mode", "merge_overwrite"))
+    bank_mode = str(variant.get("bank_mode", "dual"))
+    assignment_mode = str(variant.get("assignment_mode", "default"))
+
+    lifecycle = VariantLifecycleManager(LifecycleManager(), overwrite_mode=overwrite_mode)
+    consolidation = VariantConsolidationManager(
+        ConsolidationManager(),
+        bank_mode=bank_mode,
+        assignment_mode=assignment_mode,
+    )
+    if resampler_type == "mean_pooling":
+        resampler: Any = MeanPoolingResampler(latent_queries=top_k)
+    else:
+        resampler = LightResampler(latent_queries=top_k)
+
+    if decoder_type == "direct_answer":
+        decoder: Any = DirectAnswerBeliefDecoder()
+    elif decoder_type == "optimus_like":
+        decoder = OptimusLikeBeliefDecoder(max_items=max(1, min(2, top_k)))
+    else:
+        decoder = BeliefDecoder(max_items=top_k)
+    return lifecycle, consolidation, resampler, decoder
+
+
 @dataclass(frozen=True)
 class ModuleSpec:
     name: str
@@ -154,8 +327,10 @@ def evaluate_local(
     top_k: int = 8,
     budgets: list[int] | None = None,
     datasets: list[str] | None = None,
+    variant: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     manifest = _load_json(prepared_manifest_path)
+    variant = dict(variant or {})
     selected_datasets = set(datasets or [])
     requested_budgets = sorted({budget for budget in (budgets or [1, 2, 4, 8]) if budget > 0})
 
@@ -170,13 +345,17 @@ def evaluate_local(
         lifecycle_rows = [row for row in lifecycle_rows if _dataset_of(row) in selected_datasets]
         belief_rows = [row for row in belief_rows if _dataset_of(row) in selected_datasets]
 
+    disabled_pools = [str(pool) for pool in variant.get("disabled_pools", [])]
+    if disabled_pools:
+        slot_rows = [row for row in slot_rows if dataset_allowed_for_variant(_dataset_of(row), disabled_pools)]
+        retrieval_rows = [row for row in retrieval_rows if dataset_allowed_for_variant(_dataset_of(row), disabled_pools)]
+        lifecycle_rows = [row for row in lifecycle_rows if dataset_allowed_for_variant(_dataset_of(row), disabled_pools)]
+        belief_rows = [row for row in belief_rows if dataset_allowed_for_variant(_dataset_of(row), disabled_pools)]
+
     parser = Stage2ObservationParser()
     slot_encoder = SlotEncoder()
     query_encoder = QueryEncoder()
-    lifecycle = LifecycleManager()
-    consolidation = ConsolidationManager()
-    resampler = LightResampler(latent_queries=top_k)
-    decoder = BeliefDecoder(max_items=top_k)
+    lifecycle, consolidation, resampler, decoder = _variant_components(top_k, variant)
     projection = AnswerProjection()
 
     parser_coverage: list[float] = []
@@ -210,7 +389,12 @@ def evaluate_local(
     ndcg_values: list[float] = []
     for row in retrieval_rows:
         slots = [SlotRecord.from_dict(row["positive_slot"])] + [SlotRecord.from_dict(item) for item in row["negative_slots"]]
-        ranked = _rank_slots(query_encoder, row["query"], slots)[:top_k]
+        ranked = _rank_slots_with_variant(
+            query_encoder,
+            row["query"],
+            slots,
+            assignment_mode=str(variant.get("assignment_mode", "default")),
+        )[:top_k]
         gold = set(row["gold_support_slot_ids"])
         hits = [index for index, slot in enumerate(ranked) if slot.slot_id in gold]
         retrieval_hits.append(float(bool(hits)))
@@ -226,7 +410,12 @@ def evaluate_local(
 
     for row in belief_rows:
         slots = [SlotRecord.from_dict(item) for item in row["memory_slots"]]
-        ranked = _rank_slots(query_encoder, row["query"], slots)
+        ranked = _rank_slots_with_variant(
+            query_encoder,
+            row["query"],
+            slots,
+            assignment_mode=str(variant.get("assignment_mode", "default")),
+        )
         selected = ranked[:top_k]
         composed = resampler.compose(query_encoder.encode(row["query"]), selected)
         predicted = decoder.decode(
@@ -302,7 +491,11 @@ def evaluate_local(
             decoder=decoder,
             projection=projection,
             top_k=top_k,
-            state=_state_from_slots(context),
+            state=_state_from_slots_with_variant(
+                context,
+                bank_mode=str(variant.get("bank_mode", "dual")),
+                assignment_mode=str(variant.get("assignment_mode", "default")),
+            ),
         )
         before_slots = {slot.slot_id: slot for slot in [*system.state.core_slots, *system.state.residual_slots]}
         system.observe_observation(observation, timestamp="2026-04-14T00:00:00Z")
@@ -456,6 +649,7 @@ def evaluate_local(
     summary = {
         "prepared_manifest": str(prepared_manifest_path),
         "selected_datasets": sorted(selected_datasets) if selected_datasets else [],
+        "variant": variant,
         "top_k": top_k,
         "budgets": requested_budgets,
         "task_counts": {

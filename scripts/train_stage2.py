@@ -13,12 +13,18 @@ from typing import Any
 
 import yaml
 
+from eval_stage2_local import run_local_eval
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from core_mem.v2.experiments import (
+    register_stage2_experiment,
+    spec_for_experiment,
+    variant_payload_for_experiment,
+)
 from core_mem.v2.training import save_training_artifacts, train_stage2_model
 
 
@@ -31,6 +37,10 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def _count_jsonl_rows(path: Path) -> int:
@@ -100,14 +110,19 @@ def stage2_train_execute(
     max_train_examples: int | None,
     device: str,
     cuda_visible_devices: str | None,
+    variant: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if cuda_visible_devices is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
     config = _load_yaml(config_path)
+    variant = dict(variant or {})
+    if variant:
+        config.setdefault("experiment", {})
+        config["experiment"]["variant"] = dict(variant)
     manifest = _load_json(prepared_manifest_path)
     run_dir = output_root / "runs" / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_stage2_train_exec"
     run_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(config_path, run_dir / "config_snapshot.yaml")
+    _write_yaml(run_dir / "config_snapshot.yaml", config)
     (run_dir / "prepared_manifest_snapshot.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -119,6 +134,7 @@ def stage2_train_execute(
         max_steps=max_steps,
         max_train_examples=max_train_examples,
         device=device,
+        disabled_pools=variant.get("disabled_pools"),
     )
     artifact_paths = save_training_artifacts(
         run_dir=run_dir,
@@ -136,6 +152,7 @@ def stage2_train_execute(
         "final_loss": metrics["final_loss"],
         "device": device,
         "cuda_visible_devices": cuda_visible_devices,
+        "variant": variant,
     }
     (run_dir / "execution_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -148,12 +165,45 @@ def main() -> int:
     parser.add_argument("--output-root", default="outputs_v2")
     parser.add_argument("--execute-smoke", action="store_true")
     parser.add_argument("--execute-train", action="store_true")
+    parser.add_argument("--experiment-id")
+    parser.add_argument("--register-experiment", action="store_true")
+    parser.add_argument("--resampler-type", choices=["light", "mean_pooling"])
+    parser.add_argument("--decoder-type", choices=["belief_json", "direct_answer", "optimus_like"])
+    parser.add_argument("--overwrite-mode", choices=["merge_overwrite", "merge_only"])
+    parser.add_argument("--bank-mode", choices=["dual", "single"])
+    parser.add_argument("--assignment-mode", choices=["default", "randomized"])
+    parser.add_argument("--disable-pool", action="append", default=[])
+    parser.add_argument("--eval-top-k", type=int)
+    parser.add_argument("--eval-budget", type=int, action="append")
+    parser.add_argument("--eval-device", default="cpu")
+    parser.add_argument("--max-eval-examples", type=int)
     parser.add_argument("--max-steps", type=int)
     parser.add_argument("--max-train-examples", type=int)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--cuda-visible-devices")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
+
+    variant: dict[str, Any] = {}
+    notes = ""
+    budgets = args.eval_budget or [1, 2, 4, 8]
+    if args.experiment_id:
+        spec = spec_for_experiment(args.experiment_id)
+        variant.update(variant_payload_for_experiment(args.experiment_id))
+        notes = spec.notes
+        if not args.eval_budget:
+            budgets = list(spec.budgets)
+    for key, value in (
+        ("resampler_type", args.resampler_type),
+        ("decoder_type", args.decoder_type),
+        ("overwrite_mode", args.overwrite_mode),
+        ("bank_mode", args.bank_mode),
+        ("assignment_mode", args.assignment_mode),
+    ):
+        if value is not None:
+            variant[key] = value
+    if args.disable_pool:
+        variant["disabled_pools"] = sorted({*variant.get("disabled_pools", []), *args.disable_pool})
 
     if args.execute_train:
         payload = stage2_train_execute(
@@ -164,7 +214,40 @@ def main() -> int:
             max_train_examples=args.max_train_examples,
             device=args.device,
             cuda_visible_devices=args.cuda_visible_devices,
+            variant=variant,
         )
+        if args.register_experiment:
+            if not args.experiment_id:
+                raise ValueError("--register-experiment requires --experiment-id")
+            eval_payload = run_local_eval(
+                Path(args.prepared_manifest),
+                Path(args.output_root),
+                top_k=args.eval_top_k or 8,
+                budgets=budgets,
+                datasets=None,
+                variant=variant,
+                checkpoint_dir=Path(payload["checkpoint_dir"]),
+                train_config_path=Path(payload["run_dir"]) / "config_snapshot.yaml",
+                eval_device=args.eval_device,
+                max_eval_examples=args.max_eval_examples,
+            )
+            index_path = register_stage2_experiment(
+                Path(args.output_root),
+                experiment_id=args.experiment_id,
+                train_run_dir=payload["run_dir"],
+                checkpoint_dir=payload["checkpoint_dir"],
+                local_eval_path=eval_payload["result_path"],
+                summary_table_path=eval_payload["summary_table_path"],
+                budget_table_path=eval_payload["budget_table_path"],
+                metrics_path=payload["metrics_path"],
+                variant=variant,
+                budgets=budgets,
+                notes=notes,
+            )
+            payload["local_eval_path"] = eval_payload["result_path"]
+            payload["summary_table_path"] = eval_payload["summary_table_path"]
+            payload["budget_table_path"] = eval_payload["budget_table_path"]
+            payload["experiment_index_path"] = str(index_path)
     else:
         payload = stage2_train_plan(
             Path(args.config),
