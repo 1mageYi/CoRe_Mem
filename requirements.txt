@@ -15,3 +15,6 @@ pytest-asyncio>=0.21
 
 # Linting
 ruff>=0.4
+
+# Hugging Face Hub (train/upload_hf.py)
+huggingface_hub>=0.20
