@@ -149,10 +149,10 @@
 - answer projection
 - Status: doing
 - Notes:
-  - `src/core_mem/v2/encoder.py`、`lifecycle.py`、`consolidation.py`、`resampler.py`、`decoder.py`、`projection.py`、`system.py` 已落地第一版 deterministic skeleton
+  - `src/core_mem/v2/encoder.py`、`lifecycle.py`、`consolidation.py`、`resampler.py`、`decoder.py`、`projection.py`、`system.py` 已从第一版 deterministic skeleton 推进到 parameterized latent path
   - 已有 `tests/test_stage2_model_skeleton.py` 覆盖 parser -> memory update -> belief decode -> answer projection 的最小链路
   - `src/core_mem/v2/training.py` 与 `scripts/train_stage2.py --execute-train` 已提供真实训练执行路径，并通过 tiny offline backend 做了最小 smoke 验证
-  - 当前最重要的下一步不是继续扩大 benchmark，而是把现有 skeleton 升级为真正的 latent memory 主链路：可学习 encoder、被 decoder 消费的 composed latent，以及更真实的 answer projection
+  - 当前 `scripts/verify_stage2_latent_status.py --score-only` 已达 `9/9`，说明可学习 encoder、被 decoder 消费的 composed latent、以及与 answer projection 对齐的 latent-conditioned belief recovery 主链都已机械成立
 
 ### 阶段 J：本地 intrinsic evaluation
 
@@ -174,9 +174,11 @@
 - PersonaMem canary
 - LongMemEval-S canary
 - 选择性推进 full benchmark
-- Status: backlog
+- Status: doing
 - Notes:
   - canary manifest 生成器已经落地，并已固定产出 PersonaMem 64 / LongMemEval-S 64 manifests
+  - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并在 `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 产出一条 PersonaMem artifact
+  - 当前未完成点是 `GPT_AGENT_API_KEY` 缺失，导致该 artifact 只能诚实记录为 `blocked_provider_not_configured`，尚非 live MiniMax-M2.7 result
 
 ## 第二阶段默认技术路线
 
@@ -220,8 +222,8 @@
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
-4. 在 latent path 成立后，再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据
-5. 最后再把 stage-2 memory-mediated inference 接到 benchmark canary / full benchmark
+4. 在 latent path 已成立的前提下，先补 live MiniMax-M2.7 stage-2 memory canary 条件
+5. 再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，最后视用户要求继续扩大 benchmark
 
 ## 当前不做
 

@@ -1,6 +1,6 @@
 project:
   name: core_mem
-  stage: stage1
+  stage: stage2
 llm:
   provider: openai_compatible
   api_key_env: GPT_AGENT_API_KEY
@@ -29,4 +29,4 @@ benchmarks:
     data_root: data/longmemeval
     subset: s
 outputs:
-  root: outputs
+  root: outputs_v2

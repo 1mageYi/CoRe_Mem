@@ -2,20 +2,14 @@
 
 ## Doing
 
-- None
+- `TD-022` `[doing]` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
+  - Reason: `scripts/run_stage2_memory_canary.py` 已落地，且 `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 已证明 memory-mediated canary artifact、config snapshot 与 traceability 成立；当前仅剩 live MiniMax-M2.7 调用条件未满足。
+  - Evidence target: 至少一条 live MiniMax-M2.7 的 PersonaMem 或 LongMemEval-S stage-2 canary 运行结果。
 
 ## Backlog
 
 - `TD-007` `[backlog]` 为 PersonaMem 128k / 1M 提供启动开关。
   - Reason: 第一阶段只要求保留启动能力。
-
-- `TD-021` `[backlog]` 把第二阶段真正的 latent memory 主链路做实。
-  - Reason: 当前 `stage2_experiment_completion_score=13/13` 只证明 tiny-backend 本地 train/eval/ablation matrix 已登记完成，但 decoder 仍未真实消费 composed latent，encoder/resampler 也仍以 skeleton 为主。
-  - Evidence target: 可学习 query/slot encoder、被 decoder 主链路消费的 composed latent、以及与 answer projection 一致的 latent-conditioned belief recovery 证据。
-
-- `TD-022` `[backlog]` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
-  - Reason: benchmark 很重要，但应在 latent memory 主链路做实之后再验证真实 inference 闭环。
-  - Evidence target: 至少一条可追溯的 PersonaMem 或 LongMemEval-S stage-2 canary 运行结果。
 
 - `TD-018` `[backlog]` 建立第二阶段 benchmark canary protocol 与结果记录。
   - Reason: `gpu3 + tiny backend` 的 stage-2 本地 train/eval/ablation matrix 已全部完成并登记；下一步若继续推进，更应该把这个完成态沉淀为 canary 结果和对比表。
@@ -35,6 +29,10 @@
   - Reason: 当前只能证明最小链路打通，尚不足以满足 AC-002 / AC-003 的正式运行要求；同时该项被用户触发条件与 provider blocker 双重约束。
   - Evidence target: PersonaMem 与 LongMemEval-S 在正式范围内完成可重复结果运行。
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
+
+- `TD-023` `[blocked]` 解除 stage-2 MiniMax memory canary 的 live provider 缺口。
+  - Reason: 当前 `configs/minimax_m27.yaml` 指向的 `GPT_AGENT_API_KEY` 在本 session 中缺失，runner 只能产出 `blocked_provider_not_configured` artifact。
+  - Evidence target: `scripts/run_stage2_memory_canary.py` 至少完成一条 live MiniMax-M2.7 inference row。
 
 ## Done
 
@@ -61,6 +59,10 @@
   - Reason: local eval 已从 skeleton 扩展到模块级/家族级/budget-sweep 评测体系，并已被实际用于 `mainline + 11` 个必做 ablation 的 `gpu3` 本地 train/eval 登记。
   - Evidence target: `outputs_v2/artifacts/stage2_experiment_index.json`、`outputs_v2/evals_local/`、`outputs_v2/tables/` 与 `scripts/verify_stage2_experiment_status.py --score-only = 13`。
 
+- `TD-021` `[done]` 把第二阶段真正的 latent memory 主链路做实。
+  - Reason: query/slot encoder 已不再是 hash-only，resampler 已不再是 mean-only，decoder 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链。
+  - Evidence target: `scripts/verify_stage2_latent_status.py --score-only = 9` 中与 latent path 对应的 7 个实现检查全部通过。
+
 ## Verified
 
 - `TD-003` `[verified]` 目录结构、配置加载、输出规范、run metadata 写入与 benchmark dry-run 可运行。
@@ -79,6 +81,9 @@
 - `TD-019` `[verified]` 第二阶段真实公开数据源文件已接入。
   - Reason: `SGD`、`MultiWOZ 2.4`、`Persona-Chat`、`MQUAKE`、`ReCoE` 现均已具备 repo-local raw source 与对应 `normalized.jsonl`。
   - Evidence target: `scripts/stage2_data_preflight.py --json` 返回 `missing=[]`，且 `normalize_stage2_public_data.py` 已产出 5 份 `normalized.jsonl`。
+- `TD-021` `[verified]` 第二阶段 latent memory 主链路已满足当前机械 readiness 目标。
+  - Reason: `stage2_latent_readiness_score` 已从 `2/9` 提升到 `9/9`，且 stage-2 guard 与新增 canary test 均已通过。
+  - Evidence target: `research-results.tsv` iteration `1`、`outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json`、`scripts/verify_stage2_latent_status.py --score-only = 9`。
 
 ## Abandoned
 
