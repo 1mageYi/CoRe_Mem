@@ -10,6 +10,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.training import build_training_examples
+from core_mem.v2.training import _balanced_cap_examples
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -67,6 +68,23 @@ def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
     assert payload["online_aligned"] is True
     assert Path(payload["metrics_path"]).exists()
     assert Path(payload["checkpoint_dir"]).exists()
+
+
+def test_balanced_cap_examples_spreads_budget_across_tasks(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    examples = build_training_examples(manifest)
+    capped = _balanced_cap_examples(examples, max_examples=4)
+    assert len(capped) == 4
+    assert {example.task_name for example in capped} == {
+        "slot_autoencoding",
+        "retrieval_alignment",
+        "lifecycle_prediction",
+        "composition_to_belief",
+    }
 
 
 def test_train_stage2_respects_gradient_accumulation(tmp_path: Path):

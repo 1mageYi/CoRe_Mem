@@ -230,21 +230,21 @@ class StructuredMemorySystem:
         selected: list[SlotRecord],
         composed: list[list[float]],
     ) -> tuple[BeliefState, str]:
-        fallback = self.decoder.decode(query_id, query_text, selected, composed_memory=composed)
         if not self._learned_memory_enabled():
-            return fallback, "symbolic"
+            belief = self.decoder.decode(query_id, query_text, selected, composed_memory=composed)
+            return belief, "symbolic"
 
         predictor = self._resolve_learned_belief_predictor()
         if predictor is None:
-            return fallback, "symbolic_fallback"
+            return self._empty_learned_belief(query_id), "learned_memory_unavailable"
 
         try:
             payload = predictor(query_id, query_text, selected)
             learned_belief = self._coerce_learned_belief(payload, query_id=query_id, fallback_slots=selected)
         except Exception:
-            return fallback, "symbolic_fallback"
+            return self._empty_learned_belief(query_id), "learned_memory_error"
         if not learned_belief.belief_items:
-            return fallback, "symbolic_fallback"
+            return self._empty_learned_belief(query_id), "learned_memory_empty"
         return learned_belief, "learned_memory"
 
     def _learned_memory_enabled(self) -> bool:
@@ -349,6 +349,18 @@ class StructuredMemorySystem:
                 "query_type": str(payload.get("query_type", "single_fact")),
                 "belief_items": belief_items,
                 "global_consistency": str(payload.get("global_consistency", "medium" if belief_items else "low")),
+            }
+        )
+
+    @staticmethod
+    def _empty_learned_belief(query_id: str) -> BeliefState:
+        return BeliefState.from_dict(
+            {
+                "query_id": query_id,
+                "entity": "user",
+                "query_type": "single_fact",
+                "belief_items": [],
+                "global_consistency": "low",
             }
         )
 

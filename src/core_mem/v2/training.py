@@ -66,6 +66,43 @@ def build_training_examples_with_variant(
     return examples
 
 
+def _balanced_cap_examples(
+    examples: list[TrainingExample],
+    *,
+    max_examples: int | None,
+    task_weights: dict[str, int] | None = None,
+) -> list[TrainingExample]:
+    if max_examples is None or len(examples) <= max_examples:
+        return examples
+
+    grouped: dict[str, list[TrainingExample]] = {}
+    for example in examples:
+        grouped.setdefault(example.task_name, []).append(example)
+
+    weights = {task: max(int((task_weights or {}).get(task, 1)), 1) for task in grouped}
+    cycle: list[str] = []
+    for task_name in grouped:
+        cycle.extend([task_name] * weights[task_name])
+
+    offsets = {task_name: 0 for task_name in grouped}
+    selected: list[TrainingExample] = []
+    while len(selected) < max_examples:
+        progressed = False
+        for task_name in cycle:
+            index = offsets[task_name]
+            task_examples = grouped[task_name]
+            if index >= len(task_examples):
+                continue
+            selected.append(task_examples[index])
+            offsets[task_name] = index + 1
+            progressed = True
+            if len(selected) >= max_examples:
+                break
+        if not progressed:
+            break
+    return selected
+
+
 def _apply_online_alignment(examples: list[TrainingExample]) -> list[TrainingExample]:
     prioritized = {"retrieval_alignment", "composition_to_belief", "lifecycle_prediction"}
     aligned: list[TrainingExample] = []
@@ -428,8 +465,7 @@ def evaluate_stage2_checkpoint(
     device: str = "cpu",
 ) -> dict[str, Any]:
     examples = build_training_examples(prepared_manifest_path, tasks=tasks)
-    if max_eval_examples is not None:
-        examples = examples[:max_eval_examples]
+    examples = _balanced_cap_examples(examples, max_examples=max_eval_examples)
     if not examples:
         raise ValueError("No evaluation examples were prepared for stage-2 checkpoint eval.")
 
@@ -507,8 +543,16 @@ def train_stage2_model(
         disabled_pools=disabled_pools,
         online_aligned=online_aligned,
     )
-    if max_train_examples is not None:
-        examples = examples[:max_train_examples]
+    examples = _balanced_cap_examples(
+        examples,
+        max_examples=max_train_examples,
+        task_weights={
+            "slot_autoencoding": 1,
+            "retrieval_alignment": 2 if online_aligned else 1,
+            "lifecycle_prediction": 2 if online_aligned else 1,
+            "composition_to_belief": 3 if online_aligned else 1,
+        },
+    )
     if not examples:
         raise ValueError("No training examples were prepared for stage-2.")
 

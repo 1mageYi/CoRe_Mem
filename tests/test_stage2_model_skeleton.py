@@ -194,3 +194,27 @@ def test_structured_memory_system_can_switch_to_learned_memory_belief_predictor(
     assert result.belief_source == "learned_memory"
     assert result.belief_state.belief_items[0].value == "oolong tea"
     assert result.answer_text == "oolong tea"
+
+
+def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode():
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("learned predictor unavailable")
+
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=_raise,
+    )
+    system.observe_turn(
+        "I like matcha latte.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned-error", "What drink does the user like?")
+    assert result.belief_source == "learned_memory_error"
+    assert result.belief_state.belief_items == []
+    assert result.answer_text == "unknown"
