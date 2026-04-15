@@ -1,5 +1,46 @@
 # Run Log
 
+## 2026-04-15 Session 020
+
+- Worked on: 将项目主线从“完整 v2 已成立”切换到“robust v2.1”
+- State changed:
+  - 用户确认采用 `v2.1` 路线图作为新的 stage-2 主线
+  - 更新 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md` 与 `.agent-os/*`，把 current truth 从“完整 v2 已完成”推进到“v2.1 doing”
+  - 新主线明确围绕四个方向推进：真实质量、learned path 在线增益、跨 benchmark 鲁棒性、系统化收口
+  - 将 `TD-028 / WS-014` 设为当前 next action / active workstream
+- Evidence / artifacts:
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+  - `docs/todo.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/todo.md`
+- Next likely action:
+  - 基于 `v2.1` 路线图启动新的长跑 autoresearch，优先做 `LongMemEval-S` 专项质量提升与 learned path 在线增益验证
+
+## 2026-04-15 Session 019
+
+- Worked on: 恢复 managed autoresearch 长跑并把完整 `v2` 从 `11/14` 收口到 stop condition `14/14`
+- State changed:
+  - 确认当前 session 实际具备 `GPT_AGENT_API_KEY`，因此上一轮的 `BL-005` 不再代表本 session truth
+  - 完成 fresh `PersonaMem 64` live canary：`outputs_v2/evals_benchmark/20260415T052916Z_stage2_memory_canary.json` 在当前 HEAD `53eaf44` 上完成 `64/64` live predictions，并把 `stage2_v2_completion_score` 从 `11` 提升到 `12`
+  - 完成 fresh `LongMemEval-S 64` live canary 与 failure analysis：`outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json` 与 `outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 已落地
+  - 修复 verifier 与 runtime truth 的两处机械错配：`scripts/verify_stage2_v2_completion.py` 现接受 `longmemeval_s` alias；`scripts/verify_stage2_latent_core_quality.py` 现只使用 PersonaMem completed canary 维持 latent-core guard，避免被 `LongMemEval-S` artifact 误伤
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 同步到 “`TD-027 done / stage2_v2_completion_score = 14/14 / BL-005 cleared`” 的当前真相
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260415T052916Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260415T052916Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260415T054234Z_stage2_memory_canary_longmemeval/predictions.jsonl`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v2_completion.py --score-only` -> `14`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/run_experiment.py --verify-only` -> `34`
+- Next likely action:
+  - 若继续推进 stage-2，切到更大范围 benchmark / 结果对比，而不是重复同一组 `64` canary；stage-1 formal benchmark 继续维持 pending + provider blocker 真相
+
 ## 2026-04-15 Session 018
 
 - Worked on: managed autoresearch 长跑下补齐完整 `v2` 的 no-shortcut runner 与 non-tiny training 里程碑，并在 live provider 缺失处诚实收束

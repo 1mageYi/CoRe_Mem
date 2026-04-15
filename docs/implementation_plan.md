@@ -177,17 +177,17 @@
 - PersonaMem canary
 - LongMemEval-S canary
 - 选择性推进 full benchmark
-- Status: doing
+- Status: done
 - Notes:
   - canary manifest 生成器已经落地，并已固定产出 PersonaMem 64 / LongMemEval-S 64 manifests
-  - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并已在 `MiniMax-M2.7` 上完成 1-sample 与 PersonaMem 64 的 live canary
-  - 当前真正未完成点已经从“provider key / runner 是否可用”切换为“live canary 质量是否足够支撑 benchmark scaling”
+  - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并已在 `MiniMax-M2.7` 上完成 1-sample、fresh `PersonaMem 64` 与 fresh `LongMemEval-S 64` 的 live canary
+  - `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json` 与 `outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 已落地
   - 当前 autoresearch 已验证两条路径：
     - observation-noise cleanup 可清理 parser 噪声，但单独不足以抬高 live 分数
     - PersonaMem answer-option 对齐是当前第一段主收益来源，已把 quality score 从 `4/10` 提升到 `8/10`
     - 生命周期层面的 facet retention + selected-slot-aware option scoring 是当前跨过 stop condition 的关键，已把 quality score 从 `8/10` 进一步提升到 `9/10`
-  - 当前 canary 目标已满足；但后续若继续推进，不应再把 benchmark-facing option heuristics 当作主优化方向
-  - `latent core / model / system robustness` 的本轮 local intrinsic 目标已经达成；若继续推进，下一阶段只剩“是否扩大 benchmark 范围”与“是否刷新 guard artifact”这类 follow-up 选择
+  - 当前 canary 目标已满足；但 `LongMemEval-S 64` 的最新 analysis 显示 provider exact 仅 `1/64`、local exact `0/64`，说明“fresh evidence complete”不等于“quality ready for scaling”
+  - `latent core / model / system robustness` 的本轮 local intrinsic 目标已经达成；若继续推进，下一阶段应转入更大范围 benchmark 与结果对比，而不是继续堆 prompt tricks
 
 ### 阶段 L：完整 V2 长跑里程碑
 
@@ -197,15 +197,75 @@
 - 默认 `flan-t5-base` 非 tiny `gpu3` 训练与 checkpoint-aware eval
 - `trained_eval` 不再全零，形成 learned path 有效性的最小证据
 - benchmark runner 去除 benchmark-specific shortcut / fallback
-- Status: doing
+- Status: done
 - Notes:
   - 本阶段的目标不再是单点 score，而是把“完整 v2”拆成一组可机械核对的 milestone
   - 不允许 benchmark-specific heuristic / fallback 成为 retained 收益
   - 当前 `benchmark_runner_avoids_shortcuts` 已完成：PersonaMem-specific candidate injection 与 blank-provider fallback 已从 runner 移除
   - 当前默认 `flan-t5-base` 的非 tiny `GPU3` train/eval 证据已完成：`outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/` 与 `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json` 已形成 `trained_eval.token_f1 > 0` 的最小正证据
-  - 当前 run 的剩余缺口只剩 fresh `PersonaMem 64`、`LongMemEval-S 64` 与 `latest_longmemeval_stage2_canary_analysis.json`
-  - 当前剩余缺口在本 session 中被 live provider 环境阻断：`configs/minimax_m27.yaml` 依赖的 `GPT_AGENT_API_KEY` 未出现在当前运行环境，导致 fresh probe 只生成 `blocked_provider_not_configured` artifact
-  - 若中途发现方向错误，应优先通过 failure analysis / verifier 做 pivot，而不是继续堆 prompt tricks
+  - 当前 fresh `PersonaMem 64` artifact 为 `outputs_v2/evals_benchmark/20260415T052916Z_stage2_memory_canary.json`
+  - 当前 fresh `LongMemEval-S 64` artifact 为 `outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json`，对应 analysis 为 `outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json`
+  - 当前为了让 verifier 对齐 runtime truth，又补了一层命名/选择逻辑：`scripts/verify_stage2_v2_completion.py` 接受 `longmemeval_s` alias，`scripts/verify_stage2_latent_core_quality.py` 只用 PersonaMem canary 维持 latent-core guard
+  - 当前 `scripts/verify_stage2_v2_completion.py --score-only = 14`，stop condition 已机械满足
+
+### 阶段 M：V2.1 Robustness 主线
+
+- 提升真实质量，而不只是 `64` canary 闭环
+- 提升 learned path 对在线链路的实际贡献
+- 提升跨 benchmark 鲁棒性
+- 提升可扩展性与可解释性
+- Status: doing
+- Notes:
+  - `v2` 已经解决“系统闭环是否成立”；`v2.1` 要解决的是“这套 latent memory 在真实 benchmark 上是否稳定、是否靠模型本身变强、是否跨任务依然成立”
+  - `v2.1` 不再把“完整证据链”当终点，而把“质量、鲁棒性、可扩展性”当终点
+
+#### 阶段 M-A：Benchmark 质量提升
+
+- 扩大 `PersonaMem` 评测规模，从 `64` 往更大切片推进
+- 对 `LongMemEval-S` 做专项 failure analysis
+- 把错误按 `parser / retrieval / belief / projection / provider` 五层拆开
+- 优先修最影响 `LongMemEval-S` 的 `1-2` 个主错误源
+- 里程碑：
+  - `PersonaMem` 更大切片下不明显退化
+  - `LongMemEval-S` canary 指标明显高于当前基线
+  - 形成稳定的错误分层报告
+
+#### 阶段 M-B：Learned Path 真正进入主链
+
+- 明确哪些模块值得 learned：
+  - `query encoder`
+  - `slot encoder`
+  - retrieval / ranking
+  - belief selection / composition
+- 避免继续把重点放在“复述 JSON”的 sidecar 训练
+- 让训练目标直接服务在线 `memory -> belief -> answer` 主链
+- 要求训练后提升能在 online canary 中体现，而不只是 local intrinsic
+- 里程碑：
+  - 至少一个 learned 子模块进入在线主链
+  - 训练前后在同一 canary 上有可重复增益
+  - `trained_eval` 不只是非零，而是对在线表现有解释价值
+
+#### 阶段 M-C：跨 Benchmark 鲁棒性
+
+- 保持 `PersonaMem` 为主 benchmark
+- 把 `LongMemEval-S` 提升到同等级验证地位
+- 如果这两者稳定，再考虑更大范围 benchmark
+- 统一 benchmark 记录格式、对比表和 failure taxonomy
+- 里程碑：
+  - 两个 benchmark 都有 fresh live 结果
+  - 两个 benchmark 都有对应 analysis artifact
+  - 改动在两个 benchmark 上都能解释，而不是一边涨一边掉
+
+#### 阶段 M-D：系统化收口
+
+- 固化默认配置、推荐训练命令和 benchmark 命令
+- 固化哪些 heuristic 被禁止
+- 固化 milestone verifier
+- 更新文档，把“完整 v2”升级到“robust v2.1”
+- 里程碑：
+  - 一个清晰的默认运行配方
+  - 一个清晰的 verifier 套件
+  - 一份可对外解释的方法版本说明
 
 ## 第二阶段默认技术路线
 
@@ -252,6 +312,7 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
+7. 当前阶段 L 已完成，因此现阶段默认主线切换为阶段 M：以 `LongMemEval-S` 质量提升、learned path 在线增益验证和更大范围 benchmark 为优先顺序推进 `v2.1`
 
 ## 当前不做
 

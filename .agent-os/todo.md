@@ -2,9 +2,9 @@
 
 ## Doing
 
-- `TD-027` `[doing]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
-  - Reason: 当前 `stage2_v2_completion_score = 11/14`；`no-shortcut runner` 与默认 `flan-t5-base` 的 `GPU3` 非 tiny train/eval 已补齐，但要诚实称为更完整的 `v2`，还需要 fresh `PersonaMem 64`、`LongMemEval-S 64` 和 `LongMemEval-S` failure analysis。
-  - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only` 达到 stop condition，且 milestone family 覆盖 `fresh PersonaMem`、`LongMemEval-S`、`non-tiny train/eval` 与 `no-shortcut runner`。
+- `TD-028` `[doing]` 把 `v2.1` 作为当前主线：提升真实质量、learned path 实际贡献、跨 benchmark 鲁棒性与系统化收口。
+  - Reason: `TD-027` 已把“完整 v2”的证据链补齐，但这还不能回答“系统是否已经足够强、足够稳、足够能扩”。当前更值得做的是把质量、鲁棒性和可解释性变成新的主目标。
+  - Evidence target: 至少形成更大范围 `PersonaMem` 稳定结果、`LongMemEval-S` 专项质量提升、learned 子模块在线增益证据，以及新的 `v2.1` verifier / 默认运行配方。
 
 ## Backlog
 
@@ -16,7 +16,7 @@
   - Evidence target: PersonaMem 64 / LongMemEval-S 64 的固定 canary 运行结果、输出表和记录规范。
 
 - `TD-025` `[backlog]` 在 `PersonaMem 64` canary 质量提升后，扩大 stage-2 benchmark 范围与结果对比。
-  - Reason: 当前更缺的是质量，而不是更多规模；只有当 live canary 已显著好于当前基线时，扩大 benchmark 才有解释价值。
+  - Reason: `TD-027` 已完成，当前更合理的 stage-2 后续工作是扩大 benchmark 范围、补结果对比，而不是重复同一组 `64` canary。
   - Evidence target: 更大样本或第二 benchmark 的 stage-2 live canary 结果与对比表。
 
 ## Blocked
@@ -74,6 +74,10 @@
 - `TD-020` `[done]` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
   - Reason: 当前已完成一条默认 `configs/stage2_train.yaml` 的真实 `GPU3` 非 tiny train/eval 证据链，并形成正的 `trained_eval.token_f1`。
   - Evidence target: `outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/`、`outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`。
+
+- `TD-027` `[done]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
+  - Reason: 当前 `stage2_v2_completion_score = 14/14`；fresh `PersonaMem 64`、`LongMemEval-S 64`、`latest_longmemeval_stage2_canary_analysis.json`、`no-shortcut runner` 与默认 `flan-t5-base` 的 `GPU3` 非 tiny train/eval 已全部机械成立。
+  - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only = 14`，且 `scripts/verify_stage2_latent_core_quality.py --score-only = 10`、stage-2 guard 通过。
 
 ## Verified
 

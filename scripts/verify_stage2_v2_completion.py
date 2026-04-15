@@ -16,6 +16,13 @@ def _contains(path: Path, text: str) -> bool:
     return path.exists() and text in path.read_text(encoding="utf-8")
 
 
+def _contains_any(path: Path, patterns: list[str]) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    return any(pattern in text for pattern in patterns)
+
+
 def _contains_all(path: Path, patterns: list[str]) -> bool:
     if not path.exists():
         return False
@@ -28,10 +35,15 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _latest_stage2_canary(root: Path, benchmark: str) -> Path | None:
+    aliases = {
+        "personamem": {"personamem"},
+        "longmemeval": {"longmemeval", "longmemeval_s"},
+    }
     candidates = sorted((root / "outputs_v2" / "evals_benchmark").glob("*stage2_memory_canary.json"))
     for path in reversed(candidates):
         payload = _read_json(path)
-        if payload.get("benchmark") == benchmark and payload.get("status") == "completed":
+        normalized = str(payload.get("benchmark", "")).strip().lower()
+        if normalized in aliases.get(benchmark, {benchmark}) and payload.get("status") == "completed":
             return path
     return None
 
@@ -176,8 +188,14 @@ def compute_v2_completion(root: Path) -> dict[str, Any]:
                 "不允许 benchmark-specific heuristic / fallback 成为 retained 收益",
             ],
         ),
-        "project_index_tracks_td027": _contains(project_index_path, "`TD-027` `[doing]`"),
-        "todo_tracks_td027": _contains(todo_path, "`TD-027` `[doing]`"),
+        "project_index_tracks_td027": _contains_any(
+            project_index_path,
+            ["`TD-027` `[doing]`", "`TD-027` `[done]`"],
+        ),
+        "todo_tracks_td027": _contains_any(
+            todo_path,
+            ["`TD-027` `[doing]`", "`TD-027` `[done]`"],
+        ),
         "latent_readiness_9_of_9": latent_status >= 9,
         "latent_core_quality_10_of_10": latent_core >= 10,
         "personamem_live_canary_completed": _canary_completed(root, "personamem"),

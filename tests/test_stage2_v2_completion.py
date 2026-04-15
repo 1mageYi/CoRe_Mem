@@ -41,8 +41,8 @@ def test_stage2_v2_completion_verifier(tmp_path: Path):
         "阶段 L：完整 V2 长跑里程碑\n不允许 benchmark-specific heuristic / fallback 成为 retained 收益\n",
         encoding="utf-8",
     )
-    (repo_root / ".agent-os" / "project-index.md").write_text("`TD-027` `[doing]`\n", encoding="utf-8")
-    (repo_root / ".agent-os" / "todo.md").write_text("`TD-027` `[doing]`\n", encoding="utf-8")
+    (repo_root / ".agent-os" / "project-index.md").write_text("`TD-027` `[done]`\n", encoding="utf-8")
+    (repo_root / ".agent-os" / "todo.md").write_text("`TD-027` `[done]`\n", encoding="utf-8")
     (repo_root / "scripts" / "verify_stage2_latent_status.py").write_text("print(9)\n", encoding="utf-8")
     (repo_root / "scripts" / "verify_stage2_latent_core_quality.py").write_text("print(10)\n", encoding="utf-8")
     (repo_root / "scripts" / "run_stage2_memory_canary.py").write_text(
@@ -64,7 +64,7 @@ def test_stage2_v2_completion_verifier(tmp_path: Path):
     _write_json(
         repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000100Z_stage2_memory_canary.json",
         {
-            "benchmark": "longmemeval",
+            "benchmark": "longmemeval_s",
             "status": "completed",
             "sample_count": 64,
             "live_predictions_completed": 64,

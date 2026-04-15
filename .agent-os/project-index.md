@@ -3,9 +3,9 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-027`
-- Active workstreams: `WS-013`
-- Active blockers: `BL-004`, `BL-005`
+- Top next action: `TD-028`
+- Active workstreams: `WS-014`
+- Active blockers: `BL-004`
 
 ## Objective Summary
 
@@ -21,17 +21,17 @@
 - `WS-010` `[done]`: Stage-2 latent memory 主链路已从 deterministic skeleton 升级为真正消费 composed latent 的实现路径
 - `WS-011` `[done]`: Stage-2 live canary 质量提升已把 PersonaMem 64 guard 推到 `9/10`
 - `WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成；local intrinsic quality 当前已到 `10/10`
-- `WS-013` `[doing]`: Stage-2 当前开始朝“完整 v2”长跑，里程碑包括 fresh canaries、第二 benchmark、非 tiny 训练证据与去除 benchmark shortcut/fallback
+- `WS-013` `[done]`: Stage-2 “完整 v2”长跑已收口，fresh canaries、第二 benchmark、非 tiny 训练证据与 no-shortcut runner 均已补齐
+- `WS-014` `[doing]`: Stage-2 当前主线已切换到 `v2.1`，重点是更强质量、learned path 在线增益、跨 benchmark 鲁棒性与系统化收口
 
 ## Top Next Action
 
-- `TD-027` `[doing]`: 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
-  - Needed: 当前已具备 `latent_core_quality = 10/10` 的强原型，且 `no-shortcut runner + non-tiny GPU3 train/eval` 已补齐；剩余缺口只剩 fresh `PersonaMem 64`、`LongMemEval-S 64` 与 `LongMemEval-S` analysis
+- `TD-028` `[doing]`: 把 `v2.1` 作为当前主线，目标是让系统更强、更稳、更能扩，而不只是保持完整闭环。
+  - Needed: 当前 `TD-027` 已机械完成，但 `LongMemEval-S` 质量仍弱、larger-slice benchmark 尚未做、learned path 对在线链路的增益还没有形成强证据，因此当前主线应切到 `v2.1`
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
-- `BL-005`: 当前 managed autoresearch session 不包含 `GPT_AGENT_API_KEY`，且 repo 内不存在会被当前 stage-2 canary runner 自动加载的 `.env`。因此 `configs/minimax_m27.yaml` 在本 session 中只能产出 `blocked_provider_not_configured` probe artifact，无法刷新 fresh `PersonaMem 64` / `LongMemEval-S 64` live canary，也无法生成新的 `latest_longmemeval_stage2_canary_analysis.json`。
 
 ## Recent Important Changes
 
@@ -63,6 +63,9 @@
 - 2026-04-15: managed autoresearch 围绕 latent-core robustness 完成 2 轮迭代后，`scripts/verify_stage2_latent_core_quality.py` 已基于 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json` 返回 `10/10`；关键改动是让 belief recovery 直接消费 lifecycle-ordered memory state，并把 retrieval-family 与 belief-family 的 local eval 分层对齐。当前 retained PersonaMem guard 仍来自 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`（`9/10`），未刷新 live canary artifact。
 - 2026-04-15: 用户批准新一轮长期后台 run 可使用 `GPU3` 的正式训练和 `MiniMax-M2.7` 的 live benchmark 调用作为里程碑验证；当前项目 next action 已切换到 `TD-027`，即朝“完整 v2”长跑推进，并明确禁止 benchmark-specific shortcut / fallback 成为 retained 收益。
 - 2026-04-15: 当前 managed autoresearch run 已将 `scripts/verify_stage2_v2_completion.py --score-only` 从 `7` 提升到 `11`；新增 retained 证据包括 `scripts/run_stage2_memory_canary.py` 去除 PersonaMem-specific shortcut/fallback、`outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/` 与 `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`。同一 run 当前被 `BL-005` 阻断，尚不能补 fresh live canaries。
+- 2026-04-15: 当前 managed autoresearch run 已恢复 live provider 环境并完成 fresh `PersonaMem 64` canary：`outputs_v2/evals_benchmark/20260415T052916Z_stage2_memory_canary.json` 在当前 HEAD `53eaf44` 上完成 `64/64` live predictions，`scripts/verify_stage2_v2_completion.py --score-only` 随之提升到 `12/14`。
+- 2026-04-15: 同一 run 随后完成 `LongMemEval-S 64` live canary 与 failure analysis：`outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json`、`outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 已落地；同时对齐 verifier 的 `longmemeval_s` benchmark alias 和 PersonaMem-only latent-core canary guard 选择后，`scripts/verify_stage2_v2_completion.py --score-only = 14`、`scripts/verify_stage2_latent_core_quality.py --score-only = 10`，`WS-013 / TD-027` 已机械收口。
+- 2026-04-15: 用户确认把 `v2.1` 路线图升级为现阶段主线；当前 next action 已切换到 `TD-028 / WS-014`，即围绕更强质量、learned path 在线增益、跨 benchmark 鲁棒性和系统化收口继续推进。
 
 ## Read Next
 

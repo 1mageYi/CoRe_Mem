@@ -37,12 +37,24 @@ def _latest_eval(root: Path) -> Path | None:
     return candidates[-1] if candidates else None
 
 
-def _latest_canary(root: Path) -> Path | None:
+def _benchmark_matches(payload_benchmark: str | None, expected: str) -> bool:
+    normalized = str(payload_benchmark or "").strip().lower()
+    aliases = {
+        "personamem": {"personamem"},
+        "longmemeval": {"longmemeval", "longmemeval_s"},
+    }
+    return normalized in aliases.get(expected, {expected})
+
+
+def _latest_canary(root: Path, *, benchmark: str | None = None) -> Path | None:
     candidates = sorted((root / "outputs_v2" / "evals_benchmark").glob("*stage2_memory_canary.json"))
     for path in reversed(candidates):
         payload = _read_json(path)
-        if payload.get("status") == "completed" and int(payload.get("sample_count", 0)) >= 64:
-            return path
+        if payload.get("status") != "completed" or int(payload.get("sample_count", 0)) < 64:
+            continue
+        if benchmark is not None and not _benchmark_matches(payload.get("benchmark"), benchmark):
+            continue
+        return path
     return None
 
 
@@ -80,7 +92,7 @@ def _latent_readiness_score(root: Path) -> int:
 
 
 def _canary_quality_guard(root: Path) -> bool:
-    summary_path = _latest_canary(root)
+    summary_path = _latest_canary(root, benchmark="personamem")
     if summary_path is None:
         return False
     summary = _read_json(summary_path)

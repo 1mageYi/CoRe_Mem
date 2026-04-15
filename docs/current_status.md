@@ -24,7 +24,7 @@
 - 第二阶段 benchmark canary 状态：`scripts/run_stage2_memory_canary.py` 已在 `MiniMax-M2.7` 上完成真实 live PersonaMem canary。当前已存在：
   - `outputs_v2/evals_benchmark/20260414T231441Z_stage2_memory_canary.json`：1-sample live canary，provider prediction 命中正确选项
   - `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json`：64-sample live canary，`sample_count=64`、`live_predictions_completed=64`
-- 第二阶段 benchmark 质量状态：live canary 已证明 `memory -> belief -> provider answer` 链路可运行，而且当前 session 已把质量基线从 `4/10` 提升到 `9/10`。最新 `PersonaMem 64` live canary `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json` 的快速统计为：
+- 第二阶段 benchmark 质量状态：live canary 已证明 `memory -> belief -> provider answer` 链路可运行，而且当前 session 已把质量基线从 `4/10` 提升到 `9/10`。当前 retained best `PersonaMem 64` artifact `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json` 的快速统计为：
   - `provider exact match = 31 / 64 = 48.44%`
   - `provider label-prefix match = 31 / 64 = 48.44%`
   - `local memory answer exact match = 25 / 64 = 39.06%`
@@ -40,7 +40,10 @@
   - 默认 `flan-t5-base` 非 tiny `gpu3` 训练与 checkpoint-aware eval 证据
   - benchmark runner 不再依赖 benchmark-specific heuristic 才能维持主收益
   - learned path 对在线 memory / belief 主链开始产生真实作用
-- 第二阶段完整度状态：当前 `scripts/verify_stage2_v2_completion.py --score-only = 11/14`。已经机械成立的新增里程碑包括：
+- 第二阶段完整度状态：当前 `scripts/verify_stage2_v2_completion.py --score-only = 14/14`。当前已经机械成立的里程碑包括：
+  - `personamem_live_canary_completed = true`：fresh `PersonaMem 64` artifact 为 `outputs_v2/evals_benchmark/20260415T052916Z_stage2_memory_canary.json`
+  - `longmemeval_live_canary_completed = true`：fresh `LongMemEval-S 64` artifact 为 `outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json`
+  - `longmemeval_analysis_exists = true`：`outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 已落地
   - `benchmark_runner_avoids_shortcuts = true`：`scripts/run_stage2_memory_canary.py` 已移除 PersonaMem-specific candidate injection 和 blank-provider fallback
   - `non_tiny_train_artifact_exists = true`
   - `non_tiny_checkpoint_exists = true`
@@ -54,6 +57,9 @@
   - `token_f1 = 0.056531552294517756`
   这说明 learned path 已产生非零输出，但当前还不能把它误称为 train-complete 或 benchmark-ready。
 - 第二阶段硬约束新增：后续长跑中**不要做任何偷懒兜底 fallback**。尤其不允许把 benchmark-specific heuristic / fallback 当作 retained 主收益，也不允许用 provider 空输出兜底、candidate-answer 注入或选项 overlap scorer 之类技巧冒充 latent-core 提升。
+- 第二阶段 verifier 对齐状态：为保持机械评分与 runtime truth 一致，当前还补了两处 verifier 对齐：
+  - `scripts/verify_stage2_v2_completion.py` 现在接受 `longmemeval_s` 作为 `LongMemEval-S` canary 的 benchmark alias
+  - `scripts/verify_stage2_latent_core_quality.py` 的 canary guard 现在只消费 PersonaMem completed canary，不再让更新但质量口径不同的 `LongMemEval-S` artifact 误伤 latent-core guard
 - 历史兼容说明：当前主线曾明确要求“把主指标重新锚定到 `stage-2 local intrinsic quality`”，以及“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量”；这两条表述在本轮已由 doing 状态推进到完成态。
 - 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
   - observation path 的 assistant 噪声过滤与 `create -> eat -> food_preference` 误判修复本身不足以抬高 live 分数
@@ -70,17 +76,34 @@
   - `BeliefDecoder` 不再对 selected slots 重新排序，而是直接消费 retrieval / lifecycle 已给出的 memory order
   - `scripts/eval_stage2_local.py` 现将 `composition_to_belief` 任务视为 memory-state -> belief recovery 评测，不再在 belief-family 里重复做一次 retrieval
 - 环境状态：repo 内 project-local conda env 与缓存痕迹已清理；环境复现真相为 `environment.yaml` + 默认 conda named env `core_mem`
-- 第二阶段 live provider 状态：当前 managed run 所在 session 不包含 `GPT_AGENT_API_KEY`，且 repo 内也没有会被当前脚本自动加载的 `.env`。因此本轮 fresh live canary 只产出了 `outputs_v2/evals_benchmark/20260415T043414Z_stage2_memory_canary.json` 这一条 `blocked_provider_not_configured` probe artifact；它不能算 fresh benchmark 证据，也意味着当前 run 剩余的 3 个 milestone 暂时都被 live provider 环境阻断。
-- 测试状态：当前 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_parser.py` 通过（32 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`
+- 第二阶段 live provider 状态：当前 run 已在具备 `GPT_AGENT_API_KEY` 的 session 中完成 fresh `PersonaMem 64` 与 fresh `LongMemEval-S 64` live canary；此前的 `outputs_v2/evals_benchmark/20260415T043414Z_stage2_memory_canary.json` 仍保留为历史 blocked probe，但不再代表当前 session truth。
+- 第二阶段 LongMemEval-S 当前结论：fresh analysis `outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 显示 `provider exact match = 1 / 64 = 1.56%`、`local exact match = 0 / 64`。因此“完整 v2 milestone 已补齐”只表示证据链完整，不表示 `LongMemEval-S` 质量已经可以扩大规模。
+- 第二阶段主线切换：当前 `v2` 已解决“闭环是否成立”的问题，因此现阶段主线应切换为 **`v2.1`**。`v2.1` 的目标不再是补齐闭环证据，而是证明：
+  - 这套系统是否已经足够强
+  - 是否已经足够稳
+  - 是否已经能够跨 benchmark 成立
+  - 是否真的是模型 / latent 本体在起作用，而不是靠局部接口技巧
+- 第二阶段 `v2.1` 四个核心目标：
+  - 提升真实质量，而不只是通过 `64` canary
+  - 提升 learned path 的实际贡献
+  - 提升跨 benchmark 鲁棒性
+  - 提升可扩展性与可解释性
+- 第二阶段 `v2.1` 成功标准：
+  - `PersonaMem` 扩大样本后仍稳定，而不只是 `64` canary
+  - `LongMemEval-S` 不再只是“能跑”，而是指标明显提升
+  - non-tiny learned path 对在线链路有可证明增益
+  - 不依赖 benchmark-specific heuristic / fallback
+  - failure analysis 能稳定归因到 `parser / retrieval / belief / answer(provider/projection)` 某一层，而不是系统混成一团
+- 测试状态：当前完整 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py tests/test_stage2_parser.py` 通过（36 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`
 
 ## 当前最重要的下一步
 
-- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前已经从“修 latent skeleton”和“拉起 PersonaMem canary”推进到“朝完整的 `v2` 长跑”。
-- 当前最重要的下一步是以里程碑方式推进完整 `v2`：
-  1. 在具备 `GPT_AGENT_API_KEY` 的 session 中刷新 fresh `PersonaMem 64` live canary，而不是继续依赖旧 best artifact
-  2. 在同一 live provider 环境中让 `LongMemEval-S 64` 的 stage-2 canary 跑通并产出 failure analysis
-  3. 保留当前已完成的 `GPU3` 非 tiny train/eval 与 no-shortcut runner 证据，不要被后续 blocked probe 覆盖
-  4. 只有 fresh `PersonaMem`、`LongMemEval-S` 及其 analysis 也补齐后，才接近可以诚实称为“完整的 `v2`”
+- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
+- 当前最重要的下一步不再是“再补完整 v2 证据”，而是围绕 `v2.1` 做更强、更稳、更能扩的长跑：
+  1. 先做 `LongMemEval-S` 专项质量提升和分层 failure analysis
+  2. 再验证 learned retrieval / belief path 对在线链路的真实增益
+  3. 再扩大 `PersonaMem` 与 `LongMemEval-S` 的 benchmark 范围
+  4. 最后把默认配置、verifier 套件和方法说明收口成 `robust v2.1`
 
 ## 关键约束
 
@@ -101,4 +124,4 @@
 - `sentence-transformers` 依赖已经进入 `core_mem` 环境；stage-2 训练配置中的 Hugging Face cache 现已锁到 repo 内，但真正开始全量 `Flan-T5` 训练时仍会触发首次权重下载与较长训练时间
 - 在当前 `datasets` 版本下，测试过的多个常见脚本型 HF dataset IDs 会返回 “dataset scripts are no longer supported”；当前已通过直接下载官方/作者源并自行规范化绕过该问题，但后续若继续扩展数据集，仍应优先采用 raw-source + normalization 路线
 - 当前 `stage2_experiment_completion_score=13/13` 的历史证据对应 `configs/stage2_train_tiny.yaml` 在 `gpu3` 上的本地 train/eval/ablation matrix；本轮虽然已补上默认 `google/flan-t5-base` 的非 tiny train/eval artifact，但这仍只是最小正证据，不等于该默认 backbone 已 full train-complete
-- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 latent-core local intrinsic 指标已达 `10/10`；但 retained canary guard 仍基于既有 `PersonaMem 64` artifact，而本轮 fresh live canary 因 `GPT_AGENT_API_KEY` 缺失未能刷新
+- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 latent-core local intrinsic 指标已达 `10/10`；retained canary guard 现已对齐到 fresh PersonaMem completed artifact，而不是历史 blocked probe

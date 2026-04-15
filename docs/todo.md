@@ -2,11 +2,7 @@
 
 ## Doing
 
-- `TD-027` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
-  - 当前进度：`scripts/verify_stage2_v2_completion.py --score-only = 11/14`
-  - 已完成：`no-shortcut runner`、`GPU3 non-tiny flan-t5-base train artifact`、`checkpoint exists`、`trained_eval positive`
-  - 剩余缺口：fresh `PersonaMem 64`、`LongMemEval-S 64`、`LongMemEval-S` analysis
-  - 当前 blocker：本 managed run session 缺少 `GPT_AGENT_API_KEY`，fresh live canary 只能产生 `blocked_provider_not_configured` artifact
+- `TD-028` 把 `v2.1` 作为当前主线：提升真实质量、learned path 实际贡献、跨 benchmark 鲁棒性与系统化收口。
 
 ## Blocked
 
@@ -17,8 +13,9 @@
 
 - `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。
-- `TD-020` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
 - `TD-025` 在 `PersonaMem 64` canary 质量提升后，再扩大 stage-2 benchmark 范围与对比表。
+  - 说明：`TD-025` 现视为 `TD-028 / v2.1` 的子目标之一，而不再是独立的“完整 v2 之后随手做做”项。
+
 ## Done
 
 - `TD-001` 初始化项目文档系统与根契约文件。
@@ -40,17 +37,21 @@
 - `TD-022` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
 - `TD-023` 完成 stage-2 MiniMax memory canary 的 live provider 首次运行。
 - `TD-026` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
+- `TD-020` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
+- `TD-027` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
+- `TD-028` 把 `v2.1` 作为当前主线：提升真实质量、learned path 实际贡献、跨 benchmark 鲁棒性与系统化收口。
+  - 当前结果：`scripts/verify_stage2_v2_completion.py --score-only = 14/14`
+  - 关键证据：fresh `PersonaMem 64`、fresh `LongMemEval-S 64`、`latest_longmemeval_stage2_canary_analysis.json`、`no-shortcut runner`、`GPU3 non-tiny flan-t5-base train/eval`
 
 ## Notes
 
 - 真实 runtime 状态以 `.agent-os/todo.md` 为准。
 - 本文件用于面向人类的同步视图。
 - 第一阶段剩余未过项仍主要是正式 benchmark 两项，但当前不作为默认主动执行主线。
-- 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
+- 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- 当前最高优先级未完成点已经切换为 `TD-027`：把“强原型”推进到“更完整的 v2”，并禁止通过 benchmark-specific heuristic / fallback 冒充系统进步。
-- 当前 `TD-027` 已补齐 non-tiny 训练与 no-shortcut runner 两类里程碑；剩余部分需要在带 `GPT_AGENT_API_KEY` 的 live provider 环境中继续。
+- `TD-027` 已机械完成；当前最高优先级未完成点已经切换为 `TD-028`，即把“完整 v2”推进到“更强、更稳、更能扩的 robust v2.1”。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`
