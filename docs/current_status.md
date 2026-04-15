@@ -104,20 +104,61 @@
   - learned online gain artifact
   - 非 tiny `trained_eval.token_f1` 继续提升
   同时保留 `latent-core = 10/10` 与 `no-shortcut runner` 作为基础 guard。
-  当前 baseline 为 `4/15`；已通过的基础项是：
+  当前分数为 `14/15`；当前已经机械成立的项是：
   - 文档 / `.agent-os` 已切到 `v2.1`
   - `latent-core = 10/10`
   - `no-shortcut runner = true`
+  - fresh current-head `PersonaMem 64`
+  - fresh current-head `LongMemEval-S 64`
+  - current-head `PersonaMem 128`
+  - `PersonaMem 128 local_exact_rate >= 0.20`
+  - `LongMemEval-S` layered analysis artifact
+  - `LongMemEval-S provider_label_prefix_match >= 4`
+  - `LongMemEval-S local_exact_match >= 2`
+  - 非 tiny `trained_eval.token_f1 >= 0.08`
+- 第二阶段 `v2.1` 当前最新证据链：
+  - `scripts/run_stage2_memory_canary.py` 现已支持增量落盘与 `--run-dir --resume`，新鲜 live canary 不再是“一次性无进度长挂起”
+  - latest fresh current-head `PersonaMem 64` artifact 为 `outputs_v2/evals_benchmark/20260415T122009Z_stage2_memory_canary.json`
+  - latest fresh current-head `LongMemEval-S 64` artifact 为 `outputs_v2/evals_benchmark/20260415T134213Z_stage2_memory_canary.json`
+  - latest current-head `PersonaMem 128` artifact 为 `outputs_v2/evals_benchmark/20260415T135121Z_stage2_memory_canary.json`
+  - latest layered LongMemEval-S analysis artifact 为 `outputs_v2/artifacts/latest_longmemeval_stage2_layered_analysis.json`
+  - latest non-tiny train/eval artifact 为 `outputs_v2/runs/20260415T132046Z_stage2_train_exec/execution_summary.json` 与 `outputs_v2/evals_local/20260415T132109Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_learned_online_gain.json` 已形成正的 live-provider 对照：相对最早 `PersonaMem 64` live canary，retained current-head `PersonaMem 64` live canary 提升到 `delta_provider_exact_match = +23`、`delta_provider_label_prefix_match = +5`、`delta_local_exact_match = +16`
+  - `PersonaMem 128` 当前统计为：`provider_label_prefix_match = 39 / 128 = 30.47%`、`local_exact_match = 26 / 128 = 20.31%`
+  - `LongMemEval-S 64` 当前统计已跨过 verifier 阈值：`provider_exact_match = 5 / 64`、`provider_label_prefix_match = 5 / 64`、`local_exact_match = 3 / 64`
+  - latest non-tiny trained eval 当前统计为：`trained_eval.token_f1 = 0.14615651550268283`
+- 第二阶段 `v2.1` 历史 robustness 结论：上一轮 managed autoresearch 曾把 `stage2_v21_robustness_score` 推到 `14/15`。这条线为当前 repo 提供了更强的 canary、LongMemEval-S 提升和 non-tiny learned evidence，但它也暴露了 rule-heavy 路线的上界，因此不再作为当前主线终点。
+- 第二阶段主线再次切换：用户当前已明确要求“更注重 learning model、不要继续依赖 rule-based 路径、目标是提升整体框架智能程度和更好的 latent”。因此现阶段主线应切换为 **learned-memory-first / better latent**。
+- 第二阶段 learned-memory-first 灵感来源：当前 repo 已明确参考以下 related work：
+  - `End-To-End Memory Networks`
+  - `Memorizing Transformers`
+  - `RETRO`
+  - `LongMem`
+  - `Slot Attention`
+  相关笔记见 [docs/learned_memory_related_work.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/learned_memory_related_work.md)
+- 第二阶段新的机械目标：当前主指标切换为 `scripts/verify_stage2_v21_learned_memory.py` 对应的 `stage2_v21_learned_memory_score`。它重点检查：
+  - 主线文档和 `.agent-os` 是否切到 `TD-029 / WS-015`
+  - 是否形成了 related-work 驱动的 learned-memory-first 设计说明
+  - 是否保留了非 tiny learned evidence 与历史 learned online gain
+  - online system 是否开始支持 learned memory toggle / checkpoint-backed path
+  - training 是否开始支持 online-aligned learned variant
+  - 是否已出现 learned-mode current-head canary artifacts
+  当前 baseline 为 `8/12`；当前已经成立的基础项是：
+  - `TD-029 / WS-015` 文档与 `.agent-os` 已切换
+  - related work note 已落地
+  - `no-shortcut runner = true`
+  - 历史 learned online gain artifact 仍存在
+  - non-tiny `trained_eval.token_f1 >= 0.14`
 - 测试状态：当前完整 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py tests/test_stage2_parser.py` 通过（36 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
 - 当前最重要的下一步不再是“再补完整 v2 证据”，而是围绕 `v2.1` 做更强、更稳、更能扩的长跑：
-  1. 先做 `LongMemEval-S` 专项质量提升和分层 failure analysis
-  2. 再验证 learned retrieval / belief path 对在线链路的真实增益
-  3. 再扩大 `PersonaMem` 与 `LongMemEval-S` 的 benchmark 范围
-  4. 最后把默认配置、verifier 套件和方法说明收口成 `robust v2.1`
+  1. 先把主线切到 learned-memory-first / better latent
+  2. 再让 online system 支持 checkpoint-backed learned memory path
+  3. 再让训练目标直接服务 online `memory -> belief -> answer`
+  4. 最后用 learned-mode canary 证明收益不是 rule/prompt tricks 带来的
 
 ## 关键约束
 

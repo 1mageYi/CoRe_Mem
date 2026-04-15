@@ -2,11 +2,11 @@
 
 ## Doing
 
-- `TD-028` `[doing]` 把 `v2.1` 作为当前主线：提升真实质量、learned path 实际贡献、跨 benchmark 鲁棒性与系统化收口。
-  - Reason: `TD-027` 已把“完整 v2”的证据链补齐，但这还不能回答“系统是否已经足够强、足够稳、足够能扩”。当前更值得做的是把质量、鲁棒性和可解释性变成新的主目标。
-  - Evidence target: 至少形成更大范围 `PersonaMem` 稳定结果、`LongMemEval-S` 专项质量提升、learned 子模块在线增益证据，以及新的 `v2.1` verifier / 默认运行配方。
-  - Mechanical target: `scripts/verify_stage2_v21_robustness.py --score-only`
-  - Current baseline: `4/15`
+- `TD-029` `[doing]` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
+  - Reason: 用户已明确要求减少 rule-based 路径，把重点转到 learned model、本体智能和更好的 latent；当前 `TD-028` 虽然把 historical best 推到 `14/15`，但其剩余收益与失败边界已经说明 rule-heavy 路径不是最终目标。
+  - Evidence target: 至少形成 related-work 驱动的 learned-memory design note、online learned memory toggle、checkpoint-backed learned memory path、online-aligned learned variant，以及 learned-mode current-head canary artifacts。
+  - Mechanical target: `scripts/verify_stage2_v21_learned_memory.py --score-only`
+  - Current baseline: `8/12`
 
 ## Backlog
 

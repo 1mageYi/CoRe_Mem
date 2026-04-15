@@ -1,5 +1,54 @@
 # Run Log
 
+## 2026-04-15 Session 022
+
+- Worked on: 停止旧的 robustness 长跑，并把 stage-2 主线 pivot 到 learned-memory-first / better latent
+- State changed:
+  - 按用户确认停止了当前 background autoresearch run
+  - 回滚了未保留的 in-progress experiment commit `3bf640d`，避免把旧 run 的失败线带入新主线
+  - 将 `TD-028 / WS-014` 的 `14/15` 保留为 historical best，而不再作为当前主线终点
+  - 新增 `docs/learned_memory_related_work.md`
+  - 将当前 next action / active workstream 切换到 `TD-029 / WS-015`
+  - 新主线明确要求：减少 rule-heavy write/read，优先推进 checkpoint-backed learned memory path、online-aligned learned variant 和 learned-mode canaries
+- Evidence / artifacts:
+  - `docs/learned_memory_related_work.md`
+  - `scripts/verify_stage2_v21_learned_memory.py`
+  - `tests/test_stage2_v21_learned_memory.py`
+- Next likely action:
+  - 以 `stage2_v21_learned_memory_score` 为主指标启动新的 managed autoresearch 长跑
+
+## 2026-04-15 Session 021
+
+- Worked on: managed autoresearch 长跑下推进 `v2.1` robustness，从 fresh init 提升到 `14/15`
+- State changed:
+  - 先对齐 `docs/implementation_plan.md` 与 `v2.1` verifier 的机械短语要求，把 baseline 从 `4/15` 推到 `5/15`
+  - 将 `scripts/run_stage2_memory_canary.py` 升级为增量落盘 + `--run-dir --resume` 的可续跑 runner，并用当前 HEAD 刷新 fresh `PersonaMem 64` 与 `LongMemEval-S 64` live canaries
+  - 新增 `scripts/analyze_stage2_memory_canary_failures.py` 的 layered artifact 输出，已生成 `outputs_v2/artifacts/latest_longmemeval_stage2_layered_analysis.json`
+  - 通过 `scripts/run_stage2_canary.py --personamem-size 128` 生成新的 `128`-sized canary manifest，并完成 current-head `PersonaMem 128` live canary
+  - 在 `GPU3` 上追加一条更强的默认 `configs/stage2_train.yaml` 非 tiny train/eval 证据链：`outputs_v2/runs/20260415T132046Z_stage2_train_exec/execution_summary.json` 与 `outputs_v2/evals_local/20260415T132109Z_stage2_local_eval.json`
+  - 补写 `outputs_v2/artifacts/latest_stage2_learned_online_gain.json` 后，分数先升到 `12/15`
+  - 新 trial commit `8cc598da58241aa03b6245198659b6ab110a506e` 通过 parser/retrieval cue 调整，把 fresh current-head `LongMemEval-S 64` 提升到 `provider_exact = 5 / 64`、`provider_label_prefix = 5 / 64`、`local_exact = 3 / 64`
+  - 同一 HEAD 下重刷 current-head `PersonaMem 128` 后，`local_exact_rate` 仍保持通过，但 `provider_label_prefix_rate` 降到 `39 / 128 = 30.47%`
+  - 当前 `scripts/verify_stage2_v21_robustness.py --score-only = 14`，只剩 `PersonaMem 128 provider_prefix_rate >= 0.40` 一项未过
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260415T122009Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T123316Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T124345Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_layered_analysis.json`
+  - `outputs_v2/evals_benchmark/20260415T124337Z_personamem_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_learned_online_gain.json`
+  - `outputs_v2/evals_benchmark/20260415T134213Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T135121Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260415T132046Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260415T132109Z_stage2_local_eval.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_robustness.py --score-only` -> `14`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_robustness.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 继续围绕 `TD-028` 只攻最后一个缺口：把 `PersonaMem 128 provider_label_prefix_rate` 从 `30.47%` 推到 `>= 40%`
+
 ## 2026-04-15 Session 020
 
 - Worked on: 将项目主线从“完整 v2 已成立”切换到“robust v2.1”

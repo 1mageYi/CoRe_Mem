@@ -320,7 +320,57 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
-7. 当前阶段 L 已完成，因此现阶段默认主线切换为阶段 M：以 `LongMemEval-S` 质量提升、learned path 在线增益验证和更大范围 benchmark 为优先顺序推进 `v2.1`
+7. 当前阶段 L 已完成，阶段 M 已给出历史 robustness best；现阶段默认主线切换到阶段 N：以 learned-memory-first / better latent 为锚点推进 `v2.1`
+
+### 阶段 N：V2.1 Learned-Memory-First Pivot
+
+- 目标：把 stage-2 主线从 “继续强化 rule-heavy robustness” 切到 “用更 learned 的 memory write/read 与更强 latent memory 提升系统智能程度”
+- Status: doing
+- Notes:
+  - 用户已明确要求当前主线更强调 learned model、本体智能和 better latent，而不是继续强化 rule-based reader/writer
+  - 当前 pivot 受以下 related work 启发：
+    - `End-To-End Memory Networks`
+    - `Memorizing Transformers`
+    - `RETRO`
+    - `LongMem`
+    - `Slot Attention`
+  - 当前 repo 内 related-work 笔记见 `docs/learned_memory_related_work.md`
+
+#### 阶段 N-A：主线切换与约束更新
+
+- 将 `TD-029 / WS-015` 设为当前 next action / active workstream
+- 将 “更 learned 的 memory / 更好的 latent” 写入 `docs/*` 与 `.agent-os/*`
+- 禁止继续把 parser / selector / prompt 层局部规则小修当成主收益来源
+
+#### 阶段 N-B：Online Learned Memory Path
+
+- 为 `StructuredMemorySystem` 增加 checkpoint-backed learned memory path
+- 支持 online 切换 `memory_mode = learned`
+- 让 canary runner 能显式记录 learned-mode artifacts
+- 里程碑：
+  - online system 支持 learned memory toggle
+  - online system 可加载 learned memory components
+  - current-head `PersonaMem` / `LongMemEval-S` learned-mode canary artifacts 落地
+
+#### 阶段 N-C：Training To Online Alignment
+
+- 避免继续把“复述 JSON”作为唯一训练目标
+- 新增更直接服务 online path 的训练目标，例如：
+  - learned retrieval / rerank
+  - belief selection / composition
+  - memory write / update supervision
+- 里程碑：
+  - training config / variant 能表达 online-aligned learned path
+  - 新 learned variant 能产出可被 online system 消费的 artifact
+
+#### 阶段 N-D：Learned-Mode Evidence
+
+- 用 learned-mode canary 验证 online gain
+- 保证收益不是 benchmark-specific shortcut / fallback 带来的
+- 里程碑：
+  - learned-mode `PersonaMem` current-head canary 落地
+  - learned-mode `LongMemEval-S` current-head canary 落地
+  - 至少一条 learned-mode artifact 能解释 online gain
 
 ## 当前不做
 
