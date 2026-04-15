@@ -57,6 +57,31 @@ _QUERY_STOPWORDS = {
     "who",
     "with",
 }
+_RECOMMENDATION_HINTS = {
+    "creatively",
+    "exploring",
+    "idea",
+    "ideas",
+    "recommend",
+    "recommendation",
+    "suggest",
+}
+_REASON_HINTS = {
+    "anymore",
+    "because",
+    "burden",
+    "decided",
+    "less",
+    "longer",
+    "pressure",
+    "reason",
+    "reasons",
+    "stopped",
+    "why",
+}
+_CURRENT_HINTS = {"current", "currently", "lately", "now", "recent", "recently", "these", "today"}
+_TEMPORAL_HINTS = {"after", "before", "change", "changed", "evolution", "past", "used"}
+_SOCIAL_HINTS = {"friend", "friends", "partner", "relationship", "social"}
 
 
 @dataclass
@@ -153,9 +178,10 @@ class StructuredMemorySystem:
     def query(self, query_id: str, query_text: str) -> QueryResult:
         query_vector = self.query_encoder.encode(query_text)
         query_terms = self._query_terms(query_text)
+        role_weights = self._query_role_weights(query_text, query_terms)
         ranked = sorted(
             self.state.active_slots(),
-            key=lambda slot: self._ranking_score(query_vector, query_terms, slot),
+            key=lambda slot: self._ranking_score(query_vector, query_terms, role_weights, slot),
             reverse=True,
         )
         selected = ranked[: self.top_k]
@@ -197,12 +223,98 @@ class StructuredMemorySystem:
             if len(token) >= 3
         }
 
-    def _ranking_score(self, query_vector: list[float], query_terms: set[str], slot: SlotRecord) -> float:
+    @staticmethod
+    def _query_role_weights(query_text: str, query_terms: set[str]) -> dict[str, float]:
+        lowered = query_text.lower()
+        weights = {
+            "preference": 0.0,
+            "constraint": 0.0,
+            "goal": 0.0,
+            "temporal": 0.0,
+            "social": 0.0,
+            "stable": 0.0,
+            "generic_penalty": 0.0,
+        }
+        if query_terms & _RECOMMENDATION_HINTS or "what would you suggest" in lowered:
+            weights["preference"] += 0.75
+            weights["goal"] += 0.45
+            weights["stable"] += 0.15
+            weights["generic_penalty"] += 0.25
+        if query_terms & _REASON_HINTS or "don't enjoy" in lowered or "do not enjoy" in lowered or "no longer" in lowered:
+            weights["constraint"] += 0.8
+            weights["temporal"] += 0.25
+            weights["stable"] += 0.15
+            weights["generic_penalty"] += 0.25
+        if query_terms & _CURRENT_HINTS:
+            weights["stable"] += 0.35
+            weights["temporal"] += 0.1
+        if query_terms & _TEMPORAL_HINTS:
+            weights["temporal"] += 0.55
+        if query_terms & _SOCIAL_HINTS:
+            weights["social"] += 0.75
+        if {"fact", "facts", "mentioned", "shared"} & query_terms:
+            weights["stable"] += 0.2
+            weights["generic_penalty"] += 0.1
+        return weights
+
+    @staticmethod
+    def _role_bonus(role_weights: dict[str, float], slot: SlotRecord) -> float:
+        scores = slot.soft_role_scores
+        return (
+            (role_weights["preference"] * scores.preference)
+            + (role_weights["constraint"] * scores.constraint)
+            + (role_weights["goal"] * scores.goal)
+            + (role_weights["temporal"] * scores.temporal)
+            + (role_weights["social"] * scores.social)
+            + (role_weights["stable"] * scores.stable)
+        ) * 0.45
+
+    @staticmethod
+    def _generic_penalty(role_weights: dict[str, float], slot: SlotRecord, lexical_overlap: float) -> float:
+        if lexical_overlap > 0.0:
+            return 0.0
+        penalty = 0.0
+        if slot.relation == "other_fact":
+            penalty += 0.35 + role_weights["generic_penalty"]
+        elif slot.relation == "hobby" and role_weights["constraint"] > 0.0:
+            penalty += 0.15
+        return penalty
+
+    @staticmethod
+    def _relation_specificity_bonus(slot: SlotRecord, lexical_overlap: float) -> float:
+        if slot.relation == "other_fact":
+            return -0.05 if lexical_overlap == 0.0 else 0.0
+        return 0.12 if lexical_overlap > 0.0 else 0.03
+
+    @staticmethod
+    def _reason_alignment_adjustment(role_weights: dict[str, float], slot: SlotRecord) -> float:
+        if role_weights["constraint"] <= 0.0:
+            return 0.0
+        return (slot.soft_role_scores.constraint * 0.55) - (slot.soft_role_scores.preference * 0.35)
+
+    def _ranking_score(
+        self,
+        query_vector: list[float],
+        query_terms: set[str],
+        role_weights: dict[str, float],
+        slot: SlotRecord,
+    ) -> float:
         semantic = dot_product(query_vector, slot.retrieval_key)
         if not query_terms:
-            return semantic
+            return semantic + self._role_bonus(role_weights, slot)
         slot_terms = self._slot_terms(slot)
         if not slot_terms:
-            return semantic
+            return semantic + self._role_bonus(role_weights, slot)
         lexical_overlap = len(query_terms & slot_terms) / len(query_terms)
-        return semantic + (1.5 * lexical_overlap)
+        current_bonus = 0.15 if role_weights["stable"] > 0.0 and slot.active_flag else 0.0
+        confidence_bonus = slot.confidence * 0.08
+        return (
+            semantic
+            + (1.5 * lexical_overlap)
+            + self._role_bonus(role_weights, slot)
+            + self._reason_alignment_adjustment(role_weights, slot)
+            + self._relation_specificity_bonus(slot, lexical_overlap)
+            + current_bonus
+            + confidence_bonus
+            - self._generic_penalty(role_weights, slot, lexical_overlap)
+        )
