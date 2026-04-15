@@ -3,9 +3,9 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-022`
-- Active workstreams: `WS-009`
-- Active blockers: `BL-004`, `BL-005`
+- Top next action: `TD-024`
+- Active workstreams: `WS-011`
+- Active blockers: `BL-004`, `BL-006`
 
 ## Objective Summary
 
@@ -17,18 +17,19 @@
 
 - `WS-007` `[done]`: Stage-2 `V2.0` 主线模型骨架与直训链路已推进到可直接训练
 - `WS-008` `[done]`: Stage-2 数据、parser 与训练管线首批骨架
-- `WS-009` `[doing]`: Stage-2 memory-mediated benchmark canary runner 已接入，并已产出一条 PersonaMem canary artifact；当前差 live MiniMax 调用条件
+- `WS-009` `[done]`: Stage-2 memory-mediated benchmark canary runner 已接入，并已完成 PersonaMem live MiniMax 调用
 - `WS-010` `[done]`: Stage-2 latent memory 主链路已从 deterministic skeleton 升级为真正消费 composed latent 的实现路径
+- `WS-011` `[doing]`: Stage-2 已进入 live canary 质量提升阶段；当前主线是对 PersonaMem 64 做 failure analysis，并迭代修复 online memory / belief / answer 链路
 
 ## Top Next Action
 
-- `TD-022` `[doing]`: 继续把 stage-2 memory-mediated benchmark canary 从“已接线 + 已产出 blocked artifact”推进到 live MiniMax-M2.7 调用。
-  - Needed: `scripts/run_stage2_memory_canary.py` 与 `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 已证明 runner、memory-mediated prompt、config snapshot 与 benchmark artifact traceability 都已接上；当前仅缺 `GPT_AGENT_API_KEY` 才能把 blocked artifact 变成 live provider result
+- `TD-024` `[doing]`: 基于 `PersonaMem 64` live stage-2 canary 做 failure analysis，并提升 online memory / belief / answer 质量。
+  - Needed: 当前 `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 已证明 live canary 可运行，但 `provider exact match = 1/64`、`label-prefix match = 19/64`、`local exact match = 0/64`；下一步要把错误归因从“链路是否存在”推进到“哪一层质量不足”
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
-- `BL-005`: 当前 `configs/minimax_m27.yaml` 对应的 `GPT_AGENT_API_KEY` 在本 session 中缺失，因此 `scripts/run_stage2_memory_canary.py` 只能诚实产出 `blocked_provider_not_configured` 的 canary artifact，而不能完成 live MiniMax-M2.7 推理。
+- `BL-006`: 当前 stage-2 live canary 的真正 blocker 已转为质量不足，而不是 provider 缺失。`PersonaMem 64` 虽已完成 `64/64` live MiniMax-M2.7 调用，但 `provider exact match = 1/64`、`local exact match = 0/64`，说明 parser/retrieval/belief/projection 至少有一层存在系统性误差。
 
 ## Recent Important Changes
 
@@ -52,6 +53,8 @@
 - 2026-04-14: 新增 `src/core_mem/v2/experiments.py`，并将 `scripts/train_stage2.py` / `scripts/eval_stage2_local.py` 扩展为支持 preset ablation variants、experiment registry 自动登记与 checkpoint-aware local eval；`outputs_v2/artifacts/stage2_experiment_index.json` 当前已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13/13`，对应 `research-results.tsv` / `autoresearch-state.json` 已记录完整 background run 轨迹。当前证据对应的是 `gpu3 + configs/stage2_train_tiny.yaml` 的本地 train/eval 完成态，而非默认 `flan-t5-base` 的非 tiny 全量 run。
 - 2026-04-14: `src/core_mem/v2/encoder.py` / `resampler.py` / `decoder.py` / `system.py` 已从 hash/mean skeleton 升级为带可训练参数的 lexical projection + cross-attention composition + latent-conditioned belief decoding 主链；`scripts/verify_stage2_latent_status.py --score-only` 已从 `2` 提升到 `7`，并经 stage-2 guard 复验通过。
 - 2026-04-14: 新增 `scripts/run_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary.py`，并更新 `configs/minimax_m27.yaml` 到 stage-2 输出语义；`outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 已记录一条 PersonaMem memory-mediated canary artifact，状态为 `blocked_provider_not_configured`；当前 `stage2_latent_readiness_score=9/9`。
+- 2026-04-14: `MiniMax-M2.7` live stage-2 canary 已完成：`outputs_v2/evals_benchmark/20260414T231441Z_stage2_memory_canary.json` 为 1-sample live 成功样本，`outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 为 `PersonaMem 64` live canary；当前真实问题已从“缺 provider key”切换为“quality too low for benchmark scaling”。
+- 2026-04-14: 新增 `scripts/analyze_stage2_memory_canary_failures.py` 与 `scripts/verify_stage2_memory_canary_quality.py`，当前 `PersonaMem 64` live canary 的质量基线已被机械化为 `4/10`，并已写入 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。
 
 ## Read Next
 

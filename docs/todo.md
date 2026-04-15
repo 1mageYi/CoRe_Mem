@@ -2,19 +2,19 @@
 
 ## Doing
 
-- `TD-022` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置：runner 与 blocked artifact 已落地，当前差 live MiniMax-M2.7 key。
+- `TD-024` 对 `PersonaMem 64` live stage-2 canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路。
 
 ## Blocked
 
 - `TD-012` 补齐 stage-1 外部前置条件：当前 formal benchmark 继续受 provider `HTTP 429` 阻断，且在用户明确要求前不主动继续推进。
 - `TD-013` 将 PersonaMem / LongMemEval-S 从 1-sample real run 推进到正式全量 protocol 运行：当前作为 pending baseline / acceptance 项保留，直到用户要求 AI 去跑。
-- `TD-023` 解除 stage-2 MiniMax memory canary 的 live provider 缺口：当前 `GPT_AGENT_API_KEY` 缺失，artifact 只能记录为 `blocked_provider_not_configured`。
 
 ## Backlog
 
 - `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。
 - `TD-020` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
+- `TD-025` 在 `PersonaMem 64` canary 质量提升后，再扩大 stage-2 benchmark 范围与对比表。
 ## Done
 
 - `TD-001` 初始化项目文档系统与根契约文件。
@@ -33,6 +33,8 @@
 - `TD-019` 获取并接入第二阶段真实公开数据源文件。
 - `TD-017` 建立第二阶段本地 intrinsic evaluation 管线、budget sweep 与 experiment registry，并在 `gpu3` 上完成 `mainline + 11` 个必做 ablation 的 tiny-backend 本地 train/eval 登记。
 - `TD-021` 把第二阶段真正的 latent memory 主链路做实。
+- `TD-022` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
+- `TD-023` 完成 stage-2 MiniMax memory canary 的 live provider 首次运行。
 
 ## Notes
 
@@ -41,8 +43,8 @@
 - 第一阶段剩余未过项仍主要是正式 benchmark 两项，但当前不作为默认主动执行主线。
 - 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
-- 当前最大的未完成点已经从“latent path 还不是真实主链”切换为“MiniMax-M2.7 live canary key 缺失，以及是否继续补默认 `flan-t5-base` 非 tiny run”。
-- 当前最高优先级未完成点是：在 provider key 可用时，把已接好的 memory-mediated canary runner 推进到 live MiniMax-M2.7 artifact。
+- 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
+- 当前最高优先级未完成点是：基于 `PersonaMem 64` live canary 做 failure analysis，并修复 online memory / belief / answer 主链。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

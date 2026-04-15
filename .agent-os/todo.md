@@ -2,9 +2,9 @@
 
 ## Doing
 
-- `TD-022` `[doing]` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
-  - Reason: `scripts/run_stage2_memory_canary.py` 已落地，且 `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 已证明 memory-mediated canary artifact、config snapshot 与 traceability 成立；当前仅剩 live MiniMax-M2.7 调用条件未满足。
-  - Evidence target: 至少一条 live MiniMax-M2.7 的 PersonaMem 或 LongMemEval-S stage-2 canary 运行结果。
+- `TD-024` `[doing]` 对 `PersonaMem 64` live stage-2 canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路。
+  - Reason: 当前 `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 已证明 live canary 可以完整跑通，但 `provider exact match = 1/64`、`label-prefix match = 19/64`、`local exact match = 0/64`，不能直接扩大 benchmark。
+  - Evidence target: 形成可追溯的 canary failure analysis artifact，并把 `PersonaMem 64` 的 live canary 指标从当前基线显著抬高。
 
 ## Backlog
 
@@ -19,6 +19,10 @@
   - Reason: 当前 `stage2_experiment_completion_score=13/13` 的证据是 `configs/stage2_train_tiny.yaml` 本地运行矩阵；默认 backbone 的非 tiny 全量 run 仍未验证。
   - Evidence target: 至少一条默认 `configs/stage2_train.yaml` 的可追溯 train/eval artifact。
 
+- `TD-025` `[backlog]` 在 `PersonaMem 64` canary 质量提升后，扩大 stage-2 benchmark 范围与结果对比。
+  - Reason: 当前更缺的是质量，而不是更多规模；只有当 live canary 已显著好于当前基线时，扩大 benchmark 才有解释价值。
+  - Evidence target: 更大样本或第二 benchmark 的 stage-2 live canary 结果与对比表。
+
 ## Blocked
 
 - `TD-012` `[blocked]` 补齐 stage-1 外部前置条件。
@@ -29,10 +33,6 @@
   - Reason: 当前只能证明最小链路打通，尚不足以满足 AC-002 / AC-003 的正式运行要求；同时该项被用户触发条件与 provider blocker 双重约束。
   - Evidence target: PersonaMem 与 LongMemEval-S 在正式范围内完成可重复结果运行。
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
-
-- `TD-023` `[blocked]` 解除 stage-2 MiniMax memory canary 的 live provider 缺口。
-  - Reason: 当前 `configs/minimax_m27.yaml` 指向的 `GPT_AGENT_API_KEY` 在本 session 中缺失，runner 只能产出 `blocked_provider_not_configured` artifact。
-  - Evidence target: `scripts/run_stage2_memory_canary.py` 至少完成一条 live MiniMax-M2.7 inference row。
 
 ## Done
 
@@ -63,6 +63,14 @@
   - Reason: query/slot encoder 已不再是 hash-only，resampler 已不再是 mean-only，decoder 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链。
   - Evidence target: `scripts/verify_stage2_latent_status.py --score-only = 9` 中与 latent path 对应的 7 个实现检查全部通过。
 
+- `TD-022` `[done]` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
+  - Reason: `scripts/run_stage2_memory_canary.py` 已落地，且 canary artifact/config snapshot/traceability 已成立。
+  - Evidence target: `run_stage2_memory_canary.py` 可生成 stage-2 benchmark canary run 与 summary artifact。
+
+- `TD-023` `[done]` 完成 stage-2 MiniMax memory canary 的 live provider 首次运行。
+  - Reason: `MiniMax-M2.7` 已完成 1-sample live canary 和 `PersonaMem 64` live canary。
+  - Evidence target: 至少一条 live MiniMax-M2.7 的 stage-2 canary 运行结果。
+
 ## Verified
 
 - `TD-003` `[verified]` 目录结构、配置加载、输出规范、run metadata 写入与 benchmark dry-run 可运行。
@@ -84,6 +92,14 @@
 - `TD-021` `[verified]` 第二阶段 latent memory 主链路已满足当前机械 readiness 目标。
   - Reason: `stage2_latent_readiness_score` 已从 `2/9` 提升到 `9/9`，且 stage-2 guard 与新增 canary test 均已通过。
   - Evidence target: `research-results.tsv` iteration `1`、`outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json`、`scripts/verify_stage2_latent_status.py --score-only = 9`。
+
+- `TD-022` `[verified]` Stage-2 memory-mediated benchmark canary runner 已接上 benchmark path。
+  - Reason: blocked artifact、1-sample live artifact 与 64-sample live artifact 已依次落地。
+  - Evidence target: `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json`、`outputs_v2/evals_benchmark/20260414T231441Z_stage2_memory_canary.json`、`outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json`。
+
+- `TD-023` `[verified]` Stage-2 MiniMax memory canary 的 live provider 路径已被真实执行。
+  - Reason: `PersonaMem 64` live canary 已完成 `64/64` provider 调用。
+  - Evidence target: `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 与对应 `predictions.jsonl`。
 
 ## Abandoned
 

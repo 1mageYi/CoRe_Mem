@@ -177,8 +177,8 @@
 - Status: doing
 - Notes:
   - canary manifest 生成器已经落地，并已固定产出 PersonaMem 64 / LongMemEval-S 64 manifests
-  - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并在 `outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 产出一条 PersonaMem artifact
-  - 当前未完成点是 `GPT_AGENT_API_KEY` 缺失，导致该 artifact 只能诚实记录为 `blocked_provider_not_configured`，尚非 live MiniMax-M2.7 result
+  - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并已在 `MiniMax-M2.7` 上完成 1-sample 与 PersonaMem 64 的 live canary
+  - 当前真正未完成点已经从“provider key / runner 是否可用”切换为“live canary 质量是否足够支撑 benchmark scaling”；下一步优先级应是 failure analysis + online path 提效
 
 ## 第二阶段默认技术路线
 
@@ -222,8 +222,8 @@
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
-4. 在 latent path 已成立的前提下，先补 live MiniMax-M2.7 stage-2 memory canary 条件
-5. 再补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，最后视用户要求继续扩大 benchmark
+4. 在 latent path 已成立且 live canary 已跑通的前提下，先对 PersonaMem 64 做 failure analysis 并提升 online memory / belief / answer 质量
+5. 在 canary 质量显著改善后，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
 
 ## 当前不做
 
