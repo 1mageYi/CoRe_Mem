@@ -12,7 +12,7 @@ _MULTI_SLOT_RELATIONS = {
     "food_preference",
     "music_preference",
     "hobby",
-    "other_fact",
+    "episodic_event",
 }
 
 
@@ -29,7 +29,11 @@ class ConsolidationManager:
         next_core = list(core_slots)
         next_residual: list[SlotRecord] = []
         for slot in residual_slots:
-            should_promote = slot.active_flag and (decision.promote or slot.soft_role_scores.stable >= self.stable_threshold)
+            should_promote = (
+                slot.active_flag
+                and slot.relation != "other_fact"
+                and (decision.promote or slot.soft_role_scores.stable >= self.stable_threshold)
+            )
             if should_promote:
                 if slot.relation not in _MULTI_SLOT_RELATIONS:
                     next_core = [existing for existing in next_core if not (existing.active_flag and existing.relation == slot.relation)]

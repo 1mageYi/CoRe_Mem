@@ -11,7 +11,7 @@ _FACET_RELATIONS = {
     "food_preference",
     "music_preference",
     "hobby",
-    "other_fact",
+    "episodic_event",
 }
 
 
