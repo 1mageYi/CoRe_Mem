@@ -67,6 +67,48 @@ def _code_contains_any(root: Path, paths: list[str], patterns: list[str]) -> boo
     return False
 
 
+def _current_status_tracks_learned_memory(current_status: Path) -> bool:
+    return _contains_all(
+        current_status,
+        [
+            "更好的 latent",
+        ],
+    ) and _contains_any(
+        current_status,
+        [
+            "learned-memory-first",
+            "stage2_v21_learned_memory_score",
+            "`TD-029` 的 learned-memory-first plumbing 已完成",
+        ],
+    )
+
+
+def _agentos_tracks_learned_memory(project_index: Path, todo: Path) -> bool:
+    legacy_active = _contains_all(
+        project_index,
+        [
+            "Top next action: `TD-029`",
+            "Active workstreams: `WS-015`",
+        ],
+    ) and _contains_any(todo, ["`TD-029` `[doing]`"])
+    longrun_with_completed_prereq = _contains_all(
+        project_index,
+        [
+            "Top next action: `TD-030`",
+            "Active workstreams: `WS-016`",
+            "`WS-015` `[done]`",
+        ],
+    ) and _contains_any(
+        todo,
+        [
+            "`TD-029` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。",
+            "`TD-029` `[done]`",
+            "`TD-030` `[doing]`",
+        ],
+    )
+    return legacy_active or longrun_with_completed_prereq
+
+
 def compute_learned_memory_score(root: Path) -> dict[str, Any]:
     current_status = root / "docs" / "current_status.md"
     implementation_plan = root / "docs" / "implementation_plan.md"
@@ -76,14 +118,7 @@ def compute_learned_memory_score(root: Path) -> dict[str, Any]:
     learned_gain = root / "outputs_v2" / "artifacts" / "latest_stage2_learned_online_gain.json"
 
     checks = {
-        "current_status_tracks_learned_memory_first": _contains_all(
-            current_status,
-            [
-                "learned-memory-first",
-                "更好的 latent",
-                "stage2_v21_learned_memory_score",
-            ],
-        ),
+        "current_status_tracks_learned_memory_first": _current_status_tracks_learned_memory(current_status),
         "implementation_plan_tracks_stage_n": _contains_all(
             implementation_plan,
             [
@@ -92,13 +127,7 @@ def compute_learned_memory_score(root: Path) -> dict[str, Any]:
                 "online-aligned learned path",
             ],
         ),
-        "agentos_tracks_td029_ws015": _contains_all(
-            project_index,
-            [
-                "Top next action: `TD-029`",
-                "Active workstreams: `WS-015`",
-            ],
-        ) and _contains_any(todo, ["`TD-029` `[doing]`"]),
+        "agentos_tracks_td029_ws015": _agentos_tracks_learned_memory(project_index, todo),
         "related_work_note_exists": _artifact_exists(related_work),
         "related_work_mentions_primary_inspirations": _contains_all(
             related_work,
