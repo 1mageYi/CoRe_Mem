@@ -13,7 +13,6 @@ _MULTI_SLOT_RELATIONS = {
     "music_preference",
     "hobby",
     "other_fact",
-    "episodic_event",
 }
 
 

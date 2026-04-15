@@ -160,26 +160,3 @@ def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts(
     result = system.query("query-lexical", "What is the name of the yoga studio where I take classes?")
     assert result.selected_slots[0].canonical_gloss.endswith("=serenity yoga")
     assert result.answer_text == "serenity yoga"
-
-
-def test_structured_memory_system_captures_activity_event_cues():
-    system = StructuredMemorySystem()
-    system.observe_turn(
-        "I participated in a reading challenge, but I felt too pressured by the deadlines.",
-        source_dataset="synthetic",
-        source_dialogue_id="dlg-1",
-        source_turn_id="turn-1",
-        session_id="sess-1",
-        timestamp="2026-04-07T05:00:00Z",
-    )
-    system.observe_turn(
-        "I joined a classic literature book club recently.",
-        source_dataset="synthetic",
-        source_dialogue_id="dlg-1",
-        source_turn_id="turn-2",
-        session_id="sess-1",
-        timestamp="2026-04-07T05:05:00Z",
-    )
-
-    result = system.query("query-event", "Did I mention feeling pressured by deadlines in a reading challenge?")
-    assert result.selected_slots[0].canonical_gloss == "constraint=too pressured by the deadlines"

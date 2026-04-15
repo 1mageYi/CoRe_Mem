@@ -41,24 +41,6 @@ def _strip_role_prefix(text: str) -> str:
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
-    if any(token in lowered_text or token in lowered_value for token in ("pressured", "overwhelmed", "exhausted", "drained", "stress")):
-        return "constraint", "constraint"
-    if any(
-        phrase in lowered_text
-        for phrase in (
-            "joined ",
-            "participated in ",
-            "signed up for ",
-            "reading challenge",
-            "reading marathon",
-            "book club",
-            "hiking date",
-            "cooking class",
-            "workshop",
-            "live stream shopping event",
-        )
-    ):
-        return "episodic_event", "event"
     if "graduated with" in lowered_text or "degree" in lowered_text:
         return "education_degree", "occupation"
     if "commute" in lowered_text and "takes" in lowered_text:
@@ -198,13 +180,6 @@ class Stage2ObservationParser:
         cleaned = _strip_role_prefix(clause).strip()
         lowered = cleaned.lower()
         special_patterns = [
-            (r"\bi felt\s+(?P<value>[^,.!?]+)", "negative", 0.74),
-            (r"\bit felt\s+(?P<value>[^,.!?]+)", "negative", 0.72),
-            (r"\bi (?:joined|participated in|signed up for|became actively involved in)\s+(?P<value>[^,.!?]+)", "neutral", 0.78),
-            (r"\bi (?:opted out of|stepped back from|took a break from|decided to take a break from)\s+(?P<value>[^,.!?]+)", "neutral", 0.78),
-            (r"\bi went on\s+(?P<value>[^,.!?]+)", "neutral", 0.76),
-            (r"\bi tried\s+(?P<value>[^,.!?]+)", "neutral", 0.74),
-            (r"\bi (?:hosted|conducted|formed|created|curated)\s+(?P<value>[^,.!?]+)", "neutral", 0.72),
             (r"\bi graduated with(?: a degree in)?\s+(?P<value>[^,.!?]+)", "neutral", 0.84),
             (r"\b(?:my |the )?daily commute(?: to work)?(?:, which)? takes\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
             (r"\bthe play i attended was(?: actually)?(?: a production of)?\s+(?P<value>[^,.!?]+)", "neutral", 0.82),
