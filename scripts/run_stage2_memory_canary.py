@@ -308,13 +308,13 @@ def _personamem_answer_instruction(options: list[str]) -> str:
 
 def _render_personamem_query_type_hint(question: PersonaMemQuestion) -> str:
     mapping = {
-        "recall_user_shared_facts": "Identify the single user fact that best matches the query. Prefer a literal restatement of what the user shared over broader interpretation.",
-        "recalling_facts_mentioned_by_the_user": "Focus on facts directly stated by the user. Reject options that add new implications, recommendations, or reversals.",
-        "recalling_the_reasons_behind_previous_updates": "Recover the user's stated reason for a change. Prefer the explanation or motivation, not just the final updated preference.",
-        "provide_preference_aligned_recommendations": "Choose the recommendation most aligned with the user's active preferences and goals. Reject options that contradict the active preference.",
-        "suggest_new_ideas": "Choose the new idea that best extends the user's interests without contradicting active beliefs. Prefer adjacent exploration, not repetition of the same preference.",
-        "track_full_preference_evolution": "Prefer the option that preserves the temporal order of how the user's preference changed from earlier to later.",
-        "generalizing_to_new_scenarios": "Choose the option that best generalizes the active preference to the new scenario while staying in the same domain.",
+        "recall_user_shared_facts": "Identify the single user fact that best matches the query.",
+        "recalling_facts_mentioned_by_the_user": "Focus on facts directly stated by the user.",
+        "recalling_the_reasons_behind_previous_updates": "Use belief items to recover the user's stated reason for the update.",
+        "provide_preference_aligned_recommendations": "Choose the option most aligned with the user's active preferences and goals.",
+        "suggest_new_ideas": "Choose the option that best extends the user's interests without contradicting active beliefs.",
+        "track_full_preference_evolution": "Prefer the option that reflects how the user's preferences changed over time.",
+        "generalizing_to_new_scenarios": "Choose the option that best generalizes the active preference to the new scenario.",
     }
     return mapping.get(question.question_type, "Choose the option best supported by the active belief state.")
 
@@ -324,13 +324,10 @@ def _render_personamem_prompt(
     memory_payload: dict[str, Any],
 ) -> str:
     options_block = _render_personamem_options(question.all_options)
-    glosses = memory_payload.get("selected_slot_glosses", [])
-    gloss_block = "\n".join(f"- {gloss}" for gloss in glosses[:5]) if glosses else "- <none>"
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
         f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
-        f"Key memory cues:\n{gloss_block}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
         f"Options:\n{options_block}\n\n"
