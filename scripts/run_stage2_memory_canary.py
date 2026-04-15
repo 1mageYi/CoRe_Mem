@@ -280,11 +280,10 @@ def _resolve_personamem_prediction(local_answer: str, options: list[str]) -> str
 
 
 def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
-    answer_text = str(memory_payload.get("answer_text", "") or "")
-    projected = _resolve_personamem_prediction(answer_text, question.all_options)
+    projected = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
     if projected in question.all_options:
         return _option_label(projected) if _options_use_labels(question.all_options) else projected
-    if projected != answer_text:
+    if projected != memory_payload["answer_text"]:
         return projected
     belief_text = " ".join(
         str(item.get("value", ""))
@@ -325,17 +324,13 @@ def _render_personamem_prompt(
     memory_payload: dict[str, Any],
 ) -> str:
     options_block = _render_personamem_options(question.all_options)
-    local_vote = _project_personamem_local_answer(memory_payload, question)
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
         f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
-        f"Memory-grounded local vote:\n{local_vote}\n\n"
         f"Options:\n{options_block}\n\n"
-        "Use the belief JSON and evidence to verify which option is best supported. "
-        "If the local vote already matches the strongest supported option, return that same label.\n\n"
         f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
 
