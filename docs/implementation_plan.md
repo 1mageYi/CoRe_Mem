@@ -178,7 +178,12 @@
 - Notes:
   - canary manifest 生成器已经落地，并已固定产出 PersonaMem 64 / LongMemEval-S 64 manifests
   - `scripts/run_stage2_memory_canary.py` 已将 `StructuredMemorySystem` 接到 benchmark canary prompt 生成链路，并已在 `MiniMax-M2.7` 上完成 1-sample 与 PersonaMem 64 的 live canary
-  - 当前真正未完成点已经从“provider key / runner 是否可用”切换为“live canary 质量是否足够支撑 benchmark scaling”；下一步优先级应是 failure analysis + online path 提效
+  - 当前真正未完成点已经从“provider key / runner 是否可用”切换为“live canary 质量是否足够支撑 benchmark scaling”
+  - 当前 autoresearch 已验证两条路径：
+    - observation-noise cleanup 可清理 parser 噪声，但单独不足以抬高 live 分数
+    - PersonaMem answer-option 对齐是当前第一段主收益来源，已把 quality score 从 `4/10` 提升到 `8/10`
+    - 生命周期层面的 facet retention + selected-slot-aware option scoring 是当前跨过 stop condition 的关键，已把 quality score 从 `8/10` 进一步提升到 `9/10`
+  - 当前 canary 目标已满足；下一步若继续推进，应聚焦剩余 recall/suggestion 错误，而不是回到泛化 prompt 微调
 
 ## 第二阶段默认技术路线
 
@@ -223,7 +228,7 @@
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
 4. 在 latent path 已成立且 live canary 已跑通的前提下，先对 PersonaMem 64 做 failure analysis 并提升 online memory / belief / answer 质量
-5. 在 canary 质量显著改善后，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
+5. 当前 PersonaMem 64 live canary 已从 `4/10` 提升到 `9/10`；下一步在不回退当前收益的前提下，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
 
 ## 当前不做
 

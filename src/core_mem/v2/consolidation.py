@@ -7,6 +7,14 @@ from dataclasses import dataclass, replace
 from core_mem.v2.lifecycle import LifecycleDecision
 from core_mem.v2.schemas import SlotRecord
 
+_MULTI_SLOT_RELATIONS = {
+    "drink_preference",
+    "food_preference",
+    "music_preference",
+    "hobby",
+    "other_fact",
+}
+
 
 @dataclass(frozen=True)
 class ConsolidationManager:
@@ -23,7 +31,8 @@ class ConsolidationManager:
         for slot in residual_slots:
             should_promote = slot.active_flag and (decision.promote or slot.soft_role_scores.stable >= self.stable_threshold)
             if should_promote:
-                next_core = [existing for existing in next_core if not (existing.active_flag and existing.relation == slot.relation)]
+                if slot.relation not in _MULTI_SLOT_RELATIONS:
+                    next_core = [existing for existing in next_core if not (existing.active_flag and existing.relation == slot.relation)]
                 next_core.append(replace(slot, bank="core"))
             else:
                 next_residual.append(slot)

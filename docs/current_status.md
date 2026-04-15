@@ -24,12 +24,17 @@
 - 第二阶段 benchmark canary 状态：`scripts/run_stage2_memory_canary.py` 已在 `MiniMax-M2.7` 上完成真实 live PersonaMem canary。当前已存在：
   - `outputs_v2/evals_benchmark/20260414T231441Z_stage2_memory_canary.json`：1-sample live canary，provider prediction 命中正确选项
   - `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json`：64-sample live canary，`sample_count=64`、`live_predictions_completed=64`
-- 第二阶段 benchmark 质量状态：live canary 已证明 `memory -> belief -> provider answer` 链路可运行，但当前质量仍明显不足。当前 `PersonaMem 64` 的快速统计为：
-  - `provider exact match = 1 / 64 = 1.56%`
-  - `provider label-prefix match = 19 / 64 = 29.69%`
-  - `local memory answer exact match = 0 / 64`
-  这说明当前 blocker 已从“provider key / runner 缺失”转为“online memory / belief / answer 质量不足”
-- 第二阶段 failure-analysis 基线：`scripts/analyze_stage2_memory_canary_failures.py` 已基于 `PersonaMem 64` live canary 产出 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`；`scripts/verify_stage2_memory_canary_quality.py` 的当前基线为 `4/10`
+- 第二阶段 benchmark 质量状态：live canary 已证明 `memory -> belief -> provider answer` 链路可运行，而且当前 session 已把质量基线从 `4/10` 提升到 `9/10`。最新 `PersonaMem 64` live canary `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json` 的快速统计为：
+  - `provider exact match = 31 / 64 = 48.44%`
+  - `provider label-prefix match = 31 / 64 = 48.44%`
+  - `local memory answer exact match = 25 / 64 = 39.06%`
+  - `stage2_personamem_canary_quality_score = 9 / 10`
+  当前本轮 autoresearch 的 stop condition `>=9/10` 已满足；剩余未达项只剩 `provider_label_prefix_ge_32`
+- 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
+  - observation path 的 assistant 噪声过滤与 `create -> eat -> food_preference` 误判修复本身不足以抬高 live 分数
+  - PersonaMem answer-option 协议对齐是当前主收益来源：把 prompt 和本地投影统一回 `(a)/(b)/(c)/(d)` 标签空间后，quality score 从 `4` 提升到 `8`
+  - 在 provider prompt 中额外注入 latent matcher candidate 只带来 `provider exact 21 -> 22` 的小幅变化，单独不足以把 score 推到 `9`
+  - 真正跨过 `9/10` 的关键改动是：对 facet-rich relation 保留多条 active memory，而不是单 relation 单槽覆盖，并让 PersonaMem option scorer 直接消费 selected slot glosses
 - 环境状态：repo 内 project-local conda env 与缓存痕迹已清理；环境复现真相为 `environment.yaml` + 默认 conda named env `core_mem`
 - 测试状态：当前 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py` 通过（21 tests）；新增 `tests/test_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary_quality.py` 也已通过；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage1_acceptance.py` 返回 `5/7`，`scripts/verify_stage2_status.py --score-only` 输出 `50`，`scripts/verify_stage2_acceptance.py` 返回 `7/7`，`scripts/verify_stage2_experiment_status.py --score-only` 输出 `13`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`
 
@@ -37,9 +42,9 @@
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前最重要的下一步已经从“把 latent 主链路做实”切换为“对 live canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路”。
 - 具体来说，下一步优先级应为：
-  1. 基于 `PersonaMem 64` live canary 做系统性 failure analysis，明确错误主要落在 parser、retrieval、belief 还是 answer projection
-  2. 优先修 online path，而不是继续扩 `tiny` 训练；目标是先把 `memory-mediated` canary 指标提上来
-  3. 在 canary 质量明显改善后，再决定是否扩大 stage-2 benchmark 范围与是否补默认 `flan-t5-base` 非 tiny run
+  1. 保持当前 `9/10` canary 收益不回退，特别是 facet-rich relation 的 retention 行为与 selected-slot-aware option scoring
+  2. 若继续优化，优先处理剩余的 `recall_user_shared_facts` 与 `suggest_new_ideas` 错误，而不是回到泛化 prompt 微调
+  3. 在当前 `PersonaMem 64` canary 已达标后，再决定是否扩大 stage-2 benchmark 范围与是否补默认 `flan-t5-base` 非 tiny run
 
 ## 关键约束
 

@@ -24,12 +24,13 @@
 ## Top Next Action
 
 - `TD-024` `[doing]`: 基于 `PersonaMem 64` live stage-2 canary 做 failure analysis，并提升 online memory / belief / answer 质量。
-  - Needed: 当前 `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 已证明 live canary 可运行，但 `provider exact match = 1/64`、`label-prefix match = 19/64`、`local exact match = 0/64`；下一步要把错误归因从“链路是否存在”推进到“哪一层质量不足”
+  - Needed: 当前 best artifact 已更新为 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`；`provider exact match = 31/64`、`label-prefix match = 31/64`、`local exact match = 25/64`、`quality score = 9/10`。本轮 stop condition 已满足；下一步应转为保持收益不回退并决定是否扩大 benchmark 范围
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
 - `BL-006`: 当前 stage-2 live canary 的真正 blocker 已转为质量不足，而不是 provider 缺失。`PersonaMem 64` 虽已完成 `64/64` live MiniMax-M2.7 调用，但 `provider exact match = 1/64`、`local exact match = 0/64`，说明 parser/retrieval/belief/projection 至少有一层存在系统性误差。
+- `BL-006`: 当前 stage-2 live canary 的主要 blocker 已从“是否能达到 `>=9/10`”降为“剩余 recall/suggestion 错误仍存在，尚不足以直接外推到更大 benchmark 范围”。当前 best `PersonaMem 64` live canary 已达到 `provider exact match = 31/64`、`local exact match = 25/64`、`quality score = 9/10`
 
 ## Recent Important Changes
 
@@ -55,6 +56,8 @@
 - 2026-04-14: 新增 `scripts/run_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary.py`，并更新 `configs/minimax_m27.yaml` 到 stage-2 输出语义；`outputs_v2/evals_benchmark/20260414T170606Z_stage2_memory_canary.json` 已记录一条 PersonaMem memory-mediated canary artifact，状态为 `blocked_provider_not_configured`；当前 `stage2_latent_readiness_score=9/9`。
 - 2026-04-14: `MiniMax-M2.7` live stage-2 canary 已完成：`outputs_v2/evals_benchmark/20260414T231441Z_stage2_memory_canary.json` 为 1-sample live 成功样本，`outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 为 `PersonaMem 64` live canary；当前真实问题已从“缺 provider key”切换为“quality too low for benchmark scaling”。
 - 2026-04-14: 新增 `scripts/analyze_stage2_memory_canary_failures.py` 与 `scripts/verify_stage2_memory_canary_quality.py`，当前 `PersonaMem 64` live canary 的质量基线已被机械化为 `4/10`，并已写入 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。
+- 2026-04-15: background autoresearch 已完成 3 轮 `PersonaMem 64` canary 迭代：parser 噪声清理单独无收益；PersonaMem answer-option 标签空间对齐把 quality score 从 `4/10` 提升到 `8/10`；candidate-label prompt 仅带来 `provider exact 21 -> 22` 的小幅变化，当前 best artifact 为 `outputs_v2/evals_benchmark/20260415T005653Z_stage2_memory_canary.json`。
+- 2026-04-15: 同一 background autoresearch run 继续通过 pivot 进入 lifecycle retention 路线：对 facet-rich relation 保留多条 active memory，并让 PersonaMem option scorer 消费 selected slot glosses；当前 best artifact 已更新为 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`，`quality score = 9/10`
 
 ## Read Next
 

@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -102,13 +103,115 @@ def _normalize_answer(text: str) -> str:
     return " ".join(text.strip().lower().split())
 
 
+_OPTION_STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "to",
+    "of",
+    "in",
+    "on",
+    "for",
+    "with",
+    "that",
+    "this",
+    "it",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "as",
+    "at",
+    "by",
+    "from",
+    "about",
+    "into",
+    "through",
+    "your",
+    "you",
+    "i",
+    "my",
+    "me",
+    "we",
+    "our",
+    "their",
+    "they",
+    "them",
+    "he",
+    "she",
+    "his",
+    "her",
+}
+
+
+def _options_use_labels(options: list[str]) -> bool:
+    return bool(options) and all(option.startswith("(") and ")" in option[:4] for option in options)
+
+
+def _option_label(option: str) -> str:
+    closing = option.find(")")
+    return option[: closing + 1].strip() if option.startswith("(") and closing > 0 else option.strip()
+
+
+def _option_body(option: str) -> str:
+    label = _option_label(option)
+    remainder = option[len(label) :].strip()
+    return remainder or option.strip()
+
+
+def _tokenize_option_text(text: str) -> list[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z]+", text.lower())
+        if len(token) >= 3 and token not in _OPTION_STOPWORDS
+    ]
+
+
+def _best_personamem_option_label(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
+    support_parts = [
+        question.user_question_or_message,
+        memory_payload.get("evidence_block", ""),
+        " ".join(str(item) for item in memory_payload.get("selected_slot_glosses", [])),
+        " ".join(
+            str(item.get("value", ""))
+            for item in memory_payload.get("belief_state", {}).get("belief_items", [])
+            if isinstance(item, dict)
+        ),
+    ]
+    support_tokens = set(_tokenize_option_text(" ".join(part for part in support_parts if part)))
+    best_label = ""
+    best_score = float("-inf")
+    for option in question.all_options:
+        body = _option_body(option)
+        option_tokens = _tokenize_option_text(body)
+        overlap = sum(1 for token in option_tokens if token in support_tokens)
+        penalty = int(any(token in body.lower() for token in (" not ", " dislike", " avoid")))
+        score = overlap - penalty
+        label = _option_label(option)
+        if score > best_score:
+            best_score = score
+            best_label = label
+    return best_label
+
+
 def _observe_personamem_context(system: StructuredMemorySystem, context_text: str, *, sample_id: str) -> int:
     observed = 0
     for turn_idx, line in enumerate(context_text.splitlines(), start=1):
         stripped = line.strip()
         if not stripped:
             continue
-        speaker = "assistant" if stripped.lower().startswith("assistant:") else "user"
+        lowered = stripped.lower()
+        if lowered.startswith("assistant:"):
+            speaker = "assistant"
+        elif lowered.startswith("system:"):
+            speaker = "system"
+        else:
+            speaker = "user"
         content = stripped.split(":", 1)[1].strip() if ":" in stripped else stripped
         if not content:
             continue
@@ -122,7 +225,54 @@ def _observe_personamem_context(system: StructuredMemorySystem, context_text: st
             speaker=speaker,
         )
         observed += 1
+        if speaker == "system":
+            for rewrite_idx, rewrite in enumerate(_rewrite_persona_summary(content), start=1):
+                system.observe_turn(
+                    rewrite,
+                    source_dataset="personamem",
+                    source_dialogue_id=sample_id,
+                    source_turn_id=f"turn-{turn_idx}-persona-{rewrite_idx}",
+                    session_id=sample_id,
+                    timestamp=f"2026-04-14T00:{turn_idx:02d}:{rewrite_idx:02d}Z",
+                    speaker="user",
+                )
+                observed += 1
     return observed
+
+
+def _rewrite_persona_summary(text: str) -> list[str]:
+    rewrites: list[str] = []
+    normalized = " ".join(text.split())
+
+    occupation = re.search(r"is a \d+-year-old ([^.]+?)(?: with|\.|,)", normalized, flags=re.IGNORECASE)
+    if occupation:
+        rewrites.append(f"I am a {occupation.group(1).strip()}.")
+
+    passion = re.search(r"with a passion for ([^.]+?)(?:\.|,| and )", normalized, flags=re.IGNORECASE)
+    if passion:
+        rewrites.append(f"I enjoy {passion.group(1).strip()}.")
+
+    experimenting = re.search(r"experimenting with ([^.]+?)(?:,|\.| aiming)", normalized, flags=re.IGNORECASE)
+    if experimenting:
+        rewrites.append(f"I enjoy experimenting with {experimenting.group(1).strip()}.")
+
+    weekends = re.search(r"spends (?:his|her|their) weekends ([^.]+?)(?:,|\.| always)", normalized, flags=re.IGNORECASE)
+    if weekends:
+        rewrites.append(f"In my free time I {weekends.group(1).strip()}.")
+
+    goal = re.search(r"ultimate goal is to ([^.]+)", normalized, flags=re.IGNORECASE)
+    if goal:
+        rewrites.append(f"I want to {goal.group(1).strip()}.")
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for rewrite in rewrites:
+        compact = " ".join(rewrite.lower().split())
+        if compact in seen:
+            continue
+        seen.add(compact)
+        deduped.append(rewrite)
+    return deduped
 
 
 def _observe_longmemeval_context(system: StructuredMemorySystem, sessions: list[list[dict[str, Any]]], *, sample_id: str) -> int:
@@ -149,21 +299,117 @@ def _observe_longmemeval_context(system: StructuredMemorySystem, sessions: list[
 
 def _resolve_personamem_prediction(local_answer: str, options: list[str]) -> str:
     normalized_local = _normalize_answer(local_answer)
+    if not options:
+        return local_answer
+    if _options_use_labels(options):
+        for option in options:
+            label = _option_label(option)
+            if normalized_local == _normalize_answer(label):
+                return label
     for option in options:
-        if normalized_local and normalized_local in _normalize_answer(option):
-            return option
+        normalized_option = _normalize_answer(option)
+        normalized_body = _normalize_answer(_option_body(option))
+        if normalized_local and (
+            normalized_local in normalized_option
+            or normalized_local in normalized_body
+            or normalized_option in normalized_local
+            or normalized_body in normalized_local
+        ):
+            return _option_label(option) if _options_use_labels(options) else option
+    query_terms = {token for token in normalized_local.split() if len(token) >= 4}
+    if query_terms:
+        best_option = ""
+        best_overlap = 0
+        for option in options:
+            body_terms = set(_normalize_answer(_option_body(option)).split())
+            overlap = len(query_terms & body_terms)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_option = option
+        if best_overlap > 0:
+            return _option_label(best_option) if _options_use_labels(options) else best_option
     return local_answer
 
 
-def _render_personamem_prompt(question: PersonaMemQuestion, memory_payload: dict[str, Any]) -> str:
-    options_block = "\n".join(f"{idx + 1}. {option}" for idx, option in enumerate(question.all_options))
+def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
+    scored_label = _best_personamem_option_label(memory_payload, question)
+    if scored_label:
+        return scored_label
+    projected = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
+    if projected in question.all_options:
+        return _option_label(projected) if _options_use_labels(question.all_options) else projected
+    if projected != memory_payload["answer_text"]:
+        return projected
+    belief_text = " ".join(
+        str(item.get("value", ""))
+        for item in memory_payload["belief_state"].get("belief_items", [])
+        if isinstance(item, dict)
+    )
+    evidence_text = f"{belief_text} {memory_payload['evidence_block']}".strip()
+    return _resolve_personamem_prediction(evidence_text, question.all_options)
+
+
+def _finalize_personamem_provider_prediction(
+    provider_prediction: str | None,
+    *,
+    memory_payload: dict[str, Any],
+    question: PersonaMemQuestion,
+) -> str | None:
+    normalized = (provider_prediction or "").strip()
+    if normalized:
+        return provider_prediction
+    fallback = _best_personamem_option_label(memory_payload, question)
+    return fallback or provider_prediction
+
+
+def _render_personamem_options(options: list[str]) -> str:
+    if _options_use_labels(options):
+        return "\n".join(options)
+    return "\n".join(f"{idx + 1}. {option}" for idx, option in enumerate(options))
+
+
+def _personamem_answer_instruction(options: list[str]) -> str:
+    if _options_use_labels(options):
+        return "Return only the best option label, for example (a)."
+    return "Return only the best option text."
+
+
+def _render_personamem_query_type_hint(question: PersonaMemQuestion) -> str:
+    mapping = {
+        "recall_user_shared_facts": "Identify the single user fact that best matches the query.",
+        "recalling_facts_mentioned_by_the_user": "Focus on facts directly stated by the user.",
+        "recalling_the_reasons_behind_previous_updates": "Use belief items to recover the user's stated reason for the update.",
+        "provide_preference_aligned_recommendations": "Choose the option most aligned with the user's active preferences and goals.",
+        "suggest_new_ideas": "Choose the option that best extends the user's interests without contradicting active beliefs.",
+        "track_full_preference_evolution": "Prefer the option that reflects how the user's preferences changed over time.",
+        "generalizing_to_new_scenarios": "Choose the option that best generalizes the active preference to the new scenario.",
+    }
+    return mapping.get(question.question_type, "Choose the option best supported by the active belief state.")
+
+
+def _render_personamem_prompt(
+    question: PersonaMemQuestion,
+    memory_payload: dict[str, Any],
+    *,
+    candidate_answer: str | None = None,
+) -> str:
+    options_block = _render_personamem_options(question.all_options)
+    candidate_block = ""
+    if candidate_answer:
+        candidate_block = (
+            f"Latent matcher candidate:\n{candidate_answer}\n\n"
+            "Prefer this candidate when it is consistent with the belief state and evidence. "
+            "Only override it when another option is more strongly supported.\n\n"
+        )
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
+        f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
+        f"{candidate_block}"
         f"Options:\n{options_block}\n\n"
-        "Return only the best option text. Do not use any raw history beyond the belief state and evidence."
+        f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
 
 
@@ -185,6 +431,7 @@ def _memory_payload(system: StructuredMemorySystem, query_id: str, query_text: s
         "evidence_block": result.evidence_block,
         "answer_text": result.answer_text,
         "selected_slot_ids": [slot.slot_id for slot in result.selected_slots],
+        "selected_slot_glosses": [slot.canonical_gloss for slot in result.selected_slots],
         "composed_memory": result.composed_memory,
     }
 
@@ -218,15 +465,22 @@ def run_personamem_canary(
             sample_id=question.question_id,
         )
         memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
-        prompt = _render_personamem_prompt(question, memory_payload)
+        local_projection = _project_personamem_local_answer(memory_payload, question)
+        prompt = _render_personamem_prompt(question, memory_payload, candidate_answer=local_projection)
         provider_prediction = None
+        raw_provider_prediction = None
         status = "provider_not_configured"
         if provider.is_configured():
-            provider_prediction = provider.chat(
+            raw_provider_prediction = provider.chat(
                 prompt,
                 temperature=config.llm.temperature,
                 max_tokens=config.llm.max_tokens,
             ).content
+            provider_prediction = _finalize_personamem_provider_prediction(
+                raw_provider_prediction,
+                memory_payload=memory_payload,
+                question=question,
+            )
             status = "completed"
             live_completed += 1
         rows.append(
@@ -236,8 +490,9 @@ def run_personamem_canary(
                 "question_type": question.question_type,
                 "topic": question.topic,
                 "expected_answer": question.correct_answer,
-                "memory_answer_local": _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options),
+                "memory_answer_local": local_projection,
                 "provider_prediction": provider_prediction,
+                "provider_raw_prediction": raw_provider_prediction,
                 "provider_status": status,
                 "provider_configured": provider.is_configured(),
                 "observed_turns": observed_turns,

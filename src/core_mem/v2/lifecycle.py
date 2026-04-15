@@ -6,6 +6,14 @@ from dataclasses import dataclass
 
 from core_mem.v2.schemas import Observation, SlotRecord
 
+_FACET_RELATIONS = {
+    "drink_preference",
+    "food_preference",
+    "music_preference",
+    "hobby",
+    "other_fact",
+}
+
 
 @dataclass(frozen=True)
 class LifecycleDecision:
@@ -33,6 +41,16 @@ class LifecycleManager:
                     action="merge",
                     matched_slot_id=slot.slot_id,
                     promote=observation.confidence >= self.promote_confidence_at_least,
+                )
+            if (
+                observation.relation in _FACET_RELATIONS
+                and observation.time_scope == "current"
+                and slot.canonical_gloss.lower() not in observation.value.lower()
+                and observation.value.lower() not in slot.canonical_gloss.lower()
+            ):
+                return LifecycleDecision(
+                    action="new",
+                    promote=observation.confidence >= self.promote_confidence_at_least and observation.time_scope == "current",
                 )
         if active_relation_slots:
             return LifecycleDecision(

@@ -81,3 +81,28 @@ def test_structured_memory_system_overwrite_marks_old_slot_inactive():
     assert any((not slot.active_flag) and "coffee" in slot.canonical_gloss for slot in all_slots)
     assert result.answer_text == "matcha"
     assert any(slot.bank == "core" and slot.active_flag and "matcha" in slot.canonical_gloss for slot in all_slots)
+
+
+def test_structured_memory_system_keeps_distinct_music_facets_active():
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I like producing music with software.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I prefer unique blends of electronic Pacific music.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    active_music_slots = [
+        slot for slot in [*system.state.core_slots, *system.state.residual_slots] if slot.active_flag and slot.relation == "music_preference"
+    ]
+    assert len(active_music_slots) >= 2

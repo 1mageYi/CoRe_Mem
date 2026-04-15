@@ -17,6 +17,27 @@ def _slugify(text: str) -> str:
     return re.sub(r"\W+", "_", text.strip().lower()).strip("_") or "value"
 
 
+def _contains_keyword(text: str, keywords: set[str]) -> bool:
+    lowered = f" {text.lower()} "
+    for keyword in keywords:
+        if " " in keyword:
+            if keyword in lowered:
+                return True
+            continue
+        if re.search(rf"\b{re.escape(keyword)}\b", lowered):
+            return True
+    return False
+
+
+def _strip_role_prefix(text: str) -> str:
+    cleaned = text.strip()
+    while True:
+        updated = re.sub(r"^(?:user|assistant|system)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+        if updated == cleaned:
+            return cleaned
+        cleaned = updated.strip()
+
+
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
@@ -28,11 +49,11 @@ def _infer_relation(text: str, value: str) -> tuple[str, str]:
         return "goal", "goal"
     if "can't" in lowered_text or "cannot" in lowered_text or "allergic" in lowered_text:
         return "constraint", "constraint"
-    if any(keyword in lowered_value for keyword in _DRINK_KEYWORDS) or "drink" in lowered_text:
+    if _contains_keyword(lowered_value, _DRINK_KEYWORDS) or re.search(r"\bdrink\b", lowered_text):
         return "drink_preference", "preference"
-    if any(keyword in lowered_value for keyword in _FOOD_KEYWORDS) or "eat" in lowered_text:
+    if _contains_keyword(lowered_value, _FOOD_KEYWORDS) or re.search(r"\beat\b", lowered_text):
         return "food_preference", "preference"
-    if any(keyword in lowered_value for keyword in _MUSIC_KEYWORDS) or "listen to" in lowered_text:
+    if _contains_keyword(lowered_value, _MUSIC_KEYWORDS) or "listen to" in lowered_text:
         return "music_preference", "preference"
     if "hobby" in lowered_text or "in my free time" in lowered_text or "enjoy" in lowered_text:
         return "hobby", "preference"
@@ -73,6 +94,8 @@ class Stage2ObservationParser:
         speaker: str = "user",
         entity: str = "user",
     ) -> list[Observation]:
+        if speaker == "assistant":
+            return []
         candidates: list[Observation] = []
         for idx, clause in enumerate(self._split_clauses(text)):
             parsed = self._parse_clause(
@@ -91,7 +114,7 @@ class Stage2ObservationParser:
 
     @staticmethod
     def _split_clauses(text: str) -> list[str]:
-        normalized = re.sub(r"\s+", " ", text).strip()
+        normalized = re.sub(r"\s+", " ", _strip_role_prefix(text)).strip()
         if not normalized:
             return []
         return [chunk.strip() for chunk in re.split(r"[.;]| but | and ", normalized) if chunk.strip()]
@@ -142,7 +165,7 @@ class Stage2ObservationParser:
 
     @staticmethod
     def _extract_value(clause: str) -> tuple[str, str, float]:
-        lowered = clause.lower()
+        lowered = _strip_role_prefix(clause).lower()
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),
             (r"\b(?:i don't like|i do not like|i hate|i can't stand)\s+(?P<value>.+)", "negative", 0.9),

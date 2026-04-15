@@ -38,3 +38,29 @@ def test_stage2_parser_marks_used_to_as_past():
     assert len(observations) == 1
     assert observations[0].time_scope == "past"
     assert observations[0].status_hint == "stale"
+
+
+def test_stage2_parser_ignores_assistant_turns():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "Assistant: You should keep creating music because it suits you.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+        speaker="assistant",
+    )
+    assert observations == []
+
+
+def test_stage2_parser_does_not_treat_create_as_food_signal():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I enjoy creating digital music remixes.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+    assert observations
+    assert all(item.relation != "food_preference" for item in observations)

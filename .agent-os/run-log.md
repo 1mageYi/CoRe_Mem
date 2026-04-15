@@ -1,5 +1,27 @@
 # Run Log
 
+## 2026-04-15 Session 014
+
+- Worked on: 以 managed autoresearch 方式迭代提升 stage-2 PersonaMem 64 live canary 质量
+- State changed:
+  - 初始化 fresh background autoresearch artifacts：`research-results.tsv` 与 `autoresearch-state.json`
+  - 修复 PersonaMem observation path：assistant turn 不再进入 memory，且 `create -> eat -> food_preference` 的字符串误判已移除
+  - 将 `scripts/run_stage2_memory_canary.py` 的 PersonaMem prompt 与本地 answer projection 对齐到 `(a)/(b)/(c)/(d)` 标签空间
+  - 新增与扩展 `tests/test_stage2_parser.py`、`tests/test_stage2_memory_canary.py`
+  - 后续继续完成 `discard -> refine -> pivot -> keep` 记录，主线从 answer-layer 微调切换到 lifecycle retention
+  - 当前 retained best 已更新为 `quality score = 9/10`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260415T003952Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T005653Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py`
+  - `conda run -n core_mem python scripts/run_experiment.py --verify-only`
+- Next likely action:
+  - 在当前 `9/10` canary 收益上继续做剩余 recall/suggestion 错误分析，并决定是否扩大 stage-2 benchmark 范围
+
 ## 2026-04-14 Session 013
 
 - Worked on: 将 stage-2 的当前主线从“latent path 已做实”切换到“live canary 质量提升”

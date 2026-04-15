@@ -3,8 +3,8 @@
 ## Doing
 
 - `TD-024` `[doing]` 对 `PersonaMem 64` live stage-2 canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路。
-  - Reason: 当前 `outputs_v2/evals_benchmark/20260414T231617Z_stage2_memory_canary.json` 已证明 live canary 可以完整跑通，但 `provider exact match = 1/64`、`label-prefix match = 19/64`、`local exact match = 0/64`，不能直接扩大 benchmark。
-  - Evidence target: 形成可追溯的 canary failure analysis artifact，并把 `PersonaMem 64` 的 live canary 指标从当前基线显著抬高。
+  - Reason: 当前 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json` 已把 live canary 质量从 `4/10` 提升到 `9/10`，当前 autoresearch stop condition 已满足。
+  - Evidence target: 保持当前 `9/10` 收益不回退，并在需要时为后续扩大 stage-2 benchmark 范围提供更稳的 failure-analysis 基线。
 
 ## Backlog
 
