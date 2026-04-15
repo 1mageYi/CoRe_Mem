@@ -52,6 +52,13 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _append_jsonl_row(path: Path, row: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        handle.flush()
+
+
 def _copy_config_snapshot(config_path: Path, run_dir: Path) -> Path:
     snapshot = run_dir / "config_snapshot.yaml"
     snapshot.write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
@@ -60,6 +67,18 @@ def _copy_config_snapshot(config_path: Path, run_dir: Path) -> Path:
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if stripped:
+                rows.append(json.loads(stripped))
+    return rows
 
 
 def _latest_manifest(output_root: Path, benchmark: str) -> Path | None:
@@ -82,6 +101,17 @@ def _ensure_canary_manifest(output_root: Path, benchmark: str) -> Path:
     if benchmark == "personamem":
         return Path(str(payload["personamem_manifest"]))
     return Path(str(payload["longmemeval_manifest"]))
+
+
+def _resolve_run_dir(output_root: Path, benchmark: str, requested_run_dir: str | None = None) -> Path:
+    if requested_run_dir:
+        run_dir = Path(requested_run_dir)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return run_dir
+    stamp = _timestamp()
+    run_dir = output_root / "runs" / f"{stamp}_stage2_memory_canary_{benchmark}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return run_dir
 
 
 def _provider_from_llm(llm: LLMConfig) -> OpenAICompatibleProvider:
@@ -333,6 +363,8 @@ def run_personamem_canary(
     output_root: Path,
     config_path: Path,
     limit: int,
+    requested_run_dir: str | None = None,
+    resume: bool = False,
 ) -> dict[str, Any]:
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
@@ -342,14 +374,35 @@ def run_personamem_canary(
     selected_ids = set(str(sample_id) for sample_id in manifest["sample_ids"][:limit])
     questions = [item for item in adapter.load_questions() if item.question_id in selected_ids]
 
-    stamp = _timestamp()
-    run_dir = output_root / "runs" / f"{stamp}_stage2_memory_canary_personamem"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _resolve_run_dir(output_root, "personamem", requested_run_dir=requested_run_dir)
+    stamp = run_dir.name.split("_", 1)[0]
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
+    predictions_path = run_dir / "predictions.jsonl"
+    existing_rows = _load_jsonl(predictions_path) if resume else []
+    completed_ids = {str(row.get("sample_id", "")) for row in existing_rows}
 
-    rows: list[dict[str, Any]] = []
-    live_completed = 0
+    rows: list[dict[str, Any]] = list(existing_rows)
+    live_completed = sum(1 for row in existing_rows if row.get("provider_status") == "completed")
+    metadata = {
+        "benchmark": "personamem",
+        "sample_count": len(questions),
+        "live_predictions_completed": live_completed,
+        "completed_predictions": len(rows),
+        "resumed_prediction_count": len(existing_rows),
+        "provider_configured": provider.is_configured(),
+        "config_path": str(config_path),
+        "config_snapshot_path": str(config_snapshot),
+        "model": config.llm.model,
+        "api_key_env": config.llm.api_key_env,
+        "run_timestamp": stamp,
+        "commit_hash": _current_commit_hash(),
+        "canary_manifest": str(_ensure_canary_manifest(output_root, "personamem")),
+        "predictions_path": str(predictions_path),
+    }
+    _write_json(run_dir / "run_metadata.json", metadata)
     for question in questions:
+        if question.question_id in completed_ids:
+            continue
         system = StructuredMemorySystem()
         observed_turns = _observe_personamem_context(
             system,
@@ -372,7 +425,7 @@ def run_personamem_canary(
             status = "completed"
             live_completed += 1
         rows.append(
-            {
+            row := {
                 "sample_id": question.question_id,
                 "benchmark": "personamem",
                 "question_type": question.question_type,
@@ -391,23 +444,13 @@ def run_personamem_canary(
                 "prompt_version": "stage2_memory_canary_v1",
             }
         )
+        _append_jsonl_row(predictions_path, row)
+        metadata["live_predictions_completed"] = live_completed
+        metadata["completed_predictions"] = len(rows)
+        _write_json(run_dir / "run_metadata.json", metadata)
 
-    predictions_path = run_dir / "predictions.jsonl"
-    _write_jsonl(predictions_path, rows)
-    metadata = {
-        "benchmark": "personamem",
-        "sample_count": len(rows),
-        "live_predictions_completed": live_completed,
-        "provider_configured": provider.is_configured(),
-        "config_path": str(config_path),
-        "config_snapshot_path": str(config_snapshot),
-        "model": config.llm.model,
-        "api_key_env": config.llm.api_key_env,
-        "run_timestamp": stamp,
-        "commit_hash": _current_commit_hash(),
-        "canary_manifest": str(_ensure_canary_manifest(output_root, "personamem")),
-        "predictions_path": str(predictions_path),
-    }
+    metadata["live_predictions_completed"] = live_completed
+    metadata["completed_predictions"] = len(rows)
     _write_json(run_dir / "run_metadata.json", metadata)
 
     summary_path = output_root / "evals_benchmark" / f"{stamp}_stage2_memory_canary.json"
@@ -426,6 +469,8 @@ def run_longmemeval_canary(
     output_root: Path,
     config_path: Path,
     limit: int,
+    requested_run_dir: str | None = None,
+    resume: bool = False,
 ) -> dict[str, Any]:
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
@@ -434,14 +479,35 @@ def run_longmemeval_canary(
     selected_ids = set(str(sample_id) for sample_id in manifest["sample_ids"][:limit])
     questions = [item for item in adapter.load_questions() if item.question_id in selected_ids]
 
-    stamp = _timestamp()
-    run_dir = output_root / "runs" / f"{stamp}_stage2_memory_canary_longmemeval"
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = _resolve_run_dir(output_root, "longmemeval", requested_run_dir=requested_run_dir)
+    stamp = run_dir.name.split("_", 1)[0]
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
+    predictions_path = run_dir / "predictions.jsonl"
+    existing_rows = _load_jsonl(predictions_path) if resume else []
+    completed_ids = {str(row.get("sample_id", "")) for row in existing_rows}
 
-    rows: list[dict[str, Any]] = []
-    live_completed = 0
+    rows: list[dict[str, Any]] = list(existing_rows)
+    live_completed = sum(1 for row in existing_rows if row.get("provider_status") == "completed")
+    metadata = {
+        "benchmark": "longmemeval_s",
+        "sample_count": len(questions),
+        "live_predictions_completed": live_completed,
+        "completed_predictions": len(rows),
+        "resumed_prediction_count": len(existing_rows),
+        "provider_configured": provider.is_configured(),
+        "config_path": str(config_path),
+        "config_snapshot_path": str(config_snapshot),
+        "model": config.llm.model,
+        "api_key_env": config.llm.api_key_env,
+        "run_timestamp": stamp,
+        "commit_hash": _current_commit_hash(),
+        "canary_manifest": str(_ensure_canary_manifest(output_root, "longmemeval")),
+        "predictions_path": str(predictions_path),
+    }
+    _write_json(run_dir / "run_metadata.json", metadata)
     for question in questions:
+        if question.question_id in completed_ids:
+            continue
         system = StructuredMemorySystem()
         observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
         memory_payload = _memory_payload(system, question.question_id, question.question)
@@ -457,7 +523,7 @@ def run_longmemeval_canary(
             status = "completed"
             live_completed += 1
         rows.append(
-            {
+            row := {
                 "sample_id": question.question_id,
                 "benchmark": "longmemeval_s",
                 "question_type": question.question_type,
@@ -474,23 +540,13 @@ def run_longmemeval_canary(
                 "prompt_version": "stage2_memory_canary_v1",
             }
         )
+        _append_jsonl_row(predictions_path, row)
+        metadata["live_predictions_completed"] = live_completed
+        metadata["completed_predictions"] = len(rows)
+        _write_json(run_dir / "run_metadata.json", metadata)
 
-    predictions_path = run_dir / "predictions.jsonl"
-    _write_jsonl(predictions_path, rows)
-    metadata = {
-        "benchmark": "longmemeval_s",
-        "sample_count": len(rows),
-        "live_predictions_completed": live_completed,
-        "provider_configured": provider.is_configured(),
-        "config_path": str(config_path),
-        "config_snapshot_path": str(config_snapshot),
-        "model": config.llm.model,
-        "api_key_env": config.llm.api_key_env,
-        "run_timestamp": stamp,
-        "commit_hash": _current_commit_hash(),
-        "canary_manifest": str(_ensure_canary_manifest(output_root, "longmemeval")),
-        "predictions_path": str(predictions_path),
-    }
+    metadata["live_predictions_completed"] = live_completed
+    metadata["completed_predictions"] = len(rows)
     _write_json(run_dir / "run_metadata.json", metadata)
 
     summary_path = output_root / "evals_benchmark" / f"{stamp}_stage2_memory_canary.json"
@@ -510,6 +566,8 @@ def main() -> int:
     parser.add_argument("--benchmark", choices=["personamem", "longmemeval"], default="personamem")
     parser.add_argument("--output-root", default="outputs_v2")
     parser.add_argument("--limit", type=int, default=1)
+    parser.add_argument("--run-dir")
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -518,12 +576,16 @@ def main() -> int:
             output_root=Path(args.output_root),
             config_path=Path(args.config),
             limit=args.limit,
+            requested_run_dir=args.run_dir,
+            resume=args.resume,
         )
     else:
         payload = run_longmemeval_canary(
             output_root=Path(args.output_root),
             config_path=Path(args.config),
             limit=args.limit,
+            requested_run_dir=args.run_dir,
+            resume=args.resume,
         )
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))

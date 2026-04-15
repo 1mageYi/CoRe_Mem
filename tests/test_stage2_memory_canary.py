@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import subprocess
 import sys
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,7 @@ from run_stage2_memory_canary import (
     _rewrite_persona_summary,
     _render_personamem_options,
     _render_personamem_prompt,
+    run_personamem_canary,
 )
 
 
@@ -188,3 +190,125 @@ def test_personamem_prompt_has_no_candidate_injection():
         },
     )
     assert "Latent matcher candidate" not in prompt
+
+
+class _FakeResponse:
+    def __init__(self, content: str) -> None:
+        self.content = content
+
+
+class _FakeProvider:
+    def is_configured(self) -> bool:
+        return True
+
+    def chat(self, prompt: str, temperature: float, max_tokens: int) -> _FakeResponse:
+        return _FakeResponse("(a)")
+
+
+def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    run_dir = output_root / "runs" / "resume_personamem"
+    run_dir.mkdir(parents=True)
+    predictions_path = run_dir / "predictions.jsonl"
+    predictions_path.write_text(
+        json.dumps(
+            {
+                "sample_id": "q1",
+                "benchmark": "personamem",
+                "question_type": "recall_user_shared_facts",
+                "topic": "food",
+                "expected_answer": "(a)",
+                "memory_answer_local": "(a)",
+                "provider_prediction": "(a)",
+                "provider_raw_prediction": "(a)",
+                "provider_status": "completed",
+                "provider_configured": True,
+                "observed_turns": 1,
+                "selected_slot_ids": [],
+                "belief_state": {"belief_items": []},
+                "evidence_block": "",
+                "prompt": "done",
+                "prompt_version": "stage2_memory_canary_v1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    questions = [
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q1",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        ),
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q2",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        ),
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sample_ids": ["q1", "q2"]}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "run_stage2_memory_canary.load_project_config",
+        lambda path: SimpleNamespace(
+            llm=SimpleNamespace(
+                api_key_env="GPT_AGENT_API_KEY",
+                base_url="https://example.com/v1",
+                model="fake-model",
+                temperature=0.0,
+                max_tokens=16,
+                timeout_seconds=1,
+                max_retries=0,
+                retry_backoff_seconds=0.0,
+                min_request_interval_seconds=0.0,
+                max_retry_delay_seconds=0.0,
+            ),
+            benchmarks=SimpleNamespace(personamem=SimpleNamespace(data_root="unused")),
+        ),
+    )
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: _FakeProvider())
+    monkeypatch.setattr("run_stage2_memory_canary._ensure_canary_manifest", lambda output_root, benchmark: manifest_path)
+
+    class _FakeAdapter:
+        def load_shared_contexts(self):
+            return {"ctx": "user: I like sushi."}
+
+        def load_questions(self):
+            return questions
+
+        def render_context_for_question(self, question, contexts):
+            return contexts[question.shared_context_id]
+
+    monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+
+    payload = run_personamem_canary(
+        output_root=output_root,
+        config_path=REPO_ROOT / "configs" / "minimax_m27.yaml",
+        limit=2,
+        requested_run_dir=str(run_dir),
+        resume=True,
+    )
+
+    assert payload["status"] == "completed"
+    lines = predictions_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    rows = [json.loads(line) for line in lines]
+    assert [row["sample_id"] for row in rows] == ["q1", "q2"]
+    metadata = json.loads((run_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["resumed_prediction_count"] == 1
+    assert metadata["completed_predictions"] == 2
+    assert metadata["live_predictions_completed"] == 2
