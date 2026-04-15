@@ -2,11 +2,12 @@
 
 ## Doing
 
-- `TD-029` `[doing]` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
-  - Reason: 当前 online learned path、checkpoint-backed learned belief 与 learned-mode current-head artifacts 已落地；在下一轮更大 learned-mode canary 覆盖正式接管前，runtime truth 继续把该主线维持为 doing。
-  - Evidence target: `scripts/verify_stage2_v21_learned_memory.py --score-only = 12`，且 `latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json` 已落地。
-  - Mechanical target: `scripts/verify_stage2_v21_learned_memory.py --score-only`
-  - Current retained state: `12/12`
+- `TD-030` `[doing]` 以 learned model / better latent 为锚点启动 `v2.1` 长跑。
+  - Reason: 当前 online learned path、checkpoint-backed learned belief 与最小 learned-mode artifacts 已落地；下一步应扩大 learned-mode canary 覆盖、强化 online-aligned 增益，并逐步移除 fallback 依赖。
+  - Evidence target: `scripts/verify_stage2_v21_longrun.py --score-only`
+  - Mechanical target: `scripts/verify_stage2_v21_longrun.py --score-only`
+  - Current baseline: `11/16`
+  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut
 
 ## Backlog
 

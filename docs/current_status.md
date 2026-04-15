@@ -128,7 +128,7 @@
   - `LongMemEval-S 64` 当前统计已跨过 verifier 阈值：`provider_exact_match = 5 / 64`、`provider_label_prefix_match = 5 / 64`、`local_exact_match = 3 / 64`
   - latest non-tiny trained eval 当前统计为：`trained_eval.token_f1 = 0.14615651550268283`
 - 第二阶段 `v2.1` 历史 robustness 结论：上一轮 managed autoresearch 曾把 `stage2_v21_robustness_score` 推到 `14/15`。这条线为当前 repo 提供了更强的 canary、LongMemEval-S 提升和 non-tiny learned evidence，但它也暴露了 rule-heavy 路线的上界，因此不再作为当前主线终点。
-- 第二阶段主线再次切换：用户当前已明确要求“更注重 learning model、不要继续依赖 rule-based 路径、目标是提升整体框架智能程度和更好的 latent”。因此现阶段主线应切换为 **learned-memory-first / better latent**。
+- 第二阶段主线再次切换：用户当前已明确要求“更注重 learning model、不要继续依赖 rule-based 路径、目标是提升整体框架智能程度和更好的 latent”。因此现阶段主线应切换为 **learned-model-first / better latent**，并进入长期迭代阶段。
 - 第二阶段 learned-memory-first 灵感来源：当前 repo 已明确参考以下 related work：
   - `End-To-End Memory Networks`
   - `Memorizing Transformers`
@@ -136,41 +136,37 @@
   - `LongMem`
   - `Slot Attention`
   相关笔记见 [docs/learned_memory_related_work.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/learned_memory_related_work.md)
-- 第二阶段新的机械目标：当前主指标切换为 `scripts/verify_stage2_v21_learned_memory.py` 对应的 `stage2_v21_learned_memory_score`。它重点检查：
-  - 主线文档和 `.agent-os` 是否切到 `TD-029 / WS-015`
-  - 是否形成了 related-work 驱动的 learned-memory-first 设计说明
-  - 是否保留了非 tiny learned evidence 与历史 learned online gain
-  - online system 是否开始支持 learned memory toggle / checkpoint-backed path
-  - training 是否开始支持 online-aligned learned variant
-  - 是否已出现 learned-mode current-head canary artifacts
-  当前分数已从 baseline `8/12` 提升到 `12/12`；当前已经成立的项是：
-  - `TD-029 / WS-015` 文档与 `.agent-os` 已切换
-  - related work note 已落地
-  - `no-shortcut runner = true`
-  - 历史 learned online gain artifact 仍存在
-  - non-tiny `trained_eval.token_f1 >= 0.14`
-  - online system 已支持 `memory_mode=learned_memory`，并可通过 `learned_memory_checkpoint_dir + learned_memory_train_config_path` 走 checkpoint-backed belief path
-  - training config / launcher 已显式支持 `online_aligned` learned variant
-  - current-head learned-mode canary artifacts 已落地：
-    - `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json`
-    - `outputs_v2/artifacts/latest_longmemeval_stage2_learned_canary.json`
-- 第二阶段 learned-memory-first 当前最新证据链：
-  - `StructuredMemorySystem.query()` 当前在 `use_learned_memory` 启用且提供 checkpoint/config 时，会将 selected slots 序列化为 `composition_to_belief` 输入，并用 checkpoint-backed seq2seq runtime 生成 belief JSON；若 learned 输出不可解析，则诚实退回原 symbolic decoder
-  - `scripts/run_stage2_memory_canary.py` 现支持 `--memory-mode learned_memory --learned-memory-checkpoint-dir --learned-memory-train-config`，并在 learned mode 下自动写出 `latest_*_stage2_learned_canary.json`
-  - `outputs_v2/evals_benchmark/20260415T175004Z_stage2_memory_canary.json`：current-head `PersonaMem` learned-mode live canary，`sample_count=1`
-  - `outputs_v2/evals_benchmark/20260415T175032Z_stage2_memory_canary.json`：current-head `LongMemEval-S` learned-mode live canary，`sample_count=1`
-- 第二阶段 learned-memory-first 当前解释边界：
-  - 本轮 `12/12` 证明的是 learned-mode 在线路径、checkpoint-backed belief 入口、online-aligned training 语义和 current-head learned artifacts 已经成立
-  - 当前 learned-mode live canary 仍只是最小 current-head artifact，不应误称为 learned path 已在大样本 benchmark 上稳定胜出
-- 测试状态：当前完整 learned-memory guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_parser.py` 通过（41 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`，`scripts/verify_stage2_v21_learned_memory.py --score-only` 输出 `12`
+- 第二阶段新的长跑机械目标：当前主指标切换为 `scripts/verify_stage2_v21_longrun.py` 对应的 `stage2_v21_longrun_score`。它重点检查：
+  - 主线文档和 `.agent-os` 是否切到 `TD-030 / WS-016`
+  - 是否形成了明确的长跑计划文档 [docs/v21_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v21_longrun_plan.md)
+  - 是否把 “不做任何兜底/fallback/benchmark-specific shortcut” 固化为硬约束
+  - learned online gain、non-tiny trained eval、LongMemEval 分层分析是否仍成立
+  - current-head learned-mode canary 是否从 `1` 样本扩大到 `64/128`
+  - online system 是否已经摆脱 learned path 失败时退回 symbolic decoder 的 retained 设计
+- 当前 baseline 已建立为 `11/16`。当前未过项集中在：
+  - `online_system_avoids_symbolic_fallback = false`
+  - `non_tiny_trained_eval.token_f1 >= 0.20 = false`
+  - current-head learned-mode `PersonaMem 64 / LongMemEval-S 64 / PersonaMem 128` artifacts 尚未刷新
+- 第二阶段 learned-model-first 当前证据链：
+  - `StructuredMemorySystem` 已支持 `memory_mode=learned_memory` 与 checkpoint-backed belief path
+  - `scripts/run_stage2_memory_canary.py` 已支持 `--memory-mode learned_memory --learned-memory-checkpoint-dir --learned-memory-train-config`
+  - `outputs_v2/artifacts/latest_stage2_learned_online_gain.json` 仍提供正的 learned online gain 证据
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_layered_analysis.json` 仍提供跨层 failure analysis
+  - 当前 non-tiny `trained_eval.token_f1` 历史 best 仍为 `0.14615651550268283`
+- 第二阶段 learned-model-first 当前解释边界：
+  - `TD-029` 解决的是 learned-mode 路径“已经存在并可调用”
+  - `TD-030` 要解决的是 learned model 是否在更大样本和多个 benchmark 上真正变强，并且不依赖 fallback/shortcut
+  - 当前代码中 learned path 仍保留 symbolic fallback，因此 `TD-030` baseline 预计不会满分
+- 测试状态：当前长跑 guard 将继续以 stage-2 核心测试、`scripts/run_experiment.py --verify-only = 34`、`scripts/verify_stage2_latent_status.py --score-only = 9`、`scripts/verify_stage2_latent_core_quality.py --score-only = 10` 为底线；新增 `scripts/verify_stage2_v21_longrun.py` 当前 baseline 为 `11/16`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- `TD-029` 的首批 learned-memory-first stop condition 已满足；当前更合理的下一步不再是补 plumbing，而是扩大 learned-mode 证据规模：
-  1. 把 learned-mode canary 从 `1` 样本扩大到固定切片
-  2. 分析 learned belief path 在 `PersonaMem / LongMemEval-S` 上的增益与退化来源
-  3. 决定下一轮是继续优化 checkpoint-backed online belief，还是把 learned write/read 再向 retrieval / lifecycle 推进
+- `TD-029` 的 learned-memory-first plumbing 已完成；当前 next action 切换为 `TD-030`，目标是围绕 learned model / better latent 做长期迭代：
+  1. 把 learned-mode canary 从 `1` 样本扩大到 `64/128`
+  2. 优先看 learned path 在 `LongMemEval-S` 上是否真实改善
+  3. 让训练更直接服务在线 `memory -> belief -> answer`
+  4. 逐步移除 learned online path 中的 fallback 依赖，而不是把 fallback 当 retained 设计
 
 ## 关键约束
 

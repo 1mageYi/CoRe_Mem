@@ -320,7 +320,7 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
-7. 当前阶段 L 已完成，阶段 M 已给出历史 robustness best；现阶段默认主线切换到阶段 N：以 learned-memory-first / better latent 为锚点推进 `v2.1`
+7. 当前阶段 L 已完成，阶段 M 已给出历史 robustness best，阶段 N 已完成 learned-memory-first plumbing；现阶段默认主线切换到阶段 O：以 learned model / better latent 的长期提升为锚点推进 `v2.1`
 
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 
@@ -385,3 +385,43 @@
 - 将 benchmark eval/test 用作第二阶段主要训练源
 - 一开始就采用更重的 Perceiver-style resampler
 - 一开始就把 Optimus-like 路线设为主线
+
+### 阶段 O：V2.1 Learned-Model Long Run
+
+- 用户已明确要求当前主线更加注重 learned model、本体智能和更好的 latent
+- 这轮长跑不再把“plumbing 已接通”当终点，而是要求 learned path 在 online 主链中更强、更稳、更可扩
+- 绝对规则：不做任何兜底/fallback/benchmark-specific shortcut
+- 详细计划见 [docs/v21_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v21_longrun_plan.md)
+
+#### 阶段 O-A：把 learned path 从“存在”推进到“可测”
+
+- 跑 current-head learned-mode `PersonaMem 64`
+- 跑 current-head learned-mode `LongMemEval-S 64`
+- 固化 learned-mode analysis artifact
+- 将 fresh learned-mode evidence 设为 verifier 硬门槛
+
+#### 阶段 O-B：让训练真正服务在线链路
+
+- 继续强化 `online_aligned` 路线
+- 优先让 learned retrieval / rerank / belief selection 服务在线主链
+- 避免继续把“复述 JSON”当成唯一训练目标
+- 要求 checkpoint 能被 current-head online system 直接消费
+
+#### 阶段 O-C：专项提升 LongMemEval-S
+
+- 针对 `LongMemEval-S` 做分层 failure analysis
+- 优先修 retrieval / belief / latent composition 的主错误簇
+- 所有改动都必须在 `PersonaMem` 上不过度退化
+
+#### 阶段 O-D：扩大样本，验证 robustness
+
+- `PersonaMem` 从 `64` 扩到 `128`
+- 视预算扩大 `LongMemEval-S`
+- 用更大切片验证 learned-memory 提升不是 canary 偶然现象
+
+#### 阶段 O-E：收口成 robust learned-memory v2.1
+
+- 固化默认训练命令
+- 固化默认 learned-mode benchmark 命令
+- 固化一套 `v2.1` verifier
+- 明确允许和禁止的策略，避免退回 rule-heavy / fallback-heavy 路线

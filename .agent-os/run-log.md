@@ -1,5 +1,22 @@
 # Run Log
 
+## 2026-04-15 Session 024
+
+- Worked on: 将 stage-2 主线从 `TD-029 / WS-015` 的 learned-memory plumbing 完成态，推进到 `TD-030 / WS-016` 的 learned-model-first 长跑计划
+- State changed:
+  - 新增 `docs/v21_longrun_plan.md`，把 learned-model-first 长跑目标、阶段 A-E、主指标、守卫和自动迭代闭环写成真源文档
+  - 新增 `scripts/verify_stage2_v21_longrun.py` 与 `tests/test_stage2_v21_longrun.py`
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 切到 `TD-030 / WS-016`
+  - 明确把 “不做任何兜底/fallback/benchmark-specific shortcut” 设为本轮长跑的硬约束
+  - 把当前主线从“learned path 已存在”切到“learned model 是否在更大样本和多个 benchmark 上真正变强，并逐步摆脱 fallback 依赖”
+  - 运行新 verifier 后，当前 baseline 固化为 `stage2_v21_longrun_score = 11/16`
+- Evidence / artifacts:
+  - `docs/v21_longrun_plan.md`
+  - `scripts/verify_stage2_v21_longrun.py`
+  - `tests/test_stage2_v21_longrun.py`
+- Next likely action:
+  - 运行新的 long-run verifier 建立 baseline，提交基线改动，然后按 `stage2_v21_longrun_score` 启动新的 background autoresearch
+
 ## 2026-04-15 Session 023
 
 - Worked on: managed autoresearch 长跑下完成 learned-memory-first / better latent 的首批机械里程碑，并将 `stage2_v21_learned_memory_score` 从 `8` 推到 stop condition `12`

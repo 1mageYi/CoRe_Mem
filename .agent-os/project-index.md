@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-029`
-- Active workstreams: `WS-015`
+- Top next action: `TD-030`
+- Active workstreams: `WS-016`
 - Active blockers: `BL-004`
 
 ## Objective Summary
@@ -23,15 +23,18 @@
 - `WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成；local intrinsic quality 当前已到 `10/10`
 - `WS-013` `[done]`: Stage-2 “完整 v2”长跑已收口，fresh canaries、第二 benchmark、非 tiny 训练证据与 no-shortcut runner 均已补齐
 - `WS-014` `[done]`: Stage-2 `v2.1` robustness 线已把 historical best 推到 `14/15`，并暴露出 rule-heavy 路线的收益上界
-- `WS-015` `[doing]`: Stage-2 当前主线切到 learned-memory-first / better latent，重点是让 online system 真正消费 learned memory path，而不是继续强化 rule-based reader/writer
+- `WS-015` `[done]`: Stage-2 learned-memory-first / better latent 的首批 plumbing 已机械完成，online learned path、checkpoint-backed belief、online-aligned training 语义与最小 learned-mode artifact 已落地
   - Mechanical target: `stage2_v21_learned_memory_score`
-  - Current baseline: `8/12`
-  - Current retained state: stop condition 已机械达到 `12/12`，但当前 runtime truth 仍保持 `TD-029 / WS-015` 为活动主线，直到下一轮更大 learned-mode canary 范围被正式接管
+  - Final retained state: stop condition 已机械达到 `12/12`
+- `WS-016` `[doing]`: Stage-2 当前主线切到 learned-model-first 长跑，重点是让 learned model / better latent 在更大样本和多个 benchmark 上带来真实提升，并逐步摆脱 fallback 依赖
+  - Mechanical target: `stage2_v21_longrun_score`
+  - Current baseline: `11/16`
+  - Current retained state: `TD-029` 已完成 plumbing；本轮开始要求 current-head learned `64/128` canaries、LongMemEval-S 专项质量提升，以及禁止任何兜底/fallback/benchmark-specific shortcut
 
 ## Top Next Action
 
-- `TD-029` `[doing]`: 把 `v2.1` 的当前主线切到 learned-memory-first / better latent，目标是让系统智能程度和 latent memory 本体继续提升，而不是继续把 parser / selector / prompt 规则微调当作主线。
-  - Needed: 当前 online learned path、checkpoint-backed belief 与最小 learned-mode canary artifact 已做实；下一步更值得扩大 learned-mode canary 覆盖，而不是重复补 plumbing
+- `TD-030` `[doing]`: 以 learned model / better latent 为锚点启动 `v2.1` 长跑，目标是在不做任何兜底/fallback/benchmark-specific shortcut 的前提下，让 online learned path 在更大样本和多个 benchmark 上带来真实收益。
+  - Needed: 当前 online learned path、checkpoint-backed belief 与最小 learned-mode canary artifact 已做实；下一步更值得扩大 learned-mode canary 覆盖、强化 online-aligned training，并逐步移除 fallback 依赖
 
 ## Active Blockers
 
@@ -71,7 +74,8 @@
 - 2026-04-15: 同一 run 随后完成 `LongMemEval-S 64` live canary 与 failure analysis：`outputs_v2/evals_benchmark/20260415T054234Z_stage2_memory_canary.json`、`outputs_v2/artifacts/latest_longmemeval_stage2_canary_analysis.json` 已落地；同时对齐 verifier 的 `longmemeval_s` benchmark alias 和 PersonaMem-only latent-core canary guard 选择后，`scripts/verify_stage2_v2_completion.py --score-only = 14`、`scripts/verify_stage2_latent_core_quality.py --score-only = 10`，`WS-013 / TD-027` 已机械收口。
 - 2026-04-15: 用户确认把 `v2.1` 路线图升级为现阶段主线；当前 next action 已切换到 `TD-028 / WS-014`，即围绕更强质量、learned path 在线增益、跨 benchmark 鲁棒性和系统化收口继续推进。
 - 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_robustness.py --score-only` 从 `4` 提升到 `14`；新增 retained 证据包括 `outputs_v2/artifacts/latest_stage2_learned_online_gain.json`、`outputs_v2/evals_benchmark/20260415T134213Z_stage2_memory_canary.json` 对应的 current-head `LongMemEval-S 64` 提升（`provider 5 / local 3`）、以及 `outputs_v2/evals_benchmark/20260415T135121Z_stage2_memory_canary.json` 对应的 current-head `PersonaMem 128` refreshed artifact。
-- 2026-04-15: 用户明确要求下一步减少 rule-based 思路、更多借鉴 related work，把主线改为“提升整体框架智能程度和更好的 latent”；当前 next action 已相应切换到 `TD-029 / WS-015`
+- 2026-04-15: 用户明确要求下一步减少 rule-based 思路、更多借鉴 related work，把主线改为“提升整体框架智能程度和更好的 latent”；当前 next action 已先切到 `TD-029 / WS-015`
+- 2026-04-15: 用户进一步确认下一轮要按 learned-model-first 长跑推进，并明确“不做任何兜底/fallback/benchmark-specific shortcut”；当前 next action 已切到 `TD-030 / WS-016`
 - 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_learned_memory.py --score-only` 从 `8` 提升到 `12`；新增 retained 证据包括 `StructuredMemorySystem` 的 `memory_mode=learned_memory` + checkpoint-backed belief path、`training.online_aligned` 语义，以及 `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json`
 
 ## Read Next
