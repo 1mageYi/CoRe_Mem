@@ -106,3 +106,33 @@ def test_structured_memory_system_keeps_distinct_music_facets_active():
         slot for slot in [*system.state.core_slots, *system.state.residual_slots] if slot.active_flag and slot.relation == "music_preference"
     ]
     assert len(active_music_slots) >= 2
+
+
+def test_belief_decoder_preserves_selected_slot_order():
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I enjoy telling jokes on stage.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I enjoy quiet nights at home.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    slots = list(reversed(system.state.active_slots()))
+    composed = system.resampler.compose(system.query_encoder.encode("What is the latest fact about the user?"), slots)
+    belief = system.decoder.decode(
+        "query-ordered",
+        "What is the latest fact about the user?",
+        slots,
+        composed_memory=composed,
+    )
+    assert belief.belief_items[0].value == "quiet nights at home"

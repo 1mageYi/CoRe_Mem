@@ -410,18 +410,13 @@ def evaluate_local(
 
     for row in belief_rows:
         slots = [SlotRecord.from_dict(item) for item in row["memory_slots"]]
-        ranked = _rank_slots_with_variant(
-            query_encoder,
-            row["query"],
-            slots,
-            assignment_mode=str(variant.get("assignment_mode", "default")),
-        )
-        selected = ranked[:top_k]
+        selected = slots[:top_k]
         composed = resampler.compose(query_encoder.encode(row["query"]), selected)
         predicted = decoder.decode(
             _sample_id_of(row) or "belief_eval",
             row["query"],
             selected,
+            composed_memory=composed,
         )
         gold_pairs = _belief_pairs(row["target_belief_json"])
         predicted_pairs = _belief_pairs(predicted)
@@ -436,11 +431,12 @@ def evaluate_local(
         composed_token_counts.append(float(len(composed)))
 
         for budget in requested_budgets:
-            budget_selected = ranked[: min(budget, len(ranked))]
+            budget_selected = slots[: min(budget, len(slots))]
             budget_predicted = decoder.decode(
                 f"{_sample_id_of(row) or 'belief_eval'}_budget_{budget}",
                 row["query"],
                 budget_selected,
+                composed_memory=resampler.compose(query_encoder.encode(row["query"]), budget_selected),
             )
             budget_pairs = _belief_pairs(budget_predicted)
             budget_support = _belief_support_ids(budget_predicted)

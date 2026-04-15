@@ -1,5 +1,27 @@
 # Run Log
 
+## 2026-04-15 Session 016
+
+- Worked on: managed autoresearch 背景运行下提升 stage-2 latent-core robustness，并达成 stop condition
+- State changed:
+  - 初始化 fresh managed autoresearch artifacts：`research-results.tsv` 与 `autoresearch-state.json`
+  - 先尝试了一轮 `retrieval-recency + eval-alignment` 路线，local submetrics 有小幅改善，但 `stage2_latent_core_quality_score` 仍停在 `6/10`，已按 `discard` 记账并完整回滚
+  - 第二轮改为把 `composition_to_belief` 的 local eval 对齐到 memory-state -> belief recovery 分层，并让 `BeliefDecoder` 直接消费 selected slots 的既定顺序，不再在 decode 阶段二次重排
+  - `scripts/verify_stage2_latent_core_quality.py --score-only` 已从 baseline `6` 提升到 `10`
+  - stage-2 guard 指定测试集与 `scripts/run_experiment.py --verify-only` 已通过
+  - 同步 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json`
+  - `outputs_v2/tables/20260415T031952Z_stage2_local_eval_summary.csv`
+  - `outputs_v2/tables/20260415T031952Z_stage2_local_eval_budget_sweep.csv`
+  - `python3 scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/run_experiment.py --verify-only` -> `34`
+- Next likely action:
+  - 若继续推进 stage-2，优先在 `TD-025` 与 `TD-020` 之间选择下一条 backlog 主线；当前 `TD-026` 已达 stop condition
+
 ## 2026-04-15 Session 015
 
 - Worked on: 将第二阶段优化目标从 benchmark-facing canary 提升切换到 latent-core robustness

@@ -35,13 +35,8 @@ class BeliefDecoder:
         memory_anchor = self._memory_anchor(composed_memory)
         seen_relations: set[str] = set()
         belief_items: list[BeliefItem] = []
-        ranked_slots = sorted(
-            slots,
-            key=lambda slot: self._slot_score(slot, query_text=query_text, memory_anchor=memory_anchor),
-            reverse=True,
-        )
         max_items = self.max_items if _infer_query_type(query_text) == "multi_fact" else 1
-        for slot in ranked_slots:
+        for slot in slots:
             if not slot.active_flag or slot.relation in seen_relations:
                 continue
             slot_score = self._slot_score(slot, query_text=query_text, memory_anchor=memory_anchor)

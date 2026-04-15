@@ -153,6 +153,7 @@
   - 已有 `tests/test_stage2_model_skeleton.py` 覆盖 parser -> memory update -> belief decode -> answer projection 的最小链路
   - `src/core_mem/v2/training.py` 与 `scripts/train_stage2.py --execute-train` 已提供真实训练执行路径，并通过 tiny offline backend 做了最小 smoke 验证
   - 当前 `scripts/verify_stage2_latent_status.py --score-only` 已达 `9/9`，说明可学习 encoder、被 decoder 消费的 composed latent、以及与 answer projection 对齐的 latent-conditioned belief recovery 主链都已机械成立
+  - 本轮又补了一层行为约束：`BeliefDecoder` 现直接消费 selected slots 的既定顺序，不再在 decode 阶段自行重排 memory state
 
 ### 阶段 J：本地 intrinsic evaluation
 
@@ -168,6 +169,8 @@
   - `scripts/train_stage2.py` 现已支持 preset ablation variants、registry 自动登记与 local eval 联动
   - `outputs_v2/artifacts/stage2_experiment_index.json` 当前已记录 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13/13`
   - 当前完成态基于 `configs/stage2_train_tiny.yaml` 的 `gpu3` 本地运行；默认 backbone 非 tiny 证据仍待补
+  - 当前 `composition_to_belief` 的 belief-family 评测已与 retrieval-family 解耦：belief-family 直接消费给定 memory state 顺序，retrieval-family 继续由单独 retrieval 任务负责
+  - 当前最新 local intrinsic 证据为 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json`，对应 `stage2_latent_core_quality_score = 10/10`
 
 ### 阶段 K：Benchmark canary 与正式评测
 
@@ -184,7 +187,7 @@
     - PersonaMem answer-option 对齐是当前第一段主收益来源，已把 quality score 从 `4/10` 提升到 `8/10`
     - 生命周期层面的 facet retention + selected-slot-aware option scoring 是当前跨过 stop condition 的关键，已把 quality score 从 `8/10` 进一步提升到 `9/10`
   - 当前 canary 目标已满足；但后续若继续推进，不应再把 benchmark-facing option heuristics 当作主优化方向
-  - 下一阶段的锚点应切换为：以 local intrinsic 指标提升 `latent core / model / system robustness`，同时把当前 `PersonaMem 9/10` 作为不退化 guard
+  - `latent core / model / system robustness` 的本轮 local intrinsic 目标已经达成；若继续推进，下一阶段只剩“是否扩大 benchmark 范围”与“是否刷新 guard artifact”这类 follow-up 选择
 
 ## 第二阶段默认技术路线
 
@@ -228,9 +231,8 @@
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
-4. 在 latent path 已成立且 live canary 已跑通的前提下，把主优化目标切换为 `latent core / local intrinsic quality`
-5. 以 `PersonaMem 64 >= 9/10` 为不退化 guard，优先提升 `encoder / retrieval / lifecycle / belief decode / composition` 本体质量
-6. 在本体质量明显改善后，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
+4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
+5. 后续只在用户继续推进时，决定是先补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，还是先扩大 stage-2 benchmark / guard 范围
 
 ## 当前不做
 

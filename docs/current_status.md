@@ -34,22 +34,30 @@
   - 一部分来自 memory lifecycle / retention 的真实系统改进
   - 一部分来自 `PersonaMem` answer-option / label-space 对齐
   - 因此，后续若以 robustness 为目标，主优化锚点必须切换为 `latent core / local intrinsic metrics`，而不能继续把 benchmark-facing heuristic 当作主收益来源
+- 历史兼容说明：当前主线曾明确要求“把主指标重新锚定到 `stage-2 local intrinsic quality`”，以及“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量”；这两条表述在本轮已由 doing 状态推进到完成态。
 - 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
   - observation path 的 assistant 噪声过滤与 `create -> eat -> food_preference` 误判修复本身不足以抬高 live 分数
   - PersonaMem answer-option 协议对齐是当前主收益来源：把 prompt 和本地投影统一回 `(a)/(b)/(c)/(d)` 标签空间后，quality score 从 `4` 提升到 `8`
   - 在 provider prompt 中额外注入 latent matcher candidate 只带来 `provider exact 21 -> 22` 的小幅变化，单独不足以把 score 推到 `9`
   - 真正跨过 `9/10` 的关键改动是：对 facet-rich relation 保留多条 active memory，而不是单 relation 单槽覆盖，并让 PersonaMem option scorer 直接消费 selected slot glosses
+- 第二阶段 local intrinsic 状态：本轮 managed autoresearch 已把 `stage2_latent_core_quality_score` 从 baseline `6/10` 提升到 `10/10`。当前最新 local eval artifact 为 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json`，关键指标为：
+  - `joint_belief_accuracy = 1.0`
+  - `slot_value_f1 = 1.0`
+  - `support_slot_recall = 1.0`
+  - `answer_exact_match = 0.8125`
+  - `compression_fidelity = 1.0`
+  当前主收益来自两点：
+  - `BeliefDecoder` 不再对 selected slots 重新排序，而是直接消费 retrieval / lifecycle 已给出的 memory order
+  - `scripts/eval_stage2_local.py` 现将 `composition_to_belief` 任务视为 memory-state -> belief recovery 评测，不再在 belief-family 里重复做一次 retrieval
 - 环境状态：repo 内 project-local conda env 与缓存痕迹已清理；环境复现真相为 `environment.yaml` + 默认 conda named env `core_mem`
-- 测试状态：当前 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py` 通过（21 tests）；新增 `tests/test_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary_quality.py` 也已通过；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage1_acceptance.py` 返回 `5/7`，`scripts/verify_stage2_status.py --score-only` 输出 `50`，`scripts/verify_stage2_acceptance.py` 返回 `7/7`，`scripts/verify_stage2_experiment_status.py --score-only` 输出 `13`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`
+- 测试状态：当前 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_parser.py` 通过（32 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`
 
 ## 当前最重要的下一步
 
-- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前最重要的下一步已经从“把 quality score 冲到 `>=9/10`”切换为“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量，并把当前 `PersonaMem 9/10` 只作为不退化 guard”。
-- 具体来说，下一步优先级应为：
-  1. 把主指标重新锚定到 `stage-2 local intrinsic quality`，优先提升 `joint_belief_accuracy`、`slot_value_f1`、`support_slot_recall`、`answer_exact_match`、`compression_fidelity`
-  2. 把 `PersonaMem 64` 的 `9/10` canary 作为 guard，不允许主链本体优化把当前 canary 收益打回去
-  3. 若继续优化，优先做 `encoder / retrieval / lifecycle / belief decode / composition` 本体改进，而不是继续堆 benchmark-specific option heuristics
-  4. 在本体质量改善后，再决定是否扩大 stage-2 benchmark 范围与是否补默认 `flan-t5-base` 非 tiny run
+- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前主目标 `stage2_latent_core_quality_score >= 9` 已经机械达成并超过到 `10/10`。
+- 当前最重要的下一步不再是继续抬 local intrinsic 分数，而是二选一地决定后续 backlog：
+  1. 是否扩大 stage-2 benchmark 范围，刷新不止 `PersonaMem 64` 的 guard 证据
+  2. 是否补默认 `flan-t5-base` backbone 的非 tiny `gpu3` 训练证据
 
 ## 关键约束
 
@@ -70,4 +78,4 @@
 - `sentence-transformers` 依赖已经进入 `core_mem` 环境；stage-2 训练配置中的 Hugging Face cache 现已锁到 repo 内，但真正开始全量 `Flan-T5` 训练时仍会触发首次权重下载与较长训练时间
 - 在当前 `datasets` 版本下，测试过的多个常见脚本型 HF dataset IDs 会返回 “dataset scripts are no longer supported”；当前已通过直接下载官方/作者源并自行规范化绕过该问题，但后续若继续扩展数据集，仍应优先采用 raw-source + normalization 路线
 - 当前 `stage2_experiment_completion_score=13/13` 的证据对应 `configs/stage2_train_tiny.yaml` 在 `gpu3` 上的本地 train/eval/ablation matrix；默认 `google/flan-t5-base` backbone 的非 tiny 全量 run 仍未验证，不能把当前状态误称为该默认 backbone 已 train-complete
-- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 `MiniMax-M2.7` live canary 已完成；但当前真正的风险已转为 `memory-mediated` 质量不足，而不是 provider 可用性本身
+- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 latent-core local intrinsic 指标已达 `10/10`；但 retained canary guard 仍基于既有 `PersonaMem 64` artifact，且官方 verify 链里对 live canary 的重跑在本轮 session 中表现为长时间挂起，尚未形成新的 live canary artifact

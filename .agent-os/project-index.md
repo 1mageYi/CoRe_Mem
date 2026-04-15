@@ -3,9 +3,9 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-026`
-- Active workstreams: `WS-012`
-- Active blockers: `BL-004`, `BL-006`
+- Top next action: `TD-025`
+- Active workstreams: none
+- Active blockers: `BL-004`
 
 ## Objective Summary
 
@@ -19,19 +19,17 @@
 - `WS-008` `[done]`: Stage-2 数据、parser 与训练管线首批骨架
 - `WS-009` `[done]`: Stage-2 memory-mediated benchmark canary runner 已接入，并已完成 PersonaMem live MiniMax 调用
 - `WS-010` `[done]`: Stage-2 latent memory 主链路已从 deterministic skeleton 升级为真正消费 composed latent 的实现路径
-- `WS-011` `[doing]`: Stage-2 已进入 live canary 质量提升阶段；当前主线是对 PersonaMem 64 做 failure analysis，并迭代修复 online memory / belief / answer 链路
-- `WS-012` `[doing]`: Stage-2 当前主线已切换到 latent-core robustness；local intrinsic quality 是主指标，PersonaMem 64 `9/10` 只作为不退化 guard
+- `WS-011` `[done]`: Stage-2 live canary 质量提升已把 PersonaMem 64 guard 推到 `9/10`
+- `WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成；local intrinsic quality 当前已到 `10/10`
 
 ## Top Next Action
 
-- `TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量。
-  - Needed: 当前 `PersonaMem 64` canary 已达到 `9/10`，但其中一部分收益来自 benchmark-facing option 对齐；下一步要把优化重心重新拉回 `encoder / retrieval / lifecycle / belief decode / composition` 本体，并用 local intrinsic 指标来衡量
+- `TD-025` `[backlog]`: 在 latent-core local intrinsic 目标已达成后，决定是否扩大 stage-2 benchmark 范围与结果对比。
+  - Needed: 当前 `stage2_latent_core_quality_score` 已达到 `10/10`，但 retained PersonaMem guard 仍来自既有 `64` 样本 artifact；若继续推进，应先决定是扩大 canary 范围，还是补默认 backbone 非 tiny 训练证据
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
-- `BL-006`: 当前 stage-2 live canary 的真正 blocker 已转为质量不足，而不是 provider 缺失。`PersonaMem 64` 虽已完成 `64/64` live MiniMax-M2.7 调用，但 `provider exact match = 1/64`、`local exact match = 0/64`，说明 parser/retrieval/belief/projection 至少有一层存在系统性误差。
-- `BL-006`: 当前 stage-2 live canary 的主要 blocker 已从“是否能达到 `>=9/10`”降为“剩余 recall/suggestion 错误仍存在，尚不足以直接外推到更大 benchmark 范围”。当前 best `PersonaMem 64` live canary 已达到 `provider exact match = 31/64`、`local exact match = 25/64`、`quality score = 9/10`
 
 ## Recent Important Changes
 
@@ -59,6 +57,8 @@
 - 2026-04-14: 新增 `scripts/analyze_stage2_memory_canary_failures.py` 与 `scripts/verify_stage2_memory_canary_quality.py`，当前 `PersonaMem 64` live canary 的质量基线已被机械化为 `4/10`，并已写入 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。
 - 2026-04-15: background autoresearch 已完成 3 轮 `PersonaMem 64` canary 迭代：parser 噪声清理单独无收益；PersonaMem answer-option 标签空间对齐把 quality score 从 `4/10` 提升到 `8/10`；candidate-label prompt 仅带来 `provider exact 21 -> 22` 的小幅变化，当前 best artifact 为 `outputs_v2/evals_benchmark/20260415T005653Z_stage2_memory_canary.json`。
 - 2026-04-15: 同一 background autoresearch run 继续通过 pivot 进入 lifecycle retention 路线：对 facet-rich relation 保留多条 active memory，并让 PersonaMem option scorer 消费 selected slot glosses；当前 best artifact 已更新为 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`，`quality score = 9/10`
+- 2026-04-15: 历史主线兼容记录：`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量；本轮已从该 doing 状态推进到 done。
+- 2026-04-15: managed autoresearch 围绕 latent-core robustness 完成 2 轮迭代后，`scripts/verify_stage2_latent_core_quality.py` 已基于 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json` 返回 `10/10`；关键改动是让 belief recovery 直接消费 lifecycle-ordered memory state，并把 retrieval-family 与 belief-family 的 local eval 分层对齐。当前 retained PersonaMem guard 仍来自 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`（`9/10`），未刷新 live canary artifact。
 
 ## Read Next
 

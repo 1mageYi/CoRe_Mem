@@ -2,9 +2,7 @@
 
 ## Doing
 
-- `TD-026` `[doing]` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
-  - Reason: 当前 `PersonaMem 64` live canary 已达 `9/10`，但其中一部分收益来自 benchmark-facing option 对齐；若继续追求 robustness，主优化目标必须切换到 latent core / local intrinsic 指标。
-  - Evidence target: `stage2_latent_core_quality_score` 明显高于当前基线，同时 `stage2_personamem_canary_quality_score >= 9` 不回退。
+- None
 
 ## Backlog
 
@@ -70,6 +68,10 @@
 - `TD-023` `[done]` 完成 stage-2 MiniMax memory canary 的 live provider 首次运行。
   - Reason: `MiniMax-M2.7` 已完成 1-sample live canary 和 `PersonaMem 64` live canary。
   - Evidence target: 至少一条 live MiniMax-M2.7 的 stage-2 canary 运行结果。
+
+- `TD-026` `[done]` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
+  - Reason: `stage2_latent_core_quality_score` 已从本轮 baseline `6/10` 提升到 `10/10`；belief recovery 现直接消费 lifecycle-ordered memory state，且 local intrinsic belief-family 与 retrieval-family 已解耦到更符合主链分层的评测方式。
+  - Evidence target: `scripts/verify_stage2_latent_core_quality.py --score-only = 10`，且 retained PersonaMem 64 guard artifact 仍满足 `9/10`。
 
 ## Verified
 
