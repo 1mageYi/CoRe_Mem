@@ -44,6 +44,7 @@ def compute_latent_status(root: Path) -> dict[str, Any]:
     resampler_src = inspect.getsource(LightResampler.compose)
     decoder_src = inspect.getsource(BeliefDecoder.decode)
     system_query_src = inspect.getsource(StructuredMemorySystem.query)
+    system_decode_src = inspect.getsource(StructuredMemorySystem._decode_belief)
 
     checks = {
         "requirements_latent_priority_documented": _contains(
@@ -63,6 +64,7 @@ def compute_latent_status(root: Path) -> dict[str, Any]:
         "decoder_accepts_composed_memory": "composed_memory" in decoder_src,
         "system_passes_composed_memory_to_decoder": bool(
             re.search(r"decoder\.decode\([^)]*composed_memory", system_query_src, re.DOTALL)
+            or re.search(r"decoder\.decode\([^)]*composed_memory", system_decode_src, re.DOTALL)
         ),
         "stage2_memory_canary_runner_exists": benchmark_runner_path.exists(),
         "stage2_memory_canary_artifact_exists": bool(benchmark_outputs),

@@ -26,11 +26,12 @@
 - `WS-015` `[doing]`: Stage-2 当前主线切到 learned-memory-first / better latent，重点是让 online system 真正消费 learned memory path，而不是继续强化 rule-based reader/writer
   - Mechanical target: `stage2_v21_learned_memory_score`
   - Current baseline: `8/12`
+  - Current retained state: stop condition 已机械达到 `12/12`，但当前 runtime truth 仍保持 `TD-029 / WS-015` 为活动主线，直到下一轮更大 learned-mode canary 范围被正式接管
 
 ## Top Next Action
 
 - `TD-029` `[doing]`: 把 `v2.1` 的当前主线切到 learned-memory-first / better latent，目标是让系统智能程度和 latent memory 本体继续提升，而不是继续把 parser / selector / prompt 规则微调当作主线。
-  - Needed: 当前 `TD-028` 已把 historical best 推到 `14/15`，但用户已明确要求后续更强调 learned model、本体智能和更好的 latent，因此下一步必须把在线 memory path 继续 learned 化
+  - Needed: 当前 online learned path、checkpoint-backed belief 与最小 learned-mode canary artifact 已做实；下一步更值得扩大 learned-mode canary 覆盖，而不是重复补 plumbing
 
 ## Active Blockers
 
@@ -71,6 +72,7 @@
 - 2026-04-15: 用户确认把 `v2.1` 路线图升级为现阶段主线；当前 next action 已切换到 `TD-028 / WS-014`，即围绕更强质量、learned path 在线增益、跨 benchmark 鲁棒性和系统化收口继续推进。
 - 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_robustness.py --score-only` 从 `4` 提升到 `14`；新增 retained 证据包括 `outputs_v2/artifacts/latest_stage2_learned_online_gain.json`、`outputs_v2/evals_benchmark/20260415T134213Z_stage2_memory_canary.json` 对应的 current-head `LongMemEval-S 64` 提升（`provider 5 / local 3`）、以及 `outputs_v2/evals_benchmark/20260415T135121Z_stage2_memory_canary.json` 对应的 current-head `PersonaMem 128` refreshed artifact。
 - 2026-04-15: 用户明确要求下一步减少 rule-based 思路、更多借鉴 related work，把主线改为“提升整体框架智能程度和更好的 latent”；当前 next action 已相应切换到 `TD-029 / WS-015`
+- 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_learned_memory.py --score-only` 从 `8` 提升到 `12`；新增 retained 证据包括 `StructuredMemorySystem` 的 `memory_mode=learned_memory` + checkpoint-backed belief path、`training.online_aligned` 语义，以及 `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json`
 
 ## Read Next
 

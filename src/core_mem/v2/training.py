@@ -48,6 +48,7 @@ def build_training_examples_with_variant(
     *,
     tasks: list[str] | None = None,
     disabled_pools: list[str] | None = None,
+    online_aligned: bool = False,
 ) -> list[TrainingExample]:
     manifest = load_prepared_manifest(prepared_manifest_path)
     requested = set(tasks or manifest["task_files"].keys())
@@ -60,7 +61,19 @@ def build_training_examples_with_variant(
             if not dataset_allowed_for_variant(dataset_name, disabled_pools):
                 continue
             examples.append(serialize_task_example(task_name, row))
+    if online_aligned:
+        examples = _apply_online_alignment(examples)
     return examples
+
+
+def _apply_online_alignment(examples: list[TrainingExample]) -> list[TrainingExample]:
+    prioritized = {"retrieval_alignment", "composition_to_belief", "lifecycle_prediction"}
+    aligned: list[TrainingExample] = []
+    for example in examples:
+        aligned.append(example)
+        if example.task_name in prioritized:
+            aligned.append(example)
+    return aligned
 
 
 def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExample:
@@ -487,10 +500,12 @@ def train_stage2_model(
     device: str = "cpu",
     disabled_pools: list[str] | None = None,
 ) -> dict[str, Any]:
+    online_aligned = bool(config.get("training", {}).get("online_aligned", False))
     examples = build_training_examples_with_variant(
         prepared_manifest_path,
         tasks=list(config.get("training", {}).get("tasks", [])) or None,
         disabled_pools=disabled_pools,
+        online_aligned=online_aligned,
     )
     if max_train_examples is not None:
         examples = examples[:max_train_examples]
@@ -552,6 +567,7 @@ def train_stage2_model(
         "optimizer_steps": optimizer_steps,
         "loss_history": loss_history,
         "final_loss": loss_history[-1] if loss_history else None,
+        "online_aligned": online_aligned,
         "model": model,
         "tokenizer": tokenizer,
     }

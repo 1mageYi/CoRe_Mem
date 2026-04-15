@@ -143,22 +143,34 @@
   - online system 是否开始支持 learned memory toggle / checkpoint-backed path
   - training 是否开始支持 online-aligned learned variant
   - 是否已出现 learned-mode current-head canary artifacts
-  当前 baseline 为 `8/12`；当前已经成立的基础项是：
+  当前分数已从 baseline `8/12` 提升到 `12/12`；当前已经成立的项是：
   - `TD-029 / WS-015` 文档与 `.agent-os` 已切换
   - related work note 已落地
   - `no-shortcut runner = true`
   - 历史 learned online gain artifact 仍存在
   - non-tiny `trained_eval.token_f1 >= 0.14`
-- 测试状态：当前完整 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py tests/test_stage2_parser.py` 通过（36 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`
+  - online system 已支持 `memory_mode=learned_memory`，并可通过 `learned_memory_checkpoint_dir + learned_memory_train_config_path` 走 checkpoint-backed belief path
+  - training config / launcher 已显式支持 `online_aligned` learned variant
+  - current-head learned-mode canary artifacts 已落地：
+    - `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_learned_canary.json`
+- 第二阶段 learned-memory-first 当前最新证据链：
+  - `StructuredMemorySystem.query()` 当前在 `use_learned_memory` 启用且提供 checkpoint/config 时，会将 selected slots 序列化为 `composition_to_belief` 输入，并用 checkpoint-backed seq2seq runtime 生成 belief JSON；若 learned 输出不可解析，则诚实退回原 symbolic decoder
+  - `scripts/run_stage2_memory_canary.py` 现支持 `--memory-mode learned_memory --learned-memory-checkpoint-dir --learned-memory-train-config`，并在 learned mode 下自动写出 `latest_*_stage2_learned_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T175004Z_stage2_memory_canary.json`：current-head `PersonaMem` learned-mode live canary，`sample_count=1`
+  - `outputs_v2/evals_benchmark/20260415T175032Z_stage2_memory_canary.json`：current-head `LongMemEval-S` learned-mode live canary，`sample_count=1`
+- 第二阶段 learned-memory-first 当前解释边界：
+  - 本轮 `12/12` 证明的是 learned-mode 在线路径、checkpoint-backed belief 入口、online-aligned training 语义和 current-head learned artifacts 已经成立
+  - 当前 learned-mode live canary 仍只是最小 current-head artifact，不应误称为 learned path 已在大样本 benchmark 上稳定胜出
+- 测试状态：当前完整 learned-memory guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_parser.py` 通过（41 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`，`scripts/verify_stage2_v21_learned_memory.py --score-only` 输出 `12`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- 当前最重要的下一步不再是“再补完整 v2 证据”，而是围绕 `v2.1` 做更强、更稳、更能扩的长跑：
-  1. 先把主线切到 learned-memory-first / better latent
-  2. 再让 online system 支持 checkpoint-backed learned memory path
-  3. 再让训练目标直接服务 online `memory -> belief -> answer`
-  4. 最后用 learned-mode canary 证明收益不是 rule/prompt tricks 带来的
+- `TD-029` 的首批 learned-memory-first stop condition 已满足；当前更合理的下一步不再是补 plumbing，而是扩大 learned-mode 证据规模：
+  1. 把 learned-mode canary 从 `1` 样本扩大到固定切片
+  2. 分析 learned belief path 在 `PersonaMem / LongMemEval-S` 上的增益与退化来源
+  3. 决定下一轮是继续优化 checkpoint-backed online belief，还是把 learned write/read 再向 retrieval / lifecycle 推进
 
 ## 关键约束
 

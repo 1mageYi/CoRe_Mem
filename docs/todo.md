@@ -3,9 +3,8 @@
 ## Doing
 
 - `TD-029` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
-  - 当前机械目标：`stage2_v21_learned_memory_score`
-  - 当前 baseline：`8/12`
-  - 当前首批里程碑：related-work-driven 主线切换、online learned memory toggle、checkpoint-backed learned memory path、online-aligned learned variant、learned-mode current-head canaries
+  - 当前机械状态：`scripts/verify_stage2_v21_learned_memory.py --score-only = 12/12`
+  - 当前 retained state：online learned path、checkpoint-backed belief、online-aligned training 语义和 learned-mode current-head artifacts 已落地；在下一轮更大 learned-mode canary 覆盖正式接管前，runtime truth 继续把该主线维持为 doing
 
 ## Blocked
 
@@ -54,7 +53,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- `TD-027` 已机械完成；当前最高优先级未完成点已经切换为 `TD-028`，即把“完整 v2”推进到“更强、更稳、更能扩的 robust v2.1”。
+- `TD-027`、`TD-028` 与 `TD-029` 已机械完成；当前更合理的后续工作是扩大 learned-mode canary 规模，而不是继续补 learned-memory plumbing。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

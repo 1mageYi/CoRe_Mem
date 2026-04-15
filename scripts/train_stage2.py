@@ -111,6 +111,7 @@ def stage2_train_execute(
     device: str,
     cuda_visible_devices: str | None,
     variant: dict[str, Any] | None = None,
+    online_aligned: bool = False,
 ) -> dict[str, Any]:
     if cuda_visible_devices is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
@@ -119,6 +120,9 @@ def stage2_train_execute(
     if variant:
         config.setdefault("experiment", {})
         config["experiment"]["variant"] = dict(variant)
+    if online_aligned:
+        config.setdefault("training", {})
+        config["training"]["online_aligned"] = True
     manifest = _load_json(prepared_manifest_path)
     run_dir = output_root / "runs" / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_stage2_train_exec"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -153,6 +157,7 @@ def stage2_train_execute(
         "device": device,
         "cuda_visible_devices": cuda_visible_devices,
         "variant": variant,
+        "online_aligned": bool(config.get("training", {}).get("online_aligned", False)),
     }
     (run_dir / "execution_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -181,6 +186,7 @@ def main() -> int:
     parser.add_argument("--max-train-examples", type=int)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--cuda-visible-devices")
+    parser.add_argument("--online-aligned", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -215,6 +221,7 @@ def main() -> int:
             device=args.device,
             cuda_visible_devices=args.cuda_visible_devices,
             variant=variant,
+            online_aligned=args.online_aligned,
         )
         if args.register_experiment:
             if not args.experiment_id:

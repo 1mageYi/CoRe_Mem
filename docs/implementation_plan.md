@@ -325,7 +325,7 @@
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 
 - 目标：把 stage-2 主线从 “继续强化 rule-heavy robustness” 切到 “用更 learned 的 memory write/read 与更强 latent memory 提升系统智能程度”
-- Status: doing
+- Status: done
 - Notes:
   - 用户已明确要求当前主线更强调 learned model、本体智能和 better latent，而不是继续强化 rule-based reader/writer
   - 当前 pivot 受以下 related work 启发：
@@ -371,6 +371,13 @@
   - learned-mode `PersonaMem` current-head canary 落地
   - learned-mode `LongMemEval-S` current-head canary 落地
   - 至少一条 learned-mode artifact 能解释 online gain
+- 当前完成态：
+  - `scripts/verify_stage2_v21_learned_memory.py --score-only = 12/12`
+  - `StructuredMemorySystem` 已支持 `memory_mode=learned_memory` 与 checkpoint-backed belief path
+  - `scripts/run_stage2_memory_canary.py` 已支持 learned-mode 在线运行与 `latest_*_stage2_learned_canary.json`
+  - current-head learned-mode artifacts 已落地：
+    - `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_learned_canary.json`
 
 ## 当前不做
 

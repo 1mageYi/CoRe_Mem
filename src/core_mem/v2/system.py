@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import json
+from pathlib import Path
 import re
+from typing import Any, Callable
 
 from core_mem.v2.consolidation import ConsolidationManager
 from core_mem.v2.decoder import BeliefDecoder
@@ -73,6 +76,7 @@ class QueryResult:
     selected_slots: list[SlotRecord]
     composed_memory: list[list[float]]
     belief_state: BeliefState
+    belief_source: str
     evidence_block: str
     answer_text: str
 
@@ -88,7 +92,18 @@ class StructuredMemorySystem:
     decoder: BeliefDecoder = field(default_factory=BeliefDecoder)
     projection: AnswerProjection = field(default_factory=AnswerProjection)
     top_k: int = 8
+    memory_mode: str = "symbolic"
+    use_learned_memory: bool = False
+    learned_memory_checkpoint_dir: str | None = None
+    learned_memory_train_config_path: str | None = None
+    learned_memory_device: str = "cpu"
+    learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = None
     state: StructuredMemoryState = field(default_factory=StructuredMemoryState)
+    _cached_learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def observe_turn(
         self,
@@ -160,11 +175,12 @@ class StructuredMemorySystem:
         )
         selected = ranked[: self.top_k]
         composed = self.resampler.compose(query_vector, selected)
-        belief = self.decoder.decode(query_id, query_text, selected, composed_memory=composed)
+        belief, belief_source = self._decode_belief(query_id, query_text, selected, composed)
         return QueryResult(
             selected_slots=selected,
             composed_memory=composed,
             belief_state=belief,
+            belief_source=belief_source,
             evidence_block=self.projection.render_evidence_block(belief),
             answer_text=self.projection.project_answer(query_text, belief),
         )
@@ -206,3 +222,143 @@ class StructuredMemorySystem:
             return semantic
         lexical_overlap = len(query_terms & slot_terms) / len(query_terms)
         return semantic + (1.5 * lexical_overlap)
+
+    def _decode_belief(
+        self,
+        query_id: str,
+        query_text: str,
+        selected: list[SlotRecord],
+        composed: list[list[float]],
+    ) -> tuple[BeliefState, str]:
+        fallback = self.decoder.decode(query_id, query_text, selected, composed_memory=composed)
+        if not self._learned_memory_enabled():
+            return fallback, "symbolic"
+
+        predictor = self._resolve_learned_belief_predictor()
+        if predictor is None:
+            return fallback, "symbolic_fallback"
+
+        try:
+            payload = predictor(query_id, query_text, selected)
+            learned_belief = self._coerce_learned_belief(payload, query_id=query_id, fallback_slots=selected)
+        except Exception:
+            return fallback, "symbolic_fallback"
+        if not learned_belief.belief_items:
+            return fallback, "symbolic_fallback"
+        return learned_belief, "learned_memory"
+
+    def _learned_memory_enabled(self) -> bool:
+        return self.use_learned_memory or self.memory_mode == "learned_memory"
+
+    def _resolve_learned_belief_predictor(self) -> Callable[[str, str, list[SlotRecord]], Any] | None:
+        if self.learned_belief_predictor is not None:
+            return self.learned_belief_predictor
+        if self._cached_learned_belief_predictor is not None:
+            return self._cached_learned_belief_predictor
+        checkpoint_dir = self.learned_memory_checkpoint_dir
+        train_config_path = self.learned_memory_train_config_path
+        if not checkpoint_dir or not train_config_path:
+            return None
+
+        import yaml
+
+        from core_mem.v2.training import TrainingExample, generate_prediction_text, load_runtime_components
+
+        config = yaml.safe_load(Path(train_config_path).read_text(encoding="utf-8")) or {}
+        model, tokenizer = load_runtime_components(
+            config,
+            Path(checkpoint_dir),
+            device=self.learned_memory_device,
+        )
+        batching = config.get("training", {}).get("batching", {})
+        max_source_length = int(batching.get("max_source_length", 256))
+        max_target_length = int(batching.get("max_target_length", 192))
+
+        def _predict(query_id: str, query_text: str, slots: list[SlotRecord]) -> str:
+            example = TrainingExample(
+                task_name="composition_to_belief",
+                input_text=self._render_learned_belief_example(query_text, slots),
+                target_text=json.dumps({"query_id": query_id, "belief_items": []}, ensure_ascii=False),
+            )
+            return generate_prediction_text(
+                model,
+                tokenizer,
+                example,
+                max_source_length=max_source_length,
+                max_target_length=max_target_length,
+                device=self.learned_memory_device,
+            )
+
+        self._cached_learned_belief_predictor = _predict
+        return _predict
+
+    @staticmethod
+    def _render_learned_belief_example(query_text: str, slots: list[SlotRecord]) -> str:
+        payload = {
+            "query": query_text,
+            "memory_slots": [slot.to_dict() for slot in slots],
+        }
+        sections = ["task: composition_to_belief"]
+        for key, value in payload.items():
+            sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
+        return "\n".join(sections)
+
+    @staticmethod
+    def _coerce_learned_belief(
+        payload: Any,
+        *,
+        query_id: str,
+        fallback_slots: list[SlotRecord],
+    ) -> BeliefState:
+        if isinstance(payload, BeliefState):
+            return payload
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if not isinstance(payload, dict):
+            raise TypeError("Learned belief payload must be a JSON object, string, or BeliefState.")
+
+        raw_items = payload.get("belief_items", [])
+        belief_items: list[dict[str, Any]] = []
+        for index, item in enumerate(raw_items):
+            if not isinstance(item, dict):
+                continue
+            relation = str(item.get("relation", fallback_slots[index].relation if index < len(fallback_slots) else "other_fact"))
+            value = str(item.get("value", ""))
+            support_slot_ids = item.get("support_slot_ids")
+            if not support_slot_ids:
+                support_slot_ids = StructuredMemorySystem._infer_support_slot_ids(
+                    fallback_slots,
+                    relation=relation,
+                    value=value,
+                )
+            belief_items.append(
+                {
+                    "relation": relation,
+                    "value": value,
+                    "status": str(item.get("status", "active")),
+                    "time_scope": str(item.get("time_scope", "current")),
+                    "confidence": float(item.get("confidence", 0.5)),
+                    "support_slot_ids": [str(slot_id) for slot_id in support_slot_ids],
+                }
+            )
+
+        return BeliefState.from_dict(
+            {
+                "query_id": str(payload.get("query_id", query_id)),
+                "entity": str(payload.get("entity", "user")),
+                "query_type": str(payload.get("query_type", "single_fact")),
+                "belief_items": belief_items,
+                "global_consistency": str(payload.get("global_consistency", "medium" if belief_items else "low")),
+            }
+        )
+
+    @staticmethod
+    def _infer_support_slot_ids(slots: list[SlotRecord], *, relation: str, value: str) -> list[str]:
+        normalized_value = value.lower().strip()
+        for slot in slots:
+            if slot.relation == relation:
+                return [slot.slot_id]
+        for slot in slots:
+            if normalized_value and normalized_value in slot.canonical_gloss.lower():
+                return [slot.slot_id]
+        return [slots[0].slot_id] if slots else []

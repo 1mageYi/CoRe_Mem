@@ -64,6 +64,7 @@ def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
     assert payload["num_steps"] == 1
     assert payload["optimizer_steps"] == 1
     assert payload["num_examples"] == 4
+    assert payload["online_aligned"] is True
     assert Path(payload["metrics_path"]).exists()
     assert Path(payload["checkpoint_dir"]).exists()
 
@@ -91,8 +92,8 @@ def test_train_stage2_respects_gradient_accumulation(tmp_path: Path):
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload["num_steps"] == 2
-    assert payload["optimizer_steps"] == 2
+    assert payload["num_steps"] == 3
+    assert payload["optimizer_steps"] == 3
 
 
 def test_stage2_train_plan_emits_direct_train_launcher(tmp_path: Path):

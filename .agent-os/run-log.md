@@ -1,5 +1,30 @@
 # Run Log
 
+## 2026-04-15 Session 023
+
+- Worked on: managed autoresearch 长跑下完成 learned-memory-first / better latent 的首批机械里程碑，并将 `stage2_v21_learned_memory_score` 从 `8` 推到 stop condition `12`
+- State changed:
+  - 初始化 fresh managed run artifacts，并把 baseline 固化为 `stage2_v21_learned_memory_score = 8/12`
+  - `StructuredMemorySystem` 新增 `memory_mode=learned_memory` / `use_learned_memory` 开关；当提供 checkpoint 与 train config 时，online query path 会通过 checkpoint-backed `composition_to_belief` 生成 learned belief，失败时诚实退回 symbolic decoder
+  - `scripts/run_stage2_memory_canary.py` 新增 learned-mode CLI 参数与 metadata，并在 learned mode 下自动写出 `latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json`
+  - `configs/stage2_train*.yaml` 与 `scripts/train_stage2.py` / `src/core_mem/v2/training.py` 新增 `online_aligned` 语义，使训练配置能显式表达“更贴近在线 retrieval/belief/lifecycle”的 learned variant
+  - 完成 current-head learned-mode live canaries：`outputs_v2/evals_benchmark/20260415T175004Z_stage2_memory_canary.json`（PersonaMem, 1 sample）与 `outputs_v2/evals_benchmark/20260415T175032Z_stage2_memory_canary.json`（LongMemEval-S, 1 sample）
+  - 同步 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 到 “`TD-029 / WS-015 done`，下一个更合理动作是扩大 learned-mode canary 覆盖” 的当前真相
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_learned_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T175004Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T175032Z_stage2_memory_canary.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_learned_memory.py --score-only` -> `12`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_status.py --score-only` -> `9`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem python scripts/run_experiment.py --verify-only` -> `34`
+- Next likely action:
+  - 若继续推进 stage-2 learned-memory-first 主线，优先把 current-head learned-mode canary 从 `1` 样本扩大到固定切片，并分析 learned belief path 的真实增益与退化来源
+
 ## 2026-04-15 Session 022
 
 - Worked on: 停止旧的 robustness 长跑，并把 stage-2 主线 pivot 到 learned-memory-first / better latent

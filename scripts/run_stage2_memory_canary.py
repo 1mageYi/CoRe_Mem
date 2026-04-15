@@ -350,6 +350,7 @@ def _memory_payload(system: StructuredMemorySystem, query_id: str, query_text: s
     result = system.query(query_id, query_text)
     return {
         "belief_state": result.belief_state.to_dict(),
+        "belief_source": result.belief_source,
         "evidence_block": result.evidence_block,
         "answer_text": result.answer_text,
         "selected_slot_ids": [slot.slot_id for slot in result.selected_slots],
@@ -358,11 +359,42 @@ def _memory_payload(system: StructuredMemorySystem, query_id: str, query_text: s
     }
 
 
+def _build_memory_system(
+    *,
+    memory_mode: str,
+    learned_memory_checkpoint_dir: str | None,
+    learned_memory_train_config_path: str | None,
+    learned_memory_device: str,
+) -> StructuredMemorySystem:
+    return StructuredMemorySystem(
+        memory_mode=memory_mode,
+        use_learned_memory=memory_mode == "learned_memory",
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+    )
+
+
+def _maybe_write_learned_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if summary.get("memory_mode") != "learned_memory":
+        return
+    alias_name = (
+        "latest_personamem_stage2_learned_canary.json"
+        if benchmark == "personamem"
+        else "latest_longmemeval_stage2_learned_canary.json"
+    )
+    _write_json(output_root / "artifacts" / alias_name, summary)
+
+
 def run_personamem_canary(
     *,
     output_root: Path,
     config_path: Path,
     limit: int,
+    memory_mode: str = "symbolic",
+    learned_memory_checkpoint_dir: str | None = None,
+    learned_memory_train_config_path: str | None = None,
+    learned_memory_device: str = "cpu",
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -394,6 +426,10 @@ def run_personamem_canary(
         "config_snapshot_path": str(config_snapshot),
         "model": config.llm.model,
         "api_key_env": config.llm.api_key_env,
+        "memory_mode": memory_mode,
+        "use_learned_memory": memory_mode == "learned_memory",
+        "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
+        "learned_memory_train_config_path": learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "personamem")),
@@ -403,7 +439,12 @@ def run_personamem_canary(
     for question in questions:
         if question.question_id in completed_ids:
             continue
-        system = StructuredMemorySystem()
+        system = _build_memory_system(
+            memory_mode=memory_mode,
+            learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+            learned_memory_train_config_path=learned_memory_train_config_path,
+            learned_memory_device=learned_memory_device,
+        )
         observed_turns = _observe_personamem_context(
             system,
             adapter.render_context_for_question(question, contexts),
@@ -437,6 +478,7 @@ def run_personamem_canary(
                 "provider_status": status,
                 "provider_configured": provider.is_configured(),
                 "observed_turns": observed_turns,
+                "belief_source": memory_payload["belief_source"],
                 "selected_slot_ids": memory_payload["selected_slot_ids"],
                 "belief_state": memory_payload["belief_state"],
                 "evidence_block": memory_payload["evidence_block"],
@@ -461,6 +503,7 @@ def run_personamem_canary(
         "summary_path": str(summary_path),
     }
     _write_json(summary_path, summary)
+    _maybe_write_learned_alias(output_root, "personamem", summary)
     return summary
 
 
@@ -469,6 +512,10 @@ def run_longmemeval_canary(
     output_root: Path,
     config_path: Path,
     limit: int,
+    memory_mode: str = "symbolic",
+    learned_memory_checkpoint_dir: str | None = None,
+    learned_memory_train_config_path: str | None = None,
+    learned_memory_device: str = "cpu",
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -499,6 +546,10 @@ def run_longmemeval_canary(
         "config_snapshot_path": str(config_snapshot),
         "model": config.llm.model,
         "api_key_env": config.llm.api_key_env,
+        "memory_mode": memory_mode,
+        "use_learned_memory": memory_mode == "learned_memory",
+        "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
+        "learned_memory_train_config_path": learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "longmemeval")),
@@ -508,7 +559,12 @@ def run_longmemeval_canary(
     for question in questions:
         if question.question_id in completed_ids:
             continue
-        system = StructuredMemorySystem()
+        system = _build_memory_system(
+            memory_mode=memory_mode,
+            learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+            learned_memory_train_config_path=learned_memory_train_config_path,
+            learned_memory_device=learned_memory_device,
+        )
         observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
         memory_payload = _memory_payload(system, question.question_id, question.question)
         prompt = _render_longmemeval_prompt(question, memory_payload)
@@ -533,6 +589,7 @@ def run_longmemeval_canary(
                 "provider_status": status,
                 "provider_configured": provider.is_configured(),
                 "observed_turns": observed_turns,
+                "belief_source": memory_payload["belief_source"],
                 "selected_slot_ids": memory_payload["selected_slot_ids"],
                 "belief_state": memory_payload["belief_state"],
                 "evidence_block": memory_payload["evidence_block"],
@@ -557,6 +614,7 @@ def run_longmemeval_canary(
         "summary_path": str(summary_path),
     }
     _write_json(summary_path, summary)
+    _maybe_write_learned_alias(output_root, "longmemeval", summary)
     return summary
 
 
@@ -566,6 +624,10 @@ def main() -> int:
     parser.add_argument("--benchmark", choices=["personamem", "longmemeval"], default="personamem")
     parser.add_argument("--output-root", default="outputs_v2")
     parser.add_argument("--limit", type=int, default=1)
+    parser.add_argument("--memory-mode", choices=["symbolic", "learned_memory"], default="symbolic")
+    parser.add_argument("--learned-memory-checkpoint-dir")
+    parser.add_argument("--learned-memory-train-config")
+    parser.add_argument("--learned-memory-device", default="cpu")
     parser.add_argument("--run-dir")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -576,6 +638,10 @@ def main() -> int:
             output_root=Path(args.output_root),
             config_path=Path(args.config),
             limit=args.limit,
+            memory_mode=args.memory_mode,
+            learned_memory_checkpoint_dir=args.learned_memory_checkpoint_dir,
+            learned_memory_train_config_path=args.learned_memory_train_config,
+            learned_memory_device=args.learned_memory_device,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )
@@ -584,6 +650,10 @@ def main() -> int:
             output_root=Path(args.output_root),
             config_path=Path(args.config),
             limit=args.limit,
+            memory_mode=args.memory_mode,
+            learned_memory_checkpoint_dir=args.learned_memory_checkpoint_dir,
+            learned_memory_train_config_path=args.learned_memory_train_config,
+            learned_memory_device=args.learned_memory_device,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )

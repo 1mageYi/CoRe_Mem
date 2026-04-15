@@ -160,3 +160,37 @@ def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts(
     result = system.query("query-lexical", "What is the name of the yoga studio where I take classes?")
     assert result.selected_slots[0].canonical_gloss.endswith("=serenity yoga")
     assert result.answer_text == "serenity yoga"
+
+
+def test_structured_memory_system_can_switch_to_learned_memory_belief_predictor():
+    def _predict(query_id: str, query_text: str, slots):
+        assert query_id == "query-learned"
+        assert "drink" in query_text
+        assert slots
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "global_consistency": "high",
+            "belief_items": [
+                {
+                    "relation": "drink_preference",
+                    "value": "oolong tea",
+                    "support_slot_ids": [slots[0].slot_id],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I like matcha latte.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned", "What drink does the user like?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].value == "oolong tea"
+    assert result.answer_text == "oolong tea"

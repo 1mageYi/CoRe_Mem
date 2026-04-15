@@ -26,6 +26,7 @@ model:
       - v
 
 training:
+  online_aligned: true
   tasks:
     - slot_autoencoding
     - retrieval_alignment

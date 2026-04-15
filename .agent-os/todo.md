@@ -3,10 +3,10 @@
 ## Doing
 
 - `TD-029` `[doing]` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
-  - Reason: 用户已明确要求减少 rule-based 路径，把重点转到 learned model、本体智能和更好的 latent；当前 `TD-028` 虽然把 historical best 推到 `14/15`，但其剩余收益与失败边界已经说明 rule-heavy 路径不是最终目标。
-  - Evidence target: 至少形成 related-work 驱动的 learned-memory design note、online learned memory toggle、checkpoint-backed learned memory path、online-aligned learned variant，以及 learned-mode current-head canary artifacts。
+  - Reason: 当前 online learned path、checkpoint-backed learned belief 与 learned-mode current-head artifacts 已落地；在下一轮更大 learned-mode canary 覆盖正式接管前，runtime truth 继续把该主线维持为 doing。
+  - Evidence target: `scripts/verify_stage2_v21_learned_memory.py --score-only = 12`，且 `latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json` 已落地。
   - Mechanical target: `scripts/verify_stage2_v21_learned_memory.py --score-only`
-  - Current baseline: `8/12`
+  - Current retained state: `12/12`
 
 ## Backlog
 
@@ -18,7 +18,7 @@
   - Evidence target: PersonaMem 64 / LongMemEval-S 64 的固定 canary 运行结果、输出表和记录规范。
 
 - `TD-025` `[backlog]` 在 `PersonaMem 64` canary 质量提升后，扩大 stage-2 benchmark 范围与结果对比。
-  - Reason: `TD-027` 已完成，当前更合理的 stage-2 后续工作是扩大 benchmark 范围、补结果对比，而不是重复同一组 `64` canary。
+  - Reason: `TD-029 / WS-015` 已完成 learned-memory-first plumbing；当前更合理的后续工作是扩大 learned-mode canary 范围、补结果对比，而不是重复补 toggle/checkpoint plumbing。
   - Evidence target: 更大样本或第二 benchmark 的 stage-2 live canary 结果与对比表。
 
 ## Blocked
@@ -80,6 +80,7 @@
 - `TD-027` `[done]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
   - Reason: 当前 `stage2_v2_completion_score = 14/14`；fresh `PersonaMem 64`、`LongMemEval-S 64`、`latest_longmemeval_stage2_canary_analysis.json`、`no-shortcut runner` 与默认 `flan-t5-base` 的 `GPU3` 非 tiny train/eval 已全部机械成立。
   - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only = 14`，且 `scripts/verify_stage2_latent_core_quality.py --score-only = 10`、stage-2 guard 通过。
+
 
 ## Verified
 
