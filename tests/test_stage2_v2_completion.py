@@ -58,6 +58,7 @@ def test_stage2_v2_completion_verifier(tmp_path: Path):
             "sample_count": 64,
             "live_predictions_completed": 64,
             "provider_configured": True,
+            "commit_hash": "ignored_without_git_repo",
         },
     )
     _write_json(
@@ -68,6 +69,7 @@ def test_stage2_v2_completion_verifier(tmp_path: Path):
             "sample_count": 64,
             "live_predictions_completed": 64,
             "provider_configured": True,
+            "commit_hash": "ignored_without_git_repo",
         },
     )
     _write_json(repo_root / "outputs_v2" / "artifacts" / "latest_personamem_stage2_canary_analysis.json", {"ok": True})

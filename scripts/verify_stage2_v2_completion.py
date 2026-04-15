@@ -57,6 +57,18 @@ def _run_score(script: Path) -> int:
         return 0
 
 
+def _current_head(root: Path) -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and head else None
+
+
 def _latest_non_tiny_train(root: Path) -> dict[str, Any] | None:
     candidates = sorted((root / "outputs_v2" / "runs").glob("*_stage2_train_exec/execution_summary.json"))
     for path in reversed(candidates):
@@ -112,11 +124,16 @@ def _canary_completed(root: Path, benchmark: str) -> bool:
     if summary_path is None:
         return False
     payload = _read_json(summary_path)
+    current_head = _current_head(root)
+    commit_matches = True
+    if current_head is not None:
+        commit_matches = str(payload.get("commit_hash", "")) == current_head
     return (
         payload.get("status") == "completed"
         and int(payload.get("sample_count", 0)) >= 64
         and int(payload.get("live_predictions_completed", 0)) >= 64
         and bool(payload.get("provider_configured", False))
+        and commit_matches
     )
 
 
