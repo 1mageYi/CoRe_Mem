@@ -3,6 +3,9 @@
 ## Doing
 
 - `TD-028` 把 `v2.1` 作为当前主线：提升真实质量、learned path 实际贡献、跨 benchmark 鲁棒性与系统化收口。
+  - 当前机械目标：`stage2_v21_robustness_score`
+  - 当前 baseline：`4/15`
+  - 当前首批里程碑：fresh current-head canaries、`PersonaMem 128` 稳定性、`LongMemEval-S` layered analysis、learned online gain artifact、non-tiny `trained_eval.token_f1` 提升
 
 ## Blocked
 

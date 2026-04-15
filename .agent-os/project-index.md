@@ -23,6 +23,8 @@
 - `WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成；local intrinsic quality 当前已到 `10/10`
 - `WS-013` `[done]`: Stage-2 “完整 v2”长跑已收口，fresh canaries、第二 benchmark、非 tiny 训练证据与 no-shortcut runner 均已补齐
 - `WS-014` `[doing]`: Stage-2 当前主线已切换到 `v2.1`，重点是更强质量、learned path 在线增益、跨 benchmark 鲁棒性与系统化收口
+  - Mechanical target: `stage2_v21_robustness_score`
+  - Current baseline: `4/15`
 
 ## Top Next Action
 

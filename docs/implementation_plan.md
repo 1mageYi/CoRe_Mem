@@ -258,6 +258,13 @@
 
 #### 阶段 M-D：系统化收口
 
+- 固化 `v2.1` 的机械 verifier、默认 guard、默认 benchmark/train 配方与禁用 heuristic 列表
+- 让后续 managed autoresearch 围绕 `stage2_v21_robustness_score` 推进，而不是继续复用 `stage2_v2_completion_score`
+- 里程碑：
+  - 新的 `v2.1` verifier 可独立返回 baseline / best score
+  - verifier 能区分 current-head fresh canary、larger-slice stability、learned online gain 与 layered failure analysis
+  - 当前默认长跑入口围绕 `LongMemEval-S` 专项质量提升与 learned path 在线增益来组织
+
 - 固化默认配置、推荐训练命令和 benchmark 命令
 - 固化哪些 heuristic 被禁止
 - 固化 milestone verifier

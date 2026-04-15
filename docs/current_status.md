@@ -94,6 +94,20 @@
   - non-tiny learned path 对在线链路有可证明增益
   - 不依赖 benchmark-specific heuristic / fallback
   - failure analysis 能稳定归因到 `parser / retrieval / belief / answer(provider/projection)` 某一层，而不是系统混成一团
+- 第二阶段 `v2.1` 机械目标：当前主指标已切换为 `scripts/verify_stage2_v21_robustness.py` 对应的 `stage2_v21_robustness_score`。该分数当前围绕 10 个里程碑簇展开：
+  - fresh current-head `PersonaMem 64`
+  - fresh current-head `LongMemEval-S 64`
+  - current-head `PersonaMem 128` 更大切片
+  - `PersonaMem 128` 的稳定性阈值
+  - `LongMemEval-S` layered analysis artifact
+  - `LongMemEval-S` provider/local 质量提升
+  - learned online gain artifact
+  - 非 tiny `trained_eval.token_f1` 继续提升
+  同时保留 `latent-core = 10/10` 与 `no-shortcut runner` 作为基础 guard。
+  当前 baseline 为 `4/15`；已通过的基础项是：
+  - 文档 / `.agent-os` 已切到 `v2.1`
+  - `latent-core = 10/10`
+  - `no-shortcut runner = true`
 - 测试状态：当前完整 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py tests/test_stage2_parser.py` 通过（36 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`，`scripts/verify_stage2_v2_completion.py --score-only` 输出 `14`
 
 ## 当前最重要的下一步
