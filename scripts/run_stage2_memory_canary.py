@@ -103,52 +103,6 @@ def _normalize_answer(text: str) -> str:
     return " ".join(text.strip().lower().split())
 
 
-_OPTION_STOPWORDS = {
-    "the",
-    "a",
-    "an",
-    "and",
-    "or",
-    "to",
-    "of",
-    "in",
-    "on",
-    "for",
-    "with",
-    "that",
-    "this",
-    "it",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "as",
-    "at",
-    "by",
-    "from",
-    "about",
-    "into",
-    "through",
-    "your",
-    "you",
-    "i",
-    "my",
-    "me",
-    "we",
-    "our",
-    "their",
-    "they",
-    "them",
-    "he",
-    "she",
-    "his",
-    "her",
-}
-
-
 def _options_use_labels(options: list[str]) -> bool:
     return bool(options) and all(option.startswith("(") and ")" in option[:4] for option in options)
 
@@ -162,42 +116,6 @@ def _option_body(option: str) -> str:
     label = _option_label(option)
     remainder = option[len(label) :].strip()
     return remainder or option.strip()
-
-
-def _tokenize_option_text(text: str) -> list[str]:
-    return [
-        token
-        for token in re.findall(r"[a-z]+", text.lower())
-        if len(token) >= 3 and token not in _OPTION_STOPWORDS
-    ]
-
-
-def _best_personamem_option_label(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
-    support_parts = [
-        question.user_question_or_message,
-        memory_payload.get("evidence_block", ""),
-        " ".join(str(item) for item in memory_payload.get("selected_slot_glosses", [])),
-        " ".join(
-            str(item.get("value", ""))
-            for item in memory_payload.get("belief_state", {}).get("belief_items", [])
-            if isinstance(item, dict)
-        ),
-    ]
-    support_tokens = set(_tokenize_option_text(" ".join(part for part in support_parts if part)))
-    best_label = ""
-    best_score = float("-inf")
-    for option in question.all_options:
-        body = _option_body(option)
-        option_tokens = _tokenize_option_text(body)
-        overlap = sum(1 for token in option_tokens if token in support_tokens)
-        penalty = int(any(token in body.lower() for token in (" not ", " dislike", " avoid")))
-        score = overlap - penalty
-        label = _option_label(option)
-        if score > best_score:
-            best_score = score
-            best_label = label
-    return best_label
-
 
 def _observe_personamem_context(system: StructuredMemorySystem, context_text: str, *, sample_id: str) -> int:
     observed = 0
@@ -332,9 +250,6 @@ def _resolve_personamem_prediction(local_answer: str, options: list[str]) -> str
 
 
 def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
-    scored_label = _best_personamem_option_label(memory_payload, question)
-    if scored_label:
-        return scored_label
     projected = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
     if projected in question.all_options:
         return _option_label(projected) if _options_use_labels(question.all_options) else projected
@@ -347,19 +262,6 @@ def _project_personamem_local_answer(memory_payload: dict[str, Any], question: P
     )
     evidence_text = f"{belief_text} {memory_payload['evidence_block']}".strip()
     return _resolve_personamem_prediction(evidence_text, question.all_options)
-
-
-def _finalize_personamem_provider_prediction(
-    provider_prediction: str | None,
-    *,
-    memory_payload: dict[str, Any],
-    question: PersonaMemQuestion,
-) -> str | None:
-    normalized = (provider_prediction or "").strip()
-    if normalized:
-        return provider_prediction
-    fallback = _best_personamem_option_label(memory_payload, question)
-    return fallback or provider_prediction
 
 
 def _render_personamem_options(options: list[str]) -> str:
@@ -390,24 +292,14 @@ def _render_personamem_query_type_hint(question: PersonaMemQuestion) -> str:
 def _render_personamem_prompt(
     question: PersonaMemQuestion,
     memory_payload: dict[str, Any],
-    *,
-    candidate_answer: str | None = None,
 ) -> str:
     options_block = _render_personamem_options(question.all_options)
-    candidate_block = ""
-    if candidate_answer:
-        candidate_block = (
-            f"Latent matcher candidate:\n{candidate_answer}\n\n"
-            "Prefer this candidate when it is consistent with the belief state and evidence. "
-            "Only override it when another option is more strongly supported.\n\n"
-        )
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
         f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
-        f"{candidate_block}"
         f"Options:\n{options_block}\n\n"
         f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
@@ -466,7 +358,7 @@ def run_personamem_canary(
         )
         memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
         local_projection = _project_personamem_local_answer(memory_payload, question)
-        prompt = _render_personamem_prompt(question, memory_payload, candidate_answer=local_projection)
+        prompt = _render_personamem_prompt(question, memory_payload)
         provider_prediction = None
         raw_provider_prediction = None
         status = "provider_not_configured"
@@ -476,11 +368,7 @@ def run_personamem_canary(
                 temperature=config.llm.temperature,
                 max_tokens=config.llm.max_tokens,
             ).content
-            provider_prediction = _finalize_personamem_provider_prediction(
-                raw_provider_prediction,
-                memory_payload=memory_payload,
-                question=question,
-            )
+            provider_prediction = raw_provider_prediction
             status = "completed"
             live_completed += 1
         rows.append(

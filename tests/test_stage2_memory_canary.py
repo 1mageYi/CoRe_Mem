@@ -15,8 +15,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 from core_mem.v2.system import StructuredMemorySystem
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
-    _best_personamem_option_label,
-    _finalize_personamem_provider_prediction,
     _observe_personamem_context,
     _project_personamem_local_answer,
     _rewrite_persona_summary,
@@ -90,11 +88,10 @@ def test_personamem_prompt_keeps_label_space():
             "belief_state": {"belief_items": [{"relation": "music_preference", "value": "digital music"}]},
             "evidence_block": "- music_preference: digital music",
         },
-        candidate_answer="(b)",
     )
     assert "(a) Wrong" in prompt
     assert "(b) Right" in prompt
-    assert "Latent matcher candidate" in prompt
+    assert "Latent matcher candidate" not in prompt
     assert "Return only the best option label" in prompt
 
 
@@ -142,7 +139,7 @@ def test_persona_summary_rewriter_extracts_structured_first_person_facts():
     assert any("I want to develop an app that helps musicians." == item for item in rewrites)
 
 
-def test_personamem_option_scorer_prefers_support_overlap():
+def test_personamem_local_projection_uses_evidence_overlap_when_answer_text_is_empty():
     question = PersonaMemQuestion(
         persona_id="p",
         question_id="q",
@@ -157,17 +154,18 @@ def test_personamem_option_scorer_prefers_support_overlap():
         shared_context_id="ctx",
         end_index_in_shared_context=1,
     )
-    label = _best_personamem_option_label(
+    projected = _project_personamem_local_answer(
         {
+            "answer_text": "",
             "belief_state": {"belief_items": [{"relation": "hobby", "value": "hiking mountain trails"}]},
             "evidence_block": "- hobby: hiking mountain trails",
         },
         question,
     )
-    assert label == "(a)"
+    assert projected == "(a)"
 
 
-def test_personamem_provider_blank_falls_back_to_option_scorer():
+def test_personamem_prompt_has_no_candidate_injection():
     question = PersonaMemQuestion(
         persona_id="p",
         question_id="q",
@@ -182,12 +180,11 @@ def test_personamem_provider_blank_falls_back_to_option_scorer():
         shared_context_id="ctx",
         end_index_in_shared_context=1,
     )
-    final_prediction = _finalize_personamem_provider_prediction(
-        "",
-        memory_payload={
+    prompt = _render_personamem_prompt(
+        question,
+        {
             "belief_state": {"belief_items": [{"relation": "hobby", "value": "hiking mountain trails"}]},
             "evidence_block": "- hobby: hiking mountain trails",
         },
-        question=question,
     )
-    assert final_prediction == "(a)"
+    assert "Latent matcher candidate" not in prompt
