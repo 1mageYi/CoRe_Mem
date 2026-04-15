@@ -265,3 +265,98 @@ def test_stage2_latent_core_quality_uses_latest_personamem_canary(tmp_path: Path
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["checks"]["personamem_canary_quality_ge_9"] is True
+
+
+def test_stage2_latent_core_quality_ignores_learned_personamem_canary(tmp_path: Path):
+    repo_root = tmp_path / "repo"
+    (repo_root / "docs").mkdir(parents=True)
+    (repo_root / ".agent-os").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "evals_local").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "evals_benchmark").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "symbolic").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "learned").mkdir(parents=True)
+    (repo_root / "scripts").mkdir(parents=True)
+
+    (repo_root / "docs" / "current_status.md").write_text(
+        "把主指标重新锚定到 `stage-2 local intrinsic quality`\n",
+        encoding="utf-8",
+    )
+    (repo_root / ".agent-os" / "project-index.md").write_text(
+        "`WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成\n",
+        encoding="utf-8",
+    )
+    (repo_root / "scripts" / "verify_stage2_latent_status.py").write_text("print(9)\n", encoding="utf-8")
+    (repo_root / "outputs_v2" / "evals_local" / "demo_stage2_local_eval.json").write_text(
+        json.dumps(
+            {
+                "metrics": {
+                    "joint_belief_accuracy": 1.0,
+                    "slot_value_f1": 1.0,
+                    "support_slot_recall": 1.0,
+                    "answer_exact_match": 0.8,
+                    "compression_fidelity": 1.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    symbolic_predictions = repo_root / "outputs_v2" / "runs" / "symbolic" / "predictions.jsonl"
+    symbolic_predictions.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "expected_answer": "(a)",
+                    "provider_prediction": "(a)",
+                    "memory_answer_local": "(a)",
+                }
+            )
+            + "\n"
+            for _ in range(64)
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000000Z_stage2_memory_canary.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "personamem",
+                "status": "completed",
+                "sample_count": 64,
+                "predictions_path": str(symbolic_predictions),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    learned_predictions = repo_root / "outputs_v2" / "runs" / "learned" / "predictions.jsonl"
+    learned_predictions.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "expected_answer": "(a)",
+                    "provider_prediction": "(b)",
+                    "memory_answer_local": "",
+                }
+            )
+            + "\n"
+            for _ in range(64)
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000100Z_stage2_memory_canary.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "personamem",
+                "status": "completed",
+                "sample_count": 64,
+                "memory_mode": "learned_memory",
+                "predictions_path": str(learned_predictions),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run("scripts/verify_stage2_latent_core_quality.py", "--root", str(repo_root))
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["checks"]["personamem_canary_quality_ge_9"] is True

@@ -54,6 +54,8 @@ def _latest_canary(root: Path, *, benchmark: str | None = None) -> Path | None:
             continue
         if benchmark is not None and not _benchmark_matches(payload.get("benchmark"), benchmark):
             continue
+        if str(payload.get("memory_mode", "")).strip() == "learned_memory":
+            continue
         return path
     return None
 
