@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-030`
-- Active workstreams: `WS-016`
+- Top next action: `TD-031`
+- Active workstreams: `WS-017`
 - Active blockers: `BL-004`
 
 ## Objective Summary
@@ -26,15 +26,20 @@
 - `WS-015` `[done]`: Stage-2 learned-memory-first / better latent 的首批 plumbing 已机械完成，online learned path、checkpoint-backed belief、online-aligned training 语义与最小 learned-mode artifact 已落地
   - Mechanical target: `stage2_v21_learned_memory_score`
   - Final retained state: stop condition 已机械达到 `12/12`
-- `WS-016` `[doing]`: Stage-2 当前主线切到 learned-model-first 长跑，重点是让 learned model / better latent 在更大样本和多个 benchmark 上带来真实提升，并逐步摆脱 fallback 依赖
+- `WS-016` `[doing]`: Stage-2 learned-model-first 长跑的当前机械里程碑已收口，online learned path 已去掉 retained symbolic fallback，current-head learned canaries 已扩到 PersonaMem `128` 与 LongMemEval-S `64`
   - Mechanical target: `stage2_v21_longrun_score`
-  - Current baseline: `11/16`
-  - Current retained state: `TD-029` 已完成 plumbing；本轮开始要求 current-head learned `64/128` canaries、LongMemEval-S 专项质量提升，以及禁止任何兜底/fallback/benchmark-specific shortcut
+  - Final retained state: `16/16` on HEAD `d6bc4f7`; latest non-tiny trained eval artifact `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json` 已达 `trained_eval.token_f1 = 0.3885239109848479`
+  - Current runtime truth: managed run 的 stop condition 已达到；在用户给出新的 stage-2 方向前，`WS-016` 继续作为当前 closeout workstream 保持可复验状态
+  - Remaining risk: live learned canary 仍频繁出现 `learned_memory_error`，说明 `Flan-T5` belief JSON 有效性问题尚未解决；当前完成态只能诚实标注为“机械 stop condition 达成”，不能误写成 learned quality 全面稳定
+- `WS-017` `[doing]`: Stage-2 当前主线切到 semantic-first learned decoder，目标是在不引入任何 fallback/shortcut 的前提下，把训练目标从 raw JSON 表面匹配推进到语义字段恢复、外部格式约束和更稳定的 online learned belief path
+  - Mechanical target: `stage2_v21_semantic_model_score`
+  - Current baseline: 待用 `scripts/verify_stage2_v21_semantic_model.py` 固化
+  - Initial truth: 当前 best non-tiny `trained_eval.token_f1 = 0.3885239109848479`，但 `exact_match = 0`、`retrieval_alignment.token_f1 = 0`，说明模型尚未把语义正确与合法结构同时做好
 
 ## Top Next Action
 
-- `TD-030` `[doing]`: 以 learned model / better latent 为锚点启动 `v2.1` 长跑，目标是在不做任何兜底/fallback/benchmark-specific shortcut 的前提下，让 online learned path 在更大样本和多个 benchmark 上带来真实收益。
-  - Needed: 当前 online learned path、checkpoint-backed belief 与最小 learned-mode canary artifact 已做实；下一步更值得扩大 learned-mode canary 覆盖、强化 online-aligned training，并逐步移除 fallback 依赖
+- `TD-031` `[doing]`: 以“语义优先、格式外部约束处理”为锚点推进 learned-model-first 的下一轮长跑。
+  - Needed: 当前 best artifact 已说明模型学到了部分结构模式，但仍未稳定恢复合法 belief JSON；下一步应优先修语义字段恢复、retrieval alignment 训练目标和外部格式约束，而不是继续追 raw JSON exact match
 
 ## Active Blockers
 
@@ -77,6 +82,7 @@
 - 2026-04-15: 用户明确要求下一步减少 rule-based 思路、更多借鉴 related work，把主线改为“提升整体框架智能程度和更好的 latent”；当前 next action 已先切到 `TD-029 / WS-015`
 - 2026-04-15: 用户进一步确认下一轮要按 learned-model-first 长跑推进，并明确“不做任何兜底/fallback/benchmark-specific shortcut”；当前 next action 已切到 `TD-030 / WS-016`
 - 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_learned_memory.py --score-only` 从 `8` 提升到 `12`；新增 retained 证据包括 `StructuredMemorySystem` 的 `memory_mode=learned_memory` + checkpoint-backed belief path、`training.online_aligned` 语义，以及 `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json`
+- 2026-04-15: 当前 managed autoresearch run 已在 HEAD `d6bc4f7` 上把 `scripts/verify_stage2_v21_longrun.py --score-only` 从 `11` 推到 `16` 并触发 stop condition；新增 retained 证据包括 `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json`（`trained_eval.token_f1 = 0.3885239109848479`）、`outputs_v2/evals_benchmark/20260415T202608Z_stage2_memory_canary.json`（PersonaMem `128` learned current-head refresh）与 `outputs_v2/evals_benchmark/20260415T205627Z_stage2_memory_canary.json`（LongMemEval-S `64` learned current-head refresh）
 
 ## Read Next
 

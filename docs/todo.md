@@ -2,14 +2,10 @@
 
 ## Doing
 
-- `TD-030` 以 learned model / better latent 为锚点启动 `v2.1` 长跑。
-  - 当前机械目标：`scripts/verify_stage2_v21_longrun.py --score-only`
-  - 当前 baseline：`11/16`
-  - 当前约束：不做任何兜底/fallback/benchmark-specific shortcut
-  - 当前 retained state：`TD-029` 已完成 learned-memory-first plumbing；这一轮开始要求更大样本 learned canary、online-aligned 增益和跨 benchmark robustness
-- `TD-029` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
-  - 当前机械状态：`scripts/verify_stage2_v21_learned_memory.py --score-only = 12/12`
-  - 当前 retained state：online learned path、checkpoint-backed belief、online-aligned training 语义和 learned-mode current-head artifacts 已落地；在下一轮更大 learned-mode canary 覆盖正式接管前，runtime truth 继续把该主线维持为 doing
+- `TD-031` 在不引入 fallback/shortcut 的前提下，把 stage-2 learned training 切到“语义优先、格式外部约束处理”主线。
+  - 当前机械目标：`scripts/verify_stage2_v21_semantic_model.py --score-only`
+  - 当前重点：belief JSON 无效输出、`learned_memory_error`、`retrieval_alignment` 长期为零，以及 raw JSON 表面匹配对模型学习目标的干扰
+  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；格式约束可以外置，但不能冒充模型本体收益
 
 ## Blocked
 
@@ -22,6 +18,9 @@
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。
 - `TD-025` 在 `PersonaMem 64` canary 质量提升后，再扩大 stage-2 benchmark 范围与对比表。
   - 说明：`TD-025` 现视为 `TD-028 / v2.1` 的子目标之一，而不再是独立的“完整 v2 之后随手做做”项。
+
+- `TD-030` 以 learned model / better latent 为锚点启动 `v2.1` 长跑。
+  - 说明：当前机械 stop condition 已在 HEAD `d6bc4f7` 上达到 `16/16`；此项历史里程碑已完成，但不再是当前主线。
 
 ## Done
 
@@ -53,6 +52,7 @@
   - 当前结果：`scripts/verify_stage2_v21_learned_memory.py --score-only = 12/12`
   - 关键证据：online learned path、checkpoint-backed belief、online-aligned training 语义和最小 current-head learned-mode artifact 已成立
 
+
 ## Notes
 
 - 真实 runtime 状态以 `.agent-os/todo.md` 为准。
@@ -61,7 +61,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- `TD-027`、`TD-028` 与 `TD-029` 已机械完成；当前更合理的后续工作是 `TD-030` 这条 learned-model-first 长跑，而不是继续补 learned-memory plumbing。
+- `TD-027`、`TD-028`、`TD-029` 与 `TD-030` 已机械完成；当前主线已经切到 `TD-031`，重点不再是补 learned-memory plumbing，而是修 semantic correctness、belief JSON 有效性和在线 learned path 的稳定性。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

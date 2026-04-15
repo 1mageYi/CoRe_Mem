@@ -17,6 +17,8 @@
 - benchmark 只作为验证和诊断信号，不作为投机优化对象
 - retained 收益必须落在 `online memory -> belief -> answer` 主链
 - 文档、verifier、artifact 必须同步更新
+- **语义正确优先于 raw JSON 表面格式完全匹配**
+- 若输出格式需要更严格约束，应优先采用外部 schema/constrained decoding/repair，而不是把“完全照抄 JSON 字符串”当成模型本体目标
 
 ## 成功标准
 
@@ -100,6 +102,23 @@
 - 一套 `v2.1` verifier
 - 一份方法说明文档
 
+## 阶段 F：语义优先训练重构
+
+- 把训练目标从“复述 raw JSON 字符串”重新收敛到“稳定恢复正确语义字段”
+- 为 `belief` / `lifecycle` / `retrieval` 区分更合适的学习目标，而不是统一塞进同一种 seq2seq JSON 生成
+- 优先新增语义侧指标，例如：
+  - `json_validity_rate`
+  - per-field semantic accuracy / F1
+  - retrieval ranking / support selection quality
+- 允许格式由外部约束处理，但不允许用 fallback 或 benchmark-specific shortcut 掩盖语义错误
+
+里程碑：
+
+- 训练与评测文档明确写出“语义优先、格式外部约束处理”
+- `trained_eval` 不再只看 raw JSON token overlap，而开始显式记录语义侧指标
+- `retrieval_alignment` 不再长期停在 `token_f1 = 0`
+- non-tiny `trained_eval.token_f1` 继续提升，同时不会因为去掉 raw JSON 依赖而伤害在线 learned path
+
 ## 主指标
 
 - 本体指标：
@@ -119,6 +138,7 @@
 - stage-2 tests 持续通过
 - current-head 文档与 verifier 同步
 - 如果 online 提升但 local/core 指标恶化，不能直接保留
+- 如果只提升 raw JSON 形式匹配、但语义字段没有改善，不能直接保留
 
 ## 自动迭代闭环
 

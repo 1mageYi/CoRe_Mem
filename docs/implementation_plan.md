@@ -214,10 +214,13 @@
 - 提升 learned path 对在线链路的实际贡献
 - 提升跨 benchmark 鲁棒性
 - 提升可扩展性与可解释性
-- Status: doing
+- Status: done for current long-run milestone
 - Notes:
   - `v2` 已经解决“系统闭环是否成立”；`v2.1` 要解决的是“这套 latent memory 在真实 benchmark 上是否稳定、是否靠模型本身变强、是否跨任务依然成立”
   - `v2.1` 不再把“完整证据链”当终点，而把“质量、鲁棒性、可扩展性”当终点
+  - 当前 managed run 已在 HEAD `d6bc4f7` 上把 `stage2_v21_longrun_score` 从 baseline `11/16` 推到 stop condition `16/16`
+  - retained 关键证据包括：去掉 learned online path 的 symbolic fallback、`outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json` 的 `trained_eval.token_f1 = 0.3885239109848479`、以及 current-head learned `PersonaMem 128` / `LongMemEval-S 64` refreshed artifacts
+  - 当前需要诚实保留的风险是：live learned 路径仍频繁出现 `learned_memory_error`，说明 belief JSON 有效性还没被系统性解决；因此这里只能记为“当前 long-run 机械里程碑完成”，不能误写成 learned quality 全面稳定
 
 #### 阶段 M-A：Benchmark 质量提升
 
@@ -320,7 +323,19 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
-7. 当前阶段 L 已完成，阶段 M 已给出历史 robustness best，阶段 N 已完成 learned-memory-first plumbing；现阶段默认主线切换到阶段 O：以 learned model / better latent 的长期提升为锚点推进 `v2.1`
+7. 当前阶段 L、阶段 M 与阶段 N 的当前机械里程碑都已完成；若继续推进，下一步更合理的是围绕 learned belief JSON 有效性进入新的质量修复项，而不是重复证明 current-head canary 覆盖
+
+### 阶段 P：Semantic-First Learned Decoder
+
+- Goal: 把 stage-2 learned training 从“复述 raw JSON 字符串”推进到“恢复正确语义字段，并把格式约束外置”
+- Status: doing
+- Notes:
+  - 当前 best non-tiny artifact 已显示 `token_f1 = 0.3885` 但 `exact_match = 0`，说明模型学到的是部分结构模式而非稳定合法 JSON
+  - 下一步的核心不是再追 raw JSON exact match，而是：
+    - 提升 `belief` / `lifecycle` / `retrieval` 的语义正确率
+    - 增加外部 schema / constrained decoding / repair 机制
+    - 把 `retrieval_alignment` 从 seq2seq JSON 复述重新收敛到更适合 ranking/selection 的训练目标
+  - 禁止把外部格式修复退化成 fallback；目标仍然是提升模型本体语义能力
 
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 

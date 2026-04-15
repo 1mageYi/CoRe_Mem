@@ -143,30 +143,35 @@
   - learned online gain、non-tiny trained eval、LongMemEval 分层分析是否仍成立
   - current-head learned-mode canary 是否从 `1` 样本扩大到 `64/128`
   - online system 是否已经摆脱 learned path 失败时退回 symbolic decoder 的 retained 设计
-- 当前 baseline 已建立为 `11/16`。当前未过项集中在：
-  - `online_system_avoids_symbolic_fallback = false`
-  - `non_tiny_trained_eval.token_f1 >= 0.20 = false`
-  - current-head learned-mode `PersonaMem 64 / LongMemEval-S 64 / PersonaMem 128` artifacts 尚未刷新
+- 当前这条长跑已经在 current HEAD `d6bc4f7` 上机械收口：`scripts/verify_stage2_v21_longrun.py --score-only = 16/16`，managed stop condition 已触发。
+- 本轮新增并保留下来的关键证据是：
+  - `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json`：latest non-tiny trained eval 当前已达 `trained_eval.token_f1 = 0.3885239109848479`
+  - `outputs_v2/evals_benchmark/20260415T202608Z_stage2_memory_canary.json`：current-head learned `PersonaMem 128` refreshed artifact，因 `sample_count = 128` 同时覆盖 verifier 的 `PersonaMem 64 / 128` 检查
+  - `outputs_v2/evals_benchmark/20260415T205627Z_stage2_memory_canary.json`：current-head learned `LongMemEval-S 64` refreshed artifact
+  - `src/core_mem/v2/system.py` 已不再把 learned online path 的 retained 失败处理退回 symbolic decoder；learned predictor 不可用或输出为空时，现显式标注为 `learned_memory_unavailable / learned_memory_error / learned_memory_empty`
 - 第二阶段 learned-model-first 当前证据链：
   - `StructuredMemorySystem` 已支持 `memory_mode=learned_memory` 与 checkpoint-backed belief path
   - `scripts/run_stage2_memory_canary.py` 已支持 `--memory-mode learned_memory --learned-memory-checkpoint-dir --learned-memory-train-config`
   - `outputs_v2/artifacts/latest_stage2_learned_online_gain.json` 仍提供正的 learned online gain 证据
   - `outputs_v2/artifacts/latest_longmemeval_stage2_layered_analysis.json` 仍提供跨层 failure analysis
-  - 当前 non-tiny `trained_eval.token_f1` 历史 best 仍为 `0.14615651550268283`
+  - 当前 non-tiny `trained_eval.token_f1` 历史 best 已更新为 `0.3885239109848479`
 - 第二阶段 learned-model-first 当前解释边界：
   - `TD-029` 解决的是 learned-mode 路径“已经存在并可调用”
   - `TD-030` 要解决的是 learned model 是否在更大样本和多个 benchmark 上真正变强，并且不依赖 fallback/shortcut
-  - 当前代码中 learned path 仍保留 symbolic fallback，因此 `TD-030` baseline 预计不会满分
-- 测试状态：当前长跑 guard 将继续以 stage-2 核心测试、`scripts/run_experiment.py --verify-only = 34`、`scripts/verify_stage2_latent_status.py --score-only = 9`、`scripts/verify_stage2_latent_core_quality.py --score-only = 10` 为底线；新增 `scripts/verify_stage2_v21_longrun.py` 当前 baseline 为 `11/16`
+  - 当前 `TD-030` 的 mechanical stop 已达成，但这不等于 learned quality 已全面稳定：live learned path 仍频繁出现 `learned_memory_error`，核心问题是 `Flan-T5` belief JSON 经常不可解析，而不是系统已经学会了稳定的 online belief construction
+- 第二阶段语义优先训练结论：当前最好的 non-tiny artifact `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json` 已把 `trained_eval.token_f1` 提到 `0.3885239109848479`，但 `exact_match` 仍是 `0`，而且 sample preview 显示模型更像“学会了字段和值的结构模式”，尚未稳定输出合法完整 JSON。后续优化不应再把 raw JSON 表面匹配当成核心目标，而应把“语义正确 + 外部格式约束”作为新的训练主线。
+- 测试状态：本轮 stop condition 对应的 final mechanical evidence 是：
+  - `conda run -n core_mem python scripts/verify_stage2_v21_longrun.py --score-only` -> `16`
+  - launch manifest full guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_parser.py`，以及 `verify_stage2_latent_status >= 9`、`verify_stage2_latent_core_quality >= 10`、`verify_stage2_v21_learned_memory >= 12`、`run_experiment.py --verify-only = 34`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- `TD-029` 的 learned-memory-first plumbing 已完成；当前 next action 切换为 `TD-030`，目标是围绕 learned model / better latent 做长期迭代：
-  1. 把 learned-mode canary 从 `1` 样本扩大到 `64/128`
-  2. 优先看 learned path 在 `LongMemEval-S` 上是否真实改善
-  3. 让训练更直接服务在线 `memory -> belief -> answer`
-  4. 逐步移除 learned online path 中的 fallback 依赖，而不是把 fallback 当 retained 设计
+- `TD-029` 与 `TD-030` 已机械完成；如果继续推进 stage-2，当前更合理的 next action 是 `TD-031`：在不引入任何 fallback/shortcut 的前提下，把 learned training 主线切到“语义优先、格式外部约束处理”，专项修 belief JSON 无效输出、`learned_memory_error` 和 `retrieval_alignment` 长期为零的问题。
+- 当前最值得延续的训练结论是：
+  - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把训练配方收窄到 online-aligned 任务，并把 `gradient_accumulation_steps` 从 `8` 降到 `1`
+  - 该 refined 配方已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.3885239109848479`
+  - 但 live learned canary 仍经常退化为 `learned_memory_error`，所以后续若继续投入，应优先解决语义解码目标与外部格式约束，而不是继续机械扩大 sample count 或追逐 raw JSON exact match
 
 ## 关键约束
 

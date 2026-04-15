@@ -2,12 +2,11 @@
 
 ## Doing
 
-- `TD-030` `[doing]` 以 learned model / better latent 为锚点启动 `v2.1` 长跑。
-  - Reason: 当前 online learned path、checkpoint-backed learned belief 与最小 learned-mode artifacts 已落地；下一步应扩大 learned-mode canary 覆盖、强化 online-aligned 增益，并逐步移除 fallback 依赖。
-  - Evidence target: `scripts/verify_stage2_v21_longrun.py --score-only`
-  - Mechanical target: `scripts/verify_stage2_v21_longrun.py --score-only`
-  - Current baseline: `11/16`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut
+- `TD-031` `[doing]` 在不引入任何 fallback/shortcut 的前提下，把 stage-2 learned training 切到 semantic-first 主线。
+  - Reason: 当前 best non-tiny artifact 已达到 `trained_eval.token_f1 = 0.3885239109848479`，但 `exact_match = 0`，而且 `retrieval_alignment.token_f1 = 0`；这表明模型更像学会了结构模式，尚未把语义字段恢复与合法输出同时稳定做好。
+  - Evidence target: `scripts/verify_stage2_v21_semantic_model.py --score-only`
+  - Mechanical target: `scripts/verify_stage2_v21_semantic_model.py --score-only`
+  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；格式约束可以外置，但不能把外部修复冒充为模型本体收益
 
 ## Backlog
 
@@ -81,6 +80,11 @@
 - `TD-027` `[done]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
   - Reason: 当前 `stage2_v2_completion_score = 14/14`；fresh `PersonaMem 64`、`LongMemEval-S 64`、`latest_longmemeval_stage2_canary_analysis.json`、`no-shortcut runner` 与默认 `flan-t5-base` 的 `GPU3` 非 tiny train/eval 已全部机械成立。
   - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only = 14`，且 `scripts/verify_stage2_latent_core_quality.py --score-only = 10`、stage-2 guard 通过。
+
+- `TD-029` `[done]` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
+  - Reason: online learned path、checkpoint-backed belief、online-aligned training 语义和最小 current-head learned-mode artifact 已成立。
+  - Evidence target: `scripts/verify_stage2_v21_learned_memory.py --score-only = 12`
+
 
 
 ## Verified

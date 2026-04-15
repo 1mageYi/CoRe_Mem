@@ -1,5 +1,65 @@
 # Run Log
 
+## 2026-04-15 Session 027
+
+- Worked on: 把 stage-2 下一轮主线从 `TD-030 / WS-016` 收口态切到 `TD-031 / WS-017`，明确采用 semantic-first learned decoder 方向
+- State changed:
+  - 将 `docs/v21_longrun_plan.md` 扩展为“语义正确优先于 raw JSON 表面格式完全匹配”，并新增阶段 F：语义优先训练重构
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 同步到 `TD-031 / WS-017`
+  - 明确记录当前 best non-tiny 训练结论：`trained_eval.token_f1 = 0.3885239109848479` 代表模型学会了部分结构模式，但尚未稳定输出合法完整 JSON
+  - 明确后续目标：优先修 semantic correctness、belief JSON 有效性、`retrieval_alignment` 长期为零和 `learned_memory_error`
+- Evidence / artifacts:
+  - `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json`
+  - `docs/v21_longrun_plan.md`
+  - `scripts/verify_stage2_v21_semantic_model.py`
+- Next likely action:
+  - 以 `scripts/verify_stage2_v21_semantic_model.py --score-only` 为新机械指标，启动下一轮 background autoresearch
+
+## 2026-04-15 Session 026
+
+- Worked on: 完成 `TD-030 / WS-016` 的 managed autoresearch 收口，把 `stage2_v21_longrun_score` 从 retained `15/16` 推到 stop condition `16/16`
+- State changed:
+  - 将 `scripts/verify_stage2_latent_core_quality.py` 修到只消费 symbolic PersonaMem canary 维持 latent-core guard，不再让 learned canary 误伤 `10/10` guard
+  - 提交 `d6bc4f7` 固化上述 latent-core guard 修正，并在该 HEAD 上重跑 current-head learned canaries
+  - 完成 `outputs_v2/evals_benchmark/20260415T202608Z_stage2_memory_canary.json`，把 current-head `PersonaMem 128` learned artifact 刷到 `d6bc4f7`，恢复 personamem `64/128` 两项检查
+  - 完成 `outputs_v2/evals_benchmark/20260415T205627Z_stage2_memory_canary.json`，把 current-head `LongMemEval-S 64` learned artifact 刷到同一 HEAD，最终使 `scripts/verify_stage2_v21_longrun.py --score-only` 返回 `16`
+  - 通过 helper 记账：iteration `8` 为 commit 前移导致的 `discard`，iteration `9` 为 personamem refresh 的 `no-op`，iteration `10` 为 final `keep`
+  - 同步 `.agent-os/*` 与 `docs/*` 到 “`TD-030 / WS-016` 已机械完成，stop condition 已达到，但 learned live path 仍存在 `learned_memory_error` 风险” 的 runtime truth
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json`
+  - `outputs_v2/evals_benchmark/20260415T202608Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260415T205627Z_stage2_memory_canary.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_longrun.py --score-only` -> `16`
+  - launch manifest full guard 通过
+- Next likely action:
+  - 若用户要求继续推进 stage-2，优先开 `TD-031`：在不引入 fallback/shortcut 的前提下，专项修复 learned belief JSON 无效输出与 `learned_memory_error`
+
+## 2026-04-15 Session 025
+
+- Worked on: managed autoresearch 长跑下先把 `TD-030 / WS-016` 的 retained baseline 从 `11/16` 推到 `12/16`，再围绕 online-aligned learned training 做多轮 probe 与一次 `REFINE`
+- State changed:
+  - 初始化 fresh managed run artifacts，并把 `stage2_v21_longrun_score` baseline 固化为 `11/16`
+  - `StructuredMemorySystem` 的 learned mode 已去除 symbolic fallback；当 learned predictor 不可用或空输出时，现改为显式 `learned_memory_unavailable / learned_memory_error / learned_memory_empty`
+  - `src/core_mem/v2/training.py` 与 `scripts/verify_stage2_v21_learned_memory.py` 已修复两类机械错配：
+    - capped `max_train_examples / max_eval_examples` 不再按 manifest 顺序只吃到首个 task
+    - `verify_stage2_v21_learned_memory.py` 现在接受 `TD-030 / WS-016` 下 `TD-029 / WS-015 done` 的 runtime truth
+  - 上述 retained 改动已把 `scripts/verify_stage2_v21_longrun.py --score-only` 从 `11` 提升到 `12`，且 full guard 通过
+  - 随后连续三轮训练 probe 均未能仅靠 `24` optimizer steps 把 learned `Flan-T5` decoder 拉过线，已按 `discard -> discard -> discard -> refine` 记账
+  - 最新 `REFINE` 已把 `configs/stage2_train.yaml` 的 `gradient_accumulation_steps` 从 `8` 调到 `1`，并把 online-aligned 训练配方收窄到 `retrieval_alignment / lifecycle_prediction / composition_to_belief`
+  - 在 refined 配方下，`outputs_v2/checkpoints/20260415T191811Z_stage2_train_exec/` 的 `8`-sample direct probe 已达到 `trained_eval.token_f1 = 0.3459821428571428`，但对应 `64/256` eval artifact 仍在运行，因此当前只能记为 `partial / unverified`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260415T191811Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/checkpoints/20260415T191811Z_stage2_train_exec/`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_longrun.py --score-only` -> `12`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_parser.py`
+  - direct probe on `outputs_v2/checkpoints/20260415T191811Z_stage2_train_exec/` with `max_eval_examples=8` -> `trained_eval.token_f1 = 0.3459821428571428`
+- Next likely action:
+  - 等待或重跑当前 refined checkpoint 的 `64/256` sample eval 形成正式 artifact；若 `trained_eval.token_f1 >= 0.20` 机械成立，则立刻刷新 current-head learned `PersonaMem 64 / LongMemEval-S 64 / PersonaMem 128` canaries
+
 ## 2026-04-15 Session 024
 
 - Worked on: 将 stage-2 主线从 `TD-029 / WS-015` 的 learned-memory plumbing 完成态，推进到 `TD-030 / WS-016` 的 learned-model-first 长跑计划
