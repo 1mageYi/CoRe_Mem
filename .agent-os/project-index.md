@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-024`
-- Active workstreams: `WS-011`
+- Top next action: `TD-026`
+- Active workstreams: `WS-012`
 - Active blockers: `BL-004`, `BL-006`
 
 ## Objective Summary
@@ -20,11 +20,12 @@
 - `WS-009` `[done]`: Stage-2 memory-mediated benchmark canary runner 已接入，并已完成 PersonaMem live MiniMax 调用
 - `WS-010` `[done]`: Stage-2 latent memory 主链路已从 deterministic skeleton 升级为真正消费 composed latent 的实现路径
 - `WS-011` `[doing]`: Stage-2 已进入 live canary 质量提升阶段；当前主线是对 PersonaMem 64 做 failure analysis，并迭代修复 online memory / belief / answer 链路
+- `WS-012` `[doing]`: Stage-2 当前主线已切换到 latent-core robustness；local intrinsic quality 是主指标，PersonaMem 64 `9/10` 只作为不退化 guard
 
 ## Top Next Action
 
-- `TD-024` `[doing]`: 基于 `PersonaMem 64` live stage-2 canary 做 failure analysis，并提升 online memory / belief / answer 质量。
-  - Needed: 当前 best artifact 已更新为 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`；`provider exact match = 31/64`、`label-prefix match = 31/64`、`local exact match = 25/64`、`quality score = 9/10`。本轮 stop condition 已满足；下一步应转为保持收益不回退并决定是否扩大 benchmark 范围
+- `TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量。
+  - Needed: 当前 `PersonaMem 64` canary 已达到 `9/10`，但其中一部分收益来自 benchmark-facing option 对齐；下一步要把优化重心重新拉回 `encoder / retrieval / lifecycle / belief decode / composition` 本体，并用 local intrinsic 指标来衡量
 
 ## Active Blockers
 

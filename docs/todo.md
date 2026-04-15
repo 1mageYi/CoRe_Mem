@@ -2,8 +2,7 @@
 
 ## Doing
 
-- `TD-024` 对 `PersonaMem 64` live stage-2 canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路。
-  当前 best evidence: `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json` 已把 quality score 从 `4/10` 提升到 `9/10`，本轮 autoresearch stop condition 已满足；当前剩余工作转为“保持收益不回退，并决定是否扩大 benchmark 范围”。
+- `TD-026` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
 
 ## Blocked
 
@@ -45,7 +44,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- 当前最高优先级未完成点已经从“把 quality score 冲到 `>=9/10`”切换为“保持当前 `9/10` 收益不回退，并决定是否扩大 stage-2 benchmark 范围”。
+- 当前最高优先级未完成点已经从“把 quality score 冲到 `>=9/10`”切换为“提升 latent core / local intrinsic 质量，并保持当前 `PersonaMem 9/10` 收益不回退”。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

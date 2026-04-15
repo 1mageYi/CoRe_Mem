@@ -1,5 +1,21 @@
 # Run Log
 
+## 2026-04-15 Session 015
+
+- Worked on: 将第二阶段优化目标从 benchmark-facing canary 提升切换到 latent-core robustness
+- State changed:
+  - 更新 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md`，把当前主线改为“提升 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard”
+  - 新增 `scripts/verify_stage2_latent_core_quality.py`
+  - 新增 `tests/test_stage2_latent_core_quality.py`
+  - 调整 `scripts/verify_stage2_latent_status.py`，使其兼容新的文档表述而不误报 readiness 回退
+  - 新的 latent-core quality 基线已被机械化为 `5/10`
+- Evidence / artifacts:
+  - `python3 scripts/verify_stage2_latent_status.py --score-only` -> `9`
+  - `python3 scripts/verify_stage2_latent_core_quality.py --score-only` -> `5`
+  - `conda run -n core_mem pytest -q tests/test_stage2_latent_core_quality.py tests/test_stage2_memory_canary_quality.py`
+- Next likely action:
+  - 用 background autoresearch 围绕 local intrinsic 指标提升做新一轮迭代，并以 `PersonaMem 64 >= 9/10` 为 guard
+
 ## 2026-04-15 Session 014
 
 - Worked on: 以 managed autoresearch 方式迭代提升 stage-2 PersonaMem 64 live canary 质量

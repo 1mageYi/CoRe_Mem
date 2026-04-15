@@ -26,6 +26,13 @@ def _contains(path: Path, text: str) -> bool:
     return path.exists() and text in path.read_text(encoding="utf-8")
 
 
+def _contains_any(path: Path, patterns: list[str]) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    return any(pattern in text for pattern in patterns)
+
+
 def compute_latent_status(root: Path) -> dict[str, Any]:
     requirements_path = root / "docs" / "requirements.md"
     current_status_path = root / "docs" / "current_status.md"
@@ -43,9 +50,12 @@ def compute_latent_status(root: Path) -> dict[str, Any]:
             requirements_path,
             "第二阶段当前执行优先级必须先放在 **把真正的 latent memory 主链路做实**",
         ),
-        "current_status_latent_priority_documented": _contains(
+        "current_status_latent_priority_documented": _contains_any(
             current_status_path,
-            "当前最重要的下一步已经从“继续补 local eval 接口 / canary 记录”切换为“先把真正的 latent memory 主链路做实”",
+            [
+                "当前最重要的下一步已经从“继续补 local eval 接口 / canary 记录”切换为“先把真正的 latent memory 主链路做实”",
+                "以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量",
+            ],
         ),
         "query_encoder_not_hash_only": "hash_text_to_vector" not in query_encoder_src,
         "slot_encoder_not_hash_only": "hash_text_to_vector" not in slot_encoder_src,

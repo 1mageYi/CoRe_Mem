@@ -183,7 +183,8 @@
     - observation-noise cleanup 可清理 parser 噪声，但单独不足以抬高 live 分数
     - PersonaMem answer-option 对齐是当前第一段主收益来源，已把 quality score 从 `4/10` 提升到 `8/10`
     - 生命周期层面的 facet retention + selected-slot-aware option scoring 是当前跨过 stop condition 的关键，已把 quality score 从 `8/10` 进一步提升到 `9/10`
-  - 当前 canary 目标已满足；下一步若继续推进，应聚焦剩余 recall/suggestion 错误，而不是回到泛化 prompt 微调
+  - 当前 canary 目标已满足；但后续若继续推进，不应再把 benchmark-facing option heuristics 当作主优化方向
+  - 下一阶段的锚点应切换为：以 local intrinsic 指标提升 `latent core / model / system robustness`，同时把当前 `PersonaMem 9/10` 作为不退化 guard
 
 ## 第二阶段默认技术路线
 
@@ -227,8 +228,9 @@
 1. 保持第一阶段 baseline 与 formal benchmark pending 真相不变
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
-4. 在 latent path 已成立且 live canary 已跑通的前提下，先对 PersonaMem 64 做 failure analysis 并提升 online memory / belief / answer 质量
-5. 当前 PersonaMem 64 live canary 已从 `4/10` 提升到 `9/10`；下一步在不回退当前收益的前提下，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
+4. 在 latent path 已成立且 live canary 已跑通的前提下，把主优化目标切换为 `latent core / local intrinsic quality`
+5. 以 `PersonaMem 64 >= 9/10` 为不退化 guard，优先提升 `encoder / retrieval / lifecycle / belief decode / composition` 本体质量
+6. 在本体质量明显改善后，再视用户要求补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，并扩大 benchmark
 
 ## 当前不做
 

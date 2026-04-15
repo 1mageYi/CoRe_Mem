@@ -30,6 +30,10 @@
   - `local memory answer exact match = 25 / 64 = 39.06%`
   - `stage2_personamem_canary_quality_score = 9 / 10`
   当前本轮 autoresearch 的 stop condition `>=9/10` 已满足；剩余未达项只剩 `provider_label_prefix_ge_32`
+- 第二阶段 benchmark 解释规则：当前 `PersonaMem 64 = 9/10` 不能被误读为“latent model 本体已显著变强”。当前收益更准确地是：
+  - 一部分来自 memory lifecycle / retention 的真实系统改进
+  - 一部分来自 `PersonaMem` answer-option / label-space 对齐
+  - 因此，后续若以 robustness 为目标，主优化锚点必须切换为 `latent core / local intrinsic metrics`，而不能继续把 benchmark-facing heuristic 当作主收益来源
 - 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
   - observation path 的 assistant 噪声过滤与 `create -> eat -> food_preference` 误判修复本身不足以抬高 live 分数
   - PersonaMem answer-option 协议对齐是当前主收益来源：把 prompt 和本地投影统一回 `(a)/(b)/(c)/(d)` 标签空间后，quality score 从 `4` 提升到 `8`
@@ -40,11 +44,12 @@
 
 ## 当前最重要的下一步
 
-- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前最重要的下一步已经从“把 latent 主链路做实”切换为“对 live canary 做 failure analysis，并迭代修复 online memory / belief / answer 链路”。
+- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前最重要的下一步已经从“把 quality score 冲到 `>=9/10`”切换为“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量，并把当前 `PersonaMem 9/10` 只作为不退化 guard”。
 - 具体来说，下一步优先级应为：
-  1. 保持当前 `9/10` canary 收益不回退，特别是 facet-rich relation 的 retention 行为与 selected-slot-aware option scoring
-  2. 若继续优化，优先处理剩余的 `recall_user_shared_facts` 与 `suggest_new_ideas` 错误，而不是回到泛化 prompt 微调
-  3. 在当前 `PersonaMem 64` canary 已达标后，再决定是否扩大 stage-2 benchmark 范围与是否补默认 `flan-t5-base` 非 tiny run
+  1. 把主指标重新锚定到 `stage-2 local intrinsic quality`，优先提升 `joint_belief_accuracy`、`slot_value_f1`、`support_slot_recall`、`answer_exact_match`、`compression_fidelity`
+  2. 把 `PersonaMem 64` 的 `9/10` canary 作为 guard，不允许主链本体优化把当前 canary 收益打回去
+  3. 若继续优化，优先做 `encoder / retrieval / lifecycle / belief decode / composition` 本体改进，而不是继续堆 benchmark-specific option heuristics
+  4. 在本体质量改善后，再决定是否扩大 stage-2 benchmark 范围与是否补默认 `flan-t5-base` 非 tiny run
 
 ## 关键约束
 
