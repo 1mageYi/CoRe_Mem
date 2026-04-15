@@ -222,7 +222,8 @@
 #### 阶段 M-A：Benchmark 质量提升
 
 - 扩大 `PersonaMem` 评测规模，从 `64` 往更大切片推进
-- 对 `LongMemEval-S` 做专项 failure analysis
+- LongMemEval-S 专项 failure analysis 先行
+- 对 LongMemEval-S 做专项 failure analysis
 - 把错误按 `parser / retrieval / belief / projection / provider` 五层拆开
 - 优先修最影响 `LongMemEval-S` 的 `1-2` 个主错误源
 - 里程碑：
