@@ -87,7 +87,7 @@ class StructuredMemorySystem:
     resampler: LightResampler = field(default_factory=LightResampler)
     decoder: BeliefDecoder = field(default_factory=BeliefDecoder)
     projection: AnswerProjection = field(default_factory=AnswerProjection)
-    top_k: int = 8
+    top_k: int = 4
     state: StructuredMemoryState = field(default_factory=StructuredMemoryState)
 
     def observe_turn(
