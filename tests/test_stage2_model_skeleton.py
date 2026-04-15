@@ -218,3 +218,32 @@ def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode(
     assert result.belief_source == "learned_memory_error"
     assert result.belief_state.belief_items == []
     assert result.answer_text == "unknown"
+
+
+def test_learned_belief_example_uses_compact_slot_view():
+    def _compact(slots):
+        return slots
+
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I like matcha latte.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    slot = [*system.state.core_slots, *system.state.residual_slots][0]
+    rendered = system._render_learned_belief_example("What drink does the user like?", [slot], _compact)
+    assert "instruction: Read the structured semantic fields" in rendered
+    assert "latent_tokens" in rendered
+
+    from core_mem.v2.training import compact_slot_list
+
+    compact_rendered = system._render_learned_belief_example(
+        "What drink does the user like?",
+        [slot],
+        compact_slot_list,
+    )
+    assert "latent_tokens" not in compact_rendered
+    assert "canonical_gloss" in compact_rendered

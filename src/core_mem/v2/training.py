@@ -113,13 +113,66 @@ def _apply_online_alignment(examples: list[TrainingExample]) -> list[TrainingExa
     return aligned
 
 
+def compact_observation_payload(observation: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "entity",
+        "relation",
+        "value",
+        "value_type",
+        "time_scope",
+        "status_hint",
+        "canonical_gloss",
+    ]
+    return {key: observation.get(key) for key in keys if key in observation}
+
+
+def compact_slot_payload(slot: dict[str, Any]) -> dict[str, Any]:
+    role_scores = slot.get("soft_role_scores") or {}
+    top_role = None
+    if isinstance(role_scores, dict) and role_scores:
+        top_role = max(role_scores.items(), key=lambda item: float(item[1]))[0]
+    keys = [
+        "slot_id",
+        "bank",
+        "entity",
+        "relation",
+        "canonical_gloss",
+        "confidence",
+        "active_flag",
+        "revision_count",
+    ]
+    payload = {key: slot.get(key) for key in keys if key in slot}
+    if top_role is not None:
+        payload["dominant_role"] = top_role
+    return payload
+
+
+def compact_slot_list(slots: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [compact_slot_payload(slot) for slot in slots]
+
+
+def compact_belief_target(target_belief: dict[str, Any]) -> dict[str, Any]:
+    compact_items: list[dict[str, Any]] = []
+    for item in target_belief.get("belief_items", []):
+        if not isinstance(item, dict):
+            continue
+        compact_items.append(
+            {
+                "relation": item.get("relation"),
+                "value": item.get("value"),
+                "support_slot_ids": item.get("support_slot_ids", []),
+            }
+        )
+    return {"belief_items": compact_items}
+
+
 def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExample:
     if task_name == "slot_autoencoding":
         return TrainingExample(
             task_name=task_name,
             input_text=_join_sections(
                 task_name,
-                {"input_observation": row["input_observation"]},
+                {"input_observation": compact_observation_payload(row["input_observation"])},
             ),
             target_text=json.dumps(row["target_record"], ensure_ascii=False, sort_keys=True),
         )
@@ -130,8 +183,8 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
                 task_name,
                 {
                     "query": row["query"],
-                    "positive_slot": row["positive_slot"],
-                    "negative_slots": row["negative_slots"],
+                    "positive_slot": compact_slot_payload(row["positive_slot"]),
+                    "negative_slots": compact_slot_list(row["negative_slots"]),
                 },
             ),
             target_text=json.dumps({"gold_support_slot_ids": row["gold_support_slot_ids"]}, ensure_ascii=False, sort_keys=True),
@@ -142,8 +195,8 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
             input_text=_join_sections(
                 task_name,
                 {
-                    "memory_context": row["memory_context"],
-                    "new_observation": row["new_observation"],
+                    "memory_context": compact_slot_list(row["memory_context"]),
+                    "new_observation": compact_observation_payload(row["new_observation"]),
                 },
             ),
             target_text=json.dumps(
@@ -162,16 +215,19 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
                 task_name,
                 {
                     "query": row["query"],
-                    "memory_slots": row["memory_slots"],
+                    "memory_slots": compact_slot_list(row["memory_slots"]),
                 },
             ),
-            target_text=json.dumps(row["target_belief_json"], ensure_ascii=False, sort_keys=True),
+            target_text=json.dumps(compact_belief_target(row["target_belief_json"]), ensure_ascii=False, sort_keys=True),
         )
     raise ValueError(f"Unsupported task: {task_name}")
 
 
 def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
-    sections = [f"task: {task_name}"]
+    sections = [
+        f"task: {task_name}",
+        "instruction: Read the structured semantic fields and return only compact JSON that matches the target schema.",
+    ]
     for key, value in payload.items():
         sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
     return "\n".join(sections)
@@ -464,7 +520,8 @@ def evaluate_stage2_checkpoint(
     max_eval_examples: int | None = None,
     device: str = "cpu",
 ) -> dict[str, Any]:
-    examples = build_training_examples(prepared_manifest_path, tasks=tasks)
+    configured_tasks = tasks or list(config.get("training", {}).get("tasks", [])) or None
+    examples = build_training_examples(prepared_manifest_path, tasks=configured_tasks)
     examples = _balanced_cap_examples(examples, max_examples=max_eval_examples)
     if not examples:
         raise ValueError("No evaluation examples were prepared for stage-2 checkpoint eval.")

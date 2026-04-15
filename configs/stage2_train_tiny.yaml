@@ -28,7 +28,6 @@ model:
 training:
   online_aligned: true
   tasks:
-    - slot_autoencoding
     - retrieval_alignment
     - lifecycle_prediction
     - composition_to_belief

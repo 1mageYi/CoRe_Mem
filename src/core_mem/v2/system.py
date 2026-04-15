@@ -262,7 +262,12 @@ class StructuredMemorySystem:
 
         import yaml
 
-        from core_mem.v2.training import TrainingExample, generate_prediction_text, load_runtime_components
+        from core_mem.v2.training import (
+            TrainingExample,
+            compact_slot_list,
+            generate_prediction_text,
+            load_runtime_components,
+        )
 
         config = yaml.safe_load(Path(train_config_path).read_text(encoding="utf-8")) or {}
         model, tokenizer = load_runtime_components(
@@ -277,7 +282,7 @@ class StructuredMemorySystem:
         def _predict(query_id: str, query_text: str, slots: list[SlotRecord]) -> str:
             example = TrainingExample(
                 task_name="composition_to_belief",
-                input_text=self._render_learned_belief_example(query_text, slots),
+                input_text=self._render_learned_belief_example(query_text, slots, compact_slot_list),
                 target_text=json.dumps({"query_id": query_id, "belief_items": []}, ensure_ascii=False),
             )
             return generate_prediction_text(
@@ -293,12 +298,19 @@ class StructuredMemorySystem:
         return _predict
 
     @staticmethod
-    def _render_learned_belief_example(query_text: str, slots: list[SlotRecord]) -> str:
+    def _render_learned_belief_example(
+        query_text: str,
+        slots: list[SlotRecord],
+        compact_slot_list: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    ) -> str:
         payload = {
             "query": query_text,
-            "memory_slots": [slot.to_dict() for slot in slots],
+            "memory_slots": compact_slot_list([slot.to_dict() for slot in slots]),
         }
-        sections = ["task: composition_to_belief"]
+        sections = [
+            "task: composition_to_belief",
+            "instruction: Read the structured semantic fields and return only compact JSON that matches the target schema.",
+        ]
         for key, value in payload.items():
             sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
         return "\n".join(sections)

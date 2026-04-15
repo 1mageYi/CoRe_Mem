@@ -25,13 +25,12 @@ model:
 training:
   online_aligned: true
   tasks:
-    - slot_autoencoding
     - retrieval_alignment
     - lifecycle_prediction
     - composition_to_belief
   batching:
     per_device_batch_size: 4
-    gradient_accumulation_steps: 8
+    gradient_accumulation_steps: 1
     num_train_epochs: 3
   optimizer:
     lr: 0.0001

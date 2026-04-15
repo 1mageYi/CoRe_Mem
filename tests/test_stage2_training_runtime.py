@@ -11,6 +11,7 @@ if str(SRC_DIR) not in sys.path:
 
 from core_mem.v2.training import build_training_examples
 from core_mem.v2.training import _balanced_cap_examples
+from core_mem.v2.training import compact_slot_payload
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -85,6 +86,27 @@ def test_balanced_cap_examples_spreads_budget_across_tasks(tmp_path: Path):
         "lifecycle_prediction",
         "composition_to_belief",
     }
+
+
+def test_compact_slot_payload_removes_dense_latent_fields():
+    payload = compact_slot_payload(
+        {
+            "slot_id": "slot-1",
+            "bank": "residual",
+            "entity": "user",
+            "relation": "drink_preference",
+            "canonical_gloss": "drink_preference=matcha",
+            "confidence": 0.9,
+            "active_flag": True,
+            "revision_count": 0,
+            "soft_role_scores": {"preference": 0.8, "constraint": 0.1},
+            "latent_tokens": [[0.1, 0.2]],
+            "retrieval_key": [0.1, 0.2],
+        }
+    )
+    assert payload["dominant_role"] == "preference"
+    assert "latent_tokens" not in payload
+    assert "retrieval_key" not in payload
 
 
 def test_train_stage2_respects_gradient_accumulation(tmp_path: Path):
