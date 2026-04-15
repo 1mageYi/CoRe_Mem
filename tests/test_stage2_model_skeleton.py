@@ -136,3 +136,27 @@ def test_belief_decoder_preserves_selected_slot_order():
         composed_memory=composed,
     )
     assert belief.belief_items[0].value == "quiet nights at home"
+
+
+def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts():
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I've actually been using Down Dog for my home practice, especially on days when I can't make it to Serenity Yoga.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I am excited to recreate a vegan quinoa salad I tried at a cafe.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    result = system.query("query-lexical", "What is the name of the yoga studio where I take classes?")
+    assert result.selected_slots[0].canonical_gloss.endswith("=serenity yoga")
+    assert result.answer_text == "serenity yoga"

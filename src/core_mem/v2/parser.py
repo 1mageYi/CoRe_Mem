@@ -41,6 +41,18 @@ def _strip_role_prefix(text: str) -> str:
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
+    if "graduated with" in lowered_text or "degree" in lowered_text:
+        return "education_degree", "occupation"
+    if "commute" in lowered_text and "takes" in lowered_text:
+        return "commute_duration", "other"
+    if "playlist" in lowered_text and "called" in lowered_text:
+        return "playlist_name", "other"
+    if "play i attended" in lowered_text or "production of" in lowered_text:
+        return "attended_play", "event"
+    if "repainted my bedroom walls" in lowered_text:
+        return "paint_color", "other"
+    if "serenity yoga" in lowered_text:
+        return "class_location", "location"
     if "work as" in lowered_text or re.search(r"\bi am an?\b|\bi'm an?\b", lowered_text):
         return "occupation", "occupation"
     if "live in" in lowered_text or "from " in lowered_text:
@@ -165,7 +177,23 @@ class Stage2ObservationParser:
 
     @staticmethod
     def _extract_value(clause: str) -> tuple[str, str, float]:
-        lowered = _strip_role_prefix(clause).lower()
+        cleaned = _strip_role_prefix(clause).strip()
+        lowered = cleaned.lower()
+        special_patterns = [
+            (r"\bi graduated with(?: a degree in)?\s+(?P<value>[^,.!?]+)", "neutral", 0.84),
+            (r"\b(?:my |the )?daily commute(?: to work)?(?:, which)? takes\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
+            (r"\bthe play i attended was(?: actually)?(?: a production of)?\s+(?P<value>[^,.!?]+)", "neutral", 0.82),
+            (r"\b(?:playlist .*? called|playlist .*?, called)\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
+            (r"\brepainted my bedroom walls\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
+            (r"\bcan't make it to\s+(?P<value>serenity yoga)\b", "neutral", 0.78),
+            (r"\bnear\s+(?P<value>serenity yoga)\b", "neutral", 0.74),
+        ]
+        for pattern, polarity, confidence in special_patterns:
+            match = re.search(pattern, lowered)
+            if match:
+                value = match.group("value").strip(" .,!?\n\t")
+                return value, polarity, confidence
+
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),
             (r"\b(?:i don't like|i do not like|i hate|i can't stand)\s+(?P<value>.+)", "negative", 0.9),

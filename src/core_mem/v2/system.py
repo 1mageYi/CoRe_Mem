@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import re
 
 from core_mem.v2.consolidation import ConsolidationManager
 from core_mem.v2.decoder import BeliefDecoder
@@ -13,6 +14,49 @@ from core_mem.v2.projection import AnswerProjection
 from core_mem.v2.resampler import LightResampler
 from core_mem.v2.schemas import BeliefState, Observation, SlotRecord
 from core_mem.v2.vector_ops import dot_product
+
+_TOKEN_RE = re.compile(r"[a-z0-9']+")
+_QUERY_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "answer",
+    "called",
+    "current",
+    "currently",
+    "did",
+    "do",
+    "does",
+    "exact",
+    "for",
+    "from",
+    "have",
+    "i",
+    "in",
+    "is",
+    "it",
+    "me",
+    "my",
+    "name",
+    "of",
+    "on",
+    "only",
+    "phrase",
+    "please",
+    "shortest",
+    "the",
+    "their",
+    "they",
+    "this",
+    "to",
+    "user",
+    "was",
+    "what",
+    "where",
+    "which",
+    "who",
+    "with",
+}
 
 
 @dataclass
@@ -108,9 +152,10 @@ class StructuredMemorySystem:
 
     def query(self, query_id: str, query_text: str) -> QueryResult:
         query_vector = self.query_encoder.encode(query_text)
+        query_terms = self._query_terms(query_text)
         ranked = sorted(
             self.state.active_slots(),
-            key=lambda slot: dot_product(query_vector, slot.retrieval_key),
+            key=lambda slot: self._ranking_score(query_vector, query_terms, slot),
             reverse=True,
         )
         selected = ranked[: self.top_k]
@@ -134,3 +179,30 @@ class StructuredMemorySystem:
     @staticmethod
     def _replace_slot(slots: list[SlotRecord], replacement: SlotRecord) -> list[SlotRecord]:
         return [replacement if slot.slot_id == replacement.slot_id else slot for slot in slots]
+
+    @staticmethod
+    def _query_terms(text: str) -> set[str]:
+        return {
+            token
+            for token in _TOKEN_RE.findall(text.lower())
+            if len(token) >= 3 and token not in _QUERY_STOPWORDS
+        }
+
+    @staticmethod
+    def _slot_terms(slot: SlotRecord) -> set[str]:
+        relation_terms = slot.relation.replace("_", " ")
+        return {
+            token
+            for token in _TOKEN_RE.findall(f"{relation_terms} {slot.canonical_gloss}".lower())
+            if len(token) >= 3
+        }
+
+    def _ranking_score(self, query_vector: list[float], query_terms: set[str], slot: SlotRecord) -> float:
+        semantic = dot_product(query_vector, slot.retrieval_key)
+        if not query_terms:
+            return semantic
+        slot_terms = self._slot_terms(slot)
+        if not slot_terms:
+            return semantic
+        lexical_overlap = len(query_terms & slot_terms) / len(query_terms)
+        return semantic + (1.5 * lexical_overlap)
