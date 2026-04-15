@@ -5,7 +5,7 @@
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
 - Top next action: `TD-027`
 - Active workstreams: `WS-013`
-- Active blockers: `BL-004`
+- Active blockers: `BL-004`, `BL-005`
 
 ## Objective Summary
 
@@ -26,11 +26,12 @@
 ## Top Next Action
 
 - `TD-027` `[doing]`: 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
-  - Needed: 当前已具备 `latent_core_quality = 10/10` 的强原型，但还缺 fresh `PersonaMem 64`、`LongMemEval-S 64`、默认 `flan-t5-base` 非 tiny 训练证据，以及“不靠 shortcut/fallback 维持收益”的真实鲁棒性
+  - Needed: 当前已具备 `latent_core_quality = 10/10` 的强原型，且 `no-shortcut runner + non-tiny GPU3 train/eval` 已补齐；剩余缺口只剩 fresh `PersonaMem 64`、`LongMemEval-S 64` 与 `LongMemEval-S` analysis
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
+- `BL-005`: 当前 managed autoresearch session 不包含 `GPT_AGENT_API_KEY`，且 repo 内不存在会被当前 stage-2 canary runner 自动加载的 `.env`。因此 `configs/minimax_m27.yaml` 在本 session 中只能产出 `blocked_provider_not_configured` probe artifact，无法刷新 fresh `PersonaMem 64` / `LongMemEval-S 64` live canary，也无法生成新的 `latest_longmemeval_stage2_canary_analysis.json`。
 
 ## Recent Important Changes
 
@@ -61,6 +62,7 @@
 - 2026-04-15: 历史主线兼容记录：`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量；本轮已从该 doing 状态推进到 done。
 - 2026-04-15: managed autoresearch 围绕 latent-core robustness 完成 2 轮迭代后，`scripts/verify_stage2_latent_core_quality.py` 已基于 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json` 返回 `10/10`；关键改动是让 belief recovery 直接消费 lifecycle-ordered memory state，并把 retrieval-family 与 belief-family 的 local eval 分层对齐。当前 retained PersonaMem guard 仍来自 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`（`9/10`），未刷新 live canary artifact。
 - 2026-04-15: 用户批准新一轮长期后台 run 可使用 `GPU3` 的正式训练和 `MiniMax-M2.7` 的 live benchmark 调用作为里程碑验证；当前项目 next action 已切换到 `TD-027`，即朝“完整 v2”长跑推进，并明确禁止 benchmark-specific shortcut / fallback 成为 retained 收益。
+- 2026-04-15: 当前 managed autoresearch run 已将 `scripts/verify_stage2_v2_completion.py --score-only` 从 `7` 提升到 `11`；新增 retained 证据包括 `scripts/run_stage2_memory_canary.py` 去除 PersonaMem-specific shortcut/fallback、`outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/` 与 `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`。同一 run 当前被 `BL-005` 阻断，尚不能补 fresh live canaries。
 
 ## Read Next
 

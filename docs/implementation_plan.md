@@ -201,6 +201,10 @@
 - Notes:
   - 本阶段的目标不再是单点 score，而是把“完整 v2”拆成一组可机械核对的 milestone
   - 不允许 benchmark-specific heuristic / fallback 成为 retained 收益
+  - 当前 `benchmark_runner_avoids_shortcuts` 已完成：PersonaMem-specific candidate injection 与 blank-provider fallback 已从 runner 移除
+  - 当前默认 `flan-t5-base` 的非 tiny `GPU3` train/eval 证据已完成：`outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/` 与 `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json` 已形成 `trained_eval.token_f1 > 0` 的最小正证据
+  - 当前 run 的剩余缺口只剩 fresh `PersonaMem 64`、`LongMemEval-S 64` 与 `latest_longmemeval_stage2_canary_analysis.json`
+  - 当前剩余缺口在本 session 中被 live provider 环境阻断：`configs/minimax_m27.yaml` 依赖的 `GPT_AGENT_API_KEY` 未出现在当前运行环境，导致 fresh probe 只生成 `blocked_provider_not_configured` artifact
   - 若中途发现方向错误，应优先通过 failure analysis / verifier 做 pivot，而不是继续堆 prompt tricks
 
 ## 第二阶段默认技术路线

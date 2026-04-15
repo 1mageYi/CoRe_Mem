@@ -1,5 +1,30 @@
 # Run Log
 
+## 2026-04-15 Session 018
+
+- Worked on: managed autoresearch 长跑下补齐完整 `v2` 的 no-shortcut runner 与 non-tiny training 里程碑，并在 live provider 缺失处诚实收束
+- State changed:
+  - 初始化 fresh managed run artifacts，并把 `stage2_v2_completion_score` baseline 机械固定为 `7/14`
+  - 移除了 `scripts/run_stage2_memory_canary.py` 中 PersonaMem-specific candidate injection 与 blank-provider fallback，`benchmark_runner_avoids_shortcuts` 从 `false` 提升到 `true`
+  - 在尝试刷新 fresh live canary 时确认当前 session 缺少 `GPT_AGENT_API_KEY`；fresh probe 只能生成 `blocked_provider_not_configured` artifact，因此把主线 pivot 到 non-tiny training
+  - 修复 `src/core_mem/v2/training.py` 对 Hugging Face tokenizer 的错误调用，使默认 `google/flan-t5-base` 的 stage-2 train path 能在 `GPU3` 上真实执行
+  - 在 `GPU3` 上完成一条默认 `configs/stage2_train.yaml` 的非 tiny train/eval 证据链，并产出正的 `trained_eval.token_f1`
+  - 调整 `scripts/verify_stage2_latent_core_quality.py`，使其对齐当前 runtime truth：接受 `TD-026 done / WS-012 done` 的收口状态，并忽略更新但 blocked 的 canary probe，不让它误伤 latent-core guard
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 同步到 “`11/14` + `BL-005` live provider env missing” 的当前真相
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260415T043414Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/`
+  - `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260415T043830Z_stage2_local_eval.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v2_completion.py --score-only` -> `11`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem pytest -q tests/test_stage2_data_pipeline.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v2_completion.py`
+- Next likely action:
+  - 在具备 `GPT_AGENT_API_KEY` 的受控 session 中恢复 managed autoresearch，优先刷新 fresh `PersonaMem 64` 与 `LongMemEval-S 64` live canaries，并随后生成 `latest_longmemeval_stage2_canary_analysis.json`
+
 ## 2026-04-15 Session 017
 
 - Worked on: 为“完整 v2”长期后台 run 建立新的机械里程碑与 hard constraint

@@ -40,6 +40,19 @@
   - 默认 `flan-t5-base` 非 tiny `gpu3` 训练与 checkpoint-aware eval 证据
   - benchmark runner 不再依赖 benchmark-specific heuristic 才能维持主收益
   - learned path 对在线 memory / belief 主链开始产生真实作用
+- 第二阶段完整度状态：当前 `scripts/verify_stage2_v2_completion.py --score-only = 11/14`。已经机械成立的新增里程碑包括：
+  - `benchmark_runner_avoids_shortcuts = true`：`scripts/run_stage2_memory_canary.py` 已移除 PersonaMem-specific candidate injection 和 blank-provider fallback
+  - `non_tiny_train_artifact_exists = true`
+  - `non_tiny_checkpoint_exists = true`
+  - `trained_eval_positive = true`
+  对应新增证据为：
+  - `outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/`
+  - `outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`
+- 第二阶段非 tiny 训练状态：当前默认 `google/flan-t5-base` 已在 `GPU3` 上完成一条真实非 tiny LoRA train/eval 证据链。该 run 使用 `CUDA_VISIBLE_DEVICES=3`、`device=cuda`、`num_examples=128`、`num_steps=8`，`final_loss=0.9725619554519653`；对应 checkpoint-aware local eval 的 `trained_eval` 为：
+  - `exact_match = 0.0`
+  - `token_f1 = 0.056531552294517756`
+  这说明 learned path 已产生非零输出，但当前还不能把它误称为 train-complete 或 benchmark-ready。
 - 第二阶段硬约束新增：后续长跑中**不要做任何偷懒兜底 fallback**。尤其不允许把 benchmark-specific heuristic / fallback 当作 retained 主收益，也不允许用 provider 空输出兜底、candidate-answer 注入或选项 overlap scorer 之类技巧冒充 latent-core 提升。
 - 历史兼容说明：当前主线曾明确要求“把主指标重新锚定到 `stage-2 local intrinsic quality`”，以及“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量”；这两条表述在本轮已由 doing 状态推进到完成态。
 - 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
@@ -57,18 +70,17 @@
   - `BeliefDecoder` 不再对 selected slots 重新排序，而是直接消费 retrieval / lifecycle 已给出的 memory order
   - `scripts/eval_stage2_local.py` 现将 `composition_to_belief` 任务视为 memory-state -> belief recovery 评测，不再在 belief-family 里重复做一次 retrieval
 - 环境状态：repo 内 project-local conda env 与缓存痕迹已清理；环境复现真相为 `environment.yaml` + 默认 conda named env `core_mem`
+- 第二阶段 live provider 状态：当前 managed run 所在 session 不包含 `GPT_AGENT_API_KEY`，且 repo 内也没有会被当前脚本自动加载的 `.env`。因此本轮 fresh live canary 只产出了 `outputs_v2/evals_benchmark/20260415T043414Z_stage2_memory_canary.json` 这一条 `blocked_provider_not_configured` probe artifact；它不能算 fresh benchmark 证据，也意味着当前 run 剩余的 3 个 milestone 暂时都被 live provider 环境阻断。
 - 测试状态：当前 stage-2 guard `pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_parser.py` 通过（32 tests）；`scripts/run_experiment.py --verify-only` 输出 `34`，`scripts/verify_stage2_latent_status.py --score-only` 输出 `9`，`scripts/verify_stage2_latent_core_quality.py --score-only` 输出 `10`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前已经从“修 latent skeleton”和“拉起 PersonaMem canary”推进到“朝完整的 `v2` 长跑”。
 - 当前最重要的下一步是以里程碑方式推进完整 `v2`：
-  1. 提交并固化当前 latent-core retained state，作为新的 clean baseline
-  2. 刷新 fresh `PersonaMem 64` live canary，而不是继续依赖旧 best artifact
-  3. 让 `LongMemEval-S 64` 的 stage-2 live canary 跑通并产出 failure analysis
-  4. 在 `gpu3` 上补默认 `flan-t5-base` 的非 tiny train/eval 证据，并要求 `trained_eval` 不再是全零
-  5. 清理 benchmark runner 中的 benchmark-specific shortcut / fallback，使主收益重新回到 system/model/latent 本体
-  6. 只有以上里程碑同时成立，才接近可以诚实称为“完整的 `v2`”
+  1. 在具备 `GPT_AGENT_API_KEY` 的 session 中刷新 fresh `PersonaMem 64` live canary，而不是继续依赖旧 best artifact
+  2. 在同一 live provider 环境中让 `LongMemEval-S 64` 的 stage-2 canary 跑通并产出 failure analysis
+  3. 保留当前已完成的 `GPU3` 非 tiny train/eval 与 no-shortcut runner 证据，不要被后续 blocked probe 覆盖
+  4. 只有 fresh `PersonaMem`、`LongMemEval-S` 及其 analysis 也补齐后，才接近可以诚实称为“完整的 `v2`”
 
 ## 关键约束
 
@@ -88,5 +100,5 @@
 - 第二阶段 `Optimus-like` 路线当前只锁定为 ablation / 潜在升级，不是主线
 - `sentence-transformers` 依赖已经进入 `core_mem` 环境；stage-2 训练配置中的 Hugging Face cache 现已锁到 repo 内，但真正开始全量 `Flan-T5` 训练时仍会触发首次权重下载与较长训练时间
 - 在当前 `datasets` 版本下，测试过的多个常见脚本型 HF dataset IDs 会返回 “dataset scripts are no longer supported”；当前已通过直接下载官方/作者源并自行规范化绕过该问题，但后续若继续扩展数据集，仍应优先采用 raw-source + normalization 路线
-- 当前 `stage2_experiment_completion_score=13/13` 的证据对应 `configs/stage2_train_tiny.yaml` 在 `gpu3` 上的本地 train/eval/ablation matrix；默认 `google/flan-t5-base` backbone 的非 tiny 全量 run 仍未验证，不能把当前状态误称为该默认 backbone 已 train-complete
-- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 latent-core local intrinsic 指标已达 `10/10`；但 retained canary guard 仍基于既有 `PersonaMem 64` artifact，且官方 verify 链里对 live canary 的重跑在本轮 session 中表现为长时间挂起，尚未形成新的 live canary artifact
+- 当前 `stage2_experiment_completion_score=13/13` 的历史证据对应 `configs/stage2_train_tiny.yaml` 在 `gpu3` 上的本地 train/eval/ablation matrix；本轮虽然已补上默认 `google/flan-t5-base` 的非 tiny train/eval artifact，但这仍只是最小正证据，不等于该默认 backbone 已 full train-complete
+- 当前 stage-2 已不再停留在“decoder 不消费 composed latent”的 skeleton 状态，且 latent-core local intrinsic 指标已达 `10/10`；但 retained canary guard 仍基于既有 `PersonaMem 64` artifact，而本轮 fresh live canary 因 `GPT_AGENT_API_KEY` 缺失未能刷新

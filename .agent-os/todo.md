@@ -3,7 +3,7 @@
 ## Doing
 
 - `TD-027` `[doing]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
-  - Reason: 当前 `stage2_latent_core_quality_score = 10/10` 只证明了强原型；要诚实称为更完整的 `v2`，还需要 fresh canary、第二 benchmark、非 tiny `flan-t5-base` train/eval 证据，以及“不靠 shortcut/fallback”的主链表现。
+  - Reason: 当前 `stage2_v2_completion_score = 11/14`；`no-shortcut runner` 与默认 `flan-t5-base` 的 `GPU3` 非 tiny train/eval 已补齐，但要诚实称为更完整的 `v2`，还需要 fresh `PersonaMem 64`、`LongMemEval-S 64` 和 `LongMemEval-S` failure analysis。
   - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only` 达到 stop condition，且 milestone family 覆盖 `fresh PersonaMem`、`LongMemEval-S`、`non-tiny train/eval` 与 `no-shortcut runner`。
 
 ## Backlog
@@ -14,10 +14,6 @@
 - `TD-018` `[backlog]` 建立第二阶段 benchmark canary protocol 与结果记录。
   - Reason: `gpu3 + tiny backend` 的 stage-2 本地 train/eval/ablation matrix 已全部完成并登记；下一步若继续推进，更应该把这个完成态沉淀为 canary 结果和对比表。
   - Evidence target: PersonaMem 64 / LongMemEval-S 64 的固定 canary 运行结果、输出表和记录规范。
-
-- `TD-020` `[backlog]` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
-  - Reason: 当前 `stage2_experiment_completion_score=13/13` 的证据是 `configs/stage2_train_tiny.yaml` 本地运行矩阵；默认 backbone 的非 tiny 全量 run 仍未验证。
-  - Evidence target: 至少一条默认 `configs/stage2_train.yaml` 的可追溯 train/eval artifact。
 
 - `TD-025` `[backlog]` 在 `PersonaMem 64` canary 质量提升后，扩大 stage-2 benchmark 范围与结果对比。
   - Reason: 当前更缺的是质量，而不是更多规模；只有当 live canary 已显著好于当前基线时，扩大 benchmark 才有解释价值。
@@ -74,6 +70,10 @@
 - `TD-026` `[done]` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
   - Reason: `stage2_latent_core_quality_score` 已从本轮 baseline `6/10` 提升到 `10/10`；belief recovery 现直接消费 lifecycle-ordered memory state，且 local intrinsic belief-family 与 retrieval-family 已解耦到更符合主链分层的评测方式。
   - Evidence target: `scripts/verify_stage2_latent_core_quality.py --score-only = 10`，且 retained PersonaMem 64 guard artifact 仍满足 `9/10`。
+
+- `TD-020` `[done]` 为默认 `flan-t5-base` backbone 补非 tiny `gpu3` 训练证据。
+  - Reason: 当前已完成一条默认 `configs/stage2_train.yaml` 的真实 `GPU3` 非 tiny train/eval 证据链，并形成正的 `trained_eval.token_f1`。
+  - Evidence target: `outputs_v2/runs/20260415T043648Z_stage2_train_exec/execution_summary.json`、`outputs_v2/checkpoints/20260415T043648Z_stage2_train_exec/`、`outputs_v2/evals_local/20260415T043706Z_stage2_local_eval.json`。
 
 ## Verified
 
