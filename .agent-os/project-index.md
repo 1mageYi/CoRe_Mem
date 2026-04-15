@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-025`
-- Active workstreams: none
+- Top next action: `TD-027`
+- Active workstreams: `WS-013`
 - Active blockers: `BL-004`
 
 ## Objective Summary
@@ -21,11 +21,12 @@
 - `WS-010` `[done]`: Stage-2 latent memory 主链路已从 deterministic skeleton 升级为真正消费 composed latent 的实现路径
 - `WS-011` `[done]`: Stage-2 live canary 质量提升已把 PersonaMem 64 guard 推到 `9/10`
 - `WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成；local intrinsic quality 当前已到 `10/10`
+- `WS-013` `[doing]`: Stage-2 当前开始朝“完整 v2”长跑，里程碑包括 fresh canaries、第二 benchmark、非 tiny 训练证据与去除 benchmark shortcut/fallback
 
 ## Top Next Action
 
-- `TD-025` `[backlog]`: 在 latent-core local intrinsic 目标已达成后，决定是否扩大 stage-2 benchmark 范围与结果对比。
-  - Needed: 当前 `stage2_latent_core_quality_score` 已达到 `10/10`，但 retained PersonaMem guard 仍来自既有 `64` 样本 artifact；若继续推进，应先决定是扩大 canary 范围，还是补默认 backbone 非 tiny 训练证据
+- `TD-027` `[doing]`: 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
+  - Needed: 当前已具备 `latent_core_quality = 10/10` 的强原型，但还缺 fresh `PersonaMem 64`、`LongMemEval-S 64`、默认 `flan-t5-base` 非 tiny 训练证据，以及“不靠 shortcut/fallback 维持收益”的真实鲁棒性
 
 ## Active Blockers
 
@@ -59,6 +60,7 @@
 - 2026-04-15: 同一 background autoresearch run 继续通过 pivot 进入 lifecycle retention 路线：对 facet-rich relation 保留多条 active memory，并让 PersonaMem option scorer 消费 selected slot glosses；当前 best artifact 已更新为 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`，`quality score = 9/10`
 - 2026-04-15: 历史主线兼容记录：`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量；本轮已从该 doing 状态推进到 done。
 - 2026-04-15: managed autoresearch 围绕 latent-core robustness 完成 2 轮迭代后，`scripts/verify_stage2_latent_core_quality.py` 已基于 `outputs_v2/evals_local/20260415T031952Z_stage2_local_eval.json` 返回 `10/10`；关键改动是让 belief recovery 直接消费 lifecycle-ordered memory state，并把 retrieval-family 与 belief-family 的 local eval 分层对齐。当前 retained PersonaMem guard 仍来自 `outputs_v2/evals_benchmark/20260415T015324Z_stage2_memory_canary.json`（`9/10`），未刷新 live canary artifact。
+- 2026-04-15: 用户批准新一轮长期后台 run 可使用 `GPU3` 的正式训练和 `MiniMax-M2.7` 的 live benchmark 调用作为里程碑验证；当前项目 next action 已切换到 `TD-027`，即朝“完整 v2”长跑推进，并明确禁止 benchmark-specific shortcut / fallback 成为 retained 收益。
 
 ## Read Next
 

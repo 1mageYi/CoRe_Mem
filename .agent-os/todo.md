@@ -2,7 +2,9 @@
 
 ## Doing
 
-- None
+- `TD-027` `[doing]` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
+  - Reason: 当前 `stage2_latent_core_quality_score = 10/10` 只证明了强原型；要诚实称为更完整的 `v2`，还需要 fresh canary、第二 benchmark、非 tiny `flan-t5-base` train/eval 证据，以及“不靠 shortcut/fallback”的主链表现。
+  - Evidence target: `scripts/verify_stage2_v2_completion.py --score-only` 达到 stop condition，且 milestone family 覆盖 `fresh PersonaMem`、`LongMemEval-S`、`non-tiny train/eval` 与 `no-shortcut runner`。
 
 ## Backlog
 

@@ -34,6 +34,13 @@
   - 一部分来自 memory lifecycle / retention 的真实系统改进
   - 一部分来自 `PersonaMem` answer-option / label-space 对齐
   - 因此，后续若以 robustness 为目标，主优化锚点必须切换为 `latent core / local intrinsic metrics`，而不能继续把 benchmark-facing heuristic 当作主收益来源
+- 第二阶段完整目标更新：当前后续主线不再是单点提分，而是朝**完整的 `v2`** 推进。完整 `v2` 至少需要同时满足：
+  - fresh `PersonaMem 64` live canary 证据
+  - `LongMemEval-S 64` 的 stage-2 live canary 证据
+  - 默认 `flan-t5-base` 非 tiny `gpu3` 训练与 checkpoint-aware eval 证据
+  - benchmark runner 不再依赖 benchmark-specific heuristic 才能维持主收益
+  - learned path 对在线 memory / belief 主链开始产生真实作用
+- 第二阶段硬约束新增：后续长跑中**不要做任何偷懒兜底 fallback**。尤其不允许把 benchmark-specific heuristic / fallback 当作 retained 主收益，也不允许用 provider 空输出兜底、candidate-answer 注入或选项 overlap scorer 之类技巧冒充 latent-core 提升。
 - 历史兼容说明：当前主线曾明确要求“把主指标重新锚定到 `stage-2 local intrinsic quality`”，以及“以系统/模型/latent 本体更强、更稳健为锚点提升 local intrinsic 质量”；这两条表述在本轮已由 doing 状态推进到完成态。
 - 第二阶段 failure-analysis 当前结论：`scripts/analyze_stage2_memory_canary_failures.py` 的最新 artifact 为 `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`。当前已验证：
   - observation path 的 assistant 噪声过滤与 `create -> eat -> food_preference` 误判修复本身不足以抬高 live 分数
@@ -54,10 +61,14 @@
 
 ## 当前最重要的下一步
 
-- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前主目标 `stage2_latent_core_quality_score >= 9` 已经机械达成并超过到 `10/10`。
-- 当前最重要的下一步不再是继续抬 local intrinsic 分数，而是二选一地决定后续 backlog：
-  1. 是否扩大 stage-2 benchmark 范围，刷新不止 `PersonaMem 64` 的 guard 证据
-  2. 是否补默认 `flan-t5-base` backbone 的非 tiny `gpu3` 训练证据
+- 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段当前已经从“修 latent skeleton”和“拉起 PersonaMem canary”推进到“朝完整的 `v2` 长跑”。
+- 当前最重要的下一步是以里程碑方式推进完整 `v2`：
+  1. 提交并固化当前 latent-core retained state，作为新的 clean baseline
+  2. 刷新 fresh `PersonaMem 64` live canary，而不是继续依赖旧 best artifact
+  3. 让 `LongMemEval-S 64` 的 stage-2 live canary 跑通并产出 failure analysis
+  4. 在 `gpu3` 上补默认 `flan-t5-base` 的非 tiny train/eval 证据，并要求 `trained_eval` 不再是全零
+  5. 清理 benchmark runner 中的 benchmark-specific shortcut / fallback，使主收益重新回到 system/model/latent 本体
+  6. 只有以上里程碑同时成立，才接近可以诚实称为“完整的 `v2`”
 
 ## 关键约束
 

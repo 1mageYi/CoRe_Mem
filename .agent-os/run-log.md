@@ -1,5 +1,24 @@
 # Run Log
 
+## 2026-04-15 Session 017
+
+- Worked on: 为“完整 v2”长期后台 run 建立新的机械里程碑与 hard constraint
+- State changed:
+  - 用户明确批准新一轮长期后台 run 可把 `GPU3` 正式训练和 `MiniMax-M2.7` live benchmark 调用纳入里程碑验证
+  - 将项目 next action 从 backlog 选择切换到 `TD-027`，明确目标为推进完整 `v2`
+  - 新增 `scripts/verify_stage2_v2_completion.py` 与对应测试，准备把 fresh canary、第二 benchmark、非 tiny 训练证据和 no-shortcut runner 统一收敛为单一 milestone score
+  - 将“不要做任何偷懒兜底 fallback”写入 docs 与 `.agent-os` 当前真相
+- Evidence / artifacts:
+  - `scripts/verify_stage2_v2_completion.py`
+  - `tests/test_stage2_v2_completion.py`
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+  - `docs/todo.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/todo.md`
+- Next likely action:
+  - 提交长期 run 基线改动后，以 fresh-start 方式启动新的 background autoresearch
+
 ## 2026-04-15 Session 016
 
 - Worked on: managed autoresearch 背景运行下提升 stage-2 latent-core robustness，并达成 stop condition

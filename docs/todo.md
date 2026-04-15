@@ -2,7 +2,7 @@
 
 ## Doing
 
-- None
+- `TD-027` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
 
 ## Blocked
 
@@ -36,6 +36,7 @@
 - `TD-022` 建立 stage-2 memory-mediated benchmark canary runner，并接入可用 provider 配置。
 - `TD-023` 完成 stage-2 MiniMax memory canary 的 live provider 首次运行。
 - `TD-026` 以系统/模型/latent 本体更强、更稳健为锚点，提升 stage-2 local intrinsic 质量，并把 `PersonaMem 64 >= 9/10` 作为不退化 guard。
+- `TD-027` 推进完整的 `v2`：fresh live canary、第二 benchmark、非 tiny 训练证据，以及去除 benchmark shortcut/fallback。
 
 ## Notes
 
@@ -45,7 +46,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“主线模型 skeleton + answer projection 已可运行”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- 当前最高优先级未完成点已经不再是 latent-core local intrinsic 提升，因为该目标已通过 `scripts/verify_stage2_latent_core_quality.py --score-only = 10` 机械达成；后续只剩 backlog 选择。
+- 当前最高优先级未完成点已经切换为 `TD-027`：把“强原型”推进到“更完整的 v2”，并禁止通过 benchmark-specific heuristic / fallback 冒充系统进步。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

@@ -189,6 +189,20 @@
   - 当前 canary 目标已满足；但后续若继续推进，不应再把 benchmark-facing option heuristics 当作主优化方向
   - `latent core / model / system robustness` 的本轮 local intrinsic 目标已经达成；若继续推进，下一阶段只剩“是否扩大 benchmark 范围”与“是否刷新 guard artifact”这类 follow-up 选择
 
+### 阶段 L：完整 V2 长跑里程碑
+
+- fresh `PersonaMem 64` stage-2 live canary
+- `LongMemEval-S 64` stage-2 live canary
+- 两个 benchmark 的 failure analysis artifact
+- 默认 `flan-t5-base` 非 tiny `gpu3` 训练与 checkpoint-aware eval
+- `trained_eval` 不再全零，形成 learned path 有效性的最小证据
+- benchmark runner 去除 benchmark-specific shortcut / fallback
+- Status: doing
+- Notes:
+  - 本阶段的目标不再是单点 score，而是把“完整 v2”拆成一组可机械核对的 milestone
+  - 不允许 benchmark-specific heuristic / fallback 成为 retained 收益
+  - 若中途发现方向错误，应优先通过 failure analysis / verifier 做 pivot，而不是继续堆 prompt tricks
+
 ## 第二阶段默认技术路线
 
 - 主 backbone：`google/flan-t5-base`
@@ -232,7 +246,8 @@
 2. 保持第二阶段 public-data normalization / strict prepare / direct-train / experiment registry 能力可复验
 3. 先把 stage-2 的真正 latent memory 主链路做实，而不是把 deterministic skeleton 直接当作最终系统
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
-5. 后续只在用户继续推进时，决定是先补默认 `flan-t5-base` 非 tiny `gpu3` 训练证据，还是先扩大 stage-2 benchmark / guard 范围
+5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
+6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
 
 ## 当前不做
 
