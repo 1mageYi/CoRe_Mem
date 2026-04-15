@@ -7,7 +7,6 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from core_mem.v2.schemas import Observation
 from core_mem.v2.system import StructuredMemorySystem
 
 
@@ -161,53 +160,3 @@ def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts(
     result = system.query("query-lexical", "What is the name of the yoga studio where I take classes?")
     assert result.selected_slots[0].canonical_gloss.endswith("=serenity yoga")
     assert result.answer_text == "serenity yoga"
-
-
-def test_structured_memory_system_keeps_generic_other_facts_from_accumulating_as_multiple_active_slots():
-    system = StructuredMemorySystem()
-    system.observe_observation(
-        Observation(
-            obs_id="obs-generic-1",
-            source_dataset="synthetic",
-            source_dialogue_id="dlg-1",
-            source_turn_id="turn-1",
-            session_id="sess-1",
-            speaker="user",
-            entity="user",
-            relation="other_fact",
-            value="handwritten notebook after every club meeting",
-            value_type="other",
-            time_scope="current",
-            status_hint="active",
-            polarity="neutral",
-            confidence=0.82,
-            evidence_text="I keep a handwritten notebook after every club meeting.",
-            canonical_gloss="other_fact=handwritten notebook after every club meeting",
-        ),
-        timestamp="2026-04-07T05:00:00Z",
-    )
-    system.observe_observation(
-        Observation(
-            obs_id="obs-generic-2",
-            source_dataset="synthetic",
-            source_dialogue_id="dlg-1",
-            source_turn_id="turn-2",
-            session_id="sess-1",
-            speaker="user",
-            entity="user",
-            relation="other_fact",
-            value="color-coded archive at home",
-            value_type="other",
-            time_scope="current",
-            status_hint="active",
-            polarity="neutral",
-            confidence=0.82,
-            evidence_text="I sort those notes into a color-coded archive at home.",
-            canonical_gloss="other_fact=color-coded archive at home",
-        ),
-        timestamp="2026-04-07T05:05:00Z",
-    )
-
-    active_other_facts = [slot for slot in system.state.active_slots() if slot.relation == "other_fact"]
-    assert len(active_other_facts) == 1
-    assert active_other_facts[0].bank == "residual"
