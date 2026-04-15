@@ -13,6 +13,12 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from core_mem.v2.experiments import dataset_allowed_for_variant
+from core_mem.v2.semantic_outputs import (
+    coerce_task_payload,
+    json_like_payload,
+    render_task_payload,
+    semantic_task_scores,
+)
 
 
 @dataclass(frozen=True)
@@ -226,7 +232,7 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
 def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
     sections = [
         f"task: {task_name}",
-        "instruction: Read the structured semantic fields and return only compact JSON that matches the target schema.",
+        "instruction: Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching.",
     ]
     for key, value in payload.items():
         sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
@@ -533,6 +539,10 @@ def evaluate_stage2_checkpoint(
 
     overall_exact: list[float] = []
     overall_token_f1: list[float] = []
+    overall_json_validity: list[float] = []
+    overall_semantic_validity: list[float] = []
+    overall_field_accuracy: list[float] = []
+    overall_field_f1: list[float] = []
     per_task: dict[str, dict[str, list[float] | int]] = {}
     samples: list[dict[str, Any]] = []
     for example in examples:
@@ -545,13 +555,39 @@ def evaluate_stage2_checkpoint(
             device=device,
         )
         target = example.target_text
-        exact = float(_normalize_text(prediction) == _normalize_text(target))
-        token_f1 = _token_f1(prediction, target)
+        prediction_payload = coerce_task_payload(example.task_name, prediction)
+        target_payload = coerce_task_payload(example.task_name, target)
+        prediction_text = render_task_payload(example.task_name, prediction_payload) if prediction_payload is not None else prediction
+        target_text = render_task_payload(example.task_name, target_payload) if target_payload is not None else target
+        exact = float(_normalize_text(prediction_text) == _normalize_text(target_text))
+        token_f1 = _token_f1(prediction_text, target_text)
+        field_scores = semantic_task_scores(example.task_name, prediction_payload, target_payload)
+        json_validity = float(json_like_payload(prediction) is not None)
+        semantic_validity = float(prediction_payload is not None)
         overall_exact.append(exact)
         overall_token_f1.append(token_f1)
-        stats = per_task.setdefault(example.task_name, {"exact_match": [], "token_f1": [], "count": 0})
+        overall_json_validity.append(json_validity)
+        overall_semantic_validity.append(semantic_validity)
+        overall_field_accuracy.append(field_scores["field_accuracy"])
+        overall_field_f1.append(field_scores["field_f1"])
+        stats = per_task.setdefault(
+            example.task_name,
+            {
+                "exact_match": [],
+                "token_f1": [],
+                "json_validity_rate": [],
+                "semantic_validity_rate": [],
+                "field_accuracy": [],
+                "field_f1": [],
+                "count": 0,
+            },
+        )
         stats["exact_match"].append(exact)
         stats["token_f1"].append(token_f1)
+        stats["json_validity_rate"].append(json_validity)
+        stats["semantic_validity_rate"].append(semantic_validity)
+        stats["field_accuracy"].append(field_scores["field_accuracy"])
+        stats["field_f1"].append(field_scores["field_f1"])
         stats["count"] = int(stats["count"]) + 1
         samples.append(
             {
@@ -559,8 +595,13 @@ def evaluate_stage2_checkpoint(
                 "input_preview": example.input_text[:240],
                 "prediction_preview": prediction[:240],
                 "target_preview": target[:240],
+                "normalized_prediction_preview": prediction_text[:240],
                 "exact_match": exact,
                 "token_f1": token_f1,
+                "json_validity_rate": json_validity,
+                "semantic_validity_rate": semantic_validity,
+                "field_accuracy": field_scores["field_accuracy"],
+                "field_f1": field_scores["field_f1"],
             }
         )
 
@@ -569,6 +610,10 @@ def evaluate_stage2_checkpoint(
             "count": int(stats["count"]),
             "exact_match": sum(stats["exact_match"]) / len(stats["exact_match"]) if stats["exact_match"] else 0.0,
             "token_f1": sum(stats["token_f1"]) / len(stats["token_f1"]) if stats["token_f1"] else 0.0,
+            "json_validity_rate": sum(stats["json_validity_rate"]) / len(stats["json_validity_rate"]) if stats["json_validity_rate"] else 0.0,
+            "semantic_validity_rate": sum(stats["semantic_validity_rate"]) / len(stats["semantic_validity_rate"]) if stats["semantic_validity_rate"] else 0.0,
+            "field_accuracy": sum(stats["field_accuracy"]) / len(stats["field_accuracy"]) if stats["field_accuracy"] else 0.0,
+            "field_f1": sum(stats["field_f1"]) / len(stats["field_f1"]) if stats["field_f1"] else 0.0,
         }
         for task_name, stats in per_task.items()
     }
@@ -578,6 +623,10 @@ def evaluate_stage2_checkpoint(
         "metrics": {
             "exact_match": sum(overall_exact) / len(overall_exact) if overall_exact else 0.0,
             "token_f1": sum(overall_token_f1) / len(overall_token_f1) if overall_token_f1 else 0.0,
+            "json_validity_rate": sum(overall_json_validity) / len(overall_json_validity) if overall_json_validity else 0.0,
+            "semantic_validity_rate": sum(overall_semantic_validity) / len(overall_semantic_validity) if overall_semantic_validity else 0.0,
+            "field_accuracy": sum(overall_field_accuracy) / len(overall_field_accuracy) if overall_field_accuracy else 0.0,
+            "field_f1": sum(overall_field_f1) / len(overall_field_f1) if overall_field_f1 else 0.0,
         },
         "per_task": summarized_tasks,
         "sample_previews": samples[:16],

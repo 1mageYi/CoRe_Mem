@@ -1,5 +1,27 @@
 # Run Log
 
+## 2026-04-15 Session 028
+
+- Worked on: 完成 `TD-031 / WS-017` 的 semantic-first managed autoresearch 收口，把 `stage2_v21_semantic_model_score` 从 baseline `13/17` 推到 stop condition `17/17`
+- State changed:
+  - 新增 `src/core_mem/v2/semantic_outputs.py`，把 task-aware 结构修复与语义计分抽成通用组件
+  - `src/core_mem/v2/training.py` 的 checkpoint eval 现不再把 raw JSON 外壳错误直接等价成语义失败；新增 `json_validity_rate`、`semantic_validity_rate`、`field_accuracy`、`field_f1`
+  - `src/core_mem/v2/system.py` 的 online learned belief parse 现共享同一套语义修复逻辑，brace-less belief 输出不再必然触发 `learned_memory_error`
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 同步到 “semantic-first stop condition 已达成，但 `TD-031 / WS-017` 仍保留为当前 closeout 主线” 的 runtime truth
+- Evidence / artifacts:
+  - `outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json`
+  - `outputs_v2/tables/20260415T230211Z_stage2_local_eval_summary.csv`
+  - `outputs_v2/tables/20260415T230211Z_stage2_local_eval_budget_sweep.csv`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_semantic_model.py --score-only` -> `17`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_status.py --score-only` -> `9`
+  - `conda run -n core_mem python scripts/verify_stage2_latent_core_quality.py --score-only` -> `10`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_learned_memory.py --score-only` -> `11`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_longrun.py --score-only` -> `12`
+  - `conda run -n core_mem python scripts/run_experiment.py --verify-only` -> `34`
+- Next likely action:
+  - 若用户继续推进 stage-2，更合理的下一步会是把 semantic-first 结构修复与语义监督继续扩展到 fresh current-head learned canary，而不是回头追 raw JSON exact match
+
 ## 2026-04-15 Session 027
 
 - Worked on: 把 stage-2 下一轮主线从 `TD-030 / WS-016` 收口态切到 `TD-031 / WS-017`，明确采用 semantic-first learned decoder 方向

@@ -6,6 +6,9 @@
   - 当前机械目标：`scripts/verify_stage2_v21_semantic_model.py --score-only`
   - 当前重点：belief JSON 无效输出、`learned_memory_error`、`retrieval_alignment` 长期为零，以及 raw JSON 表面匹配对模型学习目标的干扰
   - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；格式约束可以外置，但不能冒充模型本体收益
+  - 当前完成态：`scripts/verify_stage2_v21_semantic_model.py --score-only = 17/17`
+  - 当前 retained 证据：`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json`，其中 non-tiny `trained_eval.token_f1 = 0.879714215455919`、`retrieval_alignment.token_f1 = 0.9860465116279071`
+  - 当前 runtime truth：stop condition 已机械达到；保留此项为 doing 只为了维持 semantic-first closeout 与可复验状态
 
 ## Blocked
 

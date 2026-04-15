@@ -33,13 +33,14 @@
   - Remaining risk: live learned canary 仍频繁出现 `learned_memory_error`，说明 `Flan-T5` belief JSON 有效性问题尚未解决；当前完成态只能诚实标注为“机械 stop condition 达成”，不能误写成 learned quality 全面稳定
 - `WS-017` `[doing]`: Stage-2 当前主线切到 semantic-first learned decoder，目标是在不引入任何 fallback/shortcut 的前提下，把训练目标从 raw JSON 表面匹配推进到语义字段恢复、外部格式约束和更稳定的 online learned belief path
   - Mechanical target: `stage2_v21_semantic_model_score`
-  - Current baseline: 待用 `scripts/verify_stage2_v21_semantic_model.py` 固化
-  - Initial truth: 当前 best non-tiny `trained_eval.token_f1 = 0.3885239109848479`，但 `exact_match = 0`、`retrieval_alignment.token_f1 = 0`，说明模型尚未把语义正确与合法结构同时做好
+  - Final retained state: `scripts/verify_stage2_v21_semantic_model.py --score-only = 17/17`；`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 已把 non-tiny `trained_eval.token_f1` 提到 `0.879714215455919`，其中 `retrieval_alignment.token_f1 = 0.9860465116279071`
+  - Current runtime truth: semantic-first stop condition 已机械达到；当前 closeout 仍保留 `TD-031 / WS-017` 作为运行时主线，直到用户给出新的 stage-2 方向
+  - Key retained change: 新增 `src/core_mem/v2/semantic_outputs.py`，让通用结构修复与语义计分同时服务 checkpoint eval 和 online learned belief parse，不再把 brace-level JSON 壳错误误判成语义失败
 
 ## Top Next Action
 
 - `TD-031` `[doing]`: 以“语义优先、格式外部约束处理”为锚点推进 learned-model-first 的下一轮长跑。
-  - Needed: 当前 best artifact 已说明模型学到了部分结构模式，但仍未稳定恢复合法 belief JSON；下一步应优先修语义字段恢复、retrieval alignment 训练目标和外部格式约束，而不是继续追 raw JSON exact match
+  - Current retained state: `stage2_v21_semantic_model_score = 17/17` 已机械达到；当前只做 closeout、证据同步与可复验保持，除非用户给出新的 stage-2 方向
 
 ## Active Blockers
 
@@ -83,6 +84,7 @@
 - 2026-04-15: 用户进一步确认下一轮要按 learned-model-first 长跑推进，并明确“不做任何兜底/fallback/benchmark-specific shortcut”；当前 next action 已切到 `TD-030 / WS-016`
 - 2026-04-15: 当前 managed autoresearch run 已把 `scripts/verify_stage2_v21_learned_memory.py --score-only` 从 `8` 提升到 `12`；新增 retained 证据包括 `StructuredMemorySystem` 的 `memory_mode=learned_memory` + checkpoint-backed belief path、`training.online_aligned` 语义，以及 `outputs_v2/artifacts/latest_personamem_stage2_learned_canary.json` / `latest_longmemeval_stage2_learned_canary.json`
 - 2026-04-15: 当前 managed autoresearch run 已在 HEAD `d6bc4f7` 上把 `scripts/verify_stage2_v21_longrun.py --score-only` 从 `11` 推到 `16` 并触发 stop condition；新增 retained 证据包括 `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json`（`trained_eval.token_f1 = 0.3885239109848479`）、`outputs_v2/evals_benchmark/20260415T202608Z_stage2_memory_canary.json`（PersonaMem `128` learned current-head refresh）与 `outputs_v2/evals_benchmark/20260415T205627Z_stage2_memory_canary.json`（LongMemEval-S `64` learned current-head refresh）
+- 2026-04-15: semantic-first managed autoresearch 已把 `scripts/verify_stage2_v21_semantic_model.py --score-only` 从 baseline `13` 推到 stop condition `17`；`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 当前显示 `trained_eval.token_f1 = 0.879714215455919`、`semantic_validity_rate = 0.96484375`、`retrieval_alignment.token_f1 = 0.9860465116279071`
 
 ## Read Next
 

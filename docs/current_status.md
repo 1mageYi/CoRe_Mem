@@ -160,18 +160,28 @@
   - `TD-030` 要解决的是 learned model 是否在更大样本和多个 benchmark 上真正变强，并且不依赖 fallback/shortcut
   - 当前 `TD-030` 的 mechanical stop 已达成，但这不等于 learned quality 已全面稳定：live learned path 仍频繁出现 `learned_memory_error`，核心问题是 `Flan-T5` belief JSON 经常不可解析，而不是系统已经学会了稳定的 online belief construction
 - 第二阶段语义优先训练结论：当前最好的 non-tiny artifact `outputs_v2/evals_local/20260415T191953Z_stage2_local_eval.json` 已把 `trained_eval.token_f1` 提到 `0.3885239109848479`，但 `exact_match` 仍是 `0`，而且 sample preview 显示模型更像“学会了字段和值的结构模式”，尚未稳定输出合法完整 JSON。后续优化不应再把 raw JSON 表面匹配当成核心目标，而应把“语义正确 + 外部格式约束”作为新的训练主线。
+- 第二阶段 semantic-first 当前完成态：`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 已把同一 non-tiny learned checkpoint 的 `trained_eval.token_f1` 提到 `0.879714215455919`，其中：
+  - `retrieval_alignment.token_f1 = 0.9860465116279071`
+  - `lifecycle_prediction.token_f1 = 0.8886274509803921`
+  - `composition_to_belief.token_f1 = 0.7632177155691989`
+  - `semantic_validity_rate = 0.96484375`
+  - `field_f1 = 0.8463541666666676`
+  这说明当前 retained 收益主要来自“把语义恢复与结构壳错误解耦”，而不是重新引入任何 fallback 或 benchmark-specific shortcut。
+- 当前 `TD-031` 的明确锚点仍是：`语义优先`、`格式外部约束`。
+- 第二阶段 semantic-first 关键实现变化：`src/core_mem/v2/semantic_outputs.py` 现把 task-aware 结构修复与语义计分抽成通用组件；`training.py` 与 `system.py` 共用这一逻辑，因此 learned checkpoint eval 和 online learned belief parse 对 brace-level JSON 壳错误的处理已对齐。
 - 测试状态：本轮 stop condition 对应的 final mechanical evidence 是：
-  - `conda run -n core_mem python scripts/verify_stage2_v21_longrun.py --score-only` -> `16`
-  - launch manifest full guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_parser.py`，以及 `verify_stage2_latent_status >= 9`、`verify_stage2_latent_core_quality >= 10`、`verify_stage2_v21_learned_memory >= 12`、`run_experiment.py --verify-only = 34`
+  - `conda run -n core_mem python scripts/verify_stage2_v21_semantic_model.py --score-only` -> `17`
+  - full semantic guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_parser.py`
+  - 相关 verifier 当前为：`verify_stage2_latent_status = 9`、`verify_stage2_latent_core_quality = 10`、`verify_stage2_v21_learned_memory = 11`、`verify_stage2_v21_longrun = 12`、`run_experiment.py --verify-only = 34`
 
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- `TD-029` 与 `TD-030` 已机械完成；如果继续推进 stage-2，当前更合理的 next action 是 `TD-031`：在不引入任何 fallback/shortcut 的前提下，把 learned training 主线切到“语义优先、格式外部约束处理”，专项修 belief JSON 无效输出、`learned_memory_error` 和 `retrieval_alignment` 长期为零的问题。
+- `TD-029` 与 `TD-030` 已机械完成；`TD-031` 当前也已达到 stop condition。当前 runtime truth 仍保留 `TD-031` 作为 semantic-first closeout 主线，用于维持这条线的可复验状态；若继续推进 stage-2，更合理的下一步应是把 semantic-first 能力扩展到 fresh current-head learned canary，而不是回头追 raw JSON exact match。
 - 当前最值得延续的训练结论是：
-  - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把训练配方收窄到 online-aligned 任务，并把 `gradient_accumulation_steps` 从 `8` 降到 `1`
-  - 该 refined 配方已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.3885239109848479`
-  - 但 live learned canary 仍经常退化为 `learned_memory_error`，所以后续若继续投入，应优先解决语义解码目标与外部格式约束，而不是继续机械扩大 sample count 或追逐 raw JSON exact match
+  - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
+  - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`
+  - 尽管如此，live learned canary 仍需要 fresh current-head 复验，因此后续若继续投入，应优先扩展 semantic-first 逻辑到 online canary 证据，而不是继续机械扩大 sample count 或追逐 raw JSON exact match
 
 ## 关键约束
 

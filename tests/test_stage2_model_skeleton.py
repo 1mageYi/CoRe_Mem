@@ -220,6 +220,30 @@ def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode(
     assert result.answer_text == "unknown"
 
 
+def test_structured_memory_system_learned_mode_repairs_braceless_belief_payload():
+    def _predict(_query_id: str, _query_text: str, slots):
+        return '"belief_items": ["relation": "drink_preference", "support_slot_ids": ["%s"], "value": "oolong tea"]' % slots[0].slot_id
+
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=_predict,
+    )
+    system.observe_turn(
+        "I like matcha latte.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned-semantic", "What drink does the user like?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "drink_preference"
+    assert result.belief_state.belief_items[0].value == "oolong tea"
+
+
 def test_learned_belief_example_uses_compact_slot_view():
     def _compact(slots):
         return slots
@@ -235,7 +259,7 @@ def test_learned_belief_example_uses_compact_slot_view():
     )
     slot = [*system.state.core_slots, *system.state.residual_slots][0]
     rendered = system._render_learned_belief_example("What drink does the user like?", [slot], _compact)
-    assert "instruction: Read the structured semantic fields" in rendered
+    assert "Semantic correctness matters more than raw JSON surface matching." in rendered
     assert "latent_tokens" in rendered
 
     from core_mem.v2.training import compact_slot_list

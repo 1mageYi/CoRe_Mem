@@ -16,6 +16,7 @@ from core_mem.v2.parser import Stage2ObservationParser
 from core_mem.v2.projection import AnswerProjection
 from core_mem.v2.resampler import LightResampler
 from core_mem.v2.schemas import BeliefState, Observation, SlotRecord
+from core_mem.v2.semantic_outputs import coerce_task_payload
 from core_mem.v2.vector_ops import dot_product
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
@@ -309,7 +310,7 @@ class StructuredMemorySystem:
         }
         sections = [
             "task: composition_to_belief",
-            "instruction: Read the structured semantic fields and return only compact JSON that matches the target schema.",
+            "instruction: Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching.",
         ]
         for key, value in payload.items():
             sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
@@ -325,7 +326,7 @@ class StructuredMemorySystem:
         if isinstance(payload, BeliefState):
             return payload
         if isinstance(payload, str):
-            payload = json.loads(payload)
+            payload = coerce_task_payload("composition_to_belief", payload)
         if not isinstance(payload, dict):
             raise TypeError("Learned belief payload must be a JSON object, string, or BeliefState.")
 

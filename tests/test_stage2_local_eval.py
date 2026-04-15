@@ -109,6 +109,8 @@ def test_eval_script_can_include_checkpoint_metrics(tmp_path: Path):
     payload = json.loads(result.stdout)
     assert "trained_eval" in payload
     assert 0.0 <= payload["trained_eval"]["metrics"]["exact_match"] <= 1.0
+    assert 0.0 <= payload["trained_eval"]["metrics"]["semantic_validity_rate"] <= 1.0
+    assert 0.0 <= payload["trained_eval"]["metrics"]["field_f1"] <= 1.0
 
 
 def test_eval_script_accepts_experiment_variant(tmp_path: Path):

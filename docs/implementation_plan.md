@@ -328,13 +328,11 @@
 ### 阶段 P：Semantic-First Learned Decoder
 
 - Goal: 把 stage-2 learned training 从“复述 raw JSON 字符串”推进到“恢复正确语义字段，并把格式约束外置”
-- Status: doing
+- Status: doing (mechanical stop reached; closeout retained)
 - Notes:
-  - 当前 best non-tiny artifact 已显示 `token_f1 = 0.3885` 但 `exact_match = 0`，说明模型学到的是部分结构模式而非稳定合法 JSON
-  - 下一步的核心不是再追 raw JSON exact match，而是：
-    - 提升 `belief` / `lifecycle` / `retrieval` 的语义正确率
-    - 增加外部 schema / constrained decoding / repair 机制
-    - 把 `retrieval_alignment` 从 seq2seq JSON 复述重新收敛到更适合 ranking/selection 的训练目标
+  - 当前 retained artifact `outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 已显示 semantic-first 路线可以把同一 non-tiny checkpoint 的 `trained_eval.token_f1` 提到 `0.879714215455919`
+  - 同一 artifact 中 `retrieval_alignment.token_f1 = 0.9860465116279071`，说明这条线已经把“语义正确但 JSON 壳不完整”的 retrieval outputs 从 `0` 成功抬起来
+  - 当前关键实现是新增通用 `semantic_outputs.py`，把 task-aware 结构修复与语义计分同时接到 checkpoint eval 和 online learned belief parse
   - 禁止把外部格式修复退化成 fallback；目标仍然是提升模型本体语义能力
 
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
