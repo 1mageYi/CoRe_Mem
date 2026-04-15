@@ -44,11 +44,23 @@ def _label_prefix_match(expected: str, prediction: str | None) -> bool:
     return bool(normalized_expected and normalized_prediction.startswith(normalized_expected))
 
 
+def _exact_match(expected: str, prediction: str | None) -> bool:
+    return _normalize(expected) == _normalize(prediction)
+
+
+def _canonical_benchmark_name(name: str) -> str:
+    normalized = str(name).strip().lower()
+    if normalized in {"longmemeval", "longmemeval_s"}:
+        return "longmemeval"
+    return normalized
+
+
 def _latest_summary(root: Path, benchmark: str) -> Path | None:
+    expected = _canonical_benchmark_name(benchmark)
     candidates = sorted((root / "outputs_v2" / "evals_benchmark").glob("*stage2_memory_canary.json"))
     for path in reversed(candidates):
         payload = _read_json(path)
-        if payload.get("benchmark") == benchmark and payload.get("status") == "completed":
+        if _canonical_benchmark_name(str(payload.get("benchmark", ""))) == expected and payload.get("status") == "completed":
             return path
     return None
 
@@ -144,7 +156,7 @@ def build_analysis(
 
     total = len(rows)
     return {
-        "benchmark": benchmark,
+        "benchmark": _canonical_benchmark_name(benchmark),
         "summary_path": str(effective_summary_path),
         "predictions_path": str(predictions_path),
         "sample_count": total,
@@ -162,12 +174,95 @@ def build_analysis(
     }
 
 
+def _classify_failure_layer(row: dict[str, Any]) -> str:
+    belief_items = row.get("belief_state", {}).get("belief_items", [])
+    selected_slot_ids = row.get("selected_slot_ids", [])
+    expected_answer = str(row.get("expected_answer", ""))
+    local_answer = row.get("memory_answer_local")
+    provider_prediction = row.get("provider_prediction")
+
+    if not belief_items:
+        return "parser"
+    if not selected_slot_ids:
+        return "retrieval"
+    if _exact_match(expected_answer, local_answer) and not _label_prefix_match(expected_answer, provider_prediction):
+        return "provider"
+    if _normalize(local_answer):
+        return "projection"
+    return "belief"
+
+
+def build_layered_analysis(
+    *,
+    root: Path,
+    benchmark: str,
+    summary_path: Path | None = None,
+    example_limit: int = 8,
+) -> dict[str, Any]:
+    effective_summary_path = summary_path or _latest_summary(root, benchmark)
+    if effective_summary_path is None:
+        raise FileNotFoundError(f"No completed stage2 memory canary summary found for benchmark={benchmark}")
+    summary = _read_json(effective_summary_path)
+    predictions_path = Path(summary["predictions_path"])
+    if not predictions_path.is_absolute():
+        predictions_path = (root / predictions_path).resolve()
+    rows = _read_jsonl(predictions_path)
+
+    layered_rows: dict[str, list[dict[str, Any]]] = {
+        "parser": [],
+        "retrieval": [],
+        "belief": [],
+        "projection": [],
+        "provider": [],
+    }
+    for row in rows:
+        if _label_prefix_match(str(row.get("expected_answer", "")), row.get("provider_prediction")):
+            continue
+        layer = _classify_failure_layer(row)
+        layered_rows[layer].append(row)
+
+    layers: dict[str, Any] = {}
+    for layer_name, layer_rows in layered_rows.items():
+        layers[layer_name] = {
+            "count": len(layer_rows),
+            "sample_ids": [str(row.get("sample_id", "")) for row in layer_rows[:example_limit]],
+            "question_types": dict(
+                Counter(str(row.get("question_type", "unknown")) for row in layer_rows).most_common(6)
+            ),
+        }
+
+    return {
+        "benchmark": _canonical_benchmark_name(benchmark),
+        "summary_path": str(effective_summary_path),
+        "predictions_path": str(predictions_path),
+        "sample_count": len(rows),
+        "layers": layers,
+    }
+
+
 def write_analysis(root: Path, benchmark: str, payload: dict[str, Any]) -> dict[str, str]:
+    benchmark_key = _canonical_benchmark_name(benchmark)
     artifacts_dir = root / "outputs_v2" / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     stamp = _timestamp()
-    stamped_path = artifacts_dir / f"{stamp}_{benchmark}_stage2_canary_analysis.json"
-    latest_path = artifacts_dir / f"latest_{benchmark}_stage2_canary_analysis.json"
+    stamped_path = artifacts_dir / f"{stamp}_{benchmark_key}_stage2_canary_analysis.json"
+    latest_path = artifacts_dir / f"latest_{benchmark_key}_stage2_canary_analysis.json"
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    stamped_path.write_text(text, encoding="utf-8")
+    latest_path.write_text(text, encoding="utf-8")
+    return {
+        "stamped_path": str(stamped_path),
+        "latest_path": str(latest_path),
+    }
+
+
+def write_layered_analysis(root: Path, benchmark: str, payload: dict[str, Any]) -> dict[str, str]:
+    benchmark_key = _canonical_benchmark_name(benchmark)
+    artifacts_dir = root / "outputs_v2" / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    stamp = _timestamp()
+    stamped_path = artifacts_dir / f"{stamp}_{benchmark_key}_stage2_layered_analysis.json"
+    latest_path = artifacts_dir / f"latest_{benchmark_key}_stage2_layered_analysis.json"
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     stamped_path.write_text(text, encoding="utf-8")
     latest_path.write_text(text, encoding="utf-8")
@@ -194,8 +289,16 @@ def main() -> int:
         summary_path=Path(args.summary_path).resolve() if args.summary_path else None,
         example_limit=args.example_limit,
     )
+    layered_payload = build_layered_analysis(
+        root=root,
+        benchmark=args.benchmark,
+        summary_path=Path(args.summary_path).resolve() if args.summary_path else None,
+        example_limit=args.example_limit,
+    )
     if not args.no_write:
         payload["artifact_paths"] = write_analysis(root, args.benchmark, payload)
+        layered_payload["artifact_paths"] = write_layered_analysis(root, args.benchmark, layered_payload)
+        payload["layered_artifact_paths"] = layered_payload["artifact_paths"]
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
@@ -203,6 +306,8 @@ def main() -> int:
         print(f"provider_label_prefix_match={payload['provider_label_prefix_match']}")
         if "artifact_paths" in payload:
             print(f"latest_path={payload['artifact_paths']['latest_path']}")
+        if "layered_artifact_paths" in payload:
+            print(f"latest_layered_path={payload['layered_artifact_paths']['latest_path']}")
     return 0
 
 

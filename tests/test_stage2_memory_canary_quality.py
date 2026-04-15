@@ -109,6 +109,8 @@ def test_stage2_memory_canary_analysis_and_quality_verifier(tmp_path: Path):
     assert analysis_payload["local_exact_match"] == 1
     latest_analysis = repo_root / "outputs_v2" / "artifacts" / "latest_personamem_stage2_canary_analysis.json"
     assert latest_analysis.exists()
+    latest_layered = repo_root / "outputs_v2" / "artifacts" / "latest_personamem_stage2_layered_analysis.json"
+    assert latest_layered.exists()
 
     verify = _run(
         "scripts/verify_stage2_memory_canary_quality.py",
@@ -125,3 +127,68 @@ def test_stage2_memory_canary_analysis_and_quality_verifier(tmp_path: Path):
     assert verify_payload["metrics"]["provider_label_prefix_match"] == 2
     assert verify_payload["metrics"]["local_exact_match"] == 1
     assert verify_payload["checks"]["analysis_artifact_exists"] is True
+
+
+def test_stage2_memory_canary_analysis_writes_longmemeval_layered_artifact(tmp_path: Path):
+    repo_root = tmp_path / "repo"
+    (repo_root / "outputs_v2" / "evals_benchmark").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "demo").mkdir(parents=True)
+
+    predictions_path = repo_root / "outputs_v2" / "runs" / "demo" / "predictions.jsonl"
+    _write_jsonl(
+        predictions_path,
+        [
+            {
+                "sample_id": "a",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "answer",
+                "memory_answer_local": "",
+                "provider_prediction": "wrong",
+                "provider_status": "completed",
+                "question_type": "single-session-user",
+                "belief_state": {"belief_items": []},
+                "selected_slot_ids": [],
+            },
+            {
+                "sample_id": "b",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "answer",
+                "memory_answer_local": "answer",
+                "provider_prediction": "still wrong",
+                "provider_status": "completed",
+                "question_type": "single-session-assistant",
+                "belief_state": {"belief_items": [{"relation": "fact"}]},
+                "selected_slot_ids": ["slot_1"],
+            },
+        ],
+    )
+    summary_path = repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000000Z_stage2_memory_canary.json"
+    _write_json(
+        summary_path,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 64,
+            "live_predictions_completed": 64,
+            "provider_configured": True,
+            "status": "completed",
+            "predictions_path": str(predictions_path),
+        },
+    )
+
+    analysis = _run(
+        "scripts/analyze_stage2_memory_canary_failures.py",
+        "--root",
+        str(repo_root),
+        "--benchmark",
+        "longmemeval_s",
+        "--summary-path",
+        str(summary_path),
+        "--json",
+    )
+    assert analysis.returncode == 0, analysis.stderr
+    layered_path = repo_root / "outputs_v2" / "artifacts" / "latest_longmemeval_stage2_layered_analysis.json"
+    assert layered_path.exists()
+    layered_payload = json.loads(layered_path.read_text(encoding="utf-8"))
+    assert set(layered_payload["layers"]) == {"parser", "retrieval", "belief", "projection", "provider"}
+    assert layered_payload["layers"]["parser"]["count"] == 1
+    assert layered_payload["layers"]["provider"]["count"] == 1
