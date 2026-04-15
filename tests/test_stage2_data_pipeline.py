@@ -10,6 +10,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.datasets import build_prepared_payload_from_sources, summarize_stage2_sources
+from core_mem.v2.training import PreparedSeq2SeqDataset, TrainingExample
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -194,3 +195,48 @@ def test_stage2_prepare_script_can_use_source_config(tmp_path: Path):
     assert manifest["mode"] == "configured_sources"
     assert manifest["task_counts"]["slot_autoencoding"] == 1
     assert manifest["max_rows_per_dataset"] == 1
+
+
+class _FakeHFTokenizer:
+    pad_token_id = 0
+
+    def __call__(
+        self,
+        text: str | None = None,
+        *,
+        text_target: str | None = None,
+        truncation: bool,
+        max_length: int,
+        padding: str,
+        return_tensors: str,
+    ) -> dict[str, object]:
+        del truncation, padding, return_tensors
+        payload = text if text is not None else text_target
+        assert isinstance(payload, str)
+        token_ids = [index + 1 for index, _ in enumerate(payload[:max_length])]
+        token_ids.extend([self.pad_token_id] * (max_length - len(token_ids)))
+        attention_mask = [1 if token != self.pad_token_id else 0 for token in token_ids]
+        return {
+            "input_ids": __import__("torch").tensor([token_ids]),
+            "attention_mask": __import__("torch").tensor([attention_mask]),
+        }
+
+
+def test_prepared_seq2seq_dataset_supports_hf_style_tokenizer():
+    dataset = PreparedSeq2SeqDataset(
+        [
+            TrainingExample(
+                task_name="slot_autoencoding",
+                input_text="hello world",
+                target_text='{"value":"matcha"}',
+            )
+        ],
+        _FakeHFTokenizer(),
+        max_source_length=8,
+        max_target_length=10,
+    )
+
+    sample = dataset[0]
+    assert sample["input_ids"].tolist() == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert sample["attention_mask"].tolist() == [1, 1, 1, 1, 1, 1, 1, 1]
+    assert sample["labels"].tolist() == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

@@ -157,6 +157,40 @@ class CharTokenizer:
         )
 
 
+def _encode_source_ids(tokenizer: Any, text: str, max_length: int) -> tuple[list[int], list[int]]:
+    if isinstance(tokenizer, CharTokenizer):
+        input_ids = tokenizer.encode(text, max_length)
+        attention_mask = [1 if token != tokenizer.pad_token_id else 0 for token in input_ids]
+        return input_ids, attention_mask
+
+    encoded = tokenizer(
+        text,
+        truncation=True,
+        max_length=max_length,
+        padding="max_length",
+        return_tensors="pt",
+    )
+    input_ids = encoded["input_ids"][0].tolist()
+    attention_mask = encoded["attention_mask"][0].tolist()
+    return input_ids, attention_mask
+
+
+def _encode_target_ids(tokenizer: Any, text: str, max_length: int) -> list[int]:
+    if isinstance(tokenizer, CharTokenizer):
+        return tokenizer.encode_target(text, max_length)
+
+    encoded = tokenizer(
+        text_target=text,
+        truncation=True,
+        max_length=max_length,
+        padding="max_length",
+        return_tensors="pt",
+    )
+    labels = encoded["input_ids"][0].tolist()
+    pad_token_id = getattr(tokenizer, "pad_token_id", 0)
+    return [token if token != pad_token_id else -100 for token in labels]
+
+
 class PreparedSeq2SeqDataset(Dataset[dict[str, torch.Tensor]]):
     def __init__(
         self,
@@ -176,9 +210,8 @@ class PreparedSeq2SeqDataset(Dataset[dict[str, torch.Tensor]]):
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         example = self.examples[index]
-        input_ids = self.tokenizer.encode(example.input_text, self.max_source_length)
-        labels = self.tokenizer.encode_target(example.target_text, self.max_target_length)
-        attention_mask = [1 if token != self.tokenizer.pad_token_id else 0 for token in input_ids]
+        input_ids, attention_mask = _encode_source_ids(self.tokenizer, example.input_text, self.max_source_length)
+        labels = _encode_target_ids(self.tokenizer, example.target_text, self.max_target_length)
         return {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "attention_mask": torch.tensor(attention_mask, dtype=torch.long),

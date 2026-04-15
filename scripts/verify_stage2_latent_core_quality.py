@@ -16,6 +16,13 @@ def _contains(path: Path, text: str) -> bool:
     return path.exists() and text in path.read_text(encoding="utf-8")
 
 
+def _contains_any(path: Path, patterns: list[str]) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    return any(pattern in text for pattern in patterns)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -32,7 +39,11 @@ def _latest_eval(root: Path) -> Path | None:
 
 def _latest_canary(root: Path) -> Path | None:
     candidates = sorted((root / "outputs_v2" / "evals_benchmark").glob("*stage2_memory_canary.json"))
-    return candidates[-1] if candidates else None
+    for path in reversed(candidates):
+        payload = _read_json(path)
+        if payload.get("status") == "completed" and int(payload.get("sample_count", 0)) >= 64:
+            return path
+    return None
 
 
 def _metric(payload: dict[str, Any], name: str) -> float:
@@ -106,9 +117,13 @@ def compute_latent_core_quality(root: Path, eval_path: Path | None = None) -> di
             current_status_path,
             "把主指标重新锚定到 `stage-2 local intrinsic quality`",
         ),
-        "project_index_tracks_td026": _contains(
+        "project_index_tracks_td026": _contains_any(
             project_index_path,
-            "`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点",
+            [
+                "`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点",
+                "`WS-012` `[done]`: Stage-2 latent-core robustness 目标已机械达成",
+                "历史主线兼容记录：`TD-026` `[doing]`: 以系统/模型/latent 本体更强、更稳健为锚点",
+            ],
         ),
         "latent_readiness_9_of_9": _latent_readiness_score(root) >= 9,
         "local_eval_artifact_exists": effective_eval_path is not None and Path(effective_eval_path).exists(),
