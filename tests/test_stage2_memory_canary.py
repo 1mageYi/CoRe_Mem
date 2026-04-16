@@ -14,11 +14,13 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core_mem.v2.system import StructuredMemorySystem
+from core_mem.benchmarks.longmemeval import LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
     _observe_personamem_context,
     _project_personamem_local_answer,
     _rewrite_persona_summary,
+    _render_longmemeval_prompt,
     _render_personamem_options,
     _render_personamem_prompt,
     run_personamem_canary,
@@ -267,6 +269,28 @@ def test_personamem_prompt_has_no_candidate_injection():
         },
     )
     assert "Latent matcher candidate" not in prompt
+
+
+def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
+    question = LongMemEvalQuestion(
+        question_id="q",
+        question_type="single-session-user",
+        question="Where did I buy my new tennis racket from?",
+        answer="the sports store downtown",
+        question_date="2023/05/30 (Tue) 23:39",
+        haystack_sessions=[],
+        answer_session_ids=[],
+    )
+    prompt = _render_longmemeval_prompt(
+        question,
+        {
+            "belief_state": {"belief_items": [{"relation": "location", "value": "really happy with my new tennis racket, which i got from a sports store downtown"}]},
+            "evidence_block": "- location: really happy with my new tennis racket, which i got from a sports store downtown",
+        },
+    )
+    assert "Return only the shortest exact answer phrase supported by the belief state." in prompt
+    assert "Omit any leading preposition" in prompt
+    assert "rewrite it as 'the ...'" in prompt
 
 
 class _FakeResponse:
