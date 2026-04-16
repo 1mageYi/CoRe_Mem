@@ -95,12 +95,23 @@ class StructuredMemorySystem:
     top_k: int = 8
     memory_mode: str = "symbolic"
     use_learned_memory: bool = False
+    slot_assignment_mode: str = "symbolic"
+    use_learned_slot_assignment: bool = False
     learned_memory_checkpoint_dir: str | None = None
     learned_memory_train_config_path: str | None = None
     learned_memory_device: str = "cpu"
     learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = None
+    learned_slot_assignment_checkpoint_dir: str | None = None
+    learned_slot_assignment_train_config_path: str | None = None
+    learned_slot_assignment_device: str = "cpu"
+    learned_slot_assignment_predictor: Callable[[Observation, list[SlotRecord]], Any] | None = None
     state: StructuredMemoryState = field(default_factory=StructuredMemoryState)
     _cached_learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _cached_learned_slot_assignment_predictor: Callable[[Observation, list[SlotRecord]], Any] | None = field(
         default=None,
         init=False,
         repr=False,
@@ -131,7 +142,7 @@ class StructuredMemorySystem:
 
     def observe_observation(self, observation: Observation, *, timestamp: str) -> StructuredMemoryState:
         slots = [*self.state.core_slots, *self.state.residual_slots]
-        decision = self.lifecycle.decide(observation, slots)
+        decision = self._decide_slot_assignment(observation, slots)
         if decision.action == "ignore":
             return self.state
 
@@ -248,8 +259,99 @@ class StructuredMemorySystem:
             return self._empty_learned_belief(query_id), "learned_memory_empty"
         return learned_belief, "learned_memory"
 
+    def _slot_assignment_enabled(self) -> bool:
+        return self.use_learned_slot_assignment or self.slot_assignment_mode == "learned"
+
+    def _decide_slot_assignment(
+        self,
+        observation: Observation,
+        slots: list[SlotRecord],
+    ) -> LifecycleDecision:
+        symbolic_decision = self.lifecycle.decide(observation, slots)
+        if not self._slot_assignment_enabled():
+            return symbolic_decision
+
+        predictor = self._resolve_slot_assignment_predictor()
+        if predictor is None:
+            return LifecycleDecision(action="ignore")
+        try:
+            payload = predictor(observation, slots)
+        except Exception:
+            return LifecycleDecision(action="ignore")
+        return self._coerce_slot_assignment_decision(
+            payload,
+            observation=observation,
+            slots=slots,
+            symbolic_decision=symbolic_decision,
+        )
+
     def _learned_memory_enabled(self) -> bool:
         return self.use_learned_memory or self.memory_mode == "learned_memory"
+
+    @staticmethod
+    def _slot_assignment_candidates(observation: Observation, slots: list[SlotRecord]) -> list[SlotRecord]:
+        return [
+            slot
+            for slot in slots
+            if slot.active_flag and slot.entity == observation.entity and slot.relation == observation.relation
+        ]
+
+    def _select_slot_assignment_target(
+        self,
+        observation: Observation,
+        candidates: list[SlotRecord],
+        symbolic_decision: LifecycleDecision,
+    ) -> SlotRecord | None:
+        symbolic_target = self._find_slot(candidates, symbolic_decision.matched_slot_id)
+        if symbolic_target is not None:
+            return symbolic_target
+        if not candidates:
+            return None
+        observation_terms = set(_TOKEN_RE.findall(observation.value.lower()))
+        query_vector = self.query_encoder.encode(observation.value)
+        return max(
+            candidates,
+            key=lambda slot: (
+                len(observation_terms & self._slot_terms(slot)),
+                dot_product(query_vector, slot.retrieval_key),
+            ),
+        )
+
+    def _coerce_slot_assignment_decision(
+        self,
+        payload: Any,
+        *,
+        observation: Observation,
+        slots: list[SlotRecord],
+        symbolic_decision: LifecycleDecision,
+    ) -> LifecycleDecision:
+        if isinstance(payload, str):
+            payload = coerce_task_payload("slot_assignment", payload)
+        if not isinstance(payload, dict):
+            return LifecycleDecision(action="ignore")
+
+        action = str(payload.get("target_action", "")).strip().lower()
+        if action not in {"merge", "overwrite", "new", "ignore"}:
+            return LifecycleDecision(action="ignore")
+        flags = payload.get("target_flags") or {}
+        promote = bool(flags.get("promote", False))
+        stale_old = bool(flags.get("stale_old", False))
+        if action in {"merge", "overwrite"}:
+            target = self._select_slot_assignment_target(
+                observation,
+                self._slot_assignment_candidates(observation, slots),
+                symbolic_decision,
+            )
+            if target is None:
+                action = "new"
+            else:
+                return LifecycleDecision(
+                    action=action,
+                    matched_slot_id=target.slot_id,
+                    promote=promote,
+                    stale_old=stale_old if action == "overwrite" else False,
+                )
+        return LifecycleDecision(action=action, promote=promote, stale_old=stale_old if action == "overwrite" else False)
 
     def _resolve_learned_belief_predictor(self) -> Callable[[str, str, list[SlotRecord]], Any] | None:
         if self.learned_belief_predictor is not None:
@@ -298,6 +400,64 @@ class StructuredMemorySystem:
         self._cached_learned_belief_predictor = _predict
         return _predict
 
+    def _resolve_slot_assignment_predictor(self) -> Callable[[Observation, list[SlotRecord]], Any] | None:
+        if self.learned_slot_assignment_predictor is not None:
+            return self.learned_slot_assignment_predictor
+        if self._cached_learned_slot_assignment_predictor is not None:
+            return self._cached_learned_slot_assignment_predictor
+
+        checkpoint_dir = self.learned_slot_assignment_checkpoint_dir or self.learned_memory_checkpoint_dir
+        train_config_path = self.learned_slot_assignment_train_config_path or self.learned_memory_train_config_path
+        device = self.learned_slot_assignment_device or self.learned_memory_device
+        if not checkpoint_dir or not train_config_path:
+            return None
+
+        import yaml
+
+        from core_mem.v2.training import (
+            TrainingExample,
+            compact_observation_payload,
+            compact_slot_list,
+            generate_prediction_text,
+            load_runtime_components,
+        )
+
+        config = yaml.safe_load(Path(train_config_path).read_text(encoding="utf-8")) or {}
+        model, tokenizer = load_runtime_components(
+            config,
+            Path(checkpoint_dir),
+            device=device,
+        )
+        batching = config.get("training", {}).get("batching", {})
+        max_source_length = int(batching.get("max_source_length", 256))
+        max_target_length = int(batching.get("max_target_length", 192))
+
+        def _predict(observation: Observation, slots: list[SlotRecord]) -> str:
+            example = TrainingExample(
+                task_name="lifecycle_prediction",
+                input_text=self._render_slot_assignment_example(
+                    observation,
+                    slots,
+                    compact_observation_payload,
+                    compact_slot_list,
+                ),
+                target_text=json.dumps(
+                    {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}},
+                    ensure_ascii=False,
+                ),
+            )
+            return generate_prediction_text(
+                model,
+                tokenizer,
+                example,
+                max_source_length=max_source_length,
+                max_target_length=max_target_length,
+                device=device,
+            )
+
+        self._cached_learned_slot_assignment_predictor = _predict
+        return _predict
+
     @staticmethod
     def _render_learned_belief_example(
         query_text: str,
@@ -311,6 +471,25 @@ class StructuredMemorySystem:
         sections = [
             "task: composition_to_belief",
             "instruction: Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching.",
+        ]
+        for key, value in payload.items():
+            sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
+        return "\n".join(sections)
+
+    @staticmethod
+    def _render_slot_assignment_example(
+        observation: Observation,
+        slots: list[SlotRecord],
+        compact_observation_payload: Callable[[dict[str, Any]], dict[str, Any]],
+        compact_slot_list: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    ) -> str:
+        payload = {
+            "memory_context": compact_slot_list([slot.to_dict() for slot in slots]),
+            "new_observation": compact_observation_payload(observation.to_dict()),
+        }
+        sections = [
+            "task: lifecycle_prediction",
+            "instruction: Predict slot_assignment action classification and hard-constraint flags. Recover the semantic fields and emit a compact structured object.",
         ]
         for key, value in payload.items():
             sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")

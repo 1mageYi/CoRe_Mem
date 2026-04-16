@@ -216,6 +216,7 @@
   - learned slot assignment
   - stronger latent / stronger online memory path
 - 当前 next action 已继续前推到 `TD-034 / v2.3 long-run`：在 `TD-033` 的方向上，不仅要补 learned slot assignment 的 plumbing，还要把它推进到多卡并行探索、current-head online gain 和更强的 `LongMemEval-S 64/128` retained 结果。
+- 当前 `TD-034` 的核心里程碑是：围绕 `v2.3`、`LongMemEval-S` 和 learned slot assignment 建立 current-head 的 train/eval/gain/canary retained evidence，而不是继续补 closeout artifact。
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`

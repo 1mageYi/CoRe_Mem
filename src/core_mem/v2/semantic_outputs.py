@@ -178,7 +178,7 @@ def _coerce_composition_to_belief(payload: Any) -> dict[str, Any] | None:
 def coerce_task_payload(task_name: str, payload: Any) -> dict[str, Any] | None:
     if task_name == "retrieval_alignment":
         return _coerce_retrieval_alignment(payload)
-    if task_name == "lifecycle_prediction":
+    if task_name in {"lifecycle_prediction", "slot_assignment"}:
         return _coerce_lifecycle_prediction(payload)
     if task_name == "composition_to_belief":
         return _coerce_composition_to_belief(payload)
@@ -197,7 +197,7 @@ def render_task_payload(task_name: str, payload: dict[str, Any] | None) -> str:
     if task_name == "retrieval_alignment":
         canonical = {"gold_support_slot_ids": _dedupe_preserve_order([str(slot_id) for slot_id in payload.get("gold_support_slot_ids", [])])}
         return json.dumps(canonical, ensure_ascii=False, sort_keys=True)
-    if task_name == "lifecycle_prediction":
+    if task_name in {"lifecycle_prediction", "slot_assignment"}:
         canonical = {
             "target_action": str(payload.get("target_action", "")),
             "target_flags": {
@@ -247,7 +247,7 @@ def semantic_task_scores(
             "field_f1": _set_f1(predicted_ids, target_ids),
         }
 
-    if task_name == "lifecycle_prediction":
+    if task_name in {"lifecycle_prediction", "slot_assignment"}:
         predicted_flags = predicted.get("target_flags") or {}
         target_flags = target.get("target_flags") or {}
         matches = [

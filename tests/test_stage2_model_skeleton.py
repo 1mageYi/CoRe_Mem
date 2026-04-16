@@ -220,6 +220,42 @@ def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode(
     assert result.answer_text == "unknown"
 
 
+def test_structured_memory_system_can_switch_to_learned_slot_assignment():
+    calls = {"count": 0}
+
+    def _predict(observation, _slots):
+        calls["count"] += 1
+        if observation.value == "coffee":
+            return {"target_action": "new", "target_flags": {"promote": False, "stale_old": False}}
+        return {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    system.observe_turn(
+        "I like coffee.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "Now I prefer matcha.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    result = system.query("query-slot-assignment", "What drink does the user like?")
+    assert calls["count"] >= 2
+    assert result.answer_text == "coffee"
+
+
 def test_structured_memory_system_learned_mode_repairs_braceless_belief_payload():
     def _predict(_query_id: str, _query_text: str, slots):
         return '"belief_items": ["relation": "drink_preference", "support_slot_ids": ["%s"], "value": "oolong tea"]' % slots[0].slot_id

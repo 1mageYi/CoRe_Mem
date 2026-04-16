@@ -20,6 +20,8 @@ from core_mem.v2.semantic_outputs import (
     semantic_task_scores,
 )
 
+SLOT_ASSIGNMENT_TASK_NAME = "lifecycle_prediction"
+
 
 @dataclass(frozen=True)
 class TrainingExample:
@@ -110,7 +112,7 @@ def _balanced_cap_examples(
 
 
 def _apply_online_alignment(examples: list[TrainingExample]) -> list[TrainingExample]:
-    prioritized = {"retrieval_alignment", "composition_to_belief", "lifecycle_prediction"}
+    prioritized = {"retrieval_alignment", "composition_to_belief", SLOT_ASSIGNMENT_TASK_NAME}
     aligned: list[TrainingExample] = []
     for example in examples:
         aligned.append(example)
@@ -195,7 +197,7 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
             ),
             target_text=json.dumps({"gold_support_slot_ids": row["gold_support_slot_ids"]}, ensure_ascii=False, sort_keys=True),
         )
-    if task_name == "lifecycle_prediction":
+    if task_name == SLOT_ASSIGNMENT_TASK_NAME:
         return TrainingExample(
             task_name=task_name,
             input_text=_join_sections(
@@ -230,13 +232,31 @@ def serialize_task_example(task_name: str, row: dict[str, Any]) -> TrainingExamp
 
 
 def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
+    instruction = "Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching."
+    if task_name == SLOT_ASSIGNMENT_TASK_NAME:
+        instruction = (
+            "Predict slot_assignment action classification and hard-constraint flags. "
+            "Recover the semantic fields and emit a compact structured object."
+        )
     sections = [
         f"task: {task_name}",
-        "instruction: Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching.",
+        f"instruction: {instruction}",
     ]
     for key, value in payload.items():
         sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
     return "\n".join(sections)
+
+
+def slot_assignment_metrics_from_eval_payload(trained_eval: dict[str, Any] | None) -> dict[str, Any]:
+    lifecycle_metrics = ((trained_eval or {}).get("per_task") or {}).get(SLOT_ASSIGNMENT_TASK_NAME) or {}
+    return {
+        "slot_assignment_task": SLOT_ASSIGNMENT_TASK_NAME,
+        "slot_assignment_accuracy": float(lifecycle_metrics.get("field_accuracy", 0.0)),
+        "slot_assignment_field_f1": float(lifecycle_metrics.get("field_f1", 0.0)),
+        "slot_assignment_exact_match": float(lifecycle_metrics.get("exact_match", 0.0)),
+        "slot_assignment_token_f1": float(lifecycle_metrics.get("token_f1", 0.0)),
+        "slot_assignment_count": int(lifecycle_metrics.get("count", 0)),
+    }
 
 
 class CharTokenizer:
@@ -555,13 +575,14 @@ def evaluate_stage2_checkpoint(
             device=device,
         )
         target = example.target_text
-        prediction_payload = coerce_task_payload(example.task_name, prediction)
-        target_payload = coerce_task_payload(example.task_name, target)
-        prediction_text = render_task_payload(example.task_name, prediction_payload) if prediction_payload is not None else prediction
-        target_text = render_task_payload(example.task_name, target_payload) if target_payload is not None else target
+        semantic_task_name = "slot_assignment" if example.task_name == SLOT_ASSIGNMENT_TASK_NAME else example.task_name
+        prediction_payload = coerce_task_payload(semantic_task_name, prediction)
+        target_payload = coerce_task_payload(semantic_task_name, target)
+        prediction_text = render_task_payload(semantic_task_name, prediction_payload) if prediction_payload is not None else prediction
+        target_text = render_task_payload(semantic_task_name, target_payload) if target_payload is not None else target
         exact = float(_normalize_text(prediction_text) == _normalize_text(target_text))
         token_f1 = _token_f1(prediction_text, target_text)
-        field_scores = semantic_task_scores(example.task_name, prediction_payload, target_payload)
+        field_scores = semantic_task_scores(semantic_task_name, prediction_payload, target_payload)
         json_validity = float(json_like_payload(prediction) is not None)
         semantic_validity = float(prediction_payload is not None)
         overall_exact.append(exact)
@@ -655,7 +676,7 @@ def train_stage2_model(
         task_weights={
             "slot_autoencoding": 1,
             "retrieval_alignment": 2 if online_aligned else 1,
-            "lifecycle_prediction": 2 if online_aligned else 1,
+            SLOT_ASSIGNMENT_TASK_NAME: 2 if online_aligned else 1,
             "composition_to_belief": 3 if online_aligned else 1,
         },
     )

@@ -17,7 +17,7 @@ if str(SRC_DIR) not in sys.path:
 
 from core_mem.v2.eval_local import evaluate_local
 from core_mem.v2.experiments import variant_payload_for_experiment
-from core_mem.v2.training import evaluate_stage2_checkpoint
+from core_mem.v2.training import evaluate_stage2_checkpoint, slot_assignment_metrics_from_eval_payload
 import yaml
 
 
@@ -77,6 +77,27 @@ def _publish_semantic_full_eval_artifact(
         "commit_hash": _current_commit_hash(),
         "prepared_manifest": str(prepared_manifest_path),
         **payload,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
+def _publish_slot_assignment_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    trained_eval = payload.get("trained_eval") if isinstance(payload, dict) else None
+    slot_assignment_metrics = slot_assignment_metrics_from_eval_payload(trained_eval if isinstance(trained_eval, dict) else None)
+    artifact_path = output_root / "artifacts" / "latest_stage2_slot_assignment_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_slot_assignment_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "trained_eval": trained_eval,
+        **slot_assignment_metrics,
+        "result_path": payload.get("result_path"),
     }
     _write_json(artifact_path, artifact_payload)
     return str(artifact_path)
@@ -162,6 +183,7 @@ def main() -> int:
     parser.add_argument("--eval-device", default="cpu")
     parser.add_argument("--max-eval-examples", type=int)
     parser.add_argument("--publish-semantic-full-eval", action="store_true")
+    parser.add_argument("--publish-slot-assignment-eval", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -187,6 +209,12 @@ def main() -> int:
     )
     if args.publish_semantic_full_eval:
         payload["semantic_full_eval_artifact"] = _publish_semantic_full_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_slot_assignment_eval:
+        payload["slot_assignment_eval_artifact"] = _publish_slot_assignment_eval_artifact(
             prepared_manifest_path=prepared_manifest_path,
             output_root=output_root,
             payload=payload,

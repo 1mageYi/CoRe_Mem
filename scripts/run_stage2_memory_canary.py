@@ -59,6 +59,30 @@ def _append_jsonl_row(path: Path, row: dict[str, Any]) -> None:
         handle.flush()
 
 
+def _exact_match(expected: str, prediction: str | None) -> bool:
+    return _normalize_answer(expected) == _normalize_answer(prediction)
+
+
+def _label_prefix_match(expected: str, prediction: str | None) -> bool:
+    normalized_expected = _normalize_answer(expected)
+    normalized_prediction = _normalize_answer(prediction)
+    return bool(normalized_expected and normalized_prediction.startswith(normalized_expected))
+
+
+def _prediction_metrics(rows: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "provider_exact_match": sum(
+            1 for row in rows if _exact_match(str(row.get("expected_answer", "")), row.get("provider_prediction"))
+        ),
+        "provider_label_prefix_match": sum(
+            1 for row in rows if _label_prefix_match(str(row.get("expected_answer", "")), row.get("provider_prediction"))
+        ),
+        "local_exact_match": sum(
+            1 for row in rows if _exact_match(str(row.get("expected_answer", "")), row.get("memory_answer_local"))
+        ),
+    }
+
+
 def _copy_config_snapshot(config_path: Path, run_dir: Path) -> Path:
     snapshot = run_dir / "config_snapshot.yaml"
     snapshot.write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
@@ -129,7 +153,9 @@ def _provider_from_llm(llm: LLMConfig) -> OpenAICompatibleProvider:
     )
 
 
-def _normalize_answer(text: str) -> str:
+def _normalize_answer(text: str | None) -> str:
+    if text is None:
+        return ""
     return " ".join(text.strip().lower().split())
 
 
@@ -362,16 +388,25 @@ def _memory_payload(system: StructuredMemorySystem, query_id: str, query_text: s
 def _build_memory_system(
     *,
     memory_mode: str,
+    slot_assignment_mode: str,
     learned_memory_checkpoint_dir: str | None,
     learned_memory_train_config_path: str | None,
     learned_memory_device: str,
+    learned_slot_assignment_checkpoint_dir: str | None,
+    learned_slot_assignment_train_config_path: str | None,
+    learned_slot_assignment_device: str,
 ) -> StructuredMemorySystem:
     return StructuredMemorySystem(
         memory_mode=memory_mode,
         use_learned_memory=memory_mode == "learned_memory",
+        slot_assignment_mode=slot_assignment_mode,
+        use_learned_slot_assignment=slot_assignment_mode == "learned",
         learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
         learned_memory_train_config_path=learned_memory_train_config_path,
         learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path or learned_memory_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
     )
 
 
@@ -398,15 +433,30 @@ def _maybe_write_learned_alias(output_root: Path, benchmark: str, summary: dict[
     _maybe_write_semantic_alias(output_root, benchmark, summary)
 
 
+def _maybe_write_slot_assignment_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if summary.get("slot_assignment_mode") != "learned" or summary.get("status") != "completed":
+        return
+    alias_name = (
+        "latest_personamem_stage2_slot_assignment_canary.json"
+        if benchmark == "personamem"
+        else "latest_longmemeval_stage2_slot_assignment_canary.json"
+    )
+    _write_json(output_root / "artifacts" / alias_name, summary)
+
+
 def run_personamem_canary(
     *,
     output_root: Path,
     config_path: Path,
     limit: int,
     memory_mode: str = "symbolic",
+    slot_assignment_mode: str = "symbolic",
     learned_memory_checkpoint_dir: str | None = None,
     learned_memory_train_config_path: str | None = None,
     learned_memory_device: str = "cpu",
+    learned_slot_assignment_checkpoint_dir: str | None = None,
+    learned_slot_assignment_train_config_path: str | None = None,
+    learned_slot_assignment_device: str = "cpu",
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -440,8 +490,12 @@ def run_personamem_canary(
         "api_key_env": config.llm.api_key_env,
         "memory_mode": memory_mode,
         "use_learned_memory": memory_mode == "learned_memory",
+        "slot_assignment_mode": slot_assignment_mode,
+        "use_learned_slot_assignment": slot_assignment_mode == "learned",
         "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
         "learned_memory_train_config_path": learned_memory_train_config_path,
+        "learned_slot_assignment_checkpoint_dir": learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
+        "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "personamem")),
@@ -453,9 +507,13 @@ def run_personamem_canary(
             continue
         system = _build_memory_system(
             memory_mode=memory_mode,
+            slot_assignment_mode=slot_assignment_mode,
             learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
             learned_memory_train_config_path=learned_memory_train_config_path,
             learned_memory_device=learned_memory_device,
+            learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+            learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+            learned_slot_assignment_device=learned_slot_assignment_device,
         )
         observed_turns = _observe_personamem_context(
             system,
@@ -513,9 +571,11 @@ def run_personamem_canary(
         "status": "completed" if provider.is_configured() else "blocked_provider_not_configured",
         "run_dir": str(run_dir),
         "summary_path": str(summary_path),
+        **_prediction_metrics(rows),
     }
     _write_json(summary_path, summary)
     _maybe_write_learned_alias(output_root, "personamem", summary)
+    _maybe_write_slot_assignment_alias(output_root, "personamem", summary)
     return summary
 
 
@@ -525,9 +585,13 @@ def run_longmemeval_canary(
     config_path: Path,
     limit: int,
     memory_mode: str = "symbolic",
+    slot_assignment_mode: str = "symbolic",
     learned_memory_checkpoint_dir: str | None = None,
     learned_memory_train_config_path: str | None = None,
     learned_memory_device: str = "cpu",
+    learned_slot_assignment_checkpoint_dir: str | None = None,
+    learned_slot_assignment_train_config_path: str | None = None,
+    learned_slot_assignment_device: str = "cpu",
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -560,8 +624,12 @@ def run_longmemeval_canary(
         "api_key_env": config.llm.api_key_env,
         "memory_mode": memory_mode,
         "use_learned_memory": memory_mode == "learned_memory",
+        "slot_assignment_mode": slot_assignment_mode,
+        "use_learned_slot_assignment": slot_assignment_mode == "learned",
         "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
         "learned_memory_train_config_path": learned_memory_train_config_path,
+        "learned_slot_assignment_checkpoint_dir": learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
+        "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "longmemeval")),
@@ -573,9 +641,13 @@ def run_longmemeval_canary(
             continue
         system = _build_memory_system(
             memory_mode=memory_mode,
+            slot_assignment_mode=slot_assignment_mode,
             learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
             learned_memory_train_config_path=learned_memory_train_config_path,
             learned_memory_device=learned_memory_device,
+            learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+            learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+            learned_slot_assignment_device=learned_slot_assignment_device,
         )
         observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
         memory_payload = _memory_payload(system, question.question_id, question.question)
@@ -624,9 +696,11 @@ def run_longmemeval_canary(
         "status": "completed" if provider.is_configured() else "blocked_provider_not_configured",
         "run_dir": str(run_dir),
         "summary_path": str(summary_path),
+        **_prediction_metrics(rows),
     }
     _write_json(summary_path, summary)
     _maybe_write_learned_alias(output_root, "longmemeval", summary)
+    _maybe_write_slot_assignment_alias(output_root, "longmemeval", summary)
     return summary
 
 
@@ -637,9 +711,13 @@ def main() -> int:
     parser.add_argument("--output-root", default="outputs_v2")
     parser.add_argument("--limit", type=int, default=1)
     parser.add_argument("--memory-mode", choices=["symbolic", "learned_memory"], default="symbolic")
+    parser.add_argument("--slot-assignment-mode", choices=["symbolic", "learned"], default="symbolic")
     parser.add_argument("--learned-memory-checkpoint-dir")
     parser.add_argument("--learned-memory-train-config")
     parser.add_argument("--learned-memory-device", default="cpu")
+    parser.add_argument("--learned-slot-assignment-checkpoint-dir")
+    parser.add_argument("--learned-slot-assignment-train-config")
+    parser.add_argument("--learned-slot-assignment-device", default="cpu")
     parser.add_argument("--run-dir")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -651,9 +729,13 @@ def main() -> int:
             config_path=Path(args.config),
             limit=args.limit,
             memory_mode=args.memory_mode,
+            slot_assignment_mode=args.slot_assignment_mode,
             learned_memory_checkpoint_dir=args.learned_memory_checkpoint_dir,
             learned_memory_train_config_path=args.learned_memory_train_config,
             learned_memory_device=args.learned_memory_device,
+            learned_slot_assignment_checkpoint_dir=args.learned_slot_assignment_checkpoint_dir,
+            learned_slot_assignment_train_config_path=args.learned_slot_assignment_train_config,
+            learned_slot_assignment_device=args.learned_slot_assignment_device,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )
@@ -663,9 +745,13 @@ def main() -> int:
             config_path=Path(args.config),
             limit=args.limit,
             memory_mode=args.memory_mode,
+            slot_assignment_mode=args.slot_assignment_mode,
             learned_memory_checkpoint_dir=args.learned_memory_checkpoint_dir,
             learned_memory_train_config_path=args.learned_memory_train_config,
             learned_memory_device=args.learned_memory_device,
+            learned_slot_assignment_checkpoint_dir=args.learned_slot_assignment_checkpoint_dir,
+            learned_slot_assignment_train_config_path=args.learned_slot_assignment_train_config,
+            learned_slot_assignment_device=args.learned_slot_assignment_device,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )

@@ -356,6 +356,22 @@ def write_semantic_online_gain(root: Path, payload: dict[str, Any]) -> dict[str,
     }
 
 
+def write_slot_assignment_gain(root: Path, payload: dict[str, Any]) -> dict[str, str]:
+    artifacts_dir = root / "outputs_v2" / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    stamped_path = artifacts_dir / f"{_timestamp()}_stage2_slot_assignment_gain.json"
+    latest_path = artifacts_dir / "latest_stage2_slot_assignment_gain.json"
+    slot_assignment_payload = dict(payload)
+    slot_assignment_payload["artifact_type"] = "stage2_slot_assignment_gain"
+    text = json.dumps(slot_assignment_payload, ensure_ascii=False, indent=2)
+    stamped_path.write_text(text, encoding="utf-8")
+    latest_path.write_text(text, encoding="utf-8")
+    return {
+        "stamped_path": str(stamped_path),
+        "latest_path": str(latest_path),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=str(REPO_ROOT))

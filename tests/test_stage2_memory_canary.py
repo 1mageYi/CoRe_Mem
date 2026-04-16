@@ -82,6 +82,32 @@ def test_stage2_memory_canary_writes_learned_alias_artifact(tmp_path: Path):
     assert alias_payload["summary_path"] == payload["summary_path"]
 
 
+def test_stage2_memory_canary_writes_slot_assignment_alias_artifact(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    result = _run(
+        "scripts/run_stage2_memory_canary.py",
+        "--config",
+        "configs/minimax_m27.yaml",
+        "--benchmark",
+        "personamem",
+        "--output-root",
+        str(output_root),
+        "--limit",
+        "1",
+        "--slot-assignment-mode",
+        "learned",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    slot_alias = output_root / "artifacts" / "latest_personamem_stage2_slot_assignment_canary.json"
+    if payload["status"] == "completed":
+        assert slot_alias.exists()
+        alias_payload = json.loads(slot_alias.read_text(encoding="utf-8"))
+        assert alias_payload["slot_assignment_mode"] == "learned"
+        assert "provider_exact_match" in alias_payload
+
+
 def test_personamem_context_observer_skips_assistant_turns():
     system = StructuredMemorySystem()
     observed = _observe_personamem_context(
