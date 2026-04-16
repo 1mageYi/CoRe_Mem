@@ -14,6 +14,8 @@ torchvision==0.19.1
 torchaudio==2.4.1
 
 # vec2text inference（与 transformers 4.x 配套，5.x 不兼容）
+# datasets<2.21 在 pyarrow 15+ 上会报 PyExtensionType 缺失；与 numpy 2.x 搭配勿降级 pyarrow
+datasets>=2.21.0
 vec2text==0.0.13
 transformers==4.44.2
 huggingface_hub==0.36.2

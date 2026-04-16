@@ -1,0 +1,2 @@
+compactor
+core_mem
