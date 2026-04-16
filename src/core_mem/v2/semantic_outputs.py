@@ -23,6 +23,12 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
     return ordered
 
 
+def _valid_slot_id_values(values: list[str]) -> list[str]:
+    return _dedupe_preserve_order(
+        [value for value in values if value and value != "slot_ids" and _SLOT_ID_RE.fullmatch(value)]
+    )
+
+
 def _json_candidate(payload: str) -> Any | None:
     stripped = payload.strip()
     if not stripped:
@@ -59,11 +65,11 @@ def _coerce_retrieval_alignment(payload: Any) -> dict[str, Any] | None:
     if isinstance(candidate, dict):
         raw_ids = candidate.get("gold_support_slot_ids")
         if isinstance(raw_ids, list):
-            support_ids = [str(item) for item in raw_ids if str(item)]
+            support_ids = _valid_slot_id_values([str(item) for item in raw_ids])
             if support_ids:
-                return {"gold_support_slot_ids": _dedupe_preserve_order(support_ids)}
+                return {"gold_support_slot_ids": support_ids}
     text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False, sort_keys=True)
-    support_ids = _dedupe_preserve_order(_SLOT_ID_RE.findall(text))
+    support_ids = _valid_slot_id_values(_SLOT_ID_RE.findall(text))
     if not support_ids:
         return None
     return {"gold_support_slot_ids": support_ids}
@@ -116,7 +122,7 @@ def _belief_items_from_dict(candidate: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         relation = str(item.get("relation", "")).strip()
         value = str(item.get("value", "")).strip()
-        support_ids = _dedupe_preserve_order([str(slot_id) for slot_id in item.get("support_slot_ids", []) if str(slot_id)])
+        support_ids = _valid_slot_id_values([str(slot_id) for slot_id in item.get("support_slot_ids", []) if str(slot_id)])
         if relation or value or support_ids:
             items.append(
                 {
@@ -146,7 +152,7 @@ def _coerce_composition_to_belief(payload: Any) -> dict[str, Any] | None:
 
     relations = quoted_fields.get("relation", [])
     values = quoted_fields.get("value", [])
-    support_ids = _dedupe_preserve_order(_SLOT_ID_RE.findall(text))
+    support_ids = _valid_slot_id_values(_SLOT_ID_RE.findall(text))
     if not relations and not values and not support_ids:
         return None
 

@@ -629,6 +629,7 @@ def test_structured_memory_system_learned_mode_repairs_braceless_belief_payload(
     assert result.belief_source == "learned_memory"
     assert result.belief_state.belief_items[0].relation == "drink_preference"
     assert result.belief_state.belief_items[0].value == "oolong tea"
+    assert result.belief_state.belief_items[0].support_slot_ids == [result.selected_slots[0].slot_id]
 
 
 def test_answer_projection_trims_explanatory_suffixes_for_single_fact_queries():
