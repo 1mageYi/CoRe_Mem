@@ -194,6 +194,7 @@ def test_stage2_memory_canary_analysis_writes_longmemeval_layered_artifact(tmp_p
     assert layered_payload["layers"]["parser"]["count"] == 1
     assert layered_payload["layers"]["provider"]["count"] == 1
     assert response_payload["analysis"]["benchmark"] == "longmemeval"
+    assert "error_clusters" in response_payload["analysis"]
 
 
 def test_stage2_memory_canary_analysis_can_publish_semantic_alias_and_online_gain(tmp_path: Path):
@@ -382,6 +383,7 @@ def test_stage2_memory_canary_analysis_can_publish_v24_alias_and_online_gain(tmp
     v24_gain_path = repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v24_online_gain.json"
     assert v24_analysis_path.exists()
     assert v24_gain_path.exists()
+    assert "error_clusters" in response_payload["analysis"]
     gain_payload = response_payload["semantic_online_gain"]
     assert gain_payload["positive_gain"] is True
     assert gain_payload["delta_provider_exact_match"] == 1

@@ -173,6 +173,8 @@ def build_analysis(
         "by_question_type": _summarize_group(rows, key_name="question_type"),
         "by_topic": _summarize_group(rows, key_name="topic"),
         "top_failure_belief_relations": dict(failure_relation_counts.most_common(12)),
+        "error_clusters": dict(failure_relation_counts.most_common(12)),
+        "failure_buckets": dict(failure_relation_counts.most_common(12)),
         "failure_examples": failure_examples,
     }
 
