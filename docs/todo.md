@@ -2,15 +2,16 @@
 
 ## Doing
 
-- `TD-034` 以更远的 `v2.3 long-run` 为目标推进 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
-  - 当前机械目标：`scripts/verify_stage2_v23_longrun.py --score-only`
-  - 当前起点：`TD-032 / v2.2` 已达到 `19/19`，`TD-033 / v2.3` 已完成短版规划
+- `TD-035` 以更远的 `v2.4 quality-first long-run` 为目标推进 `LongMemEval-S` 质量、full-data learned slot assignment 与 stronger latent。
+  - 当前机械目标：`scripts/verify_stage2_v24_longrun.py --score-only`
+  - 当前起点：`TD-034 / v2.3 long-run` 已在 current HEAD `7a1802f` 上达到 `22/22`
   - 当前主攻点：
-    - `LongMemEval-S` 从机械完成推进到质量主 benchmark
-    - `observation -> slot` 从 rule-heavy lifecycle 推进到 `learned slot assignment + hard constraints`
-    - 把 retained 收益更多推到 current-head online gain，而不是 closeout artifact
-  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；允许多卡并行实验，但 live benchmark 继续串行
-  - 当前风险：`LongMemEval-S 128` 当前只有 `provider_exact = 4/128`、`local_exact = 4/128`；`observation -> slot` 目前仍主要靠 rule-heavy lifecycle
+    - 把 `LongMemEval-S` 从当前 `6/128` 继续推高，真正变成质量主 benchmark
+    - 把 `observation -> slot` 的 learned slot assignment 从“有 gain artifact”推进到 full-data train/eval 和稳定 online 增益
+    - 继续强化 `retrieval -> composed latent -> belief -> answer` 主链，让 retained 收益更多来自 stronger latent
+  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；允许多卡并行实验，但 live benchmark 继续串行；训练与测试默认使用完整 public-data prepared tasks
+  - 当前保留进度：`TD-034` 当前 retained baseline 为 `LongMemEval-S 128 provider/local = 6/128`、`PersonaMem 128 provider/local = 38/16`
+  - 当前风险：`LongMemEval-S` 当前仍明显偏弱；slot-assignment 本地 eval 仍基本为零，说明在线增益已有证据，但 learned slot assignment 本体仍需继续做强
 
 - `TD-033` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为目标推进 `v2.3`。
   - 当前机械目标：待新增 `stage2_v23_completion_score`

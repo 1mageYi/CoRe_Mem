@@ -1,5 +1,132 @@
 # Run Log
 
+## 2026-04-16 Session 035
+
+- Worked on: 把 `TD-034 / WS-020` 的 closeout 结果前推成 `TD-035 / WS-021` 的 `v2.4 quality-first long-run` 基线
+- State changed:
+  - 新增 [docs/v24_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v24_plan.md)，明确下一轮主线不再是补 slot-assignment artifact，而是把 `LongMemEval-S` 质量、full-data learned slot assignment 与 stronger latent 作为核心目标
+  - 新增 `scripts/verify_stage2_v24_longrun.py` 与 `tests/test_stage2_v24_longrun.py`
+  - `.agent-os/*`、`docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md` 已切到 `TD-035 / WS-021`
+  - 新基线已固定：`conda run -n core_mem python scripts/verify_stage2_v24_longrun.py --score-only` 当前为 `12/24`
+  - 该 baseline 的含义是：`v2.3` closeout 证据链保留为历史基础，新的 12 项缺口全部集中在 full-data slot-assignment train/eval、LongMemEval-S 64/128 质量、current-head online gain 和 PersonaMem 128 guard 上
+- Evidence / artifacts:
+  - `docs/v24_plan.md`
+  - `scripts/verify_stage2_v24_longrun.py`
+  - `tests/test_stage2_v24_longrun.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v24_longrun.py --score-only` -> `12`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v24_longrun.py`
+- Next likely action:
+  - 提交 `v2.4` baseline，并以 `stage2_v24_longrun_score` 为新主指标启动后台 managed autoresearch
+
+## 2026-04-16 Session 034
+
+- Worked on: 收口 `TD-034 / WS-020` 的 managed long-run，围绕 parser/extraction coverage 修复 `LongMemEval-S` 剩余单样本缺口，并完成 current-head 128 canary / gain refresh
+- State changed:
+  - 新 commit `7a1802f` 为 `src/core_mem/v2/parser.py` 与 `src/core_mem/v2/system.py` 增加了 recent-dialogue contextual coupon/store parsing，同时在 `src/core_mem/v2/projection.py` 修复了 `where` query 对多重介词短语的末尾 location 提取
+  - 对应 targeted tests `tests/test_stage2_parser.py`、`tests/test_stage2_model_skeleton.py` 已通过；current-head tiny slot-assignment train/eval artifact 已刷新到 `7a1802f`
+  - targeted `LongMemEval-S` probe `outputs_v2/probes/evals_benchmark/20260416T094811Z_stage2_memory_canary.json` 已把 `118b2229 / 51a45a95 / 58bf7951` 从此前的 `2/3` 提升到 `3/3`
+  - fresh current-head `PersonaMem 128` canary `outputs_v2/evals_benchmark/20260416T095030Z_stage2_memory_canary.json` 已完成，结果为 `provider_exact = 38`、`local_exact = 16`
+  - fresh current-head `LongMemEval-S 128` canary `outputs_v2/evals_benchmark/20260416T095034Z_stage2_memory_canary.json` 在一次 `HTTP 502` 中断后通过 `--resume` 续跑完成，结果为 `provider_exact = 6/128`、`local_exact = 6/128`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_gain.json` 已写入相对 v2.2 baseline `LongMemEval-S 128` 的 `delta_provider_exact_match = +2`、`delta_local_exact_match = +2`
+  - `conda run -n core_mem python scripts/verify_stage2_v23_longrun.py --score-only` 已达到 stop condition `22`，full guard 通过；`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `11 keep`
+- Evidence / artifacts:
+  - commit `7a1802f`
+  - `src/core_mem/v2/parser.py`
+  - `src/core_mem/v2/system.py`
+  - `src/core_mem/v2/projection.py`
+  - `tests/test_stage2_parser.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `outputs_v2/probes/evals_benchmark/20260416T094811Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T095030Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T095034Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_gain.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v23_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v23_longrun.py --score-only` -> `22`
+- Next likely action:
+  - 当前 managed run 已机械收口；等待用户给出下一条 stage-2 方向，再决定是否从 `22/22 retained on 7a1802f` 继续往前推
+
+## 2026-04-16 Session 032
+
+- Worked on: 恢复 `TD-034 / WS-020` 的 managed long-run，并在 provider env 恢复后继续推进 current-head slot-assignment 在线主链
+- State changed:
+  - 通过 helper 确认当前 run 仍是 `full_resume`；本 session 中 `GPT_AGENT_API_KEY=SET`，因此历史 `BL-007`（provider env missing）不再代表 current runtime truth
+  - 用 current HEAD `43b941b` 做 `LongMemEval-S` slot-assignment live probe 时，前 `2/2` 个 completed 样本都出现 `belief_source=learned_memory_error`，其中 sample `e47becba` 的 `selected_slot_ids=[]`；据此将该线先按 `refine` 记账，避免在 malformed slot-assignment 输出上继续烧 live calls
+  - 新 commit `1ea4f12` 为 `src/core_mem/v2/system.py` 与 `src/core_mem/v2/training.py` 的 slot-assignment train/online prompt 增加了显式 JSON schema 与 action space，并补了两条测试锁住该 contract
+  - targeted guard 已通过：`tests/test_stage2_model_skeleton.py`、`tests/test_stage2_training_runtime.py` 以及 `TD-034` guard 中的相关 stage-2 tests 全部通过
+  - `Business Administration` raw probe 现已从 malformed prompt fragment 改为可 coercion 的 `LifecycleDecision(action='new')`，说明 current-head slot-assignment 输出 contract 在本地 probe 上已转正
+  - 由于 current HEAD 已切到 `1ea4f12` 而 current-head live artifacts 尚未刷新，`scripts/verify_stage2_v23_longrun.py --score-only` 在当前 trial HEAD 上暂时回到 `14`；remaining `LongMemEval-S 64/128`、`PersonaMem 128` slot-assignment canary 与 gain refresh 更适合交回 background runtime 持续执行
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - commit `1ea4f12`
+  - `src/core_mem/v2/system.py`
+  - `src/core_mem/v2/training.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `tests/test_stage2_training_runtime.py`
+  - partial probe run `outputs_v2/runs/20260416T075646Z_stage2_memory_canary_longmemeval/`
+  - partial current-head refresh run `outputs_v2/runs/20260416T081538Z_stage2_memory_canary_longmemeval/`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py tests/test_stage2_v23_longrun.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+  - raw probe on `I graduated with a degree in Business Administration from the University of Michigan in 2012.` -> `LifecycleDecision(action='new')`
+  - `conda run -n core_mem python scripts/verify_stage2_v23_longrun.py --score-only` -> `14` on trial HEAD `1ea4f12`
+- Next likely action:
+  - 让 background runtime 在 `1ea4f12` 上继续刷新 current-head `LongMemEval-S 64/128`、`PersonaMem 128` slot-assignment canaries 与 `latest_stage2_slot_assignment_gain.json`，并据此决定这次 slot-assignment prompt-contract 修正是 `keep` 还是 `revert`
+
+## 2026-04-16 Session 033
+
+- Worked on: 继续恢复 `TD-034 / WS-020`，围绕 current-head slot-assignment 在线热路径做两轮 cost-focused refine
+- State changed:
+  - 新 commit `e03aa98` 为 learned slot-assignment 增加 cold-start fast-path：当 observation 没有同 relation 候选 slot 时，直接保留 symbolic `new/ignore`，不再做无上下文 generation；随后用 current-head tiny slot-assignment train/eval artifact 把 `scripts/verify_stage2_v23_longrun.py --score-only` 从 stale trial `14` 恢复到 `16`
+  - 基于 `LongMemEval-S` sample `e47becba` 的本地 profiling 发现，主要吞吐瓶颈并不是空候选冷启动，而是 relation=`other_fact` 的大量 symbolic `new` 写入；该样本总共 `133` 条 parsed observations，其中 `104` 条属于 “有候选但 symbolic action 仍是 `new` 的 `other_fact`”
+  - 新 commit `64a9a4f` 在 `e03aa98` 基础上继续加入 `other_fact` fast-path 与单候选 `merge/overwrite` fast-path，把同一 `e47becba` 的 estimated slot-assignment predictor calls 从 `127` 压到 `5`
+  - current-head `LongMemEval-S` 1-sample smoke `outputs_v2/evals_benchmark/20260416T090332Z_stage2_memory_canary.json` 已从此前的 `learned_memory_error` 转成 `belief_source=learned_memory`，且 `selected_slot_ids` 非空、provider 输出 `25:50`
+  - 随后两次 restarted current-head `LongMemEval-S 64` refresh 都只推进到 partial（旧 run 到 `6/64`，新 run 到 `5/64` 后主动停止），说明 live throughput 虽有改善但仍不足以在当前交互里快速形成 retained canary/gain artifact；本轮因此按 `refine` 记账而非 `keep`
+  - full guard 通过；`research-results.tsv` / `autoresearch-state.json` 已记录到 iteration `7`，retained metric 仍是 `16`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - commits `e03aa98`, `64a9a4f`
+  - `src/core_mem/v2/system.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `outputs_v2/evals_benchmark/20260416T090332Z_stage2_memory_canary.json`
+  - partial runs `outputs_v2/runs/20260416T090447Z_stage2_memory_canary_longmemeval/` and `outputs_v2/runs/20260416T091303Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_train.json`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_eval.json`
+  - local profiling on `e47becba` -> estimated slot-assignment predictor calls `127 -> 23 -> 5`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v23_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v23_longrun.py --score-only` -> `16`
+- Next likely action:
+  - 继续把 learned slot-assignment 的在线 recipe 收窄到真正需要 target ranking / overwrite arbitration 的 case，或寻找更轻量的 online slot-assignment backend，然后再重启 current-head `LongMemEval-S 64/128` 与 `PersonaMem 128` refresh
+
+## 2026-04-16 Session 031
+
+- Worked on: 以 fresh-start 启动 `TD-034 / WS-020` 的 managed autoresearch，把 `stage2_v23_longrun_score` 从 baseline `10` 推到 retained `16/22`，并在 live provider env 缺失处停机
+- State changed:
+  - 基线先通过 `scripts/verify_stage2_v23_longrun.py --score-only` 固化为 `10`，随后用 helper 初始化 fresh `research-results.tsv` / `autoresearch-state.json`
+  - 新增 `src/core_mem/v2/system.py` 的 learned slot-assignment online toggle，并让 `scripts/train_stage2.py`、`scripts/eval_stage2_local.py`、`scripts/run_stage2_memory_canary.py`、`scripts/analyze_stage2_memory_canary_failures.py` 支持 slot-assignment artifact 发布链；`scripts/verify_stage2_v23_longrun.py --score-only` 因此从 `10` 提到 `14`
+  - 在 commit `43b941b` 上补齐 current-head `latest_stage2_slot_assignment_train.json` 与 `latest_stage2_slot_assignment_eval.json`，使 score 从 `14` 提到 `16`
+  - 当前 session 内确认 `GPT_AGENT_API_KEY=unset`、`ALIYUN_API_KEY=unset`、`GEMINI_API_KEY=unset`，因此 `configs/minimax_m27.yaml` 的 `provider.is_configured()` 为 `false`；`LongMemEval-S 64/128`、`PersonaMem 128` 的 slot-assignment live canaries 与 `latest_stage2_slot_assignment_gain.json` 因此真实 blocked
+  - `research-results.tsv` / `autoresearch-state.json` 已记录到 iteration `3`，当前 retained metric 为 `16`，last status 为 `blocked`
+- Evidence / artifacts:
+  - `src/core_mem/v2/system.py`
+  - `src/core_mem/v2/training.py`
+  - `src/core_mem/v2/semantic_outputs.py`
+  - `scripts/train_stage2.py`
+  - `scripts/eval_stage2_local.py`
+  - `scripts/run_stage2_memory_canary.py`
+  - `scripts/analyze_stage2_memory_canary_failures.py`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_train.json`
+  - `outputs_v2/artifacts/latest_stage2_slot_assignment_eval.json`
+  - `outputs_v2/runs/20260416T071023Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260416T071034Z_stage2_local_eval.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v23_longrun.py --score-only` -> `16`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v23_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 在 live provider env 恢复后，继续 current-head `LongMemEval-S 64/128` 与 `PersonaMem 128` slot-assignment canaries，并基于 fresh completed summaries 生成 `latest_stage2_slot_assignment_gain.json`
+
 ## 2026-04-16 Session 030
 
 - Worked on: 恢复 `TD-032 / WS-018` 的 managed autoresearch，并把 `v2.2` 从 retained `14/19` 推到 stop condition `19/19`

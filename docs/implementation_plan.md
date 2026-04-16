@@ -408,7 +408,21 @@
   - 当前 `v2.2` 已 closeout，`v2.3` 的短版计划也已落地；这轮长跑的重点不再是 closeout artifact，而是更远的质量与主链改造
   - 这轮继续保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
   - 用户已明确允许多卡并行实验；当前默认策略是多卡并行多个单卡实验，而不是默认上多卡数据并行训练
+  - 当前 retained 进度：current HEAD `43b941b` 已把 `stage2_v23_longrun_score` 推到 `16/22`，并补齐 `latest_stage2_slot_assignment_train.json` / `latest_stage2_slot_assignment_eval.json`
+  - 当前真实 blocker：本 session 缺失 `GPT_AGENT_API_KEY`、`ALIYUN_API_KEY` 与 `GEMINI_API_KEY`，导致 provider-dependent `LongMemEval-S 64/128`、`PersonaMem 128` slot-assignment canaries 与 corresponding gain artifact 不能继续
   - 详细计划见 [docs/v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md)
+
+### 阶段 T：V2.4 LongMemEval-S Quality + Learned Slot Assignment + Stronger Latent
+
+- Goal: 把当前主线从“`v2.3` 的 slot-assignment closeout”继续推进到“更强的 `LongMemEval-S`、更强的 full-data learned slot assignment、更强的 online latent main path”
+- Status: doing
+- Notes:
+  - 当前 `v2.3 long-run` 已在 current HEAD `7a1802f` 上机械收口，`stage2_v23_longrun_score = 22/22`
+  - 当前最真实的下一步，不是继续补 closeout artifact，而是围绕 `LongMemEval-S 128 = 6/128` 这个偏低基线继续做质量提升
+  - 本轮继续严格保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
+  - 训练与测试默认使用完整 public-data prepared tasks
+  - 新机械指标为 `scripts/verify_stage2_v24_longrun.py --score-only`
+  - 详细计划见 [docs/v24_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v24_plan.md)
 
 #### 阶段 S-A：Baseline And Taxonomy
 

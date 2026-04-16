@@ -2,14 +2,15 @@
 
 ## Doing
 
-- `TD-034` `[doing]` 以更远的 `v2.3 long-run` 为目标推进 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
-  - Reason: `v2.2` 的 closeout 证据链已经补齐；下一步真正缺的是更强的 online memory 主链、更强的 slot assignment，以及更高的 `LongMemEval-S` 质量。
-  - Evidence target: `scripts/verify_stage2_v23_longrun.py --score-only`
-  - Mechanical target: `scripts/verify_stage2_v23_longrun.py --score-only`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first；允许多卡并行实验，但 live benchmark 保持串行
-  - Current retained baseline: `TD-032 / WS-018` 已在 current HEAD `510aeb7` 上达到 `19/19`
-  - Current runtime truth: `v2.2` 只作为 closeout 保持可复验，`TD-034 / WS-020` 是新的 managed long-run 主线
-  - Remaining risk: `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`；`observation -> slot` 目前仍主要靠 rule-heavy lifecycle
+- `TD-035` `[doing]` 以更远的 `v2.4 quality-first long-run` 为目标推进 `LongMemEval-S` 质量、full-data learned slot assignment 与 stronger latent。
+  - Reason: `TD-034 / WS-020` 已把 learned slot assignment 的主链、current-head canary 与 gain artifact 做出来了；下一步真正缺的是把 `LongMemEval-S` 从 `6/128` 继续往上推，并把 learned slot assignment 本体从“有 online gain”推进到“full-data train/eval 与 online 都更强”。
+  - Evidence target: `scripts/verify_stage2_v24_longrun.py --score-only`
+  - Mechanical target: `scripts/verify_stage2_v24_longrun.py --score-only`
+  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first；允许多卡并行实验，但 live benchmark 保持串行；训练与测试默认使用完整 public-data prepared tasks
+  - Current retained baseline: `TD-034 / WS-020` 已在 current HEAD `7a1802f` 上达到 `22/22`
+  - Current retained progress: `LongMemEval-S 128` current-head baseline 已达到 `provider/local = 6/128`，`PersonaMem 128` current-head guard 为 `provider_exact = 38`、`local_exact = 16`
+  - Current runtime truth: `TD-034` 作为 closeout 保持可复验；当前主线切到 `TD-035 / WS-021`
+  - Remaining risk: `LongMemEval-S` 当前仍明显偏弱；同时 `latest_stage2_slot_assignment_eval.json` 的 slot-assignment local eval 仍基本为零，说明在线 gain 虽已出现，但 learned slot assignment 本体还没有真正做强
 
 - `TD-033` `[doing]` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为锚点推进 `v2.3`。
   - Reason: `v2.2` 已经把 full-data semantic-first 证据链补齐；下一步真正缺的不是更多 closeout artifact，而是更强的 online memory 主链、更强的 slot assignment 和更高的 `LongMemEval-S` 质量。
