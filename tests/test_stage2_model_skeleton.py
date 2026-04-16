@@ -252,8 +252,34 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     )
 
     result = system.query("query-slot-assignment", "What drink does the user like?")
-    assert calls["count"] >= 2
+    assert calls["count"] == 1
     assert result.answer_text == "coffee"
+
+
+def test_structured_memory_system_short_circuits_slot_assignment_without_candidates():
+    calls = {"count": 0}
+
+    def _predict(_observation, _slots):
+        calls["count"] += 1
+        return {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    system.observe_turn(
+        "I graduated with a degree in Business Administration.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    assert calls["count"] == 0
+    assert len(system.state.active_slots()) == 1
+    assert "business administration" in system.state.active_slots()[0].canonical_gloss.lower()
 
 
 def test_structured_memory_system_slot_assignment_prompt_uses_explicit_schema():

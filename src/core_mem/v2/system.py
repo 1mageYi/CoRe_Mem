@@ -270,6 +270,12 @@ class StructuredMemorySystem:
         symbolic_decision = self.lifecycle.decide(observation, slots)
         if not self._slot_assignment_enabled():
             return symbolic_decision
+        candidates = self._slot_assignment_candidates(observation, slots)
+        # When there is no eligible same-relation slot, the learned head cannot
+        # legally merge/overwrite anyway; keep the parser/lifecycle cold-start
+        # decision and avoid an expensive no-context generation call.
+        if not candidates and symbolic_decision.action in {"new", "ignore"}:
+            return symbolic_decision
 
         predictor = self._resolve_slot_assignment_predictor()
         if predictor is None:
@@ -282,6 +288,7 @@ class StructuredMemorySystem:
             payload,
             observation=observation,
             slots=slots,
+            candidates=candidates,
             symbolic_decision=symbolic_decision,
         )
 
@@ -323,6 +330,7 @@ class StructuredMemorySystem:
         *,
         observation: Observation,
         slots: list[SlotRecord],
+        candidates: list[SlotRecord],
         symbolic_decision: LifecycleDecision,
     ) -> LifecycleDecision:
         if isinstance(payload, str):
@@ -339,7 +347,7 @@ class StructuredMemorySystem:
         if action in {"merge", "overwrite"}:
             target = self._select_slot_assignment_target(
                 observation,
-                self._slot_assignment_candidates(observation, slots),
+                candidates,
                 symbolic_decision,
             )
             if target is None:
