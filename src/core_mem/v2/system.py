@@ -36,10 +36,12 @@ _QUERY_STOPWORDS = {
     "for",
     "from",
     "have",
+    "how",
     "i",
     "in",
     "is",
     "it",
+    "long",
     "me",
     "my",
     "name",
@@ -61,6 +63,7 @@ _QUERY_STOPWORDS = {
     "which",
     "who",
     "with",
+    "daily",
 }
 
 
@@ -210,18 +213,27 @@ class StructuredMemorySystem:
         return [replacement if slot.slot_id == replacement.slot_id else slot for slot in slots]
 
     @staticmethod
-    def _query_terms(text: str) -> set[str]:
+    def _normalize_term(token: str) -> str:
+        normalized = token.lower()
+        for suffix in ("ing", "ed", "es", "s"):
+            if len(normalized) > len(suffix) + 2 and normalized.endswith(suffix):
+                normalized = normalized[: -len(suffix)]
+                break
+        return normalized
+
+    @classmethod
+    def _query_terms(cls, text: str) -> set[str]:
         return {
-            token
+            cls._normalize_term(token)
             for token in _TOKEN_RE.findall(text.lower())
             if len(token) >= 3 and token not in _QUERY_STOPWORDS
         }
 
-    @staticmethod
-    def _slot_terms(slot: SlotRecord) -> set[str]:
+    @classmethod
+    def _slot_terms(cls, slot: SlotRecord) -> set[str]:
         relation_terms = slot.relation.replace("_", " ")
         return {
-            token
+            cls._normalize_term(token)
             for token in _TOKEN_RE.findall(f"{relation_terms} {slot.canonical_gloss}".lower())
             if len(token) >= 3
         }

@@ -520,6 +520,45 @@ def test_structured_memory_system_caps_slot_assignment_decode_length(tmp_path: P
     assert captured["device"] == "cpu"
 
 
+def test_structured_memory_system_query_terms_normalize_question_noise():
+    terms = StructuredMemorySystem._query_terms("How long is my daily commute to work?")
+    assert "how" not in terms
+    assert "long" not in terms
+    assert "daily" not in terms
+    assert "commute" in terms
+    assert "work" in terms
+
+
+def test_structured_memory_system_slot_terms_apply_light_stemming():
+    observation = Observation.from_dict(
+        {
+            "obs_id": "obs-stem",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "attended_play",
+            "value": "The Glass Menagerie",
+            "value_type": "event",
+            "time_scope": "past",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I attended The Glass Menagerie.",
+            "canonical_gloss": "attended_play=the glass menagerie",
+        }
+    )
+    system = StructuredMemorySystem()
+    slot = system.slot_encoder.encode(observation, timestamp="2026-04-07T05:00:00Z", bank="residual")
+    terms = system._slot_terms(slot)
+
+    assert "attend" in terms
+    assert "attended" not in terms
+    assert "play" in terms
+
+
 def test_structured_memory_system_slot_assignment_prompt_uses_explicit_schema():
     system = StructuredMemorySystem()
     observation = system.parser.parse_turn(
