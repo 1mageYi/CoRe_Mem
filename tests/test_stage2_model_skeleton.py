@@ -8,6 +8,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.system import StructuredMemorySystem
+from core_mem.v2.schemas import Observation
 
 
 def test_structured_memory_system_answers_from_active_slot():
@@ -225,35 +226,63 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
 
     def _predict(observation, _slots):
         calls["count"] += 1
-        if observation.value == "coffee":
-            return {"target_action": "new", "target_flags": {"promote": False, "stale_old": False}}
-        return {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}}
+        return {"target_action": "overwrite", "target_flags": {"promote": False, "stale_old": True}}
 
     system = StructuredMemorySystem(
         slot_assignment_mode="learned",
         use_learned_slot_assignment=True,
         learned_slot_assignment_predictor=_predict,
     )
-    system.observe_turn(
-        "I like coffee.",
-        source_dataset="synthetic",
-        source_dialogue_id="dlg-1",
-        source_turn_id="turn-1",
-        session_id="sess-1",
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-1",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "location",
+                "value": "Boston",
+                "value_type": "location",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "I live in Boston.",
+                "canonical_gloss": "location=Boston",
+            }
+        ),
         timestamp="2026-04-07T05:00:00Z",
     )
-    system.observe_turn(
-        "Now I prefer matcha.",
-        source_dataset="synthetic",
-        source_dialogue_id="dlg-1",
-        source_turn_id="turn-2",
-        session_id="sess-1",
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-2",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "location",
+                "value": "Seattle",
+                "value_type": "location",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "Now I live in Seattle.",
+                "canonical_gloss": "location=Seattle",
+            }
+        ),
         timestamp="2026-04-07T05:05:00Z",
     )
 
-    result = system.query("query-slot-assignment", "What drink does the user like?")
+    result = system.query("query-slot-assignment", "Where does the user live?")
     assert calls["count"] == 1
-    assert result.answer_text == "coffee"
+    assert result.answer_text == "Seattle"
 
 
 def test_structured_memory_system_short_circuits_slot_assignment_without_candidates():
@@ -280,6 +309,69 @@ def test_structured_memory_system_short_circuits_slot_assignment_without_candida
     assert calls["count"] == 0
     assert len(system.state.active_slots()) == 1
     assert "business administration" in system.state.active_slots()[0].canonical_gloss.lower()
+
+
+def test_structured_memory_system_short_circuits_other_fact_slot_assignment_with_candidates():
+    calls = {"count": 0}
+
+    def _predict(_observation, _slots):
+        calls["count"] += 1
+        return {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-1",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "curious about yoga poses for sleep",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "I am curious about yoga poses for sleep.",
+                "canonical_gloss": "other_fact=curious about yoga poses for sleep",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-2",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "experimenting with essential oils",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "I am experimenting with essential oils.",
+                "canonical_gloss": "other_fact=experimenting with essential oils",
+            }
+        ),
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    assert calls["count"] == 0
+    assert len(system.state.active_slots()) == 2
 
 
 def test_structured_memory_system_slot_assignment_prompt_uses_explicit_schema():

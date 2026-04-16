@@ -276,6 +276,11 @@ class StructuredMemorySystem:
         # decision and avoid an expensive no-context generation call.
         if not candidates and symbolic_decision.action in {"new", "ignore"}:
             return symbolic_decision
+        # `other_fact` is intentionally multi-valued and open-world; for these
+        # symbolic `new` writes, learned arbitration adds cost without creating
+        # a legal merge target.
+        if observation.relation == "other_fact" and symbolic_decision.action == "new":
+            return symbolic_decision
 
         predictor = self._resolve_slot_assignment_predictor()
         if predictor is None:
