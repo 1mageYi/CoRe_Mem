@@ -10,7 +10,6 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.training import build_training_examples
-from core_mem.v2.training import build_training_examples_with_variant
 from core_mem.v2.training import _balanced_cap_examples
 from core_mem.v2.training import compact_slot_payload
 
@@ -99,30 +98,6 @@ def test_balanced_cap_examples_spreads_budget_across_tasks(tmp_path: Path):
         "lifecycle_prediction",
         "composition_to_belief",
     }
-
-
-def test_online_alignment_repeats_can_upweight_composition_task(tmp_path: Path):
-    output_root = tmp_path / "outputs_v2"
-    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
-    assert prepare.returncode == 0
-    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
-
-    examples = build_training_examples_with_variant(
-        manifest,
-        tasks=["retrieval_alignment", "lifecycle_prediction", "composition_to_belief"],
-        online_aligned=True,
-        online_alignment_repeats={
-            "retrieval_alignment": 2,
-            "lifecycle_prediction": 2,
-            "composition_to_belief": 3,
-        },
-    )
-    counts: dict[str, int] = {}
-    for example in examples:
-        counts[example.task_name] = counts.get(example.task_name, 0) + 1
-
-    assert counts["composition_to_belief"] > counts["retrieval_alignment"]
-    assert counts["lifecycle_prediction"] > 0
 
 
 def test_compact_slot_payload_removes_dense_latent_fields():

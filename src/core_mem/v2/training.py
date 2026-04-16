@@ -57,7 +57,6 @@ def build_training_examples_with_variant(
     tasks: list[str] | None = None,
     disabled_pools: list[str] | None = None,
     online_aligned: bool = False,
-    online_alignment_repeats: dict[str, int] | None = None,
 ) -> list[TrainingExample]:
     manifest = load_prepared_manifest(prepared_manifest_path)
     requested = set(tasks or manifest["task_files"].keys())
@@ -71,7 +70,7 @@ def build_training_examples_with_variant(
                 continue
             examples.append(serialize_task_example(task_name, row))
     if online_aligned:
-        examples = _apply_online_alignment(examples, repeat_counts=online_alignment_repeats)
+        examples = _apply_online_alignment(examples)
     return examples
 
 
@@ -112,23 +111,12 @@ def _balanced_cap_examples(
     return selected
 
 
-def _apply_online_alignment(
-    examples: list[TrainingExample],
-    *,
-    repeat_counts: dict[str, int] | None = None,
-) -> list[TrainingExample]:
-    repeats = {
-        "retrieval_alignment": 2,
-        SLOT_ASSIGNMENT_TASK_NAME: 2,
-        "composition_to_belief": 2,
-    }
-    for task_name, count in (repeat_counts or {}).items():
-        if task_name in repeats:
-            repeats[task_name] = max(int(count), 1)
+def _apply_online_alignment(examples: list[TrainingExample]) -> list[TrainingExample]:
+    prioritized = {"retrieval_alignment", "composition_to_belief", SLOT_ASSIGNMENT_TASK_NAME}
     aligned: list[TrainingExample] = []
     for example in examples:
-        repeat_count = repeats.get(example.task_name, 1)
-        for _ in range(repeat_count):
+        aligned.append(example)
+        if example.task_name in prioritized:
             aligned.append(example)
     return aligned
 
@@ -679,13 +667,11 @@ def train_stage2_model(
     disabled_pools: list[str] | None = None,
 ) -> dict[str, Any]:
     online_aligned = bool(config.get("training", {}).get("online_aligned", False))
-    online_alignment_repeats = config.get("training", {}).get("online_alignment_repeats", {})
     examples = build_training_examples_with_variant(
         prepared_manifest_path,
         tasks=list(config.get("training", {}).get("tasks", [])) or None,
         disabled_pools=disabled_pools,
         online_aligned=online_aligned,
-        online_alignment_repeats=online_alignment_repeats if isinstance(online_alignment_repeats, dict) else None,
     )
     examples = _balanced_cap_examples(
         examples,
