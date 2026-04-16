@@ -241,6 +241,13 @@ def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
             '{"target_action":"new","target_flags":{"promote":false,"stale_old":false}}. '
             "Recover the semantic fields and do not copy input fields into the output."
         )
+    elif task_name == "composition_to_belief":
+        instruction = (
+            "Predict the active belief state supported by the memory slots. "
+            "Return one complete JSON object only with the schema "
+            '{"belief_items":[{"relation":"relation_name","value":"value_text","support_slot_ids":["slot_id"]}]}. '
+            "Do not emit a JSON fragment or prose outside the outer object."
+        )
     sections = [
         f"task: {task_name}",
         f"instruction: {instruction}",
