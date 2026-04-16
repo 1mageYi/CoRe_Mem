@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -458,6 +459,65 @@ def test_structured_memory_system_short_circuits_other_fact_slot_assignment_with
 
     assert calls["count"] == 0
     assert len(system.state.active_slots()) == 2
+
+
+def test_structured_memory_system_caps_slot_assignment_decode_length(tmp_path: Path):
+    config_path = tmp_path / "train.yaml"
+    checkpoint_dir = tmp_path / "checkpoint"
+    checkpoint_dir.mkdir()
+    config_path.write_text(
+        "training:\n  batching:\n    max_source_length: 256\n    max_target_length: 192\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, int] = {}
+
+    def _generate(_model, _tokenizer, _example, *, max_source_length: int, max_target_length: int, device: str) -> str:
+        captured["max_source_length"] = max_source_length
+        captured["max_target_length"] = max_target_length
+        captured["device"] = device
+        return '{"target_action":"new","target_flags":{"promote":false,"stale_old":false}}'
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_checkpoint_dir=str(checkpoint_dir),
+        learned_slot_assignment_train_config_path=str(config_path),
+        learned_slot_assignment_device="cpu",
+    )
+    observation = Observation.from_dict(
+        {
+            "obs_id": "obs-1",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "location",
+            "value": "Seattle",
+            "value_type": "location",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I live in Seattle.",
+            "canonical_gloss": "location=Seattle",
+        }
+    )
+
+    with patch("core_mem.v2.training.load_runtime_components", return_value=(object(), object())), patch(
+        "core_mem.v2.training.generate_prediction_text",
+        side_effect=_generate,
+    ):
+        predictor = system._resolve_slot_assignment_predictor()
+        assert predictor is not None
+        payload = predictor(observation, [])
+
+    assert '"target_action":"new"' in payload
+    assert captured["max_source_length"] == 256
+    assert captured["max_target_length"] == 48
+    assert captured["device"] == "cpu"
 
 
 def test_structured_memory_system_slot_assignment_prompt_uses_explicit_schema():

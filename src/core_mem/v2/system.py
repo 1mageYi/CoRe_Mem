@@ -20,6 +20,7 @@ from core_mem.v2.semantic_outputs import coerce_task_payload
 from core_mem.v2.vector_ops import dot_product
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
+_SLOT_ASSIGNMENT_MAX_TARGET_LENGTH_CAP = 48
 _QUERY_STOPWORDS = {
     "a",
     "an",
@@ -448,7 +449,10 @@ class StructuredMemorySystem:
         )
         batching = config.get("training", {}).get("batching", {})
         max_source_length = int(batching.get("max_source_length", 256))
-        max_target_length = int(batching.get("max_target_length", 192))
+        max_target_length = min(
+            int(batching.get("max_target_length", 192)),
+            _SLOT_ASSIGNMENT_MAX_TARGET_LENGTH_CAP,
+        )
 
         def _predict(observation: Observation, slots: list[SlotRecord]) -> str:
             example = TrainingExample(
