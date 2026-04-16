@@ -10,7 +10,10 @@ from core_mem.v2.schemas import BeliefState
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _CLAUSE_SPLIT_RE = re.compile(r"\s+(?:because|but|so|although|though|while)\s+", re.IGNORECASE)
-_LOCATION_PHRASE_RE = re.compile(r"\b(?:from|at|in|on|to)\s+([^,.]+)$", re.IGNORECASE)
+_LOCATION_PHRASE_RE = re.compile(
+    r"\b(?:from|at|in|on|to)\s+([^,.]+?)(?=\s+\b(?:from|at|in|on|to)\b|[,.]|$)",
+    re.IGNORECASE,
+)
 _DURATION_RE = re.compile(
     r"\b\d+(?:\.\d+)?\s+(?:minutes?|hours?|days?|weeks?|months?|years?)(?:\s+each\s+way)?",
     re.IGNORECASE,
@@ -71,9 +74,9 @@ class AnswerProjection:
         return self._normalize_whitespace(candidate)
 
     def _extract_location_phrase(self, text: str) -> str:
-        match = _LOCATION_PHRASE_RE.search(text)
-        if match:
-            return self._normalize_whitespace(match.group(1).strip(" ,.;"))
+        matches = list(_LOCATION_PHRASE_RE.finditer(text))
+        if matches:
+            return self._normalize_whitespace(matches[-1].group(1).strip(" ,.;"))
         return text
 
     def _extract_pattern(self, text: str, pattern: re.Pattern[str]) -> str:

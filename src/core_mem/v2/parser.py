@@ -11,6 +11,13 @@ from core_mem.v2.schemas import Observation
 _DRINK_KEYWORDS = {"coffee", "tea", "matcha", "latte", "espresso", "juice", "water"}
 _FOOD_KEYWORDS = {"pizza", "pasta", "sushi", "salad", "burger", "ramen", "taco"}
 _MUSIC_KEYWORDS = {"jazz", "rock", "pop", "classical", "hip hop", "lofi", "music"}
+_STORE_CONTEXT_PATTERNS = (
+    re.compile(
+        r"\b(?:cartwheel app from|app from|shop(?:ping)? at|redeem(?:ed)? [^,.!?]* at)\s+"
+        r"(?P<store>[a-z0-9&' -]{1,40}?)(?:\s+(?:and|but|which|that|for|pretty|quite|very|almost|maybe|every)\b|[,.!?]|$)",
+        re.IGNORECASE,
+    ),
+)
 
 
 def _slugify(text: str) -> str:
@@ -41,6 +48,8 @@ def _strip_role_prefix(text: str) -> str:
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
+    if "redeemed" in lowered_text and "coupon" in lowered_text:
+        return "episodic_event", "event"
     if "graduated with" in lowered_text or "degree" in lowered_text:
         return "education_degree", "occupation"
     if "commute" in lowered_text and "takes" in lowered_text:
@@ -55,6 +64,8 @@ def _infer_relation(text: str, value: str) -> tuple[str, str]:
         return "class_location", "location"
     if "work as" in lowered_text or re.search(r"\bi am an?\b|\bi'm an?\b", lowered_text):
         return "occupation", "occupation"
+    if "shop at" in lowered_text or "app from" in lowered_text:
+        return "location", "location"
     if "live in" in lowered_text or "from " in lowered_text:
         return "location", "location"
     if "want to" in lowered_text or "plan to" in lowered_text:
@@ -105,6 +116,7 @@ class Stage2ObservationParser:
         session_id: str,
         speaker: str = "user",
         entity: str = "user",
+        context_text: str | None = None,
     ) -> list[Observation]:
         if speaker == "assistant":
             return []
@@ -119,6 +131,7 @@ class Stage2ObservationParser:
                 session_id=session_id,
                 speaker=speaker,
                 entity=entity,
+                context_text=context_text,
             )
             if parsed is not None:
                 candidates.append(parsed)
@@ -142,8 +155,9 @@ class Stage2ObservationParser:
         session_id: str,
         speaker: str,
         entity: str,
+        context_text: str | None,
     ) -> Observation | None:
-        value, polarity, confidence = self._extract_value(clause)
+        value, polarity, confidence = self._extract_value(clause, context_text=context_text)
         if not value or confidence < self.minimum_confidence:
             return None
 
@@ -176,10 +190,17 @@ class Stage2ObservationParser:
         )
 
     @staticmethod
-    def _extract_value(clause: str) -> tuple[str, str, float]:
+    def _extract_value(clause: str, *, context_text: str | None = None) -> tuple[str, str, float]:
         cleaned = _strip_role_prefix(clause).strip()
         lowered = cleaned.lower()
         special_patterns = [
+            (r"\b(?:i(?:'ve| have) been using .*? from )(?P<value>[a-z0-9&' -]{1,40}?)(?:\s+and\b|[,.!?]|$)", "neutral", 0.8),
+            (
+                r"\bi shop at (?P<value>[a-z0-9&' -]{1,40}?)(?:\s+(?:pretty|quite|very|almost|about|maybe|every)\b|[,.!?]|$)",
+                "neutral",
+                0.78,
+            ),
+            (r"\b(?:i\s+)?(?:actually\s+)?(?P<value>redeemed\s+[^,.!?]*coupon[^,.!?]*)", "neutral", 0.8),
             (r"\bi graduated with(?: a degree in)?\s+(?P<value>[^,.!?]+)", "neutral", 0.84),
             (r"\b(?:my |the )?daily commute(?: to work)?(?:, which)? takes\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
             (r"\bthe play i attended was(?: actually)?(?: a production of)?\s+(?P<value>[^,.!?]+)", "neutral", 0.82),
@@ -192,6 +213,10 @@ class Stage2ObservationParser:
             match = re.search(pattern, lowered)
             if match:
                 value = match.group("value").strip(" .,!?\n\t")
+                if "redeemed" in lowered and "coupon" in lowered:
+                    store = _infer_contextual_store(context_text or "")
+                    if store and f" at {store}" not in value and f" from {store}" not in value:
+                        value = f"{value} at {store}"
                 return value, polarity, confidence
 
         patterns = [
@@ -210,3 +235,17 @@ class Stage2ObservationParser:
                 value = match.group("value").strip(" .,!?\n\t")
                 return value, polarity, confidence
         return "", "neutral", 0.0
+
+
+def _infer_contextual_store(context_text: str) -> str:
+    lowered = _strip_role_prefix(context_text).strip().lower()
+    if not lowered:
+        return ""
+    for pattern in _STORE_CONTEXT_PATTERNS:
+        matches = list(pattern.finditer(lowered))
+        if not matches:
+            continue
+        candidate = matches[-1].group("store").strip(" .,!?\n\t\"'")
+        if candidate:
+            return candidate
+    return ""

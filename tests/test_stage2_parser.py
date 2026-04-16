@@ -64,3 +64,34 @@ def test_stage2_parser_does_not_treat_create_as_food_signal():
     )
     assert observations
     assert all(item.relation != "food_preference" for item in observations)
+
+
+def test_stage2_parser_extracts_store_location_from_shopping_turn():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I shop at Target pretty frequently, maybe every other week.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "location"
+    assert observations[0].value == "target"
+
+
+def test_stage2_parser_uses_context_for_coupon_redemption_event():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I actually redeemed a $5 coupon on coffee creamer last Sunday.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+        context_text="I have been using the Cartwheel app from Target for household items.",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "episodic_event"
+    assert observations[0].value == "redeemed a $5 coupon on coffee creamer last sunday at target"

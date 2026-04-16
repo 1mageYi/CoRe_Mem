@@ -120,6 +120,7 @@ class StructuredMemorySystem:
         init=False,
         repr=False,
     )
+    _recent_turns: list[str] = field(default_factory=list, init=False, repr=False)
 
     def observe_turn(
         self,
@@ -132,6 +133,7 @@ class StructuredMemorySystem:
         timestamp: str,
         speaker: str = "user",
     ) -> StructuredMemoryState:
+        recent_context = "\n".join(self._recent_turns[-4:])
         observations = self.parser.parse_turn(
             text,
             source_dataset=source_dataset,
@@ -139,7 +141,9 @@ class StructuredMemorySystem:
             source_turn_id=source_turn_id,
             session_id=session_id,
             speaker=speaker,
+            context_text=recent_context,
         )
+        self._remember_turn(text, speaker=speaker)
         for observation in observations:
             self.observe_observation(observation, timestamp=timestamp)
         return self.state
@@ -207,6 +211,14 @@ class StructuredMemorySystem:
             if slot.slot_id == slot_id:
                 return slot
         return None
+
+    def _remember_turn(self, text: str, *, speaker: str) -> None:
+        cleaned = " ".join(text.split())
+        if not cleaned:
+            return
+        self._recent_turns.append(f"{speaker}: {cleaned}")
+        if len(self._recent_turns) > 6:
+            self._recent_turns = self._recent_turns[-6:]
 
     @staticmethod
     def _replace_slot(slots: list[SlotRecord], replacement: SlotRecord) -> list[SlotRecord]:

@@ -164,6 +164,32 @@ def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts(
     assert result.answer_text == "serenity yoga"
 
 
+def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemption():
+    system = StructuredMemorySystem()
+    system.observe_turn(
+        "I have been using the Cartwheel app from Target for household items.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I actually redeemed a $5 coupon on coffee creamer last Sunday.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    active_glosses = [slot.canonical_gloss for slot in system.state.active_slots()]
+    assert any("redeemed a $5 coupon on coffee creamer last sunday at target" in gloss for gloss in active_glosses)
+
+    result = system.query("query-coupon", "Where did I redeem a $5 coupon on coffee creamer?")
+    assert result.answer_text == "target"
+
+
 def test_structured_memory_system_can_switch_to_learned_memory_belief_predictor():
     def _predict(query_id: str, query_text: str, slots):
         assert query_id == "query-learned"
@@ -659,6 +685,34 @@ def test_answer_projection_extracts_location_phrase_for_where_queries():
 
     result = system.query("query-projection-where", "Where did I buy my new tennis racket from?")
     assert result.answer_text == "a sports store downtown"
+
+
+def test_answer_projection_prefers_last_location_phrase_for_event_answers():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "episodic_event",
+                    "value": "redeemed a $5 coupon on coffee creamer last sunday at target",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I redeemed a $5 coupon on coffee creamer last Sunday.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-event-where", "Where did I redeem a $5 coupon on coffee creamer?")
+    assert result.answer_text == "target"
 
 
 def test_learned_belief_example_uses_compact_slot_view():
