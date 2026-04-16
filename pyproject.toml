@@ -43,4 +43,8 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "src"]
+addopts = "-m \"not slow\""
+markers = [
+    "slow: loads gtr-t5-base + Wikitext rebuild for checkpoint quality checks",
+]

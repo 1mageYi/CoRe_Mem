@@ -108,6 +108,71 @@ def _encode_all(
     return torch.cat(out, dim=0)
 
 
+def wikitext_router_k1_text_splits(
+    *,
+    n_train: int,
+    n_val: int,
+    min_line_chars: int = 20,
+    seed: int = 42,
+    split_rows: str = "train",
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+    """
+    Text-level Router K=1 splits (**same** assignment as ``build_router_k1_wikitext``).
+
+    Returns
+    -------
+    pos_tr, neg_tr, pos_va, neg_va
+        ``pos_*`` = adjacent-line merge positives; ``neg_*`` = random-line new_slot negatives.
+    """
+    need_pairs = max(n_train, n_val) + n_train + n_val + 500
+    pos_all, pool = _collect_pairs_from_wikitext(
+        split_rows=split_rows,
+        max_positive_pairs=need_pairs,
+        min_line_chars=min_line_chars,
+        seed=seed,
+    )
+    rng = random.Random(seed)
+    rng.shuffle(pos_all)
+
+    n_pos_tr = n_train // 2
+    n_neg_tr = n_train - n_pos_tr
+    n_pos_va = n_val // 2
+    n_neg_va = n_val - n_pos_va
+
+    pos_tr = pos_all[:n_pos_tr]
+    pos_va = pos_all[n_pos_tr : n_pos_tr + n_pos_va]
+    neg_tr = _make_negative_pairs(pos_all, pool, n_neg_tr, seed=seed + 1)
+    neg_va = _make_negative_pairs(pos_all, pool, n_neg_va, seed=seed + 2)
+    return pos_tr, neg_tr, pos_va, neg_va
+
+
+def wikitext_compactor_text_splits(
+    *,
+    n_train: int,
+    n_val: int,
+    min_line_chars: int = 20,
+    seed: int = 42,
+    split_rows: str = "train",
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """
+    Merge-only text pairs for Compactor (**same** as ``build_compactor_wikitext`` val/train).
+
+    Returns ``pos_train, pos_val``; teacher in training is ``encode(a + " " + b)``.
+    """
+    need = n_train + n_val + 100
+    pos_all, _ = _collect_pairs_from_wikitext(
+        split_rows=split_rows,
+        max_positive_pairs=need,
+        min_line_chars=min_line_chars,
+        seed=seed,
+    )
+    rng = random.Random(seed)
+    rng.shuffle(pos_all)
+    pos_tr = pos_all[:n_train]
+    pos_va = pos_all[n_train : n_train + n_val]
+    return pos_tr, pos_va
+
+
 def _router_tensors_from_pairs(
     model: "SentenceTransformer",
     pos: list[tuple[str, str]],
@@ -148,24 +213,12 @@ def build_router_k1_wikitext(
 
     Balanced: half merge (adjacent Wikitext **rows**), half negative (random cross lines).
     """
-    need_pairs = max(n_train, n_val) + n_train + n_val + 500
-    pos_all, pool = _collect_pairs_from_wikitext(
-        max_positive_pairs=need_pairs,
+    pos_tr, neg_tr, pos_va, neg_va = wikitext_router_k1_text_splits(
+        n_train=n_train,
+        n_val=n_val,
         min_line_chars=min_line_chars,
         seed=seed,
     )
-    rng = random.Random(seed)
-    rng.shuffle(pos_all)
-
-    n_pos_tr = n_train // 2
-    n_neg_tr = n_train - n_pos_tr
-    n_pos_va = n_val // 2
-    n_neg_va = n_val - n_pos_va
-
-    pos_tr = pos_all[:n_pos_tr]
-    pos_va = pos_all[n_pos_tr : n_pos_tr + n_pos_va]
-    neg_tr = _make_negative_pairs(pos_all, pool, n_neg_tr, seed=seed + 1)
-    neg_va = _make_negative_pairs(pos_all, pool, n_neg_va, seed=seed + 2)
 
     train_ds = _router_tensors_from_pairs(model, pos_tr, neg_tr, encode_batch_size=encode_batch_size)
     val_ds = _router_tensors_from_pairs(model, pos_va, neg_va, encode_batch_size=encode_batch_size)
@@ -182,16 +235,12 @@ def build_compactor_wikitext(
     seed: int = 42,
 ) -> tuple[CompactorTensorDataset, CompactorTensorDataset]:
     """Merge-only triples: ``e_target = encode(a + " " + b)`` (DESIGN §4.3)."""
-    need = n_train + n_val + 100
-    pos_all, _ = _collect_pairs_from_wikitext(
-        max_positive_pairs=need,
+    pos_tr, pos_va = wikitext_compactor_text_splits(
+        n_train=n_train,
+        n_val=n_val,
         min_line_chars=min_line_chars,
         seed=seed,
     )
-    rng = random.Random(seed)
-    rng.shuffle(pos_all)
-    pos_tr = pos_all[:n_train]
-    pos_va = pos_all[n_train : n_train + n_val]
 
     def triples(pairs: list[tuple[str, str]]) -> CompactorTensorDataset:
         texts_old = [a for a, _ in pairs]

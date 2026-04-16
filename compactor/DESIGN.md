@@ -2,7 +2,7 @@
 
 本文档描述在 `compactor/` 目录内要实现的**记忆压缩（compaction）**能力：在固定维度的 sentence embedding 空间内，对「历史记忆向量」与「新观测向量」做**路由决策**与**语义融合**，并与现有 **gtr-t5-base + vec2text** 管线对齐。实现阶段**以本文档为约定**，代码按后续步骤迭代添加。
 
-**实现进度**：Router v1、门控 Compactor、内存 `MemoryBank`、推理入口 `ingest_embedding` / `route_only`、合成与 **Wikitext-2 弱监督 + gtr-t5-base** 训练路径（见 **§12**）；**vec2text 解码评估脚本**、联合微调、更大/目标域语料等待续。
+**实现进度**：Router / Compactor 已在 **Wikitext-2 + gtr-t5-base** 上完成可复现训练（见 **§1.3**、**§12**）；checkpoint 位于 `compactor/checkpoints/`。待续项主要是 **对话域数据**、**vec2text 一键评估**、**联合微调** 等（见 **§10**）。
 
 **架构原则（推荐）**：将「选哪条记忆 / 是否新开槽位」与「如何把两条向量合成一条」**分开实现**——**Router** 负责前者，**Compactor** 负责后者。二者可独立训练与替换，接口清晰，也便于消融实验。
 
@@ -20,7 +20,54 @@
 
 - **代码根目录**：`compactor/`（本目录），作为 Python 包与 `src/core_mem` 并列；`pyproject.toml` 中 **setuptools** 已包含 `compactor*`（可与 `core_mem` 一并 `pip install -e .`，开发时亦可在仓库根设置 **`PYTHONPATH=.`**）。
 - **Python 环境**：沿用项目当前 venv（例如 `/root/.venvs/CoRe_Mem` 或项目 `.venv` 指向的同一环境），需 **Python 3.10**（与 `pyproject` 一致）。
-- **依赖**：训练与推理依赖仓库已有 **`torch`**、**`sentence-transformers`**（见根目录 `requirements.txt`）；`compactor` **未新增**单独依赖包。
+- **依赖**：训练与推理依赖仓库已有 **`torch`**、**`sentence-transformers`**、`datasets`（见根目录 `requirements.txt`）；`compactor` **未新增**单独依赖包。
+
+### 1.3 训练与数据（当前落地）
+
+本节描述**仓库里已接好、且已用于产出 checkpoint** 的设定；与设计章 §4 / §5 的差异以本节为准。
+
+**编码器**
+
+- `sentence-transformers/gtr-t5-base`（`encoding.load_encoder()`），输出维度通常 **768**，L2 归一化后送入 Router / Compactor。
+
+**语料（弱监督）**
+
+- **来源**：Hugging Face **`wikitext`** / **`wikitext-2-raw-v1`**，**`train`** 切分。
+- **行结构**：该集 **一行一条样本**；**正样本（应 merge）** 取 **数据集里相邻两行**（`row_i` 与 `row_{i+1}`），且两行长度均 ≥ `min_line_chars`（默认 **20**）。
+- **负样本（new_slot）**：从已收集的「长行池」中 **随机两行** 配对（弱负例；与正例均衡采样进 batch）。
+- **说明**：相邻行不保证语义上总应合并（标题/换段噪声）；适合 **冷启动**。对话记忆等目标域需另接语料（§4.5 仍为扩展参考）。
+
+**Router 训练**
+
+- **任务**：**K=1**；**K+1 类交叉熵**（类 0 = 并入唯一槽，类 1 = new_slot）；`RouterV1`：`pair_mlp`（拼接 `[e_new;e_old;e_new⊙e_old;|e_new−e_old|]`）+ `reject_mlp(e_new)`。
+- **优化器**：AdamW（脚本默认 `lr=1e-3`）；GPU 下可用 **AMP**。
+- **已实现权重示例**（一次完整跑法）：`n_train=8000`，`n_val=1000`，**6 epochs**，batch **64** → 保存为 `compactor/checkpoints/router_wikitext.pt`（验证准确率约 **0.96** 量级，弱标签下偏高属常见）。
+
+**Compactor 训练**
+
+- **教师**：**`e_target = encode(a + " " + b)`**（两句空格拼接再编码），与 §4.3 一致。
+- **损失**：batch 内平均 **\(1 - \cos(e_{sum}, e_{target})\)**。
+- **已实现权重示例**：同上数据规模下 **12 epochs**，batch **64** → `compactor/checkpoints/compactor_wikitext.pt`（验证 **1−cos** 约 **0.018** 量级）。
+
+**评估与测试**
+
+- 训练日志中的 **val acc / val loss** 为主指标。
+- **`tests/test_compactor_trained.py`**：有 checkpoint 时**同时**检查 Router 与 Compactor（结构、随机前向）；**`-m slow`** 会分别在 Wikitext 验证集上跑 **Router 准确率** 与 **Compactor 1−cos**（默认 `pytest` 不跑 slow，见 `pyproject.toml`）。
+- **批量、与训练数据协议一致**：`python -m compactor.eval_wikitext_pipeline`（默认 `n_val=1000`，打印 batched Router acc、Compactor val loss，以及「单槽 memory → ingest」下相邻行 merge 率 / 随机行 new_slot 率）。**不要用**该指标解释任意英文短句上的 `e2e_text_pipeline` 行为（后者常为分布外）。
+
+**端到端：文本 → embedding → Router/Compactor → vec2text 还原文本**
+
+- Router/Compactor **不参与** vec2text 反传；若要**主观**看 merge 后单向量是否仍可解码为可读摘要，在仓库根执行：
+
+```bash
+export PYTHONPATH=.:src
+python -m compactor.e2e_text_pipeline \
+  --memory "The user prefers dark mode." \
+  --new "They also use vim keybindings."
+```
+
+- 默认加载 `compactor/checkpoints/router_wikitext.pt` 与 `compactor/checkpoints/compactor_wikitext.pt`；可用 `--router` / `--compactor` 指定路径。首次运行会从 Hugging Face 拉 **gtr-t5-base**、**ielabgroup/vec2text_*** 等权重；**推荐 CUDA**（CPU 可能很慢或显存/内存吃紧）。
+- 仅向量层面的自动化测试见上文；**完整 E2E 含 vec2text** 未纳入默认 `pytest`（依赖大模型与设备），按需本地运行上述命令。
 
 ---
 
@@ -139,28 +186,19 @@ Compactor **只使用「真该 merge」的对**（可由人工规则构造，**�
 - **简单流水线**：从同一语料先筛出 merge 对 → 一部分只标 Router 的 merge/split，一部分再生成 `e_target` 训 Compactor；**split 对仅进 Router**。
 - **避免泄漏**：验证集 / 测试集按「对话或文档 id」划分，不要把同一文档的句对同时出现在 train 和 val。
 
-### 4.5 训练数据来源（可选用）
+### 4.5 训练数据来源（扩展候选）
 
-不要求一开始就有「真实记忆库」标注；用 **弱监督** 从公开文本构造 `(句/段 A, 句/段 B)` 再经 **gtr-t5-base** 编码即可。**目标域是对话记忆时**，应用同分布数据 **微调 Router**（少量标注或继续弱监督）。
+**当前默认已接入**：**Wikitext-2-raw-v1 相邻行 + 随机行对**（实现见 `weak_supervision.py`，概述见 **§1.3**）。
 
-**Router（merge / new_slot 或选槽）**
+下列为**尚未默认接入**、可作换域或增强的弱监督来源（需自行写数据构造脚本）：
 
-| 类型 | 正例（应 merge 或应并入某槽） | 负例（应 new_slot） |
-|------|------------------------------|---------------------|
-| **百科 / 新闻 / 网页** | 同一 **section / 段落 / 文档** 内 **相邻句** 或 **相邻短句窗口**（Wikipedia dump、CC-News、C4/OpenWebText 子集等） | 从 **不同文章 / 不同随机文档** 各抽一句配对 |
-| **对话** | 同一 **session** 内 **相邻轮次**（如 DailyDialog、Persona-Chat、MultiWOZ 等；可过滤过短轮次） | 从 **不同 session** 各抽一句配对 |
-| **语义重复 / 复述**（加强「像且该并」） | Quora Question Pairs **重复问**、PAWS **释义对**、NLI 中 **entailment** 对（句对同主题） | PAWS **非释义**、**contradiction**、或随机错配 |
+- **百科 / 网页长文档**：同段相邻句、跨段硬负例；CC-News、C4 等。
+- **对话**：同 session 相邻轮为正，跨 session 为负（DailyDialog、MultiWOZ 等）。
+- **释义 / NLI**：Quora、PAWS、entailment 对等（需与 gtr 语种一致）。
 
-**硬负例**：同一文档内但 **跨段落**、或 **高余弦相似但标注为不同实体** 的对（需规则或辅助模型），用于 §4.2 所述「中高相似仍 new_slot」。
+**Compactor 教师**：落地实现采用 **拼接句 encode**；**LLM 摘要句**、**插值 `αe_old+(1-α)e_new`** 仅作 `train_* --synthetic` 或实验对照。
 
-**Compactor**
-
-- 与 Router 的 **merge 正例** 共用同一批句对即可。
-- **教师 `e_target`**（推荐顺序）：① 将两句 **用空格或句号拼成一句** 再 `encode`；② 同一窗口内 **人工摘要句**（若有）；③ 弱基线 `normalize(αe_old+(1-α)e_new)`。
-
-**语种**：与线上一致即可（英文模型则用英文语料）；若记忆为中文，应用 **中文句向量模型** 或 **中文语料** 做域适配（否则仅作冷启动）。
-
-**体量**：先 **十万～百万对量级** 即可跑通；再按验证集过拟合/欠拟合增减。
+**体量**：当前示例为 **8k/1k** train/val 对级；扩到十万级对通常需 **向量缓存**（`.npz` / sqlite）以免重复编码。
 
 ---
 
@@ -233,16 +271,16 @@ Compactor **只使用「真该 merge」的对**（可由人工规则构造，**�
 
 ---
 
-## 7. 分阶段实施（建议顺序）
+## 7. 分阶段实施（里程碑）
 
-| 步骤 | 内容 | 状态 |
-|------|------|------|
-| 1 | 文档与接口约定 | **已完成**（本文件 + §12 代码对照） |
-| 2 | 数据与张量管线 | **部分完成**：合成数据（`datasets.py`）；**Wikitext-2 相邻行弱监督**（`weak_supervision.py`）+ gtr 编码已接；对话/业务域语料仍待接 |
-| 3 | Router v1 + 门控 Compactor + `MemoryBank` + 推理 API | **已完成**（见 §12） |
-| 4 | 训练脚本 | **部分完成**：`--synthetic` 冒烟；**`--wikitext`** 为真实 **gtr-t5-base** 维训练；`--save` 存 checkpoint |
-| 5 | 推理与 `demo.py` 对齐 | **部分完成**：embedding 与 `encoding.py` 对齐 gtr-t5-base；**vec2text 解码抽检脚本** 未写 |
-| 6 | 联合微调、增广、端到端指标 | **未做** |
+| 里程碑 | 状态 |
+|--------|------|
+| Router v1 + `MemoryCompactor` + `MemoryBank` + `ingest_embedding` / `route_only` | **已完成** |
+| 合成数据 + **Wikitext 弱监督** + **`train_* --wikitext`** + checkpoint | **已完成**（§1.3） |
+| 示例权重 `compactor/checkpoints/*_wikitext.pt` | **已训练产出**（可提交 Git LFS / HF，勿必交仓库） |
+| pytest：`test_compactor_router` + `test_compactor_trained`（含可选 slow） | **已完成** |
+| 对话域 / 业务语料、预计算向量库 | **未做** |
+| vec2text 一键解码评估脚本、联合微调（§5.3 C） | **未做** |
 
 ---
 
@@ -254,73 +292,29 @@ Compactor **只使用「真该 merge」的对**（可由人工规则构造，**�
 
 ---
 
-## 9. 文档修订
+## 9. 文档维护
 
-实现过程中若对方案有重大调整，应更新「模块划分」「方案设想」与「分阶段实施」，并在 **Changelog** 中记一笔。
-
-### Changelog
-
-- **初版**：合并判别 + 融合合述。
-- **修订**：明确 **Router（选槽 / merge vs split）** 与 **Compactor（成对融合）** 分模块实现；更新数据流、训练与实施步骤。
-- **修订**：扩充 **§4 数据设计**（归一化、单槽/多槽样本构造、教师 `e_target`、硬负例、数据划分）与 **§5 损失与训练阶段**（BCE/focal/多类 CE、余弦损失、A→B→C 分阶段与联合微调注意、评估分层）。
-- **修订**：锁定 **Router v1**：候选中 **只并入最相关的一条** 或 **new_slot**；§2.2 / §3.1 / §4.2 / §5.1 与之对齐；**K=1** 为二分类特例。
-- **修订**：增加 **§10 TODO 清单**。
-- **修订**：增加 **§4.5 训练数据来源**（弱监督语料与正负例构造）。
-- **修订**：增加 **§11 设计边界与待细化项**（K=0、训练/线上 K、多轮融合分布、模型版本、错误级联等）。
-- **实现**：`compactor/` 初版代码（`RouterV1`、`MemoryCompactor`、`MemoryBank`、`ingest_embedding`、合成数据训练脚本、`tests/test_compactor_router.py`）；真实语料编码管线见训练脚本 TODO。
-- **实现**：更新 **§1.2**（包路径与依赖）、**§6**（K=0 冷启动）、**§7** 为状态表、**§10** TODO 勾选、新增 **§12 当前实现概要**；页脚说明与 §12 同步。
-- **实现**：**`weak_supervision.py`**（Wikitext 相邻行 + gtr 编码）、训练脚本 **`--wikitext`**；修正 Wikitext「单行一条」应用**连续行**配对；DESIGN §7/§10/§12 同步。
+重大行为或训练约定变更时，请同步更新 **§1.3**、**§10**、**§12**，并在 Git 提交说明中写清。
 
 ---
 
-## 10. TODO 清单
+## 10. TODO（后续工作）
 
-以下为实现时的检查项；**已完成**标为 `[x]`，仍待办为 `[ ]`。
+**已完成内容**（无需再作为待办跟踪）：可导入包与模块（§12.1）；`encoding` / `RouterV1` / `MemoryCompactor` / `MemoryBank` / `inference`；**`--synthetic`** 与 **`--wikitext`** 训练脚本；**`weak_supervision.py`**（Wikitext 相邻行）；**checkpoint 保存**；**`tests/test_compactor_router.py`** 与 **`test_compactor_trained.py`**；**`pyproject.toml`** 中 `pytest` 的 `slow` 标记与 `pythonpath`。
 
-### 10.1 工程与目录
+**待办与可选增强**
 
-- [x] 在 `compactor/` 下建立可导入包（扁平模块：`router.py`、`fusion.py` 等，见 §12）。
-- [ ] 训练脚本增加 **可配置随机种子**、与线上一致的 **dtype** 文档说明（当前依赖 PyTorch 默认与 `float32` 张量）。
-- [x] 从项目根可运行 **`python -m compactor.train_router`** / **`train_compactor`**。
+| 优先级 | 项 |
+|--------|-----|
+| 中 | **对话 / 业务域**语料：按 §4.4 做 **文档或 session 级划分**，替换或混合 Wikitext。 |
+| 中 | **预计算向量**（`.npz` / sqlite）：大规模训练时避免重复 `encode`。 |
+| 中 | **Router**：**focal / 加权 CE**、验证集 **按类 F1 / new_slot 召回** 报表；推理侧可选 **temperature / 校准**（当前为 softmax+argmax，无单独阈值 τ）。 |
+| 中 | **评估**：Compactor 在 **经 Router 选中的 (e_old, e_new)** 上算损失（§5.3），避免仅 oracle 虚高。 |
+| 低 | **联合微调**（§5.3 阶段 C）或 **伪联合**。 |
+| 低 | **vec2text**：封装「读入 `e_sum` → `invert_embeddings` → 文本」的**小脚本**，便于合并质量抽检。 |
+| 低 | 训练脚本 **`--seed`** 与 dtype 说明（当前默认 **float32**）。 |
 
-### 10.2 数据管线
-
-- [x] 封装 **统一 embed**（`encoding.py`，`gtr-t5-base` + L2 normalize 选项）。
-- [x] **Router 弱监督数据**：Wikitext 相邻行 + 随机负例（`weak_supervision.py`）；**按文档 id 的精细划分**仍待业务语料（§4.4）。
-- [x] **合成 Router 数据**：`make_synthetic_router_data`（固定 K、mask 支持）。
-- [x] **Compactor Wikitext 路径**：**`e_target` = encode(a + " " + b)**（§4.3）；**对话域 / 人工摘要** 仍可选增强。
-- [x] **合成 Compactor 数据**：弱教师 `normalize(α e_old + (1−α) e_new)`。
-- [ ] （可选）**预计算 .npz / sqlite** 向量缓存。
-
-### 10.3 Router v1
-
-- [x] 打分 **MLP** 与 **reject** 头；**K+1** logits；**K=1** 时等价二分类（两个 logit）。
-- [x] 训练：**(K+1) 类 CE**；推理：**argmax**；**padding mask**（`apply_cand_mask`）。
-- [ ] **focal / 加权 CE**、验证集 **F1 / new_slot 召回** 报表化。
-- [x] **`--save` checkpoint**（`train_router.py`）。
-
-### 10.4 Compactor
-
-- [x] **门控** 融合 + **L2 normalize**（`MemoryCompactor`）。
-- [x] 损失：**`1 - cos(e_sum, e_target)`**；合成数据上训练循环。
-- [x] **`--save` checkpoint**（`train_compactor.py`）。
-
-### 10.5 训练流程
-
-- [x] 可分别只训 Router / 只训 Compactor（两脚本 + `--synthetic`）。
-- [ ] **阶段 C**：联合或伪联合（§5.3）。
-- [ ] Compactor 验证集上 **经 Router 选对** 的 stratified 评估（§5.3）。
-
-### 10.6 推理与集成
-
-- [x] **`route_only`**、**`ingest_embedding`** + **`MemoryBank`**（§6，含 **K=0**）。
-- [ ] 独立 **`compact(e_old, e_new)`** 单函数导出（当前通过 **`MemoryCompactor.forward`** 直接调用即可）。
-- [ ] 对接 **`vec2text_test/demo.py`** 的解码抽检脚本。
-
-### 10.7 依赖与文档
-
-- [x] **无新增 pip 依赖**（沿用仓库 `requirements.txt`）；本文件 **§12** 记录实现状态。
-- [x] **Changelog** 随本版本更新。
+**不计划在本仓库单独实现**（除非产品要求）：为 `MemoryCompactor.forward` 再包一层无状态的 `compact()` 薄 API（调用方可直接用类实例）。
 
 ---
 
@@ -359,33 +353,34 @@ Compactor **只使用「真该 merge」的对**（可由人工规则构造，**�
 | `weak_supervision.py` | **Wikitext-2-raw-v1**：相邻 **数据行** 为正样本对；负样本为随机两行；Compactor 教师为 **`encode(a + " " + b)`** |
 | `train_router.py` | **`--synthetic`** 或 **`--wikitext`**（K=1，CE）；`--min-line-chars`；`--save` |
 | `train_compactor.py` | **`--synthetic`** 或 **`--wikitext`**（`1−cos`）；`--save` |
+| `checkpoints/*.pt` | 示例训练产出（如 `router_wikitext.pt`、`compactor_wikitext.pt`）；体积约数 MB，建议 **`.gitignore`** 或 **Git LFS / HF Hub** |
 | `__init__.py` | 对外导出 Router / Compactor / Bank / 推理与编码辅助函数 |
 
 仓库根 **`tests/test_compactor_router.py`**：张量形状、输出单位范数、**空库 ingest**、mask 行为（**不依赖**下载 HF，便于 CI）。
 
-### 12.2 与设计的差异与未实现项
+**`tests/test_compactor_trained.py`**（可选）：若存在 `compactor/checkpoints/*_wikitext.pt`，加载权重做前向；**`@pytest.mark.slow`** 在小型 Wikitext 验证集上检查 Router **acc** / Compactor **val loss** 是否高于宽松阈值。默认 **`pytest` 不跑 slow**（见 `pyproject.toml`）；完整检查：`pytest tests/test_compactor_trained.py -m slow`。
 
-- **Router**：实现为 **K+1 类 softmax + argmax**，未单独提供可调的标量阈值 **τ**（若需可与 `logits[:,K]` 对比手工后处理，或后续加 **temperature / 校准**）。
-- **训练**：**`--synthetic`** 仍可用 **64 维**随机向量冒烟；**`--wikitext`** 使用 **`load_encoder()`** 后真实 **gtr-t5-base 维度（通常 768）** 与 Wikitext 弱标签。
-- **弱监督语义**：相邻 Wikitext 行**并不保证**总是应 merge（标题/换段噪声）；适合 **冷启动**，换域建议用 §4.5 的对话数据或人工校准。
-- **Compactor 教师**：**`--wikitext`** 下为 **`encode(concat(a,b))`**（§4.3）；**`--synthetic`** 仍为插值弱教师。
-- **vec2text**：训练**不依赖** vec2text；解码质量抽检可复用 `vec2text_test/demo.py`，**尚未**封装一键评估脚本。
+### 12.2 实现与设计说明
+
+- **决策形式**：**K+1 类 softmax + argmax**（含 new_slot 类），**未**实现单独可调阈值 **τ**（见 §10）。
+- **合成 vs 真实维**：`--synthetic` 用 **64 维**随机向量；**`--wikitext`** 与线上一致为 **gtr-t5-base** 维（通常 **768**）。
+- **vec2text**：仅推理侧可读性；训练不反传 vec2text（§1.3）。
 
 ### 12.3 运行命令（开发）
 
-在仓库根 **`CoRe_Mem/`** 执行（需已安装 `torch`、**`sentence-transformers`**，Python 3.10）：
+在仓库根 **`CoRe_Mem/`**（Python 3.10，`torch` + `sentence-transformers` + `datasets`）：
 
 ```bash
-export PYTHONPATH=.
-python -m pytest tests/test_compactor_router.py -q
-# 冒烟（随机向量，无 HF）
-python -m compactor.train_router --synthetic --epochs 2 --save /tmp/router.pt
-python -m compactor.train_compactor --synthetic --epochs 2 --save /tmp/compactor.pt
-# 真实 gtr + Wikitext（首次会下载 gtr-t5-base 与数据集）
-python -m compactor.train_router --wikitext --n-train 2000 --n-val 400 --epochs 3 --save router_wiki.pt
-python -m compactor.train_compactor --wikitext --n-train 2000 --n-val 400 --epochs 5 --save compactor_wiki.pt
+export PYTHONPATH=.:src
+python -m pytest tests/test_compactor_router.py tests/test_compactor_trained.py -q
+# pytest tests/test_compactor_trained.py -m slow -q   # 需已有 checkpoints，较慢
+
+python -m compactor.train_router --wikitext --n-train 8000 --n-val 1000 --epochs 6 --batch 64 --device cuda \
+  --save compactor/checkpoints/router_wikitext.pt
+python -m compactor.train_compactor --wikitext --n-train 8000 --n-val 1000 --epochs 12 --batch 64 --device cuda \
+  --save compactor/checkpoints/compactor_wikitext.pt
 ```
 
 ---
 
-*与 `vec2text_test/demo.py` 中 gtr-t5-base + vec2text 设定一致；**§12** 为当前代码快照，后续迭代请同步更新本节与 Changelog。*
+*与 `vec2text_test/demo.py` 中 gtr-t5-base + vec2text 设定一致；**§1.3** 为当前训练约定，**§12** 为代码与命令快照。*
