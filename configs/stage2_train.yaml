@@ -24,6 +24,10 @@ model:
 
 training:
   online_aligned: true
+  online_alignment_repeats:
+    retrieval_alignment: 2
+    lifecycle_prediction: 2
+    composition_to_belief: 3
   tasks:
     - retrieval_alignment
     - lifecycle_prediction
