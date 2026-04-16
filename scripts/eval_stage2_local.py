@@ -103,6 +103,28 @@ def _publish_slot_assignment_eval_artifact(
     return str(artifact_path)
 
 
+def _publish_v24_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    trained_eval = payload.get("trained_eval") if isinstance(payload, dict) else None
+    slot_assignment_metrics = slot_assignment_metrics_from_eval_payload(trained_eval if isinstance(trained_eval, dict) else None)
+    artifact_path = output_root / "artifacts" / "latest_stage2_v24_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v24_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        **payload,
+        "trained_eval": trained_eval,
+        "slot_assignment_metrics": slot_assignment_metrics,
+        "slot_assignment": slot_assignment_metrics,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
 def run_local_eval(
     prepared_manifest_path: Path,
     output_root: Path,
@@ -184,6 +206,7 @@ def main() -> int:
     parser.add_argument("--max-eval-examples", type=int)
     parser.add_argument("--publish-semantic-full-eval", action="store_true")
     parser.add_argument("--publish-slot-assignment-eval", action="store_true")
+    parser.add_argument("--publish-v24-eval", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -215,6 +238,12 @@ def main() -> int:
         )
     if args.publish_slot_assignment_eval:
         payload["slot_assignment_eval_artifact"] = _publish_slot_assignment_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v24_eval:
+        payload["v24_eval_artifact"] = _publish_v24_eval_artifact(
             prepared_manifest_path=prepared_manifest_path,
             output_root=output_root,
             payload=payload,

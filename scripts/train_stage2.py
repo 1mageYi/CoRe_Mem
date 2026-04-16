@@ -104,6 +104,26 @@ def _publish_slot_assignment_train_artifact(
     return str(artifact_path)
 
 
+def _publish_v24_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    prepared_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_v24_train.json"
+    payload = {
+        "artifact_type": "stage2_v24_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "prepared_manifest": str(prepared_manifest_path),
+        "slot_assignment_task": "lifecycle_prediction",
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
 def stage2_train_plan(config_path: Path, prepared_manifest_path: Path, output_root: Path, *, execute_smoke: bool) -> dict[str, Any]:
     config = _load_yaml(config_path)
     manifest = _load_json(prepared_manifest_path)
@@ -245,6 +265,7 @@ def main() -> int:
     parser.add_argument("--online-aligned", action="store_true")
     parser.add_argument("--publish-semantic-full-train", action="store_true")
     parser.add_argument("--publish-slot-assignment-train", action="store_true")
+    parser.add_argument("--publish-v24-train", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -325,6 +346,13 @@ def main() -> int:
             )
         if args.publish_slot_assignment_train:
             payload["slot_assignment_train_artifact"] = _publish_slot_assignment_train_artifact(
+                output_root=output_root,
+                config_path=config_path,
+                prepared_manifest_path=prepared_manifest_path,
+                summary=payload,
+            )
+        if args.publish_v24_train:
+            payload["v24_train_artifact"] = _publish_v24_train_artifact(
                 output_root=output_root,
                 config_path=config_path,
                 prepared_manifest_path=prepared_manifest_path,
