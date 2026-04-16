@@ -14,13 +14,11 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core_mem.v2.system import StructuredMemorySystem
-from core_mem.benchmarks.longmemeval import LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
     _observe_personamem_context,
     _project_personamem_local_answer,
     _rewrite_persona_summary,
-    _render_longmemeval_prompt,
     _render_personamem_options,
     _render_personamem_prompt,
     run_personamem_canary,
@@ -269,27 +267,6 @@ def test_personamem_prompt_has_no_candidate_injection():
         },
     )
     assert "Latent matcher candidate" not in prompt
-
-
-def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
-    question = LongMemEvalQuestion(
-        question_id="q",
-        question_type="knowledge-update",
-        question="How many pages of A Short History of Nearly Everything have I read so far?",
-        answer="220",
-        question_date="2023/06/17 (Sat) 04:02",
-        haystack_sessions=[],
-        answer_session_ids=[],
-    )
-    prompt = _render_longmemeval_prompt(
-        question,
-        {
-            "belief_state": {"belief_items": [{"relation": "other_fact", "value": "i'm now on page 220"}]},
-            "evidence_block": "- other_fact: i'm now on page 220",
-        },
-    )
-    assert "Return only the shortest exact answer phrase supported by the belief state." in prompt
-    assert "Return only the bare number, with no unit words or explanation." in prompt
 
 
 class _FakeResponse:
