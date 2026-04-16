@@ -322,6 +322,7 @@ def test_eval_script_can_publish_v24_eval_artifact(tmp_path: Path):
     assert artifact_payload["artifact_type"] == "stage2_v24_eval"
     assert "trained_eval" in artifact_payload
     assert artifact_payload["slot_assignment_metrics"]["slot_assignment_task"] == "lifecycle_prediction"
+    assert artifact_payload["slot_assignment_metrics"]["token_f1"] >= 0.0
 
 
 def test_eval_script_accepts_experiment_variant(tmp_path: Path):

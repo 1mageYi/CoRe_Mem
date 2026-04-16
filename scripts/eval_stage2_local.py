@@ -110,7 +110,16 @@ def _publish_v24_eval_artifact(
     payload: dict[str, object],
 ) -> str:
     trained_eval = payload.get("trained_eval") if isinstance(payload, dict) else None
-    slot_assignment_metrics = slot_assignment_metrics_from_eval_payload(trained_eval if isinstance(trained_eval, dict) else None)
+    raw_slot_assignment_metrics = slot_assignment_metrics_from_eval_payload(trained_eval if isinstance(trained_eval, dict) else None)
+    slot_assignment_metrics = {
+        "task": raw_slot_assignment_metrics.get("slot_assignment_task"),
+        "count": raw_slot_assignment_metrics.get("slot_assignment_count", 0),
+        "accuracy": raw_slot_assignment_metrics.get("slot_assignment_accuracy", 0.0),
+        "field_f1": raw_slot_assignment_metrics.get("slot_assignment_field_f1", 0.0),
+        "exact_match": raw_slot_assignment_metrics.get("slot_assignment_exact_match", 0.0),
+        "token_f1": raw_slot_assignment_metrics.get("slot_assignment_token_f1", 0.0),
+        **raw_slot_assignment_metrics,
+    }
     artifact_path = output_root / "artifacts" / "latest_stage2_v24_eval.json"
     artifact_payload = {
         "artifact_type": "stage2_v24_eval",
