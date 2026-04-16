@@ -197,6 +197,11 @@
   - 把 `observation -> slot` 从 rule-heavy lifecycle 推进到 `learned slot assignment + hard constraints`
   - 继续强化 `retrieval -> composed latent -> belief -> answer` 主链，让 retained 收益更多来自 learned latent，而不是规则补丁
   - 相关计划见 [v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)
+- 第二阶段 `v2.3` 长跑升级：当前用户已进一步要求“把目标再往前推进一些”，并允许多卡并行实验。因此当前 active long-run 从短版 `v2.3` 升级为 **`v2.3 long-run`**，要求：
+  - 以 `LongMemEval-S` 质量而不是 closeout artifact 数量作为主导目标
+  - `learned slot assignment` 进入在线主链，并形成 current-head 的 train/eval/gain/canary 证据
+  - 在保持 `semantic-first` 与 `no fallback / no shortcut` 的前提下，用多卡并行实验加快假设搜索
+  - 相关计划见 [v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md)
 - 测试状态：本轮 stop condition 对应的 final mechanical evidence 是：
   - `conda run -n core_mem python scripts/verify_stage2_v21_semantic_model.py --score-only` -> `17`
   - full semantic guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_parser.py`
@@ -210,6 +215,7 @@
   - `LongMemEval-S` 质量提升
   - learned slot assignment
   - stronger latent / stronger online memory path
+- 当前 next action 已继续前推到 `TD-034 / v2.3 long-run`：在 `TD-033` 的方向上，不仅要补 learned slot assignment 的 plumbing，还要把它推进到多卡并行探索、current-head online gain 和更强的 `LongMemEval-S 64/128` retained 结果。
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`

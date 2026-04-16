@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-033`
-- Active workstreams: `WS-019`
+- Top next action: `TD-034`
+- Active workstreams: `WS-020`
 - Active blockers: `BL-004`
 
 ## Objective Summary
@@ -52,11 +52,21 @@
     - stronger latent / stronger online memory path
   - Current runtime truth: `v2.2` 作为 closeout 保留可复验状态；`WS-019` 是新的 planning/do 主线
   - Key risk: `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`，说明在线 memory 主链质量仍显著不足
+- `WS-020` `[doing]`: Stage-2 当前主线进一步升级为 `v2.3 long-run`，目标是在保持 `semantic-first` 与 `no fallback / no shortcut` 的前提下，用更远的里程碑把主收益推进到 `LongMemEval-S` 质量、learned slot assignment 在线主链、以及更强的 current-head latent gain
+  - Mechanical target: `stage2_v23_longrun_score`
+  - Current retained baseline: `TD-032 / WS-018` 已完成，`stage2_v22_completion_score = 19/19`
+  - Planned focus:
+    - `LongMemEval-S` 质量主导
+    - learned slot assignment train/eval/gain/canary
+    - stronger online latent memory path
+    - 多卡并行实验加速假设搜索
+  - Current runtime truth: `WS-019` 的方向性规划保留为上层设计，`WS-020` 是新的 managed long-run 执行主线
+  - Key risk: `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`，而 slot assignment 仍主要靠 rule-heavy lifecycle
 
 ## Top Next Action
 
-- `TD-033` `[doing]`: 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为锚点推进 `v2.3`。
-  - Current runtime truth: `TD-032 / v2.2` 已完成；当前 next action 是建立 `v2.3` 的 verifier、训练/benchmark 对照和 learned slot-assignment 主线
+- `TD-034` `[doing]`: 以更远的 `v2.3 long-run` 为锚点推进 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
+  - Current runtime truth: `TD-032 / v2.2` 已完成；当前 next action 是建立 `v2.3 long-run` verifier、训练/benchmark 对照、learned slot-assignment 主线，以及多卡并行实验配置
 
 ## Active Blockers
 
@@ -66,6 +76,7 @@
 
 - 2026-04-16: `v2.2` managed autoresearch 在 current HEAD `510aeb7` 上完成 projection-aware semantic closeout：`src/core_mem/v2/projection.py` 新增 generic answer projection normalization，并补充对应单测；`outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 已把 current-head `LongMemEval-S` semantic canary 扩到 `128`，`outputs_v2/artifacts/latest_stage2_semantic_online_gain.json` 记录 `LongMemEval-S 64` 相对 retained symbolic 64 baseline 的 `delta_local_exact_match = +1`，`outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json` 已补齐 current-head `PersonaMem 128` semantic canary；`scripts/verify_stage2_v22_completion.py --score-only` 因此达到 stop condition `19/19`
 - 2026-04-16: 用户确认把下一阶段切到 `v2.3 stronger learned slot assignment + stronger latent`；当前 next action 已切到 `TD-033 / WS-019`，并新增计划文档 [docs/v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)。这条线继续保留 `semantic-first` 与 `no fallback / no shortcut` 约束，但主收益目标从 “补齐 semantic evidence” 转向 `LongMemEval-S` 质量、learned slot assignment 和更强的 online latent memory 主链。
+- 2026-04-16: 用户进一步要求“把目标再往前推进一些”，并批准后台长跑允许多卡并行实验；当前 next action 已继续切到 `TD-034 / WS-020`，并新增 [docs/v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md) 与对应 verifier 计划。新的长跑主线要求的不仅是 `learned slot assignment` 接上，还要求它在 `LongMemEval-S 64/128` 和 `PersonaMem 128` 上形成 current-head retained artifact 与 gain 证据。
 - 2026-04-16: `v2.2` managed autoresearch 已在 current HEAD `510aeb7` 上补齐 semantic artifact 发布链，并落地 current-head `GPU3` full-data semantic train/eval：`outputs_v2/artifacts/latest_stage2_semantic_full_train.json` 记录 `num_examples = 1574`、`cuda_visible_devices = 3`；`outputs_v2/artifacts/latest_stage2_semantic_full_local_eval.json` 记录 `trained_eval.token_f1 = 0.9258179798351409`、`retrieval_alignment.token_f1 = 1.0`；`scripts/verify_stage2_v22_completion.py --score-only` 因此从 `9` 提升到 `14`
 - 2026-04-16: 同一 run 的中段曾确认 `BL-006`：当时 session 缺少 live provider env，导致 `v2.2` 剩余 semantic canaries / analysis / online gain 无法继续；该 blocker 已在本轮后续恢复中被清除，现不再属于 current runtime truth
 

@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-034` 以更远的 `v2.3 long-run` 为目标推进 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
+  - 当前机械目标：`scripts/verify_stage2_v23_longrun.py --score-only`
+  - 当前起点：`TD-032 / v2.2` 已达到 `19/19`，`TD-033 / v2.3` 已完成短版规划
+  - 当前主攻点：
+    - `LongMemEval-S` 从机械完成推进到质量主 benchmark
+    - `observation -> slot` 从 rule-heavy lifecycle 推进到 `learned slot assignment + hard constraints`
+    - 把 retained 收益更多推到 current-head online gain，而不是 closeout artifact
+  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；允许多卡并行实验，但 live benchmark 继续串行
+  - 当前风险：`LongMemEval-S 128` 当前只有 `provider_exact = 4/128`、`local_exact = 4/128`；`observation -> slot` 目前仍主要靠 rule-heavy lifecycle
+
 - `TD-033` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为目标推进 `v2.3`。
   - 当前机械目标：待新增 `stage2_v23_completion_score`
   - 当前起点：`TD-032 / v2.2` 已达到 `19/19`
@@ -75,7 +85,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已不再是 `v2.2` 的在线证据缺口；`TD-032` 当前已经把 `stage2_v22_completion_score` 推到 `19/19` 并达到 stop condition。
-- 当前新的 stage-2 主线已切到 `TD-033 / v2.3`，聚焦 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
+- 当前新的 stage-2 主线已切到 `TD-034 / v2.3 long-run`，聚焦 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

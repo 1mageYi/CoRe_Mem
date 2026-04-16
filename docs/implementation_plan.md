@@ -400,6 +400,56 @@
 - 固化 `learned slot assignment` verifier
 - 更新文档与 `.agent-os` 到 `v2.3`
 
+### 阶段 S：V2.3 Long-Run Stronger Learned Slot Assignment
+
+- Goal: 把 `v2.3` 从“主线规划”推进到“更远的 managed long run”
+- Status: doing
+- Notes:
+  - 当前 `v2.2` 已 closeout，`v2.3` 的短版计划也已落地；这轮长跑的重点不再是 closeout artifact，而是更远的质量与主链改造
+  - 这轮继续保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
+  - 用户已明确允许多卡并行实验；当前默认策略是多卡并行多个单卡实验，而不是默认上多卡数据并行训练
+  - 详细计划见 [docs/v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md)
+
+#### 阶段 S-A：Baseline And Taxonomy
+
+- 固化 `v2.2` 的 `LongMemEval-S 128` 与 `PersonaMem 128` 基线
+- 将 `LongMemEval-S` 的错误稳定拆到：
+  - `slot_assignment`
+  - `retrieval`
+  - `belief`
+  - `projection`
+  - `provider`
+
+#### 阶段 S-B：Learned Slot Assignment Module
+
+- 为 `observation -> slot` 新增 learned scorer
+- 保留 parser 作为 schema / safety 入口
+- 保留最小 hard constraints
+
+#### 阶段 S-C：Online-Aligned Slot-Assignment Training
+
+- 新增 slot-assignment supervision
+- 保持 full-data semantic-first
+- 让训练直接服务 online `slot assignment / retrieval / belief`
+
+#### 阶段 S-D：LongMemEval-S 64/128 Validation
+
+- current-head `LongMemEval-S 64`
+- current-head `LongMemEval-S 128`
+- learned-vs-symbolic retained gain
+
+#### 阶段 S-E：PersonaMem Guard
+
+- current-head `PersonaMem 128`
+- 不允许因 `LongMemEval-S` 优化而明显退化
+
+#### 阶段 S-F：V2.3 Long-Run Closeout
+
+- 默认 train recipe
+- 默认 benchmark recipe
+- 默认 verifier
+- 文档与 `.agent-os` 对齐
+
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 
 - 目标：把 stage-2 主线从 “继续强化 rule-heavy robustness” 切到 “用更 learned 的 memory write/read 与更强 latent memory 提升系统智能程度”

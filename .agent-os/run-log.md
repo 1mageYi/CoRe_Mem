@@ -911,3 +911,19 @@
   - `python3 scripts/verify_stage2_v22_completion.py --score-only` -> `19`
 - Next likely action:
   - 建立 `v2.3` verifier 与 long-run baseline，优先验证 `LongMemEval-S` 分层错误、learned slot assignment 和更强的在线 latent 主链
+
+## 2026-04-16 Session 024
+
+- Worked on: 把 `v2.3` 进一步升级成更远的 managed long-run，并为其建立新的 verifier / baseline / 文档主线
+- State changed:
+  - 新增 `docs/v23_longrun_plan.md`
+  - 新增 `scripts/verify_stage2_v23_longrun.py`
+  - 新增 `tests/test_stage2_v23_longrun.py`
+  - 当前 next action 从 `TD-033 / WS-019` 继续前推到 `TD-034 / WS-020`
+  - 新长跑继续保留 `semantic-first`、`no fallback`、`no shortcut`，但目标显著拉远：不只要 learned slot assignment 接上，还要求 `LongMemEval-S 64/128`、`PersonaMem 128` 和 gain artifact 都形成 current-head retained evidence
+- Evidence / artifacts:
+  - `docs/v23_longrun_plan.md`
+  - `scripts/verify_stage2_v23_longrun.py`
+  - `tests/test_stage2_v23_longrun.py`
+- Next likely action:
+  - 以 fresh-start 启动新的后台 `v2.3 long-run` autoresearch，并在 baseline 后开始围绕 `LongMemEval-S` 质量与 learned slot assignment 迭代
