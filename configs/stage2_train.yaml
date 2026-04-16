@@ -29,11 +29,9 @@ training:
     - lifecycle_prediction
     - composition_to_belief
   batching:
-    per_device_batch_size: 2
-    gradient_accumulation_steps: 2
+    per_device_batch_size: 4
+    gradient_accumulation_steps: 1
     num_train_epochs: 3
-    max_source_length: 384
-    max_target_length: 192
   optimizer:
     lr: 0.0001
     weight_decay: 0.01
