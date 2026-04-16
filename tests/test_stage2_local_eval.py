@@ -113,6 +113,85 @@ def test_eval_script_can_include_checkpoint_metrics(tmp_path: Path):
     assert 0.0 <= payload["trained_eval"]["metrics"]["field_f1"] <= 1.0
 
 
+def test_train_script_can_publish_semantic_full_train_artifact(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    train = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--publish-semantic-full-train",
+        "--json",
+    )
+    assert train.returncode == 0, train.stderr
+    payload = json.loads(train.stdout)
+    artifact_path = Path(payload["semantic_full_train_artifact"])
+    assert artifact_path.exists()
+    artifact_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact_payload["artifact_type"] == "stage2_semantic_full_train"
+    assert artifact_payload["num_examples"] == 4
+
+
+def test_eval_script_can_publish_semantic_full_eval_artifact(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    train = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--json",
+    )
+    assert train.returncode == 0, train.stderr
+    train_payload = json.loads(train.stdout)
+
+    result = _run(
+        "scripts/eval_stage2_local.py",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--checkpoint-dir",
+        train_payload["checkpoint_dir"],
+        "--train-config",
+        "configs/stage2_train_tiny.yaml",
+        "--max-eval-examples",
+        "4",
+        "--publish-semantic-full-eval",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    artifact_path = Path(payload["semantic_full_eval_artifact"])
+    assert artifact_path.exists()
+    artifact_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact_payload["artifact_type"] == "stage2_semantic_full_local_eval"
+    assert "trained_eval" in artifact_payload
+
+
 def test_eval_script_accepts_experiment_variant(tmp_path: Path):
     output_root = tmp_path / "outputs_v2"
     prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")

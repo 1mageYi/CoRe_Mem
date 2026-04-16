@@ -244,6 +244,62 @@ def test_structured_memory_system_learned_mode_repairs_braceless_belief_payload(
     assert result.belief_state.belief_items[0].value == "oolong tea"
 
 
+def test_answer_projection_trims_explanatory_suffixes_for_single_fact_queries():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "paint_color",
+                    "value": "a lighter shade of gray - it's made the room feel so much brighter",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I repainted my bedroom walls a lighter shade of gray.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-color", "What color did I repaint my bedroom walls?")
+    assert result.answer_text == "a lighter shade of gray"
+
+
+def test_answer_projection_extracts_location_phrase_for_where_queries():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "location",
+                    "value": "I got my new tennis racket from a sports store downtown.",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I got my new tennis racket from a sports store downtown.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-where", "Where did I buy my new tennis racket from?")
+    assert result.answer_text == "a sports store downtown"
+
+
 def test_learned_belief_example_uses_compact_slot_view():
     def _compact(slots):
         return slots

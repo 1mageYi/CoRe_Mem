@@ -375,6 +375,17 @@ def _build_memory_system(
     )
 
 
+def _maybe_write_semantic_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if summary.get("memory_mode") != "learned_memory" or summary.get("status") != "completed":
+        return
+    alias_name = (
+        "latest_personamem_stage2_semantic_canary.json"
+        if benchmark == "personamem"
+        else "latest_longmemeval_stage2_semantic_canary.json"
+    )
+    _write_json(output_root / "artifacts" / alias_name, summary)
+
+
 def _maybe_write_learned_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
     if summary.get("memory_mode") != "learned_memory":
         return
@@ -384,6 +395,7 @@ def _maybe_write_learned_alias(output_root: Path, benchmark: str, summary: dict[
         else "latest_longmemeval_stage2_learned_canary.json"
     )
     _write_json(output_root / "artifacts" / alias_name, summary)
+    _maybe_write_semantic_alias(output_root, benchmark, summary)
 
 
 def run_personamem_canary(

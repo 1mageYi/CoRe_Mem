@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import csv
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +47,39 @@ def _load_yaml(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("Stage-2 config must be a mapping.")
     return payload
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _current_commit_hash() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _publish_semantic_full_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_semantic_full_local_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_semantic_full_local_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        **payload,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
 
 
 def run_local_eval(
@@ -127,6 +161,7 @@ def main() -> int:
     parser.add_argument("--train-config", help="Optional config snapshot path used to train the checkpoint.")
     parser.add_argument("--eval-device", default="cpu")
     parser.add_argument("--max-eval-examples", type=int)
+    parser.add_argument("--publish-semantic-full-eval", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -136,9 +171,11 @@ def main() -> int:
     if args.variant_json:
         variant.update(json.loads(args.variant_json))
 
+    prepared_manifest_path = Path(args.prepared_manifest)
+    output_root = Path(args.output_root)
     payload = run_local_eval(
-        Path(args.prepared_manifest),
-        Path(args.output_root),
+        prepared_manifest_path,
+        output_root,
         top_k=args.top_k,
         budgets=args.budget or [1, 2, 4, 8],
         datasets=args.dataset,
@@ -148,6 +185,12 @@ def main() -> int:
         eval_device=args.eval_device,
         max_eval_examples=args.max_eval_examples,
     )
+    if args.publish_semantic_full_eval:
+        payload["semantic_full_eval_artifact"] = _publish_semantic_full_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:

@@ -1,5 +1,52 @@
 # Run Log
 
+## 2026-04-16 Session 030
+
+- Worked on: 恢复 `TD-032 / WS-018` 的 managed autoresearch，并把 `v2.2` 从 retained `14/19` 推到 stop condition `19/19`
+- State changed:
+  - 当前 session 检测到 `GPT_AGENT_API_KEY=SET`，确认上一轮 `BL-006` 不再代表本 session truth；fresh `LongMemEval-S 64` learned semantic canary `outputs_v2/evals_benchmark/20260416T015930Z_stage2_memory_canary.json` 与 corresponding semantic analysis 先把 score 从 `14` 提到 `16`
+  - 新增 `src/core_mem/v2/projection.py` 的 generic answer projection normalization，并补充 `tests/test_stage2_model_skeleton.py` 对 explanatory suffix / location phrase 的单测；在同一批 `LongMemEval-S 64` belief state 上，local exact 从 `3` 提到 `4`
+  - 刷新 `outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 后，`latest_stage2_semantic_online_gain.json` 记录 `LongMemEval-S 64` 相对 retained symbolic 64 baseline 的 `delta_local_exact_match = +1`，使 score 从 `16` 提到 `17`
+  - 通过 `outputs_v2/evals_benchmark/20260416T022924Z_longmemeval_canary.json` 生成 `128` manifest，并在 `outputs_v2/runs/20260416T021743Z_stage2_memory_canary_longmemeval` 上 resume 扩样到 `128/128`；对应 summary 与 `latest_longmemeval_stage2_semantic_analysis.json` 已刷新，使 score 从 `17` 提到 `18`
+  - 完成 fresh current-head `PersonaMem 128` learned semantic canary `outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json`，其快速统计为 `provider_exact = 40/128`、`provider_label_prefix = 40/128`、`local_exact = 12/128`；`scripts/verify_stage2_v22_completion.py --score-only` 因此达到 `19/19`
+  - `research-results.tsv` / `autoresearch-state.json` 已记录到 iteration `7`，supervisor state 已更新为 `decision=stop`、`terminal_reason=goal_reached`
+- Evidence / artifacts:
+  - `src/core_mem/v2/projection.py`
+  - `tests/test_stage2_model_skeleton.py`
+  - `outputs_v2/evals_benchmark/20260416T015930Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_semantic_analysis.json`
+  - `outputs_v2/artifacts/latest_stage2_semantic_online_gain.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v22_completion.py --score-only` -> `19`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_v22_completion.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 当前 stop condition 已机械达到；在用户给出新的 stage-2 方向前，保持 `TD-032 / WS-018` 的 `19/19` 完成态可复验，并诚实保留 `LongMemEval-S` provider-side 质量尚弱的风险
+
+## 2026-04-16 Session 029
+
+- Worked on: `TD-032 / WS-018` 下补齐 `v2.2` semantic artifact 发布链，并推进 current-head full-data semantic train/eval
+- State changed:
+  - `scripts/train_stage2.py` / `scripts/eval_stage2_local.py` 新增 semantic full artifact 发布能力，可直接写出 `latest_stage2_semantic_full_train.json` 与 `latest_stage2_semantic_full_local_eval.json`
+  - `scripts/run_stage2_memory_canary.py` 新增 completed learned run 的 semantic canary alias 发布能力
+  - `scripts/analyze_stage2_memory_canary_failures.py` 新增 LongMemEval semantic analysis alias 与 semantic online gain artifact 发布能力
+  - `outputs_v2/artifacts/latest_stage2_semantic_full_train.json` 与 `latest_stage2_semantic_full_local_eval.json` 已在 current HEAD `510aeb7` 上落地，使 `stage2_v22_completion_score` 从 `9` 提升到 `14`
+  - 同一 session 内确认 `BL-006`：live provider env 缺失，`outputs_v2/evals_benchmark/20260416T005639Z_stage2_memory_canary.json` 将 current-head learned `LongMemEval-S 1` probe 记录为 `blocked_provider_not_configured`
+  - `research-results.tsv` / `autoresearch-state.json` 已从一次 helper 并发记账竞态中修复回 `full_resume` 一致状态；当前 retained metric 为 `14`，last status 为 `blocked`
+- Evidence / artifacts:
+  - `outputs_v2/artifacts/latest_stage2_semantic_full_train.json`
+  - `outputs_v2/artifacts/latest_stage2_semantic_full_local_eval.json`
+  - `outputs_v2/evals_local/20260416T003931Z_stage2_local_eval.json`
+  - `outputs_v2/evals_benchmark/20260416T005639Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v22_completion.py --score-only` -> `14`
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_v22_completion.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 在 live provider env 恢复后，继续 current-head `PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries，并基于 fresh LongMemEval-S artifact 产出 semantic analysis 与 semantic online gain
+
 ## 2026-04-15 Session 028
 
 - Worked on: 把 stage-2 当前主线从 `TD-031 / WS-017` 提升到 `TD-032 / WS-018`，正式进入 `v2.2 full-data semantic latent`
@@ -843,3 +890,24 @@
   - `python3 scripts/verify_stage2_acceptance.py --score-only` -> `7`
 - Next likely action:
   - 用这套 local eval 体系去跑更系统的 budget sweep、ablation 记录和训练后模型比较
+
+## 2026-04-16 Session 023
+
+- Worked on: 收口 `v2.2` full-data semantic latent 长跑，并把项目主线切到 `v2.3 stronger learned slot assignment + stronger latent`
+- State changed:
+  - `TD-032 / WS-018` 已机械完成，`scripts/verify_stage2_v22_completion.py --score-only = 19`
+  - current-head full-data semantic train/eval、`PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、LongMemEval-S semantic analysis、semantic online gain 全部已补齐
+  - retained 代码侧关键改动是 `src/core_mem/v2/projection.py` 的 generic answer projection normalization，以及对应 stage-2 regression tests
+  - runtime truth 已从 `v2.2 closeout` 切到 `TD-033 / WS-019`
+  - 新增 `docs/v23_plan.md`，把下一阶段目标正式切到 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent
+- Evidence / artifacts:
+  - `outputs_v2/artifacts/latest_stage2_semantic_full_train.json`
+  - `outputs_v2/artifacts/latest_stage2_semantic_full_local_eval.json`
+  - `outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_semantic_analysis.json`
+  - `outputs_v2/artifacts/latest_stage2_semantic_online_gain.json`
+  - `docs/v23_plan.md`
+  - `python3 scripts/verify_stage2_v22_completion.py --score-only` -> `19`
+- Next likely action:
+  - 建立 `v2.3` verifier 与 long-run baseline，优先验证 `LongMemEval-S` 分层错误、learned slot assignment 和更强的在线 latent 主链

@@ -2,10 +2,15 @@
 
 ## Doing
 
-- `TD-032` 以 full-data semantic-first learned memory 为目标推进 `v2.2`。
-  - 当前机械目标：`scripts/verify_stage2_v22_completion.py --score-only`
-  - 当前重点：current-head full-data 训练、current-head `PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、LongMemEval-S layered analysis、以及 learned-vs-symbolic 在线增益
-  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first
+- `TD-033` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为目标推进 `v2.3`。
+  - 当前机械目标：待新增 `stage2_v23_completion_score`
+  - 当前起点：`TD-032 / v2.2` 已达到 `19/19`
+  - 当前主攻点：
+    - `LongMemEval-S` 从机械完成推进到质量主 benchmark
+    - `observation -> slot` 从 rule-heavy lifecycle 推进到 `learned slot assignment + hard constraints`
+    - 继续强化 `retrieval -> composed latent -> belief -> answer` 主链
+  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；保持 semantic-first，但不再把 closeout semantic evidence 当终点
+  - 当前风险：`LongMemEval-S 128` 当前只有 `provider_exact = 4/128`、`local_exact = 4/128`，说明 online memory 主链质量仍明显不足
 
 ## Blocked
 
@@ -24,6 +29,9 @@
 
 - `TD-031` 在不引入 fallback/shortcut 的前提下，把 stage-2 learned training 切到“语义优先、格式外部约束处理”主线。
   - 说明：当前机械 stop condition 已达到 `17/17`；此项历史里程碑已完成，但不再是当前主线。
+
+- `TD-032` 以 full-data semantic-first learned memory 为目标推进 `v2.2`。
+  - 说明：当前机械 stop condition 已达到 `19/19`；此项 closeout 已完成，但不再是当前主线。
 
 ## Done
 
@@ -54,6 +62,9 @@
 - `TD-029` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
   - 当前结果：`scripts/verify_stage2_v21_learned_memory.py --score-only = 12/12`
   - 关键证据：online learned path、checkpoint-backed belief、online-aligned training 语义和最小 current-head learned-mode artifact 已成立
+- `TD-032` 把 semantic-first 路线推进到 full-data current-head 训练、extended semantic canaries、LongMemEval-S semantic analysis 与 semantic online gain。
+  - 当前结果：`scripts/verify_stage2_v22_completion.py --score-only = 19/19`
+  - 关键证据：current-head full-data train/eval、`PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、`latest_longmemeval_stage2_semantic_analysis.json`、`latest_stage2_semantic_online_gain.json`
 
 
 ## Notes
@@ -63,8 +74,8 @@
 - 第一阶段剩余未过项仍主要是正式 benchmark 两项，但当前不作为默认主动执行主线。
 - 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
-- 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- `TD-027`、`TD-028`、`TD-029`、`TD-030` 与 `TD-031` 已机械完成；当前主线已经切到 `TD-032`，重点转向 full-data semantic-first learned memory、extended benchmark 与更强 LongMemEval-S。
+- 当前最大的未完成点已不再是 `v2.2` 的在线证据缺口；`TD-032` 当前已经把 `stage2_v22_completion_score` 推到 `19/19` 并达到 stop condition。
+- 当前新的 stage-2 主线已切到 `TD-033 / v2.3`，聚焦 `LongMemEval-S` 质量、learned slot assignment 与 stronger latent。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`

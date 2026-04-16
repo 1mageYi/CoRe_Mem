@@ -103,7 +103,7 @@ def test_stage2_memory_canary_analysis_and_quality_verifier(tmp_path: Path):
         "--json",
     )
     assert analysis.returncode == 0, analysis.stderr
-    analysis_payload = json.loads(analysis.stdout)
+    analysis_payload = json.loads(analysis.stdout)["analysis"]
     assert analysis_payload["provider_exact_match"] == 0
     assert analysis_payload["provider_label_prefix_match"] == 2
     assert analysis_payload["local_exact_match"] == 1
@@ -186,9 +186,106 @@ def test_stage2_memory_canary_analysis_writes_longmemeval_layered_artifact(tmp_p
         "--json",
     )
     assert analysis.returncode == 0, analysis.stderr
+    response_payload = json.loads(analysis.stdout)
     layered_path = repo_root / "outputs_v2" / "artifacts" / "latest_longmemeval_stage2_layered_analysis.json"
     assert layered_path.exists()
     layered_payload = json.loads(layered_path.read_text(encoding="utf-8"))
     assert set(layered_payload["layers"]) == {"parser", "retrieval", "belief", "projection", "provider"}
     assert layered_payload["layers"]["parser"]["count"] == 1
     assert layered_payload["layers"]["provider"]["count"] == 1
+    assert response_payload["analysis"]["benchmark"] == "longmemeval"
+
+
+def test_stage2_memory_canary_analysis_can_publish_semantic_alias_and_online_gain(tmp_path: Path):
+    repo_root = tmp_path / "repo"
+    (repo_root / "outputs_v2" / "evals_benchmark").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "baseline").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "improved").mkdir(parents=True)
+
+    baseline_predictions_path = repo_root / "outputs_v2" / "runs" / "baseline" / "predictions.jsonl"
+    improved_predictions_path = repo_root / "outputs_v2" / "runs" / "improved" / "predictions.jsonl"
+    _write_jsonl(
+        baseline_predictions_path,
+        [
+            {
+                "sample_id": "a",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "answer",
+                "memory_answer_local": "wrong",
+                "provider_prediction": "wrong",
+                "provider_status": "completed",
+                "question_type": "single-session-user",
+                "belief_state": {"belief_items": [{"relation": "fact"}]},
+                "selected_slot_ids": ["slot_1"],
+            }
+        ],
+    )
+    _write_jsonl(
+        improved_predictions_path,
+        [
+            {
+                "sample_id": "a",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "answer",
+                "memory_answer_local": "answer",
+                "provider_prediction": "answer",
+                "provider_status": "completed",
+                "question_type": "single-session-user",
+                "belief_state": {"belief_items": [{"relation": "fact"}]},
+                "selected_slot_ids": ["slot_1"],
+            }
+        ],
+    )
+    baseline_summary_path = repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000000Z_stage2_memory_canary.json"
+    improved_summary_path = repo_root / "outputs_v2" / "evals_benchmark" / "20260415T010000Z_stage2_memory_canary.json"
+    _write_json(
+        baseline_summary_path,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 1,
+            "live_predictions_completed": 1,
+            "provider_configured": True,
+            "status": "completed",
+            "memory_mode": "learned_memory",
+            "commit_hash": "baseline",
+            "predictions_path": str(baseline_predictions_path),
+        },
+    )
+    _write_json(
+        improved_summary_path,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 1,
+            "live_predictions_completed": 1,
+            "provider_configured": True,
+            "status": "completed",
+            "memory_mode": "learned_memory",
+            "commit_hash": "improved",
+            "predictions_path": str(improved_predictions_path),
+        },
+    )
+
+    analysis = _run(
+        "scripts/analyze_stage2_memory_canary_failures.py",
+        "--root",
+        str(repo_root),
+        "--benchmark",
+        "longmemeval_s",
+        "--summary-path",
+        str(improved_summary_path),
+        "--baseline-summary-path",
+        str(baseline_summary_path),
+        "--improved-summary-path",
+        str(improved_summary_path),
+        "--write-semantic-online-gain",
+        "--json",
+    )
+    assert analysis.returncode == 0, analysis.stderr
+    response_payload = json.loads(analysis.stdout)
+    semantic_analysis_path = repo_root / "outputs_v2" / "artifacts" / "latest_longmemeval_stage2_semantic_analysis.json"
+    semantic_gain_path = repo_root / "outputs_v2" / "artifacts" / "latest_stage2_semantic_online_gain.json"
+    assert semantic_analysis_path.exists()
+    assert semantic_gain_path.exists()
+    gain_payload = response_payload["semantic_online_gain"]
+    assert gain_payload["positive_gain"] is True
+    assert gain_payload["delta_provider_exact_match"] == 1

@@ -323,7 +323,7 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
-7. 当前阶段 L、阶段 M 与阶段 N 的当前机械里程碑都已完成；若继续推进，下一步更合理的是围绕 learned belief JSON 有效性进入新的质量修复项，而不是重复证明 current-head canary 覆盖
+7. 当前阶段 L、阶段 M、阶段 N、阶段 P 与阶段 Q 的当前机械里程碑都已完成；若继续推进，下一步更合理的是围绕 `LongMemEval-S` 质量、learned slot assignment 与更强 latent 进入新的质量修复项，而不是重复证明 current-head canary 覆盖
 
 ### 阶段 P：Semantic-First Learned Decoder
 
@@ -338,17 +338,67 @@
 ### 阶段 Q：V2.2 Full-Data Semantic Latent
 
 - Goal: 把 semantic-first learned path 从 current retained artifact 推进到 full-data current-head 训练、extended benchmark 验证和 LongMemEval-S 主导的质量提升
-- Status: doing
+- Status: doing (mechanical stop reached; closeout retained)
 - Notes:
   - `v2.2` 继续保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
   - 这轮强调可以使用完整 public-data task rows 做训练与本地评测
-  - 当前的关键缺口不再是 raw JSON exactness，而是：
-    - current-head full-data 训练证据
-    - current-head `PersonaMem 128`
-    - current-head `LongMemEval-S 64/128`
-    - current-head LongMemEval-S layered analysis
-    - current-head learned-vs-symbolic online gain
+  - current retained 进度：
+    - `outputs_v2/artifacts/latest_stage2_semantic_full_train.json` 已在 current HEAD `510aeb7` 上记录 `num_examples = 1574`、`cuda_visible_devices = 3`
+    - `outputs_v2/artifacts/latest_stage2_semantic_full_local_eval.json` 已在同一 HEAD 上记录 `trained_eval.token_f1 = 0.9258179798351409`、`retrieval_alignment.token_f1 = 1.0`
+    - `outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 已把 current-head `LongMemEval-S` semantic canary 扩到 `128`
+    - `outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json` 已补齐 current-head `PersonaMem 128` semantic canary
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_semantic_analysis.json` 与 `latest_stage2_semantic_online_gain.json` 已在 current HEAD `510aeb7` 上刷新
+    - `scripts/verify_stage2_v22_completion.py --score-only` 已从 `9` 提升到 stop condition `19`
+  - 当前 retained 关键改动：
+    - `src/core_mem/v2/projection.py` 新增 generic answer projection normalization，可去掉解释尾巴并抽取 location phrase；对应 `LongMemEval-S 64` local exact 从 `3` 提到 `4`
+    - semantic online gain 已因 `delta_local_exact_match = +1` 而转正，但 provider exact / prefix 相比 retained symbolic `LongMemEval-S 64` baseline 仍是负增益
+  - 当前 runtime truth：
+    - `TD-032 / WS-018` 的 mechanical stop condition 已达到；在用户给出新的 stage-2 方向前，当前只保留为 closeout workstream
+    - 这条线可以诚实声明为“`stage2_v22_completion_score = 19/19` 已机械达成”，不能夸写成 “LongMemEval-S online quality 已全面稳定”
   - 这条线对应的新 verifier 是 `scripts/verify_stage2_v22_completion.py`
+
+### 阶段 R：V2.3 Stronger Learned Slot Assignment And Stronger Latent
+
+- Goal: 把 stage-2 主线从 “semantic-first 证据完整” 推进到 “更强、更稳、更多依赖 learned latent 的系统”
+- Status: planned
+- Notes:
+  - `v2.2` 已证明 full-data semantic-first 路线成立，但 `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`
+  - 这说明下一步的主问题已经不再是“格式对不对”，而是 `observation -> slot -> retrieval -> belief` 这条在线 memory 主链本身还不够强
+  - `v2.3` 继续保留 `no fallback`、`no shortcut`、`semantic-first`，但主收益目标切到：
+    - `LongMemEval-S` 质量提升
+    - `learned slot assignment`
+    - `stronger latent / stronger online memory path`
+  - 详细计划见 [docs/v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)
+
+#### 阶段 R-A：LongMemEval-S 质量基线重建
+
+- 固化 current-head `LongMemEval-S 128` semantic baseline
+- 形成按 `slot assignment / retrieval / belief / projection / provider` 分层的错误分析
+- 明确当前 top error clusters
+
+#### 阶段 R-B：Learned Slot Assignment
+
+- 保留 parser 作为 schema / safety 入口
+- 将 `observation -> slot` 的关键决策逐步从 pure rule-heavy lifecycle 推向 learned scorer
+- 保留最小 hard constraints，避免 learned write path 污染 memory state
+
+#### 阶段 R-C：在线对齐训练
+
+- 新增 slot-assignment 监督
+- 强化 retrieval / belief 训练目标与 online path 的对齐
+- 避免回退到“只会复述结构化 JSON”的 sidecar 训练
+
+#### 阶段 R-D：LongMemEval-S 提升验证
+
+- current-head `LongMemEval-S 64/128` retained artifacts
+- learned-vs-symbolic 或 learned-vs-rule-heavy 对照 artifact
+- 证明 gain 可复验、可解释
+
+#### 阶段 R-E：V2.3 收口
+
+- 固化默认 `LongMemEval-S` 训练/评测 recipe
+- 固化 `learned slot assignment` verifier
+- 更新文档与 `.agent-os` 到 `v2.3`
 
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 

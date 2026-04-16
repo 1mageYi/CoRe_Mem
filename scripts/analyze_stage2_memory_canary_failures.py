@@ -156,6 +156,8 @@ def build_analysis(
 
     total = len(rows)
     return {
+        "commit_hash": summary.get("commit_hash"),
+        "memory_mode": summary.get("memory_mode"),
         "benchmark": _canonical_benchmark_name(benchmark),
         "summary_path": str(effective_summary_path),
         "predictions_path": str(predictions_path),
@@ -232,6 +234,8 @@ def build_layered_analysis(
         }
 
     return {
+        "commit_hash": summary.get("commit_hash"),
+        "memory_mode": summary.get("memory_mode"),
         "benchmark": _canonical_benchmark_name(benchmark),
         "summary_path": str(effective_summary_path),
         "predictions_path": str(predictions_path),
@@ -250,9 +254,14 @@ def write_analysis(root: Path, benchmark: str, payload: dict[str, Any]) -> dict[
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     stamped_path.write_text(text, encoding="utf-8")
     latest_path.write_text(text, encoding="utf-8")
+    semantic_latest_path = None
+    if benchmark_key == "longmemeval" and payload.get("memory_mode") == "learned_memory":
+        semantic_latest_path = artifacts_dir / "latest_longmemeval_stage2_semantic_analysis.json"
+        semantic_latest_path.write_text(text, encoding="utf-8")
     return {
         "stamped_path": str(stamped_path),
         "latest_path": str(latest_path),
+        "semantic_latest_path": str(semantic_latest_path) if semantic_latest_path else "",
     }
 
 
@@ -272,11 +281,89 @@ def write_layered_analysis(root: Path, benchmark: str, payload: dict[str, Any]) 
     }
 
 
+def _summary_metrics(summary: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "sample_count": int(summary.get("sample_count", len(rows))),
+        "provider_exact_match": sum(
+            1 for row in rows if _normalize(row.get("provider_prediction")) == _normalize(row.get("expected_answer"))
+        ),
+        "provider_label_prefix_match": sum(
+            1 for row in rows if _label_prefix_match(str(row.get("expected_answer", "")), row.get("provider_prediction"))
+        ),
+        "local_exact_match": sum(
+            1 for row in rows if _normalize(row.get("memory_answer_local")) == _normalize(row.get("expected_answer"))
+        ),
+    }
+
+
+def build_online_gain(
+    *,
+    root: Path,
+    baseline_summary_path: Path,
+    improved_summary_path: Path,
+) -> dict[str, Any]:
+    baseline_summary = _read_json(baseline_summary_path)
+    improved_summary = _read_json(improved_summary_path)
+
+    baseline_predictions_path = Path(baseline_summary["predictions_path"])
+    if not baseline_predictions_path.is_absolute():
+        baseline_predictions_path = (root / baseline_predictions_path).resolve()
+    improved_predictions_path = Path(improved_summary["predictions_path"])
+    if not improved_predictions_path.is_absolute():
+        improved_predictions_path = (root / improved_predictions_path).resolve()
+
+    baseline_rows = _read_jsonl(baseline_predictions_path)
+    improved_rows = _read_jsonl(improved_predictions_path)
+    baseline_metrics = _summary_metrics(baseline_summary, baseline_rows)
+    improved_metrics = _summary_metrics(improved_summary, improved_rows)
+
+    delta_provider_exact = improved_metrics["provider_exact_match"] - baseline_metrics["provider_exact_match"]
+    delta_provider_prefix = (
+        improved_metrics["provider_label_prefix_match"] - baseline_metrics["provider_label_prefix_match"]
+    )
+    delta_local_exact = improved_metrics["local_exact_match"] - baseline_metrics["local_exact_match"]
+
+    return {
+        "artifact_type": "stage2_semantic_online_gain",
+        "commit_hash": improved_summary.get("commit_hash"),
+        "benchmark": _canonical_benchmark_name(str(improved_summary.get("benchmark", ""))),
+        "comparison_scope": f"live_provider_canary_{improved_metrics['sample_count']}",
+        "baseline_summary_path": str(baseline_summary_path),
+        "improved_summary_path": str(improved_summary_path),
+        "baseline_commit_hash": baseline_summary.get("commit_hash"),
+        "improved_commit_hash": improved_summary.get("commit_hash"),
+        "baseline_metrics": baseline_metrics,
+        "improved_metrics": improved_metrics,
+        "delta_provider_exact_match": delta_provider_exact,
+        "delta_provider_label_prefix_match": delta_provider_prefix,
+        "delta_local_exact_match": delta_local_exact,
+        "positive_gain": any(delta > 0 for delta in (delta_provider_exact, delta_provider_prefix, delta_local_exact)),
+    }
+
+
+def write_semantic_online_gain(root: Path, payload: dict[str, Any]) -> dict[str, str]:
+    artifacts_dir = root / "outputs_v2" / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    stamp = _timestamp()
+    stamped_path = artifacts_dir / f"{stamp}_stage2_semantic_online_gain.json"
+    latest_path = artifacts_dir / "latest_stage2_semantic_online_gain.json"
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    stamped_path.write_text(text, encoding="utf-8")
+    latest_path.write_text(text, encoding="utf-8")
+    return {
+        "stamped_path": str(stamped_path),
+        "latest_path": str(latest_path),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=str(REPO_ROOT))
     parser.add_argument("--benchmark", default="personamem")
     parser.add_argument("--summary-path")
+    parser.add_argument("--baseline-summary-path")
+    parser.add_argument("--improved-summary-path")
+    parser.add_argument("--write-semantic-online-gain", action="store_true")
     parser.add_argument("--example-limit", type=int, default=12)
     parser.add_argument("--no-write", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -299,8 +386,22 @@ def main() -> int:
         payload["artifact_paths"] = write_analysis(root, args.benchmark, payload)
         layered_payload["artifact_paths"] = write_layered_analysis(root, args.benchmark, layered_payload)
         payload["layered_artifact_paths"] = layered_payload["artifact_paths"]
+    gain_payload = None
+    if args.write_semantic_online_gain:
+        if not args.baseline_summary_path or not args.improved_summary_path:
+            raise ValueError("--write-semantic-online-gain requires --baseline-summary-path and --improved-summary-path")
+        gain_payload = build_online_gain(
+            root=root,
+            baseline_summary_path=Path(args.baseline_summary_path).resolve(),
+            improved_summary_path=Path(args.improved_summary_path).resolve(),
+        )
+        if not args.no_write:
+            gain_payload["artifact_paths"] = write_semantic_online_gain(root, gain_payload)
     if args.json:
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        response: dict[str, Any] = {"analysis": payload, "layered_analysis": layered_payload}
+        if gain_payload is not None:
+            response["semantic_online_gain"] = gain_payload
+        print(json.dumps(response, ensure_ascii=False, indent=2))
     else:
         print(f"provider_exact_match={payload['provider_exact_match']}")
         print(f"provider_label_prefix_match={payload['provider_label_prefix_match']}")
@@ -308,6 +409,8 @@ def main() -> int:
             print(f"latest_path={payload['artifact_paths']['latest_path']}")
         if "layered_artifact_paths" in payload:
             print(f"latest_layered_path={payload['layered_artifact_paths']['latest_path']}")
+        if gain_payload is not None and "artifact_paths" in gain_payload:
+            print(f"semantic_online_gain_path={gain_payload['artifact_paths']['latest_path']}")
     return 0
 
 

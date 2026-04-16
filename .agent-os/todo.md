@@ -2,11 +2,14 @@
 
 ## Doing
 
-- `TD-032` `[doing]` 以 full-data semantic-first learned memory 为锚点推进 `v2.2`。
-  - Reason: semantic-first 已证明方向成立，下一步最值得做的是用 current-head full-data 训练、extended semantic canary 和 LongMemEval-S 提升把这条线推进到更接近“完善的系统/模型/latent”。
-  - Evidence target: `scripts/verify_stage2_v22_completion.py --score-only`
-  - Mechanical target: `scripts/verify_stage2_v22_completion.py --score-only`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；允许完整数据训练和扩展 benchmark，但收益必须保持 semantic-first 与 current-head 可复验
+- `TD-033` `[doing]` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为锚点推进 `v2.3`。
+  - Reason: `v2.2` 已经把 full-data semantic-first 证据链补齐；下一步真正缺的不是更多 closeout artifact，而是更强的 online memory 主链、更强的 slot assignment 和更高的 `LongMemEval-S` 质量。
+  - Evidence target: 待新增 `stage2_v23_completion_score`
+  - Mechanical target: 待新增 `stage2_v23_completion_score`
+  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first，但不把结构修复伪装成模型本体收益
+  - Current retained baseline: `TD-032 / v2.2` 已在 current HEAD `510aeb7` 上达到 `19/19`
+  - Current runtime truth: `v2.2` 只作为 closeout 保持可复验，当前 active workstream 已切到 `v2.3`
+  - Remaining risk: `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`；`observation -> slot` 目前仍主要靠 rule-heavy lifecycle，说明在线 memory 主链本体还不够强
 
 ## Backlog
 
@@ -84,6 +87,10 @@
 - `TD-029` `[done]` 把 `v2.1` 的当前主线切到 learned-memory-first / better latent。
   - Reason: online learned path、checkpoint-backed belief、online-aligned training 语义和最小 current-head learned-mode artifact 已成立。
   - Evidence target: `scripts/verify_stage2_v21_learned_memory.py --score-only = 12`
+
+- `TD-032` `[done]` 把 semantic-first 路线推进到 full-data current-head 训练、extended semantic canaries、LongMemEval-S semantic analysis 与 semantic online gain。
+  - Reason: current-head full-data semantic train/eval、`PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、fresh semantic analysis 与 semantic online gain 已全部补齐。
+  - Evidence target: `scripts/verify_stage2_v22_completion.py --score-only = 19`
 
 
 

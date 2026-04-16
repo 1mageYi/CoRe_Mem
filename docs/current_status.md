@@ -176,6 +176,27 @@
   - current-head LongMemEval-S layered analysis
   - current-head learned-vs-symbolic online gain artifact
   - 相关计划见 [v22_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v22_plan.md)
+- 第二阶段 `v2.2` 当前 retained 进展：current HEAD `510aeb7` 上的 full-data semantic artifacts 已补齐，`outputs_v2/artifacts/latest_stage2_semantic_full_train.json` 记录 `num_examples = 1574`、`cuda_visible_devices = 3`，`outputs_v2/artifacts/latest_stage2_semantic_full_local_eval.json` 记录：
+  - `trained_eval.token_f1 = 0.9258179798351409`
+  - `retrieval_alignment.token_f1 = 1.0`
+  - `semantic_validity_rate = 1.0`
+  - `field_f1 = 0.9303261329945052`
+  这条线在后续 managed autoresearch 中已进一步补齐所有 remaining online semantic evidence，使 `scripts/verify_stage2_v22_completion.py --score-only` 达到 stop condition `19/19`。
+- 第二阶段 `v2.2` 当前 fresh online evidence：
+  - `outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 已把 current-head `LongMemEval-S` semantic canary 从 `64` 扩到 `128`
+  - `outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json` 已补齐 current-head `PersonaMem 128` semantic canary；其快速统计为 `provider_exact = 40/128`、`provider_label_prefix = 40/128`、`local_exact = 12/128`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_semantic_analysis.json` 已刷新到 `128`-sample current-head artifact
+  - `outputs_v2/artifacts/latest_stage2_semantic_online_gain.json` 已在 current HEAD `510aeb7` 上转正；当前记录的是 `LongMemEval-S 64` learned 相对 retained symbolic 64 baseline 的 `delta_local_exact_match = +1`
+- 第二阶段 `v2.2` 当前关键实现变化：`src/core_mem/v2/projection.py` 新增 generic answer projection normalization，可对 belief value 去掉解释尾巴并抽取 location phrase；这一改动在相同 `LongMemEval-S 64` belief state 上把 local exact 从 `3` 提到 `4`，并由 fresh canary artifact 机械确认。
+- 第二阶段 `v2.2` 当前 truthfulness boundary：
+  - 可以诚实声明：`stage2_v22_completion_score = 19/19` 已机械达成
+  - 不能夸写成：`LongMemEval-S` online quality 已全面稳定
+  - 当前 `LongMemEval-S 128` fresh artifact 仍只有 `provider_exact = 4/128`、`local_exact = 4/128`；semantic online gain 的 retained 正增益来自 local projection 改善，而不是 provider-side 全面超越 symbolic baseline
+- 第二阶段 `v2.3` 新主线：当前用户已明确要求把下一步聚焦到“更完善的 CoRe Mem 框架 / 系统 / 模型，以及更好的 latent”。因此当前新主线切到 **`v2.3 stronger learned slot assignment + stronger latent`**，核心方向为：
+  - 把 `LongMemEval-S` 从“机械完成”推进到“质量主 benchmark”
+  - 把 `observation -> slot` 从 rule-heavy lifecycle 推进到 `learned slot assignment + hard constraints`
+  - 继续强化 `retrieval -> composed latent -> belief -> answer` 主链，让 retained 收益更多来自 learned latent，而不是规则补丁
+  - 相关计划见 [v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)
 - 测试状态：本轮 stop condition 对应的 final mechanical evidence 是：
   - `conda run -n core_mem python scripts/verify_stage2_v21_semantic_model.py --score-only` -> `17`
   - full semantic guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_parser.py`
@@ -184,11 +205,17 @@
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- `TD-029`、`TD-030` 与 `TD-031` 已机械完成；当前 runtime truth 正式切到 `TD-032` 与 `v2.2`。下一步不再只是 closeout semantic-first，而是把 semantic-first 扩展到 full-data current-head 训练、extended live canaries 和 LongMemEval-S 主导的质量提升。
+- `TD-029`、`TD-030`、`TD-031` 与 `TD-032` 已机械完成；当前 runtime truth 正式从 `v2.2 closeout` 切到 `v2.3` 规划态。
+- 下一步不再继续围绕 “semantic-first 证据是否齐全” 做 closeout，而是把主攻点切到：
+  - `LongMemEval-S` 质量提升
+  - learned slot assignment
+  - stronger latent / stronger online memory path
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`
-  - 尽管如此，current-head 的 full-data 与 extended canary 证据还没有补齐，所以 `v2.2` 的主任务应是把 semantic-first 从 retained local artifact 推进到 current-head full-data / extended benchmark 级别
+  - 当前已经补齐 current-head full-data semantic train/eval、`PersonaMem 128` / `LongMemEval-S 64/128` semantic canary、LongMemEval-S semantic analysis 与 semantic online gain
+  - 当前 `v2.2` 的 runtime truth 应诚实标注为“`19/19` retained, stop condition reached, closeout retained”
+  - `v2.3` 不应回退到 raw JSON exactness 或 rule-heavy patching，而应优先探索 `learned slot assignment + hard constraints`
 
 ## 关键约束
 

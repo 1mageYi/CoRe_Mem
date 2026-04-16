@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 from typing import Any
 
@@ -39,6 +40,11 @@ def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
@@ -46,6 +52,36 @@ def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
 def _count_jsonl_rows(path: Path) -> int:
     with path.open("r", encoding="utf-8") as handle:
         return sum(1 for _ in handle)
+
+
+def _current_commit_hash() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def _publish_semantic_full_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    prepared_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_semantic_full_train.json"
+    payload = {
+        "artifact_type": "stage2_semantic_full_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "prepared_manifest": str(prepared_manifest_path),
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
 
 
 def stage2_train_plan(config_path: Path, prepared_manifest_path: Path, output_root: Path, *, execute_smoke: bool) -> dict[str, Any]:
@@ -187,6 +223,7 @@ def main() -> int:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--cuda-visible-devices")
     parser.add_argument("--online-aligned", action="store_true")
+    parser.add_argument("--publish-semantic-full-train", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -212,10 +249,13 @@ def main() -> int:
         variant["disabled_pools"] = sorted({*variant.get("disabled_pools", []), *args.disable_pool})
 
     if args.execute_train:
+        config_path = Path(args.config)
+        prepared_manifest_path = Path(args.prepared_manifest)
+        output_root = Path(args.output_root)
         payload = stage2_train_execute(
-            Path(args.config),
-            Path(args.prepared_manifest),
-            Path(args.output_root),
+            config_path,
+            prepared_manifest_path,
+            output_root,
             max_steps=args.max_steps,
             max_train_examples=args.max_train_examples,
             device=args.device,
@@ -255,6 +295,13 @@ def main() -> int:
             payload["summary_table_path"] = eval_payload["summary_table_path"]
             payload["budget_table_path"] = eval_payload["budget_table_path"]
             payload["experiment_index_path"] = str(index_path)
+        if args.publish_semantic_full_train:
+            payload["semantic_full_train_artifact"] = _publish_semantic_full_train_artifact(
+                output_root=output_root,
+                config_path=config_path,
+                prepared_manifest_path=prepared_manifest_path,
+                summary=payload,
+            )
     else:
         payload = stage2_train_plan(
             Path(args.config),

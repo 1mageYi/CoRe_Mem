@@ -230,6 +230,74 @@ class _FakeProvider:
         return _FakeResponse("(a)")
 
 
+def test_stage2_memory_canary_writes_semantic_alias_for_completed_learned_run(monkeypatch, tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    run_dir = output_root / "runs" / "semantic_personamem"
+    questions = [
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q1",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        )
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sample_ids": ["q1"]}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "run_stage2_memory_canary.load_project_config",
+        lambda path: SimpleNamespace(
+            llm=SimpleNamespace(
+                api_key_env="GPT_AGENT_API_KEY",
+                base_url="https://example.com/v1",
+                model="fake-model",
+                temperature=0.0,
+                max_tokens=16,
+                timeout_seconds=1,
+                max_retries=0,
+                retry_backoff_seconds=0.0,
+                min_request_interval_seconds=0.0,
+                max_retry_delay_seconds=0.0,
+            ),
+            benchmarks=SimpleNamespace(personamem=SimpleNamespace(data_root="unused")),
+        ),
+    )
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: _FakeProvider())
+    monkeypatch.setattr("run_stage2_memory_canary._ensure_canary_manifest", lambda output_root, benchmark: manifest_path)
+
+    class _FakeAdapter:
+        def load_shared_contexts(self):
+            return {"ctx": "user: I like sushi."}
+
+        def load_questions(self):
+            return questions
+
+        def render_context_for_question(self, question, contexts):
+            return contexts[question.shared_context_id]
+
+    monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+
+    payload = run_personamem_canary(
+        output_root=output_root,
+        config_path=REPO_ROOT / "configs" / "minimax_m27.yaml",
+        limit=1,
+        memory_mode="learned_memory",
+        requested_run_dir=str(run_dir),
+    )
+
+    assert payload["status"] == "completed"
+    semantic_alias = output_root / "artifacts" / "latest_personamem_stage2_semantic_canary.json"
+    assert semantic_alias.exists()
+    alias_payload = json.loads(semantic_alias.read_text(encoding="utf-8"))
+    assert alias_payload["memory_mode"] == "learned_memory"
+    assert alias_payload["summary_path"] == payload["summary_path"]
+
+
 def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tmp_path: Path):
     output_root = tmp_path / "outputs_v2"
     run_dir = output_root / "runs" / "resume_personamem"
