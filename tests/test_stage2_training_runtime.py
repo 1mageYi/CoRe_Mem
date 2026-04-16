@@ -40,6 +40,18 @@ def test_build_training_examples_reads_all_stage2_tasks(tmp_path: Path):
     }
 
 
+def test_lifecycle_training_examples_use_explicit_slot_assignment_schema(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    examples = build_training_examples(manifest)
+    lifecycle_example = next(example for example in examples if example.task_name == "lifecycle_prediction")
+    assert "Choose exactly one target_action from [merge, overwrite, new, ignore]." in lifecycle_example.input_text
+    assert 'Return JSON only with the schema {"target_action":"new","target_flags":{"promote":false,"stale_old":false}}.' in lifecycle_example.input_text
+
+
 def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
     output_root = tmp_path / "outputs_v2"
     prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")

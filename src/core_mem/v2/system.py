@@ -489,7 +489,12 @@ class StructuredMemorySystem:
         }
         sections = [
             "task: lifecycle_prediction",
-            "instruction: Predict slot_assignment action classification and hard-constraint flags. Recover the semantic fields and emit a compact structured object.",
+            (
+                "instruction: Predict slot_assignment action classification and hard-constraint flags. "
+                "Choose exactly one target_action from [merge, overwrite, new, ignore]. "
+                'Return JSON only with the schema {"target_action":"new","target_flags":{"promote":false,"stale_old":false}}. '
+                "Recover the semantic fields and do not copy input fields into the output."
+            ),
         ]
         for key, value in payload.items():
             sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")

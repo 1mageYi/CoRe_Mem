@@ -236,7 +236,10 @@ def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
     if task_name == SLOT_ASSIGNMENT_TASK_NAME:
         instruction = (
             "Predict slot_assignment action classification and hard-constraint flags. "
-            "Recover the semantic fields and emit a compact structured object."
+            "Choose exactly one target_action from [merge, overwrite, new, ignore]. "
+            "Return JSON only with the schema "
+            '{"target_action":"new","target_flags":{"promote":false,"stale_old":false}}. '
+            "Recover the semantic fields and do not copy input fields into the output."
         )
     sections = [
         f"task: {task_name}",

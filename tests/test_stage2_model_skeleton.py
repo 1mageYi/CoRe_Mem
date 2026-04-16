@@ -256,6 +256,28 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     assert result.answer_text == "coffee"
 
 
+def test_structured_memory_system_slot_assignment_prompt_uses_explicit_schema():
+    system = StructuredMemorySystem()
+    observation = system.parser.parse_turn(
+        "I graduated with a degree in Business Administration.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        speaker="user",
+    )[0]
+
+    prompt = system._render_slot_assignment_example(
+        observation,
+        [],
+        lambda payload: payload,
+        lambda payload: payload,
+    )
+
+    assert "Choose exactly one target_action from [merge, overwrite, new, ignore]." in prompt
+    assert 'Return JSON only with the schema {"target_action":"new","target_flags":{"promote":false,"stale_old":false}}.' in prompt
+
+
 def test_structured_memory_system_learned_mode_repairs_braceless_belief_payload():
     def _predict(_query_id: str, _query_text: str, slots):
         return '"belief_items": ["relation": "drink_preference", "support_slot_ids": ["%s"], "value": "oolong tea"]' % slots[0].slot_id
