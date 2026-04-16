@@ -715,6 +715,66 @@ def test_answer_projection_prefers_last_location_phrase_for_event_answers():
     assert result.answer_text == "target"
 
 
+def test_answer_projection_extracts_page_count_for_how_many_queries():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": (
+                        'interested in learning more about renewable energy, and i just finished reading '
+                        'about the discovery of dna structure in "a short history of nearly everything" '
+                        "- i'm now on page 220"
+                    ),
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I am now on page 220 of A Short History of Nearly Everything.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-pages", "How many pages of A Short History of Nearly Everything have I read so far?")
+    assert result.answer_text == "220"
+
+
+def test_answer_projection_extracts_frequency_phrase_for_how_often_queries():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "more focused on days when i attend yoga classes, which is three times a week - it really helps me clear my head",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I attend yoga classes three times a week to help with my anxiety.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-frequency", "How often do I attend yoga classes to help with my anxiety?")
+    assert result.answer_text == "three times a week"
+
+
 def test_learned_belief_example_uses_compact_slot_view():
     def _compact(slots):
         return slots

@@ -362,13 +362,23 @@ def _render_personamem_prompt(
 
 
 def _render_longmemeval_prompt(question: LongMemEvalQuestion, memory_payload: dict[str, Any]) -> str:
+    lowered_question = question.question.strip().lower()
+    instruction = "Return only the shortest exact answer phrase supported by the belief state."
+    if lowered_question.startswith("where "):
+        instruction += " Omit any leading preposition such as 'at', 'in', 'on', or 'from'."
+    elif lowered_question.startswith("how many") or "what number" in lowered_question:
+        instruction += " Return only the bare number, with no unit words or explanation."
+    elif lowered_question.startswith("how much"):
+        instruction += " Return only the exact amount phrase, including any needed currency or percent symbol, with no explanation."
+    elif lowered_question.startswith("how often") or "how frequently" in lowered_question:
+        instruction += " Return only the frequency phrase."
     return (
         "You are answering a LongMemEval question using only the structured memory state below.\n\n"
         f"Question date: {question.question_date}\n"
         f"Question:\n{question.question}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
-        "Return only the shortest exact answer phrase supported by the belief state."
+        f"{instruction}"
     )
 
 
@@ -564,7 +574,7 @@ def run_personamem_canary(
                 "belief_state": memory_payload["belief_state"],
                 "evidence_block": memory_payload["evidence_block"],
                 "prompt": prompt,
-                "prompt_version": "stage2_memory_canary_v1",
+                "prompt_version": "stage2_memory_canary_v2",
             }
         )
         _append_jsonl_row(predictions_path, row)
@@ -690,7 +700,7 @@ def run_longmemeval_canary(
                 "belief_state": memory_payload["belief_state"],
                 "evidence_block": memory_payload["evidence_block"],
                 "prompt": prompt,
-                "prompt_version": "stage2_memory_canary_v1",
+                "prompt_version": "stage2_memory_canary_v2",
             }
         )
         _append_jsonl_row(predictions_path, row)

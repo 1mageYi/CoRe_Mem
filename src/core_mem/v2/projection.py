@@ -23,6 +23,12 @@ _DATE_RE = re.compile(
     re.IGNORECASE,
 )
 _NUMBER_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
+_PAGE_NUMBER_RE = re.compile(r"\bpage\s+(\d+(?:\.\d+)?)\b", re.IGNORECASE)
+_FREQUENCY_RE = re.compile(
+    r"\b(?:once|twice|(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?\s+(?:a|per)\s+"
+    r"(?:day|week|month|year)|daily|weekly|monthly|yearly|every\s+(?:day|week|month|year))\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -46,19 +52,22 @@ class AnswerProjection:
         return self._canonicalize_value(query_text, belief.belief_items[0].value)
 
     def _canonicalize_value(self, query_text: str, value: str) -> str:
-        text = self._normalize_whitespace(value)
-        if not text:
+        raw_text = self._normalize_whitespace(value)
+        if not raw_text:
             return "unknown"
-        text = self._strip_explanatory_tail(text)
         lowered_query = query_text.strip().lower()
         if lowered_query.startswith("where "):
-            text = self._extract_location_phrase(text)
+            text = self._extract_location_phrase(self._strip_explanatory_tail(raw_text))
         elif lowered_query.startswith("how long"):
-            text = self._extract_pattern(text, _DURATION_RE)
+            text = self._extract_pattern(self._strip_explanatory_tail(raw_text), _DURATION_RE)
         elif lowered_query.startswith("when ") or "what date" in lowered_query or "what day" in lowered_query:
-            text = self._extract_pattern(text, _DATE_RE)
+            text = self._extract_pattern(self._strip_explanatory_tail(raw_text), _DATE_RE)
+        elif lowered_query.startswith("how often") or "how frequently" in lowered_query:
+            text = self._extract_frequency_phrase(raw_text)
         elif lowered_query.startswith("how many") or "what number" in lowered_query or lowered_query.startswith("how much"):
-            text = self._extract_pattern(text, _NUMBER_RE)
+            text = self._extract_numeric_phrase(lowered_query, raw_text)
+        else:
+            text = self._strip_explanatory_tail(raw_text)
         return text or "unknown"
 
     @staticmethod
@@ -84,3 +93,27 @@ class AnswerProjection:
         if match:
             return self._normalize_whitespace(match.group(0).strip(" ,.;"))
         return text
+
+    def _extract_numeric_phrase(self, query_text: str, text: str) -> str:
+        if "page" in query_text:
+            match = _PAGE_NUMBER_RE.search(text)
+            if match:
+                return self._normalize_whitespace(match.group(1))
+        stripped = self._strip_explanatory_tail(text)
+        match = _NUMBER_RE.search(stripped)
+        if match:
+            return self._normalize_whitespace(match.group(0))
+        match = _NUMBER_RE.search(text)
+        if match:
+            return self._normalize_whitespace(match.group(0))
+        return stripped
+
+    def _extract_frequency_phrase(self, text: str) -> str:
+        stripped = self._strip_explanatory_tail(text)
+        match = _FREQUENCY_RE.search(stripped)
+        if match:
+            return self._normalize_whitespace(match.group(0).strip(" ,.;"))
+        match = _FREQUENCY_RE.search(text)
+        if match:
+            return self._normalize_whitespace(match.group(0).strip(" ,.;"))
+        return stripped
