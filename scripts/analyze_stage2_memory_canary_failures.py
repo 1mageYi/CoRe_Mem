@@ -158,6 +158,7 @@ def build_analysis(
     return {
         "commit_hash": summary.get("commit_hash"),
         "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
         "benchmark": _canonical_benchmark_name(benchmark),
         "summary_path": str(effective_summary_path),
         "predictions_path": str(predictions_path),
@@ -236,6 +237,7 @@ def build_layered_analysis(
     return {
         "commit_hash": summary.get("commit_hash"),
         "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
         "benchmark": _canonical_benchmark_name(benchmark),
         "summary_path": str(effective_summary_path),
         "predictions_path": str(predictions_path),
@@ -258,10 +260,15 @@ def write_analysis(root: Path, benchmark: str, payload: dict[str, Any]) -> dict[
     if benchmark_key == "longmemeval" and payload.get("memory_mode") == "learned_memory":
         semantic_latest_path = artifacts_dir / "latest_longmemeval_stage2_semantic_analysis.json"
         semantic_latest_path.write_text(text, encoding="utf-8")
+    v24_latest_path = None
+    if benchmark_key == "longmemeval" and payload.get("slot_assignment_mode") == "learned":
+        v24_latest_path = artifacts_dir / "latest_longmemeval_stage2_v24_analysis.json"
+        v24_latest_path.write_text(text, encoding="utf-8")
     return {
         "stamped_path": str(stamped_path),
         "latest_path": str(latest_path),
         "semantic_latest_path": str(semantic_latest_path) if semantic_latest_path else "",
+        "v24_latest_path": str(v24_latest_path) if v24_latest_path else "",
     }
 
 
@@ -327,6 +334,8 @@ def build_online_gain(
         "artifact_type": "stage2_semantic_online_gain",
         "commit_hash": improved_summary.get("commit_hash"),
         "benchmark": _canonical_benchmark_name(str(improved_summary.get("benchmark", ""))),
+        "memory_mode": improved_summary.get("memory_mode"),
+        "slot_assignment_mode": improved_summary.get("slot_assignment_mode"),
         "comparison_scope": f"live_provider_canary_{improved_metrics['sample_count']}",
         "baseline_summary_path": str(baseline_summary_path),
         "improved_summary_path": str(improved_summary_path),
@@ -348,6 +357,23 @@ def write_semantic_online_gain(root: Path, payload: dict[str, Any]) -> dict[str,
     stamped_path = artifacts_dir / f"{stamp}_stage2_semantic_online_gain.json"
     latest_path = artifacts_dir / "latest_stage2_semantic_online_gain.json"
     text = json.dumps(payload, ensure_ascii=False, indent=2)
+    stamped_path.write_text(text, encoding="utf-8")
+    latest_path.write_text(text, encoding="utf-8")
+    return {
+        "stamped_path": str(stamped_path),
+        "latest_path": str(latest_path),
+    }
+
+
+def write_v24_online_gain(root: Path, payload: dict[str, Any]) -> dict[str, str]:
+    artifacts_dir = root / "outputs_v2" / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    stamp = _timestamp()
+    stamped_path = artifacts_dir / f"{stamp}_stage2_v24_online_gain.json"
+    latest_path = artifacts_dir / "latest_stage2_v24_online_gain.json"
+    v24_payload = dict(payload)
+    v24_payload["artifact_type"] = "stage2_v24_online_gain"
+    text = json.dumps(v24_payload, ensure_ascii=False, indent=2)
     stamped_path.write_text(text, encoding="utf-8")
     latest_path.write_text(text, encoding="utf-8")
     return {
@@ -380,6 +406,7 @@ def main() -> int:
     parser.add_argument("--baseline-summary-path")
     parser.add_argument("--improved-summary-path")
     parser.add_argument("--write-semantic-online-gain", action="store_true")
+    parser.add_argument("--write-v24-online-gain", action="store_true")
     parser.add_argument("--example-limit", type=int, default=12)
     parser.add_argument("--no-write", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -413,6 +440,16 @@ def main() -> int:
         )
         if not args.no_write:
             gain_payload["artifact_paths"] = write_semantic_online_gain(root, gain_payload)
+    if args.write_v24_online_gain:
+        if not args.baseline_summary_path or not args.improved_summary_path:
+            raise ValueError("--write-v24-online-gain requires --baseline-summary-path and --improved-summary-path")
+        gain_payload = build_online_gain(
+            root=root,
+            baseline_summary_path=Path(args.baseline_summary_path).resolve(),
+            improved_summary_path=Path(args.improved_summary_path).resolve(),
+        )
+        if not args.no_write:
+            gain_payload["artifact_paths"] = write_v24_online_gain(root, gain_payload)
     if args.json:
         response: dict[str, Any] = {"analysis": payload, "layered_analysis": layered_payload}
         if gain_payload is not None:

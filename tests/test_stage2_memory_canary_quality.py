@@ -289,3 +289,99 @@ def test_stage2_memory_canary_analysis_can_publish_semantic_alias_and_online_gai
     gain_payload = response_payload["semantic_online_gain"]
     assert gain_payload["positive_gain"] is True
     assert gain_payload["delta_provider_exact_match"] == 1
+
+
+def test_stage2_memory_canary_analysis_can_publish_v24_alias_and_online_gain(tmp_path: Path):
+    repo_root = tmp_path / "repo"
+    (repo_root / "outputs_v2" / "evals_benchmark").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "baseline").mkdir(parents=True)
+    (repo_root / "outputs_v2" / "runs" / "improved").mkdir(parents=True)
+
+    baseline_predictions_path = repo_root / "outputs_v2" / "runs" / "baseline" / "predictions.jsonl"
+    improved_predictions_path = repo_root / "outputs_v2" / "runs" / "improved" / "predictions.jsonl"
+    _write_jsonl(
+        baseline_predictions_path,
+        [
+            {
+                "sample_id": "a",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "Seattle",
+                "memory_answer_local": "Seattle",
+                "provider_prediction": "Portland",
+                "provider_status": "completed",
+                "question_type": "single_session_user",
+                "belief_state": {"belief_items": [{"relation": "location"}]},
+                "selected_slot_ids": ["slot_1"],
+            }
+        ],
+    )
+    _write_jsonl(
+        improved_predictions_path,
+        [
+            {
+                "sample_id": "a",
+                "benchmark": "longmemeval_s",
+                "expected_answer": "Seattle",
+                "memory_answer_local": "Seattle",
+                "provider_prediction": "Seattle",
+                "provider_status": "completed",
+                "question_type": "single_session_user",
+                "belief_state": {"belief_items": [{"relation": "location"}]},
+                "selected_slot_ids": ["slot_1"],
+            }
+        ],
+    )
+
+    baseline_summary_path = repo_root / "outputs_v2" / "evals_benchmark" / "20260415T000000Z_stage2_memory_canary.json"
+    improved_summary_path = repo_root / "outputs_v2" / "evals_benchmark" / "20260415T010000Z_stage2_memory_canary.json"
+    _write_json(
+        baseline_summary_path,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 1,
+            "live_predictions_completed": 1,
+            "provider_configured": True,
+            "status": "completed",
+            "slot_assignment_mode": "learned",
+            "commit_hash": "baseline",
+            "predictions_path": str(baseline_predictions_path),
+        },
+    )
+    _write_json(
+        improved_summary_path,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 1,
+            "live_predictions_completed": 1,
+            "provider_configured": True,
+            "status": "completed",
+            "slot_assignment_mode": "learned",
+            "commit_hash": "improved",
+            "predictions_path": str(improved_predictions_path),
+        },
+    )
+
+    analysis = _run(
+        "scripts/analyze_stage2_memory_canary_failures.py",
+        "--root",
+        str(repo_root),
+        "--benchmark",
+        "longmemeval_s",
+        "--summary-path",
+        str(improved_summary_path),
+        "--baseline-summary-path",
+        str(baseline_summary_path),
+        "--improved-summary-path",
+        str(improved_summary_path),
+        "--write-v24-online-gain",
+        "--json",
+    )
+    assert analysis.returncode == 0, analysis.stderr
+    response_payload = json.loads(analysis.stdout)
+    v24_analysis_path = repo_root / "outputs_v2" / "artifacts" / "latest_longmemeval_stage2_v24_analysis.json"
+    v24_gain_path = repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v24_online_gain.json"
+    assert v24_analysis_path.exists()
+    assert v24_gain_path.exists()
+    gain_payload = response_payload["semantic_online_gain"]
+    assert gain_payload["positive_gain"] is True
+    assert gain_payload["delta_provider_exact_match"] == 1

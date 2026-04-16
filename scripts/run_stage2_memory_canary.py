@@ -444,6 +444,17 @@ def _maybe_write_slot_assignment_alias(output_root: Path, benchmark: str, summar
     _write_json(output_root / "artifacts" / alias_name, summary)
 
 
+def _maybe_write_v24_canary_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if summary.get("slot_assignment_mode") != "learned" or summary.get("status") != "completed":
+        return
+    alias_name = (
+        "latest_personamem_stage2_v24_canary.json"
+        if benchmark == "personamem"
+        else "latest_longmemeval_stage2_v24_canary.json"
+    )
+    _write_json(output_root / "artifacts" / alias_name, summary)
+
+
 def run_personamem_canary(
     *,
     output_root: Path,
@@ -576,6 +587,7 @@ def run_personamem_canary(
     _write_json(summary_path, summary)
     _maybe_write_learned_alias(output_root, "personamem", summary)
     _maybe_write_slot_assignment_alias(output_root, "personamem", summary)
+    _maybe_write_v24_canary_alias(output_root, "personamem", summary)
     return summary
 
 
@@ -701,6 +713,7 @@ def run_longmemeval_canary(
     _write_json(summary_path, summary)
     _maybe_write_learned_alias(output_root, "longmemeval", summary)
     _maybe_write_slot_assignment_alias(output_root, "longmemeval", summary)
+    _maybe_write_v24_canary_alias(output_root, "longmemeval", summary)
     return summary
 
 
