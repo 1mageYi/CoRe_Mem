@@ -2,6 +2,20 @@
 
 ## 2026-04-15 Session 028
 
+- Worked on: 把 stage-2 当前主线从 `TD-031 / WS-017` 提升到 `TD-032 / WS-018`，正式进入 `v2.2 full-data semantic latent`
+- State changed:
+  - 新增 `docs/v22_plan.md`，把 `v2.2` 的 full-data semantic-first 计划、里程碑和 no-fallback 约束写成真源文档
+  - 新增 `scripts/verify_stage2_v22_completion.py` 与 `tests/test_stage2_v22_completion.py`
+  - 将 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 同步到 `TD-032 / WS-018`
+  - 明确 `v2.2` 的核心不是继续 closeout `TD-031`，而是把 semantic-first 扩展到 current-head full-data 训练、extended live canary、LongMemEval-S 质量提升和 learned-vs-symbolic 对照
+- Evidence / artifacts:
+  - `docs/v22_plan.md`
+  - `scripts/verify_stage2_v22_completion.py`
+  - `tests/test_stage2_v22_completion.py`
+- Next likely action:
+  - 以 `scripts/verify_stage2_v22_completion.py --score-only` 为机械指标，启动新的 background autoresearch
+## 2026-04-15 Session 028
+
 - Worked on: 完成 `TD-031 / WS-017` 的 semantic-first managed autoresearch 收口，把 `stage2_v21_semantic_model_score` 从 baseline `13/17` 推到 stop condition `17/17`
 - State changed:
   - 新增 `src/core_mem/v2/semantic_outputs.py`，把 task-aware 结构修复与语义计分抽成通用组件

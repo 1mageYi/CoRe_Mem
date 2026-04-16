@@ -2,13 +2,11 @@
 
 ## Doing
 
-- `TD-031` `[doing]` 在不引入任何 fallback/shortcut 的前提下，把 stage-2 learned training 切到 semantic-first 主线。
-  - Reason: 当前 retained 方案已证明主要瓶颈不是语义本体完全缺失，而是 learned decoder 经常只差外层结构壳；需要把语义恢复与通用结构约束从 raw JSON exact match 中解耦。
-  - Evidence target: `scripts/verify_stage2_v21_semantic_model.py --score-only`
-  - Mechanical target: `scripts/verify_stage2_v21_semantic_model.py --score-only`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；格式约束可以外置，但不能把外部修复冒充为模型本体收益
-  - Current retained state: `scripts/verify_stage2_v21_semantic_model.py --score-only = 17/17`；`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 已把 `trained_eval.token_f1` 提升到 `0.879714215455919`，同时 `retrieval_alignment.token_f1 = 0.9860465116279071`
-  - Current runtime truth: stop condition 已机械达到；保留 `TD-031` 为当前 doing 只为了维持 semantic-first 主线 closeout 与可复验状态
+- `TD-032` `[doing]` 以 full-data semantic-first learned memory 为锚点推进 `v2.2`。
+  - Reason: semantic-first 已证明方向成立，下一步最值得做的是用 current-head full-data 训练、extended semantic canary 和 LongMemEval-S 提升把这条线推进到更接近“完善的系统/模型/latent”。
+  - Evidence target: `scripts/verify_stage2_v22_completion.py --score-only`
+  - Mechanical target: `scripts/verify_stage2_v22_completion.py --score-only`
+  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；允许完整数据训练和扩展 benchmark，但收益必须保持 semantic-first 与 current-head 可复验
 
 ## Backlog
 

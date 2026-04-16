@@ -335,6 +335,21 @@
   - 当前关键实现是新增通用 `semantic_outputs.py`，把 task-aware 结构修复与语义计分同时接到 checkpoint eval 和 online learned belief parse
   - 禁止把外部格式修复退化成 fallback；目标仍然是提升模型本体语义能力
 
+### 阶段 Q：V2.2 Full-Data Semantic Latent
+
+- Goal: 把 semantic-first learned path 从 current retained artifact 推进到 full-data current-head 训练、extended benchmark 验证和 LongMemEval-S 主导的质量提升
+- Status: doing
+- Notes:
+  - `v2.2` 继续保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
+  - 这轮强调可以使用完整 public-data task rows 做训练与本地评测
+  - 当前的关键缺口不再是 raw JSON exactness，而是：
+    - current-head full-data 训练证据
+    - current-head `PersonaMem 128`
+    - current-head `LongMemEval-S 64/128`
+    - current-head LongMemEval-S layered analysis
+    - current-head learned-vs-symbolic online gain
+  - 这条线对应的新 verifier 是 `scripts/verify_stage2_v22_completion.py`
+
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 
 - 目标：把 stage-2 主线从 “继续强化 rule-heavy robustness” 切到 “用更 learned 的 memory write/read 与更强 latent memory 提升系统智能程度”

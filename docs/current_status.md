@@ -169,6 +169,13 @@
   这说明当前 retained 收益主要来自“把语义恢复与结构壳错误解耦”，而不是重新引入任何 fallback 或 benchmark-specific shortcut。
 - 当前 `TD-031` 的明确锚点仍是：`语义优先`、`格式外部约束`。
 - 第二阶段 semantic-first 关键实现变化：`src/core_mem/v2/semantic_outputs.py` 现把 task-aware 结构修复与语义计分抽成通用组件；`training.py` 与 `system.py` 共用这一逻辑，因此 learned checkpoint eval 和 online learned belief parse 对 brace-level JSON 壳错误的处理已对齐。
+- 第二阶段 `v2.2` 新目标：在保持 semantic-first 与 no-fallback/no-shortcut 约束不变的前提下，把主线推进到 **full-data semantic-first learned memory**。这条线要求：
+  - current-head full-data public-data 训练与本地评测
+  - current-head `PersonaMem 128` semantic canary
+  - current-head `LongMemEval-S 64/128` semantic canary
+  - current-head LongMemEval-S layered analysis
+  - current-head learned-vs-symbolic online gain artifact
+  - 相关计划见 [v22_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v22_plan.md)
 - 测试状态：本轮 stop condition 对应的 final mechanical evidence 是：
   - `conda run -n core_mem python scripts/verify_stage2_v21_semantic_model.py --score-only` -> `17`
   - full semantic guard 通过：`pytest -q tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_data_pipeline.py tests/test_stage2_public_data.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_latent_core_quality.py tests/test_stage2_v21_learned_memory.py tests/test_stage2_v21_longrun.py tests/test_stage2_v21_semantic_model.py tests/test_stage2_parser.py`
@@ -177,11 +184,11 @@
 ## 当前最重要的下一步
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
-- `TD-029` 与 `TD-030` 已机械完成；`TD-031` 当前也已达到 stop condition。当前 runtime truth 仍保留 `TD-031` 作为 semantic-first closeout 主线，用于维持这条线的可复验状态；若继续推进 stage-2，更合理的下一步应是把 semantic-first 能力扩展到 fresh current-head learned canary，而不是回头追 raw JSON exact match。
+- `TD-029`、`TD-030` 与 `TD-031` 已机械完成；当前 runtime truth 正式切到 `TD-032` 与 `v2.2`。下一步不再只是 closeout semantic-first，而是把 semantic-first 扩展到 full-data current-head 训练、extended live canaries 和 LongMemEval-S 主导的质量提升。
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`
-  - 尽管如此，live learned canary 仍需要 fresh current-head 复验，因此后续若继续投入，应优先扩展 semantic-first 逻辑到 online canary 证据，而不是继续机械扩大 sample count 或追逐 raw JSON exact match
+  - 尽管如此，current-head 的 full-data 与 extended canary 证据还没有补齐，所以 `v2.2` 的主任务应是把 semantic-first 从 retained local artifact 推进到 current-head full-data / extended benchmark 级别
 
 ## 关键约束
 

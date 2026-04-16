@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-031`
-- Active workstreams: `WS-017`
+- Top next action: `TD-032`
+- Active workstreams: `WS-018`
 - Active blockers: `BL-004`
 
 ## Objective Summary
@@ -36,11 +36,15 @@
   - Final retained state: `scripts/verify_stage2_v21_semantic_model.py --score-only = 17/17`；`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json` 已把 non-tiny `trained_eval.token_f1` 提到 `0.879714215455919`，其中 `retrieval_alignment.token_f1 = 0.9860465116279071`
   - Current runtime truth: semantic-first stop condition 已机械达到；当前 closeout 仍保留 `TD-031 / WS-017` 作为运行时主线，直到用户给出新的 stage-2 方向
   - Key retained change: 新增 `src/core_mem/v2/semantic_outputs.py`，让通用结构修复与语义计分同时服务 checkpoint eval 和 online learned belief parse，不再把 brace-level JSON 壳错误误判成语义失败
+- `WS-018` `[doing]`: Stage-2 当前主线切到 `v2.2 full-data semantic latent`，目标是在不引入任何 fallback/shortcut 的前提下，把 semantic-first 能力推进到 current-head full-data 训练、extended live canaries 与 LongMemEval-S 主导的质量提升
+  - Mechanical target: `stage2_v22_completion_score`
+  - Current baseline: 待用 `scripts/verify_stage2_v22_completion.py` 固化
+  - Initial truth: semantic-first 本地语义指标已经很强，但 current-head full-data / extended benchmark / learned-vs-symbolic 对照证据仍未补齐
 
 ## Top Next Action
 
-- `TD-031` `[doing]`: 以“语义优先、格式外部约束处理”为锚点推进 learned-model-first 的下一轮长跑。
-  - Current retained state: `stage2_v21_semantic_model_score = 17/17` 已机械达到；当前只做 closeout、证据同步与可复验保持，除非用户给出新的 stage-2 方向
+- `TD-032` `[doing]`: 以 full-data semantic-first learned memory 为锚点推进 `v2.2`。
+  - Needed: current-head full-data 训练与本地评测、current-head `PersonaMem 128` / `LongMemEval-S 64/128` semantic canary、current-head LongMemEval-S analysis、以及 current-head learned-vs-symbolic online gain
 
 ## Active Blockers
 

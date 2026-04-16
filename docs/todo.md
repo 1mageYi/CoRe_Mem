@@ -2,13 +2,10 @@
 
 ## Doing
 
-- `TD-031` 在不引入 fallback/shortcut 的前提下，把 stage-2 learned training 切到“语义优先、格式外部约束处理”主线。
-  - 当前机械目标：`scripts/verify_stage2_v21_semantic_model.py --score-only`
-  - 当前重点：belief JSON 无效输出、`learned_memory_error`、`retrieval_alignment` 长期为零，以及 raw JSON 表面匹配对模型学习目标的干扰
-  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；格式约束可以外置，但不能冒充模型本体收益
-  - 当前完成态：`scripts/verify_stage2_v21_semantic_model.py --score-only = 17/17`
-  - 当前 retained 证据：`outputs_v2/evals_local/20260415T230211Z_stage2_local_eval.json`，其中 non-tiny `trained_eval.token_f1 = 0.879714215455919`、`retrieval_alignment.token_f1 = 0.9860465116279071`
-  - 当前 runtime truth：stop condition 已机械达到；保留此项为 doing 只为了维持 semantic-first closeout 与可复验状态
+- `TD-032` 以 full-data semantic-first learned memory 为目标推进 `v2.2`。
+  - 当前机械目标：`scripts/verify_stage2_v22_completion.py --score-only`
+  - 当前重点：current-head full-data 训练、current-head `PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、LongMemEval-S layered analysis、以及 learned-vs-symbolic 在线增益
+  - 当前硬约束：不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first
 
 ## Blocked
 
@@ -24,6 +21,9 @@
 
 - `TD-030` 以 learned model / better latent 为锚点启动 `v2.1` 长跑。
   - 说明：当前机械 stop condition 已在 HEAD `d6bc4f7` 上达到 `16/16`；此项历史里程碑已完成，但不再是当前主线。
+
+- `TD-031` 在不引入 fallback/shortcut 的前提下，把 stage-2 learned training 切到“语义优先、格式外部约束处理”主线。
+  - 说明：当前机械 stop condition 已达到 `17/17`；此项历史里程碑已完成，但不再是当前主线。
 
 ## Done
 
@@ -64,7 +64,7 @@
 - 第二阶段当前已从“方法与治理层锁定”推进到“完整 v2 milestone 已机械达成”的状态。
 - 第二阶段 observation / belief / parser / dataset skeleton、`prepare/train/eval/canary` 脚本、主线 memory system、公开数据规范化、strict-source prepared manifest、direct-train launcher、完整 local eval 与评测文档都已落地，`stage2_readiness_score` 当前为 `50`，`stage2_acceptance` 当前为 `7/7`，`scripts/verify_stage2_latent_status.py --score-only` 当前为 `9/9`。
 - 当前最大的未完成点已经从“latent path 还不是真实主链”和“provider key 缺失”切换为“live canary 质量不足，尚不能直接扩大 benchmark”。
-- `TD-027`、`TD-028`、`TD-029` 与 `TD-030` 已机械完成；当前主线已经切到 `TD-031`，重点不再是补 learned-memory plumbing，而是修 semantic correctness、belief JSON 有效性和在线 learned path 的稳定性。
+- `TD-027`、`TD-028`、`TD-029`、`TD-030` 与 `TD-031` 已机械完成；当前主线已经切到 `TD-032`，重点转向 full-data semantic-first learned memory、extended benchmark 与更强 LongMemEval-S。
 - 第二阶段主线采用：
   - `Light Cross-Attention Resampler`
   - `Flan-T5 belief JSON decoder`
