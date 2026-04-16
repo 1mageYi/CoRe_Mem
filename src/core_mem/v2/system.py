@@ -281,6 +281,11 @@ class StructuredMemorySystem:
         # a legal merge target.
         if observation.relation == "other_fact" and symbolic_decision.action == "new":
             return symbolic_decision
+        # If the symbolic writer already resolved a unique merge/overwrite
+        # target, there is no candidate-ranking ambiguity left for the learned
+        # head to solve.
+        if symbolic_decision.action in {"merge", "overwrite"} and len(candidates) <= 1:
+            return symbolic_decision
 
         predictor = self._resolve_slot_assignment_predictor()
         if predictor is None:

@@ -7,7 +7,7 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from core_mem.v2.system import StructuredMemorySystem
+from core_mem.v2.system import StructuredMemoryState, StructuredMemorySystem
 from core_mem.v2.schemas import Observation
 
 
@@ -224,7 +224,93 @@ def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode(
 def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     calls = {"count": 0}
 
-    def _predict(observation, _slots):
+    def _predict(_observation, _slots):
+        calls["count"] += 1
+        return {"target_action": "ignore", "target_flags": {"promote": False, "stale_old": False}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    boston = Observation.from_dict(
+        {
+            "obs_id": "obs-1",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "location",
+            "value": "Boston",
+            "value_type": "location",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I live in Boston.",
+            "canonical_gloss": "location=Boston",
+        }
+    )
+    chicago = Observation.from_dict(
+        {
+            "obs_id": "obs-2",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-2",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "location",
+            "value": "Chicago",
+            "value_type": "location",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I moved to Chicago.",
+            "canonical_gloss": "location=Chicago",
+        }
+    )
+    system.state = StructuredMemoryState(
+        residual_slots=[
+            system.slot_encoder.encode(boston, timestamp="2026-04-07T05:00:00Z", bank="residual"),
+            system.slot_encoder.encode(chicago, timestamp="2026-04-07T05:02:00Z", bank="residual"),
+        ]
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-3",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-3",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "location",
+                "value": "Seattle",
+                "value_type": "location",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "Now I live in Seattle.",
+                "canonical_gloss": "location=Seattle",
+            }
+        ),
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    assert calls["count"] == 1
+    assert len(system.state.active_slots()) == 2
+
+
+def test_structured_memory_system_short_circuits_single_candidate_overwrite():
+    calls = {"count": 0}
+
+    def _predict(_observation, _slots):
         calls["count"] += 1
         return {"target_action": "overwrite", "target_flags": {"promote": False, "stale_old": True}}
 
@@ -281,7 +367,7 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     )
 
     result = system.query("query-slot-assignment", "Where does the user live?")
-    assert calls["count"] == 1
+    assert calls["count"] == 0
     assert result.answer_text == "Seattle"
 
 
