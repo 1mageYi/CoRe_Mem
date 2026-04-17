@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -67,6 +69,26 @@ class TaskRegistryEntry:
             "datasets": list(self.datasets),
             "modules": list(self.modules),
             "primary_metrics": list(self.primary_metrics),
+        }
+
+
+@dataclass(frozen=True)
+class SourceRecordRef:
+    dataset_key: str
+    dataset: str
+    sample_id: str
+    has_lifecycle: bool
+    relation: str
+    parser_bucket: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "dataset_key": self.dataset_key,
+            "dataset": self.dataset,
+            "sample_id": self.sample_id,
+            "has_lifecycle": self.has_lifecycle,
+            "relation": self.relation,
+            "parser_bucket": self.parser_bucket,
         }
 
 
@@ -231,10 +253,165 @@ def summarize_stage2_sources(path: str | Path) -> dict[str, Any]:
     return summary
 
 
+def _record_relation(record: dict[str, Any]) -> str:
+    tasks = record.get("tasks", {}) or {}
+    slot_payload = tasks.get("slot_autoencoding") or {}
+    target_record = slot_payload.get("target_record") or {}
+    if isinstance(target_record, dict) and target_record.get("relation"):
+        return str(target_record["relation"])
+
+    input_observation = slot_payload.get("input_observation") or {}
+    if isinstance(input_observation, dict) and input_observation.get("relation"):
+        return str(input_observation["relation"])
+
+    lifecycle_payload = tasks.get("lifecycle_prediction") or {}
+    new_observation = lifecycle_payload.get("new_observation") or {}
+    if isinstance(new_observation, dict) and new_observation.get("relation"):
+        return str(new_observation["relation"])
+
+    belief_payload = tasks.get("composition_to_belief") or {}
+    target_belief = belief_payload.get("target_belief_json") or {}
+    belief_items = target_belief.get("belief_items", []) if isinstance(target_belief, dict) else []
+    for item in belief_items:
+        if isinstance(item, dict) and item.get("relation"):
+            return str(item["relation"])
+
+    retrieval_payload = tasks.get("retrieval_alignment") or {}
+    positive_slot = retrieval_payload.get("positive_slot") or {}
+    if isinstance(positive_slot, dict) and positive_slot.get("relation"):
+        return str(positive_slot["relation"])
+    return "unknown"
+
+
+def _record_parser_bucket(record: dict[str, Any]) -> str:
+    tasks = record.get("tasks", {}) or {}
+    slot_payload = tasks.get("slot_autoencoding") or {}
+    input_observation = slot_payload.get("input_observation") or {}
+    metadata = input_observation.get("metadata", {}) if isinstance(input_observation, dict) else {}
+    if isinstance(metadata, dict):
+        for key in ("parser_source", "parser_bucket", "source_type", "normalizer"):
+            value = metadata.get(key)
+            if value:
+                return str(value)
+    return "unknown"
+
+
+def collect_stage2_source_records(path: str | Path) -> list[SourceRecordRef]:
+    payload = load_stage2_source_config(path)
+    datasets = payload.get("datasets", {})
+    records: list[SourceRecordRef] = []
+    for dataset_key, spec in datasets.items():
+        if not spec.get("enabled", True):
+            continue
+        dataset_path = Path(spec["path"])
+        if not dataset_path.exists():
+            continue
+        with dataset_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                tasks = record.get("tasks", {}) or {}
+                records.append(
+                    SourceRecordRef(
+                        dataset_key=str(dataset_key),
+                        dataset=str(record.get("dataset", dataset_key)),
+                        sample_id=str(record.get("sample_id", "")),
+                        has_lifecycle="lifecycle_prediction" in tasks,
+                        relation=_record_relation(record),
+                        parser_bucket=_record_parser_bucket(record),
+                    )
+                )
+    return records
+
+
+def _allocate_split_quota(available_counts: dict[tuple[str, bool], int], target_total: int) -> dict[tuple[str, bool], int]:
+    total_available = sum(available_counts.values())
+    if total_available < target_total:
+        raise ValueError(
+            f"Requested split of {target_total} source rows but only {total_available} rows remain."
+        )
+    quotas = {key: int(target_total * count / total_available) for key, count in available_counts.items()}
+    assigned = sum(quotas.values())
+    if assigned < target_total:
+        remainders = sorted(
+            (
+                (target_total * count / total_available) - quotas[key],
+                key,
+            )
+            for key, count in available_counts.items()
+        )
+        for _, key in reversed(remainders):
+            if assigned >= target_total:
+                break
+            if quotas[key] >= available_counts[key]:
+                continue
+            quotas[key] += 1
+            assigned += 1
+    return quotas
+
+
+def build_source_record_split_from_sources(
+    path: str | Path,
+    *,
+    split_counts: dict[str, int],
+    split_seed: int = 27,
+) -> dict[str, Any]:
+    records = collect_stage2_source_records(path)
+    total_requested = sum(split_counts.values())
+    if len(records) < total_requested:
+        raise ValueError(
+            f"Requested {total_requested} source rows but only {len(records)} rows are available."
+        )
+
+    grouped: dict[tuple[str, bool], list[SourceRecordRef]] = defaultdict(list)
+    for record in records:
+        grouped[(record.dataset_key, record.has_lifecycle)].append(record)
+
+    for items in grouped.values():
+        items.sort(
+            key=lambda item: hashlib.sha1(
+                f"{split_seed}:{item.dataset_key}:{item.sample_id}".encode("utf-8")
+            ).hexdigest()
+        )
+
+    offsets = {key: 0 for key in grouped}
+    split_rows: dict[str, list[dict[str, Any]]] = {}
+    for split_name, target_count in split_counts.items():
+        available_counts = {
+            key: len(items) - offsets[key]
+            for key, items in grouped.items()
+            if len(items) - offsets[key] > 0
+        }
+        quotas = _allocate_split_quota(available_counts, target_count)
+        selected: list[dict[str, Any]] = []
+        for key in sorted(quotas):
+            count = quotas[key]
+            if count <= 0:
+                continue
+            start = offsets[key]
+            end = start + count
+            selected.extend(item.to_dict() for item in grouped[key][start:end])
+            offsets[key] = end
+        split_rows[split_name] = selected
+
+    return {
+        "split_seed": split_seed,
+        "requested_counts": {name: int(count) for name, count in split_counts.items()},
+        "available_source_rows": len(records),
+        "split_rows": split_rows,
+        "available_by_dataset": {
+            dataset_key: sum(1 for item in records if item.dataset_key == dataset_key)
+            for dataset_key in sorted({item.dataset_key for item in records})
+        },
+    }
+
+
 def build_prepared_payload_from_sources(
     path: str | Path,
     *,
     max_rows_per_dataset: int | None = None,
+    selected_sample_ids: dict[str, set[str]] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     payload = load_stage2_source_config(path)
     datasets = payload.get("datasets", {})
@@ -256,13 +433,17 @@ def build_prepared_payload_from_sources(
                 if not line.strip():
                     continue
                 record = json.loads(line)
+                sample_id = str(record.get("sample_id", ""))
+                selected_ids = (selected_sample_ids or {}).get(str(dataset_key))
+                if selected_ids is not None and sample_id not in selected_ids:
+                    continue
                 for task_name, task_payload in record.get("tasks", {}).items():
                     if task_name in prepared:
                         payload = dict(task_payload)
                         payload["_meta"] = {
                             "dataset_key": dataset_key,
                             "dataset": str(record.get("dataset", dataset_key)),
-                            "sample_id": str(record.get("sample_id", "")),
+                            "sample_id": sample_id,
                             "task_name": task_name,
                         }
                         prepared[task_name].append(payload)

@@ -210,7 +210,7 @@
 ## 当前最重要的下一步
 
 - `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
-- 当前 active 主线正式切到 **`TD-038 / WS-024 / v2.7 32k teacher-first`**
+- 当前 active 主线正式切到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**
 - `v2.7` 的新锚点不是直接上 full-data，而是：
   - 建立 `32k` source-level split
   - 先做 `24k train / 4k val / 4k test`

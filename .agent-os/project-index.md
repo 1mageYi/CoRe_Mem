@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 启动 `TD-038 / WS-024` 的 `v2.7 32k teacher-first` 长跑；先建立 `32k` source-level split、teacher labels、internal test 与 training timing，再决定是否进入 full-data
+- Top next action: 启动 `TD-038 / WS-024` 的 `v2.7` 32k teacher-first 长跑；当前 active 项显式为 `TD-038 / WS-024`，先建立 `32k` source-level split、teacher labels、internal test 与 training timing，再决定是否进入 full-data
 - Active workstreams: `WS-024`
 - Active blockers: `BL-004`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022` 与 `TD-037 / WS-023` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout 与 `v2.6` gain-first closeout 复验；当前 active 主线已经前推到 `TD-038 / WS-024`

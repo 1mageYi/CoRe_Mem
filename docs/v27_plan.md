@@ -20,6 +20,7 @@
 
 以下部分在 `v2.7` 中**明确冻结，不作为主改动对象**：
 
+- 不改 `core / residual`
 - `core / residual` 双银行结构
 - `observation -> slot -> core/residual -> retrieval -> belief -> answer` 的总体主链
 - `semantic-first`

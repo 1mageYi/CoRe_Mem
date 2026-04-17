@@ -111,7 +111,7 @@
 
 ### 当前 `v2.7` 执行锚点
 
-当前 active 主线已经前推到 **`TD-038 / WS-024 / v2.7 32k teacher-first`**，核心约束是：
+当前 active 主线已经前推到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**，核心约束是：
 
 - 保持 `core / residual` 双银行结构不变
 - 先建立 `32k` source-level split，而不是直接进入 full-data
@@ -124,7 +124,7 @@
   - `slot assignment / lifecycle`
   - `belief semantic fields`
 - 训练优先使用 `gpu2`
-- 训练时必须记录 wall-clock / throughput / memory，判断 `32k` 是否过重
+- 训练时必须记录 `训练耗时`、wall-clock / throughput / memory，判断 `32k` 是否过重
 - benchmark 继续保持 holdout-only，不回流成训练 supervision
 - **只有在 32k internal test work well 后，才允许进入 full-data**
 
