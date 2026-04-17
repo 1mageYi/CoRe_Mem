@@ -190,6 +190,113 @@ def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemp
     assert result.answer_text == "target"
 
 
+def test_structured_memory_system_prefers_temporal_slot_for_previous_occupation_query():
+    system = StructuredMemorySystem()
+    current_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-current-occupation",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "occupation",
+            "value": "lpc associate",
+            "value_type": "occupation",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I work as an LPC associate.",
+            "canonical_gloss": "occupation=lpc associate",
+        }
+    )
+    past_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-past-occupation",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-2",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "occupation",
+            "value": "marketing specialist at a small startup",
+            "value_type": "occupation",
+            "time_scope": "past",
+            "status_hint": "stale",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I used to work as a marketing specialist at a small startup.",
+            "canonical_gloss": "occupation=marketing specialist at a small startup",
+        }
+    )
+    system.state = StructuredMemoryState(
+        residual_slots=[
+            system.slot_encoder.encode(current_observation, timestamp="2026-04-07T05:00:00Z", bank="residual"),
+            system.slot_encoder.encode(past_observation, timestamp="2026-04-07T05:01:00Z", bank="residual"),
+        ]
+    )
+
+    result = system.query("query-previous-occupation", "What was my previous occupation?")
+    assert result.answer_text == "marketing specialist at a small startup"
+    assert result.belief_state.belief_items[0].time_scope == "past"
+
+
+def test_structured_memory_system_prefers_numeric_slot_for_how_much_query():
+    system = StructuredMemorySystem()
+    price_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-price",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "designer handbag for $800",
+            "value_type": "other",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I recently bought a designer handbag for $800.",
+            "canonical_gloss": "other_fact=designer handbag for $800",
+        }
+    )
+    distractor_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-distractor",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-2",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "still new to instagram ads",
+            "value_type": "other",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I am still new to Instagram ads and need help creating an ad account.",
+            "canonical_gloss": "other_fact=still new to instagram ads",
+        }
+    )
+    system.state = StructuredMemoryState(
+        residual_slots=[
+            system.slot_encoder.encode(price_observation, timestamp="2026-04-07T05:00:00Z", bank="residual"),
+            system.slot_encoder.encode(distractor_observation, timestamp="2026-04-07T05:01:00Z", bank="residual"),
+        ]
+    )
+
+    result = system.query("query-price", "How much did I spend on a designer handbag?")
+    assert result.answer_text == "800"
+
+
 def test_structured_memory_system_can_switch_to_learned_memory_belief_predictor():
     def _predict(query_id: str, query_text: str, slots):
         assert query_id == "query-learned"

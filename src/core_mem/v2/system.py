@@ -21,18 +21,29 @@ from core_mem.v2.vector_ops import dot_product
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
 _SLOT_ASSIGNMENT_MAX_TARGET_LENGTH_CAP = 48
+_DATE_VALUE_RE = re.compile(
+    r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b",
+    re.IGNORECASE,
+)
+_NUMBER_VALUE_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
 _QUERY_STOPWORDS = {
     "a",
     "an",
     "and",
     "answer",
+    "before",
     "called",
+    "change",
+    "changed",
     "current",
     "currently",
+    "date",
     "did",
+    "day",
     "do",
     "does",
     "exact",
+    "former",
     "for",
     "from",
     "have",
@@ -42,14 +53,18 @@ _QUERY_STOPWORDS = {
     "is",
     "it",
     "long",
+    "many",
     "me",
+    "much",
     "my",
-    "name",
+    "number",
     "of",
+    "old",
     "on",
     "only",
     "phrase",
     "please",
+    "previous",
     "shortest",
     "the",
     "their",
@@ -190,7 +205,7 @@ class StructuredMemorySystem:
         query_terms = self._query_terms(query_text)
         ranked = sorted(
             self.state.active_slots(),
-            key=lambda slot: self._ranking_score(query_vector, query_terms, slot),
+            key=lambda slot: self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
             reverse=True,
         )
         selected = ranked[: self.top_k]
@@ -250,15 +265,77 @@ class StructuredMemorySystem:
             if len(token) >= 3
         }
 
-    def _ranking_score(self, query_vector: list[float], query_terms: set[str], slot: SlotRecord) -> float:
+    @staticmethod
+    def _query_prefers_historical_memory(query_text: str) -> bool:
+        lowered = query_text.lower()
+        return any(
+            phrase in lowered
+            for phrase in (
+                "previous",
+                "before",
+                "former",
+                "old ",
+                "old name",
+                "changed",
+                "earlier",
+                "used to",
+                "last name before",
+            )
+        )
+
+    @staticmethod
+    def _query_prefers_current_memory(query_text: str) -> bool:
+        lowered = query_text.lower()
+        return any(token in lowered for token in ("current", "currently", "now", "these days"))
+
+    @staticmethod
+    def _query_expects_date(query_text: str) -> bool:
+        lowered = query_text.lower()
+        return lowered.startswith("when ") or "what date" in lowered or "what day" in lowered
+
+    @staticmethod
+    def _query_expects_number(query_text: str) -> bool:
+        lowered = query_text.lower()
+        return lowered.startswith("how many") or lowered.startswith("how much") or "what number" in lowered
+
+    @staticmethod
+    def _slot_has_date_value(slot: SlotRecord) -> bool:
+        return bool(_DATE_VALUE_RE.search(slot.canonical_gloss))
+
+    @staticmethod
+    def _slot_has_number_value(slot: SlotRecord) -> bool:
+        return bool(_NUMBER_VALUE_RE.search(slot.canonical_gloss))
+
+    def _ranking_score(
+        self,
+        query_vector: list[float],
+        query_terms: set[str],
+        slot: SlotRecord,
+        *,
+        query_text: str,
+    ) -> float:
         semantic = dot_product(query_vector, slot.retrieval_key)
         if not query_terms:
-            return semantic
-        slot_terms = self._slot_terms(slot)
-        if not slot_terms:
-            return semantic
-        lexical_overlap = len(query_terms & slot_terms) / len(query_terms)
-        return semantic + (1.5 * lexical_overlap)
+            lexical_overlap = 0.0
+        else:
+            slot_terms = self._slot_terms(slot)
+            lexical_overlap = (len(query_terms & slot_terms) / len(query_terms)) if slot_terms else 0.0
+
+        lowered_query = query_text.lower()
+        temporal_role = float(slot.soft_role_scores.temporal)
+        stable_role = float(slot.soft_role_scores.stable)
+        score = semantic + (2.4 * lexical_overlap)
+
+        if self._query_prefers_historical_memory(lowered_query):
+            score += (0.85 * temporal_role) - (0.15 * stable_role)
+        elif self._query_prefers_current_memory(lowered_query):
+            score += (0.45 * stable_role) - (0.1 * temporal_role)
+
+        if lexical_overlap > 0.0 and self._query_expects_date(lowered_query) and self._slot_has_date_value(slot):
+            score += 1.1
+        if lexical_overlap > 0.0 and self._query_expects_number(lowered_query) and self._slot_has_number_value(slot):
+            score += 1.25
+        return score
 
     def _decode_belief(
         self,
