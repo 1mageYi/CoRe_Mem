@@ -1,5 +1,20 @@
 # Run Log
 
+## 2026-04-17 Session 049
+
+- Worked on: 确认 `v2.6` 已机械完成后，把主线前推到 `v2.7 32k teacher-first`，为下一轮后台长跑建立新的 baseline
+- State changed:
+  - 新增 [docs/v27_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v27_plan.md)，明确冻结 `core / residual`，并把当前重点切到 `32k` source-level split、teacher labels、internal generalization test 与 `gpu2` training timing
+  - 新增 `scripts/verify_stage2_v27_longrun.py` 与 `tests/test_stage2_v27_longrun.py`
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`.agent-os/project-index.md` 与 `.agent-os/todo.md` 已同步到 `TD-038 / WS-024`
+  - 当前明确只先做 `32k`，默认 `24k train / 4k val / 4k test`；只有 internal test work well 后才允许进入 full-data
+- Evidence / artifacts:
+  - `docs/v27_plan.md`
+  - `scripts/verify_stage2_v27_longrun.py`
+  - `tests/test_stage2_v27_longrun.py`
+- Next likely action:
+  - 跑 `v2.7` baseline verifier、提交 baseline commit，并按 `MiniMax-M2.7 teacher + gpu2 train` 的约束启动新的 background autoresearch
+
 ## 2026-04-17 Session 047
 
 - Worked on: 在 `160e29f` 上用一个窄投影修正尝试把 current-head `LongMemEval-S 128` 的 local 从 `10` 推到 `11`

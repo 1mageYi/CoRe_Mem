@@ -109,6 +109,25 @@
 4. 本地 intrinsic evaluation 完整，减少盲目烧 benchmark API
 5. benchmark 仍作为 evaluation source，而不是 primary training source
 
+### 当前 `v2.7` 执行锚点
+
+当前 active 主线已经前推到 **`TD-038 / WS-024 / v2.7 32k teacher-first`**，核心约束是：
+
+- 保持 `core / residual` 双银行结构不变
+- 先建立 `32k` source-level split，而不是直接进入 full-data
+- 当前默认 split 为：
+  - `24k train`
+  - `4k val`
+  - `4k test`
+- 先用 `MiniMax-M2.7` 生成 teacher labels，优先提升：
+  - `observation / parser`
+  - `slot assignment / lifecycle`
+  - `belief semantic fields`
+- 训练优先使用 `gpu2`
+- 训练时必须记录 wall-clock / throughput / memory，判断 `32k` 是否过重
+- benchmark 继续保持 holdout-only，不回流成训练 supervision
+- **只有在 32k internal test work well 后，才允许进入 full-data**
+
 ## 第二阶段拆分
 
 ### 阶段 G：V2.0 设计锁定

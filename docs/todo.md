@@ -2,15 +2,12 @@
 
 ## Doing
 
-- `TD-037` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
-  - 当前状态：mechanical stop condition 已在 current HEAD `95f7b64` 上达到，正处于 final keep logging / closeout 同步阶段
-  - 当前 retained evidence：
-    - `outputs_v2/evals_benchmark/20260417T083058Z_stage2_memory_canary.json`：current-head `LongMemEval-S 128` `provider/local = 11 / 11`
-    - `outputs_v2/evals_benchmark/20260417T094824Z_stage2_memory_canary.json`：current-head `PersonaMem 128` `provider/local = 44 / 33`
-    - `outputs_v2/artifacts/latest_stage2_v26_write_gain.json`：`positive_gain = true`
-    - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json`：`positive_gain = true`
-  - 当前验证状态：`scripts/verify_stage2_v26_longrun.py --score-only = 26`
-  - Truth boundary：stop condition 已达成，但 remaining failure mass 仍主要集中在 `other_fact / projection` family，不能误写成 online quality 已全面稳定
+- `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
+  - 当前锚点：`24k train / 4k val / 4k test`
+  - 当前 teacher：`MiniMax-M2.7`
+  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
+  - 当前训练要求：优先使用 `gpu2`，并记录 wall-clock / throughput / memory
+  - Truth boundary：先只做 `32k`；只有 internal test work well 后，才允许进入 full-data
 
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`
@@ -25,6 +22,9 @@
 - `TD-013` 将 PersonaMem / LongMemEval-S 从 1-sample real run 推进到正式全量 protocol 运行：当前作为 pending baseline / acceptance 项保留，直到用户要求 AI 去跑。
 
 ## Backlog
+
+- `TD-037` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，要求 `write / retrieve / belief` 至少一段出现真实正增益，并要求 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline。
+  - 说明：当前已在 current HEAD `cfbdc08` 上完成，`scripts/verify_stage2_v26_longrun.py --score-only = 26`
 
 - `TD-007` 为 PersonaMem 128k / 1M 预留启动开关。
 - `TD-018` 建立第二阶段 benchmark canary protocol 与结果记录。

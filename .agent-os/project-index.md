@@ -3,10 +3,10 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 记录 `TD-037 / WS-023` 的 final keep 并收口当前 managed run；当前 `95f7b64` 上 verifier 已返回 `26/26`
-- Active workstreams: `WS-023`
-- Active blockers: `BL-004`, `BL-008`
-- Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
+- Top next action: 启动 `TD-038 / WS-024` 的 `v2.7 32k teacher-first` 长跑；先建立 `32k` source-level split、teacher labels、internal test 与 training timing，再决定是否进入 full-data
+- Active workstreams: `WS-024`
+- Active blockers: `BL-004`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022` 与 `TD-037 / WS-023` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout 与 `v2.6` gain-first closeout 复验；当前 active 主线已经前推到 `TD-038 / WS-024`
 
 ## Objective Summary
 
@@ -93,7 +93,7 @@
   - Boundary:
     - 当前 `24/24` 代表 `v2.5` verifier/package closeout 已机械成立，不代表 online quality 已经超过 `v2.4`
   - Plan: [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
-- `WS-023` `[doing]`: Stage-2 `v2.6 gain-first long-run`
+- `WS-023` `[done]`: Stage-2 `v2.6 gain-first long-run`
   - Mechanical target: `stage2_v26_longrun_score`
   - Current retained baseline:
     - `TD-036 / WS-022` 已完成，`v2.5` current HEAD `3036e3d` 上 `24/24`
@@ -109,22 +109,40 @@
     - trial commit `160e29f` 已在 `src/core_mem/v2/projection.py` 上加入 historical `other_fact` clause projection；对应 fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T083058Z_stage2_memory_canary_longmemeval/` 最终达到 `provider_exact_match = 11`、`local_exact_match = 11`
     - current-head `PersonaMem 128` guard refresh `outputs_v2/runs/20260417T094824Z_stage2_memory_canary_personamem/` 最终达到 `provider_exact_match = 44`、`local_exact_match = 33`
     - 当前 `write_gain.positive_gain = true`、`belief_gain.positive_gain = true`
-    - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 26`；当前正处于 final keep logging / closeout 同步阶段
+    - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 26`；stop condition 已机械达到
   - Required truth for closeout:
     - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
     - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
     - current-head `PersonaMem 128` guard 继续守住
     - full benchmark 仍只作 holdout evaluation
   - Boundary:
+    - 当前 `26/26` 代表 gain-first stop condition 已机械成立，不代表 `retrieve` 已出现正增益，也不代表 `LongMemEval-S` 已达到成熟强态
     - 不允许再靠 artifact completeness 达标
     - 不允许 fallback / shortcut / benchmark-specific heuristic / benchmark leakage
   - Plan: [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
+- `WS-024` `[doing]`: Stage-2 `v2.7 32k teacher-first long-run`
+  - Mechanical target: `stage2_v27_longrun_score`
+  - Core scope:
+    - 保持 `core / residual` 双银行结构不变
+    - 以 `32k` source-level split 为锚点，而不是直接进入 full-data
+    - 先建立 `24k train / 4k val / 4k test`
+    - 用 `MiniMax-M2.7` 作为 teacher，优先提升 `observation`、`slot assignment`、`belief fields`
+    - 训练优先使用 `gpu2`，并记录训练耗时与吞吐
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - full benchmark 只作 holdout evaluation
+  - Boundary:
+    - 当前阶段只先做 `32k`；只有 internal test work well 后，才允许进入 full-data
+  - Plan: [docs/v27_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v27_plan.md)
 
 ## Top Next Action
 
-- 推进 `TD-037 / WS-023` 的 final closeout
-  - Runtime truth: 当前 HEAD `95f7b64` 上 verifier 已返回 `stage2_v26_longrun_score = 26/26`
-  - Next focus: 记录 final keep 并停止当前 managed autoresearch run；当前 retained 主要剩余风险仍集中在 `other_fact / projection` family 的 failure mass，而不是 stop condition 未达成
+- 启动 `TD-038 / WS-024` 的 `v2.7 32k teacher-first` 长跑
+  - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成，`stage2_v26_longrun_score = 26/26`
+  - Next focus: 建立 `32k` source-level split、teacher-labeled observation / slot-assignment / belief artifacts、internal test 与 gpu2 timing，再判断是否继续进入 full-data
 
 ## Active Blockers
 

@@ -209,6 +209,20 @@
 
 ## 当前最重要的下一步
 
+- `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
+- 当前 active 主线正式切到 **`TD-038 / WS-024 / v2.7 32k teacher-first`**
+- `v2.7` 的新锚点不是直接上 full-data，而是：
+  - 建立 `32k` source-level split
+  - 先做 `24k train / 4k val / 4k test`
+  - 用 `MiniMax-M2.7` 作为 teacher 提升 `observation / slot assignment / belief fields`
+  - 训练优先用 `gpu2`
+  - 记录训练耗时、吞吐与显存，判断这个量级是否过重
+- `v2.7` 继续严格保持：
+  - 不改 `core / residual`
+  - 不做任何 `fallback / shortcut / benchmark-specific heuristic`
+  - benchmark 只作 holdout evaluation，不回流训练 supervision
+- 当前不允许直接跳 full-data；**只有在 32k internal test work well 后，才允许进入 full-data**
+
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
 - `TD-029`、`TD-030`、`TD-031` 与 `TD-032` 已机械完成；当前 runtime truth 正式从 `v2.2 closeout` 切到 `v2.3` 规划态。
 - 下一步不再继续围绕 “semantic-first 证据是否齐全” 做 closeout，而是把主攻点切到：
