@@ -407,6 +407,8 @@ def _build_memory_system(
     learned_slot_assignment_checkpoint_dir: str | None,
     learned_slot_assignment_train_config_path: str | None,
     learned_slot_assignment_device: str,
+    learned_belief_predictor: Any | None = None,
+    learned_slot_assignment_predictor: Any | None = None,
 ) -> StructuredMemorySystem:
     return StructuredMemorySystem(
         memory_mode=memory_mode,
@@ -416,10 +418,44 @@ def _build_memory_system(
         learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
         learned_memory_train_config_path=learned_memory_train_config_path,
         learned_memory_device=learned_memory_device,
+        learned_belief_predictor=learned_belief_predictor,
         learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
         learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path or learned_memory_train_config_path,
         learned_slot_assignment_device=learned_slot_assignment_device,
+        learned_slot_assignment_predictor=learned_slot_assignment_predictor,
     )
+
+
+def _resolve_shared_predictors(
+    *,
+    memory_mode: str,
+    slot_assignment_mode: str,
+    learned_memory_checkpoint_dir: str | None,
+    learned_memory_train_config_path: str | None,
+    learned_memory_device: str,
+    learned_slot_assignment_checkpoint_dir: str | None,
+    learned_slot_assignment_train_config_path: str | None,
+    learned_slot_assignment_device: str,
+) -> tuple[Any | None, Any | None]:
+    if memory_mode != "learned_memory" and slot_assignment_mode != "learned":
+        return None, None
+    template = _build_memory_system(
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
+    )
+    belief_predictor = None
+    slot_assignment_predictor = None
+    if memory_mode == "learned_memory":
+        belief_predictor = template._resolve_learned_belief_predictor()
+    if slot_assignment_mode == "learned":
+        slot_assignment_predictor = template._resolve_slot_assignment_predictor()
+    return belief_predictor, slot_assignment_predictor
 
 
 def _maybe_write_semantic_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
@@ -525,6 +561,16 @@ def run_personamem_canary(
         "predictions_path": str(predictions_path),
     }
     _write_json(run_dir / "run_metadata.json", metadata)
+    shared_belief_predictor, shared_slot_assignment_predictor = _resolve_shared_predictors(
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
+    )
     for question in questions:
         if question.question_id in completed_ids:
             continue
@@ -537,6 +583,8 @@ def run_personamem_canary(
             learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
             learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
             learned_slot_assignment_device=learned_slot_assignment_device,
+            learned_belief_predictor=shared_belief_predictor,
+            learned_slot_assignment_predictor=shared_slot_assignment_predictor,
         )
         observed_turns = _observe_personamem_context(
             system,
@@ -660,6 +708,16 @@ def run_longmemeval_canary(
         "predictions_path": str(predictions_path),
     }
     _write_json(run_dir / "run_metadata.json", metadata)
+    shared_belief_predictor, shared_slot_assignment_predictor = _resolve_shared_predictors(
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
+    )
     for question in questions:
         if question.question_id in completed_ids:
             continue
@@ -672,6 +730,8 @@ def run_longmemeval_canary(
             learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
             learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
             learned_slot_assignment_device=learned_slot_assignment_device,
+            learned_belief_predictor=shared_belief_predictor,
+            learned_slot_assignment_predictor=shared_slot_assignment_predictor,
         )
         observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
         memory_payload = _memory_payload(system, question.question_id, question.question)

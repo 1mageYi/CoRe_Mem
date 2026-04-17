@@ -19,6 +19,7 @@ from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
     _observe_personamem_context,
     _project_personamem_local_answer,
+    _resolve_shared_predictors,
     _rewrite_persona_summary,
     _render_longmemeval_prompt,
     _render_personamem_options,
@@ -481,3 +482,39 @@ def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tm
     assert metadata["resumed_prediction_count"] == 1
     assert metadata["completed_predictions"] == 2
     assert metadata["live_predictions_completed"] == 2
+
+
+def test_stage2_memory_canary_resolves_shared_predictors_once(monkeypatch):
+    calls = {"build": 0, "belief": 0, "slot": 0}
+    shared_belief = object()
+    shared_slot = object()
+
+    class _TemplateSystem:
+        def _resolve_learned_belief_predictor(self):
+            calls["belief"] += 1
+            return shared_belief
+
+        def _resolve_slot_assignment_predictor(self):
+            calls["slot"] += 1
+            return shared_slot
+
+    def _fake_build_memory_system(**_kwargs):
+        calls["build"] += 1
+        return _TemplateSystem()
+
+    monkeypatch.setattr("run_stage2_memory_canary._build_memory_system", _fake_build_memory_system)
+
+    belief_predictor, slot_predictor = _resolve_shared_predictors(
+        memory_mode="learned_memory",
+        slot_assignment_mode="learned",
+        learned_memory_checkpoint_dir="checkpoint",
+        learned_memory_train_config_path="config.yaml",
+        learned_memory_device="cpu",
+        learned_slot_assignment_checkpoint_dir="checkpoint",
+        learned_slot_assignment_train_config_path="config.yaml",
+        learned_slot_assignment_device="cpu",
+    )
+
+    assert belief_predictor is shared_belief
+    assert slot_predictor is shared_slot
+    assert calls == {"build": 1, "belief": 1, "slot": 1}
