@@ -1,5 +1,25 @@
 # Run Log
 
+## 2026-04-17 Session 044
+
+- Worked on: 在 `v2.6` managed run 继续进行时，把 current-head canary 吞吐优化前推一轮，并把 `v2.6` artifact 发布链收回受控 scope 内的 verifier 入口
+- State changed:
+  - 新 commit `3051b0f` 更新 `scripts/run_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary.py`，让 learned belief / slot-assignment predictors 在单次 canary run 内只解析一次并跨样本复用
+  - fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已在该线推进到 `13/128`
+  - 新 commit `b4c997d` 更新 `scripts/verify_stage2_v26_longrun.py` 并新增 `tests/test_stage2_v26_publish.py`，把 current-head `v2.6` train/eval/gain/analysis/full-benchmark artifact publish 入口并回 verifier，自此不再依赖 scope 外的临时脚本
+  - `conda run -n core_mem pytest -q tests/test_stage2_v26_longrun.py tests/test_stage2_v26_publish.py` 通过，`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
+  - helper 已把 iteration `3` 与 iteration `4` 分别诚实记为 `refine`，trial commits 为 `3051b0f` 与 `b4c997d`
+- Evidence / artifacts:
+  - commit `3051b0f`
+  - commit `b4c997d`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - fresh run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v26_longrun.py tests/test_stage2_v26_publish.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `9`
+- Next likely action:
+  - 等待当前 `LongMemEval-S 128` fresh run 完成后，串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并据此判断是否出现真实 `write / retrieve / belief` gain
+
 ## 2026-04-17 Session 043
 
 - Worked on: 恢复 `v2.6` managed run，在 live provider env 已恢复的前提下继续 current-head `LongMemEval-S 128`，并把 dense `other_fact` write throughput 瓶颈前推成一轮 current-head refine

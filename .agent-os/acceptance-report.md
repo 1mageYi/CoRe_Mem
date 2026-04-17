@@ -170,7 +170,9 @@
     - current session 已确认 `GPT_AGENT_API_KEY=SET`，因此历史 provider-env blocker 已被清除；新的 refine commit `a04effe` 已加入 slot-assignment prompt compaction 与 weak `other_fact` overwrite fast-path，并通过同一组 stage-2 guard
     - profiling 证据已显示 sample `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`
     - 同一 partial `LongMemEval-S 128` resumed run 已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上记录 `memory_answer_local = target`、`provider_prediction = target`
-    - helper 当前已将 `research-results.tsv` iteration `2` 诚实记为 `refine`，trial commit 为 `a04effe`
+    - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`
+    - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
+    - helper 当前已将 `research-results.tsv` iteration `2`、`3`、`4` 诚实记为 `refine`，trial commit 依次为 `a04effe`、`3051b0f`、`b4c997d`
   - Boundary:
     - 当前这只是新一轮的严格 baseline，不代表任何新的 online gain 已经出现
-    - 当前尚未形成完整的 current-head `v2.6` canary / gain / train/eval / holdout artifacts，因此 `stage2_v26_longrun_score` 仍停在 `9`；本轮 refine 只能诚实声明为“dense write bottleneck 已缩小，remaining live refresh 仍待继续”
+    - 当前尚未形成完整的 current-head `v2.6` canary / gain / train/eval / holdout artifacts，因此 `stage2_v26_longrun_score` 仍停在 `9`；本轮 refine 只能诚实声明为“dense write bottleneck 与 artifact publish 路径都已前推，但 remaining live refresh 仍待继续”

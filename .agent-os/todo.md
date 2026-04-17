@@ -8,7 +8,7 @@
   - Benchmark requirement: current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained baseline `10/128`
   - Guard: current-head `PersonaMem 128` 不明显退化；full benchmark 继续只作 holdout evaluation
   - Truth boundary: 当前还没有新的 positive-gain evidence，baseline 只来自 `v2.5` package closeout
-  - Current blocker: 当前 session 的 `GPT_AGENT_API_KEY` 已恢复，但 dense `other_fact` sample 仍会把 current-head `LongMemEval-S 128` live refresh 拖到分钟级；refine commit `a04effe` 已把 sample `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`，并让 partial resumed run 从 `2/128` 前进到 `3/128`，但完整 `128` canary 与 `v2.6` artifacts 仍未完成
+  - Current blocker: 当前 session 的 `GPT_AGENT_API_KEY` 已恢复，但 dense `other_fact` sample 仍会把 current-head `LongMemEval-S 128` live refresh 拖到分钟级；refine commit `a04effe` 已把 sample `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`，`3051b0f` 又把 predictor 重载移出 sample loop，fresh run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 目前已推进到 `13/128`。同时 `b4c997d` 已把 `v2.6` artifact publish 入口并回 `scripts/verify_stage2_v26_longrun.py`，但完整 `128` canary 与 `v2.6` artifacts 仍未完成
 
 - `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
