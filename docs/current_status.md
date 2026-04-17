@@ -258,6 +258,18 @@
   - 不把 raw JSON exactness 当作主优化目标
   - 不继续靠 rule patch 提升 online 分数
   - 相关计划见 [v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
+- 当前这轮 managed autoresearch 已在 current HEAD `3036e3d` 上把 `stage2_v25_longrun_score` 从 baseline `9` 推到 stop condition `24/24`。当前新增证据包括：
+  - current-head `v24` baseline alias refresh，使 `latest_stage2_v24_eval.json`、`latest_longmemeval_stage2_v24_canary.json`、`latest_personamem_stage2_v24_canary.json` 与当前 HEAD 对齐
+  - `latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、`latest_longmemeval_stage2_v25_canary.json`、`latest_personamem_stage2_v25_canary.json`、`latest_longmemeval_stage2_v25_analysis.json`、`latest_stage2_v25_full_benchmark.json`
+  - `latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json`、`latest_stage2_v25_belief_gain.json` 三个 component artifacts
+- 当前这轮 `v2.5` closeout 的诚实结论是：**artifact/verifier package 已机械齐套，但新的 online quality gain 仍未被证明**。其中 `write / retrieve / belief` 三段 artifact 当前都明确记录了 `delta_vs_v24_retained = 0`，因此不能误写成 `LongMemEval-S` 质量已经超过 `v2.4`。
+- 用户现已明确批准继续下一轮，但目标已经收紧成 **`v2.6 gain-first long-run`**：
+  - 不再允许靠 artifact completeness 达成 stop condition
+  - 主攻 `write -> retrieve -> belief` 的真实正增益
+  - current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益
+  - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained baseline `10/128`
+  - `core / residual` 双银行结构继续冻结，不作为主改动对象
+  - 相关计划见 [v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`

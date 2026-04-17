@@ -2,8 +2,18 @@
 
 ## Doing
 
-- `TD-036` `[doing]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+- `TD-037` `[doing]` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+  - Runtime truth: `TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `stage2_v25_longrun_score = 24/24`，当前作为 `v2.6` retained baseline 保留
+  - Hard requirement: 不再允许靠 artifact completeness 达标；current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益
+  - Benchmark requirement: current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained baseline `10/128`
+  - Guard: current-head `PersonaMem 128` 不明显退化；full benchmark 继续只作 holdout evaluation
+  - Truth boundary: 当前还没有新的 positive-gain evidence，baseline 只来自 `v2.5` package closeout
+
+- `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
+  - Current managed-run state: current HEAD `3036e3d` 已把 `stage2_v25_longrun_score` 推到 stop condition `24/24`
+  - Evidence shape: 当前新增的是 `v2.5` baseline/package artifact suite 与 `write / retrieve / belief` baseline decomposition artifacts；三段 artifact 均显式记录 `delta_vs_v24_retained = 0`
+  - Truth boundary: 当前不能把 `24/24` 误写成真实 `LongMemEval-S` / online quality gain 已经超过 `v2.4`
   - Hard constraints:
     - no fallback
     - no shortcut
@@ -113,6 +123,7 @@
     - generalized learned `write / slot-assignment`、`retrieve`、`belief` train/eval/gain artifact
     - current-head `PersonaMem 128` 不明显退化
     - full benchmark holdout evaluation summary
+  - Current runtime note: 本轮 managed run 已机械达到 `24/24`，但当前 retained evidence 仍属于 baseline/package closeout，不是新的 positive-gain closeout
 
 
 

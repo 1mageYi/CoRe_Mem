@@ -3,10 +3,10 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 推进 `TD-036 / WS-022`，把主线切到 `v2.5 learned core-path long-run`；以 `v2.4` retained line 为 baseline，在不改 `core / residual` 的前提下继续做 `LongMemEval-S` 质量、`write / retrieve / belief` 三段 learned 化、learned slot assignment 泛化鲁棒性、stronger latent 与 full benchmark holdout evaluation
-- Active workstreams: `WS-022`
+- Top next action: 推进 `TD-037 / WS-023`，把主线切到更严格的 `v2.6 gain-first long-run`；在保持 `core / residual` 不变的前提下，要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline
+- Active workstreams: `WS-023`
 - Active blockers: `BL-004`
-- Verifier compatibility note: `TD-035 / WS-021` 的历史完成态仍保留在文档与 artifact 中，供 `v2.4` closeout 复验；当前 active 主线已经前推到 `TD-036 / WS-022`
+- Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
 
 ## Objective Summary
 
@@ -86,13 +86,33 @@
     - `LongMemEval-S 128` retained current-head `provider/local = 10/128`
     - `PersonaMem 128` retained current-head `provider_exact = 38`、`local_exact = 28`
     - `latest_stage2_v24_online_gain.json` retained `delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
+  - Current retained state:
+    - current HEAD `3036e3d` 已把 `scripts/verify_stage2_v25_longrun.py --score-only` 推到 stop condition `24/24`
+    - `latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、`latest_longmemeval_stage2_v25_canary.json`、`latest_personamem_stage2_v25_canary.json`、`latest_longmemeval_stage2_v25_analysis.json` 与 `latest_stage2_v25_full_benchmark.json` 已作为 current-head baseline/package artifact 落地
+    - `latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json` 与 `latest_stage2_v25_belief_gain.json` 当前是 baseline decomposition artifacts，均显式记录 `delta_vs_v24_retained = 0`
+  - Boundary:
+    - 当前 `24/24` 代表 `v2.5` verifier/package closeout 已机械成立，不代表 online quality 已经超过 `v2.4`
   - Plan: [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
+- `WS-023` `[doing]`: Stage-2 `v2.6 gain-first long-run`
+  - Mechanical target: `stage2_v26_longrun_score`
+  - Current retained baseline:
+    - `TD-036 / WS-022` 已完成，`v2.5` current HEAD `3036e3d` 上 `24/24`
+    - 但该完成态只代表 baseline/package closeout，不代表新的 quality gain
+  - Required truth for closeout:
+    - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
+    - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
+    - current-head `PersonaMem 128` guard 继续守住
+    - full benchmark 仍只作 holdout evaluation
+  - Boundary:
+    - 不允许再靠 artifact completeness 达标
+    - 不允许 fallback / shortcut / benchmark-specific heuristic / benchmark leakage
+  - Plan: [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
 
 ## Top Next Action
 
-- 推进 `TD-036 / WS-022`
-  - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`，当前作为 `v2.5` 的 retained baseline 保留
-  - Next focus: 更强的 `LongMemEval-S`、更泛化的 learned slot assignment、更强的 latent，以及 full benchmark holdout measurement
+- 推进 `TD-037 / WS-023`
+  - Runtime truth: `TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但那只是 `v2.5` baseline/package closeout
+  - Next focus: current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 超过 `v2.5` retained baseline `10/128`
 
 ## Active Blockers
 
@@ -105,6 +125,9 @@
 - 2026-04-16: 同一 run 的 trial commit `cd50887` 把 `composition_to_belief` repeats 从 `2` 提到 `3`，full-data trial train/eval 与 retained line 完全相同，因此已按 `discard` 记账并回滚；这条线已被证伪为当前主瓶颈
 - 2026-04-16: retained commit `9331b62` 通过 query-aware exactness tightening 把 current-head `LongMemEval-S 128` canary 提到 `provider_exact = 10`、`local_exact = 10`，并保住 `PersonaMem 128` current-head `provider_exact = 38`、`local_exact = 28`；`latest_stage2_v24_online_gain.json` 同步记录 `+4 provider / +4 local`
 - 2026-04-16: retained commit `12a9a80` 修复 belief support-id 解析，把 malformed/braceless belief payload 中误提取的字面量 `slot_ids` 过滤掉；同一 retained checkpoint refresh 后，`latest_stage2_v24_eval.json` 的 `trained_eval.token_f1` 提升到 `0.9991150844073334`、`field_f1` 提升到 `0.9976704786107581`，最终使 verifier 达到 `24/24`
+- 2026-04-16: `TD-036 / WS-022` 的 managed autoresearch 已在 current HEAD `3036e3d` 上把 `scripts/verify_stage2_v25_longrun.py --score-only` 从 baseline `9` 推到 stop condition `24/24`；新增 retained evidence 包括 current-head `v24` baseline alias refresh、`v2.5` baseline/package artifacts、以及 `write / retrieve / belief` 三段的 baseline decomposition artifacts
+- 2026-04-16: 当前 `v2.5` closeout 必须诚实标注为“mechanical stop condition reached via baseline/package initialization”；三段 component artifacts 当前均显式记录 `delta_vs_v24_retained = 0`，不能误写成真实 benchmark gain 已经出现
+- 2026-04-17: 用户批准继续下一轮，但要求 stop condition 收紧为“必须出现真实 gain”；当前 next action 已前推到 `TD-037 / WS-023`，并新增 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md) 与 `scripts/verify_stage2_v26_longrun.py`。这轮不再允许靠 artifact completeness 达标，而是要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，同时 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline `10/128`。
 - 2026-04-16: `v2.2` managed autoresearch 在 current HEAD `510aeb7` 上完成 projection-aware semantic closeout：`src/core_mem/v2/projection.py` 新增 generic answer projection normalization，并补充对应单测；`outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 已把 current-head `LongMemEval-S` semantic canary 扩到 `128`，`outputs_v2/artifacts/latest_stage2_semantic_online_gain.json` 记录 `LongMemEval-S 64` 相对 retained symbolic 64 baseline 的 `delta_local_exact_match = +1`，`outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json` 已补齐 current-head `PersonaMem 128` semantic canary；`scripts/verify_stage2_v22_completion.py --score-only` 因此达到 stop condition `19/19`
 - 2026-04-16: 用户确认把下一阶段切到 `v2.3 stronger learned slot assignment + stronger latent`；当前 next action 已切到 `TD-033 / WS-019`，并新增计划文档 [docs/v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)。这条线继续保留 `semantic-first` 与 `no fallback / no shortcut` 约束，但主收益目标从 “补齐 semantic evidence” 转向 `LongMemEval-S` 质量、learned slot assignment 和更强的 online latent memory 主链。
 - 2026-04-16: 用户进一步要求“把目标再往前推进一些”，并批准后台长跑允许多卡并行实验；当前 next action 已继续切到 `TD-034 / WS-020`，并新增 [docs/v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md) 与对应 verifier 计划。新的长跑主线要求的不仅是 `learned slot assignment` 接上，还要求它在 `LongMemEval-S 64/128` 和 `PersonaMem 128` 上形成 current-head retained artifact 与 gain 证据。

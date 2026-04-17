@@ -527,6 +527,61 @@
 - 默认 verifier
 - 文档与 `.agent-os` 对齐
 
+### 阶段 W：V2.6 Gain-First Long Run
+
+- Alias: `V2.6 Gain-First Long Run`
+
+- Goal: 在**不改 `core / residual` 双银行结构**的前提下，不再允许靠 artifact completeness 达成 stop condition，而是要求 current-head 出现真实 `write / retrieve / belief` learned gain，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline。
+- Status: planned
+- Notes:
+  - 这轮的中心要求是“真实正增益”，而不是 artifact completeness
+  - `v2.5` 已被诚实收口为 baseline/package closeout，而不是 quality-gain closeout
+  - 本轮继续严格保留 `semantic-first`、`no fallback`、`no shortcut`、`no benchmark-specific heuristic`
+  - 本轮继续禁止 raw JSON exactness 作为主优化目标，也禁止把 full benchmark 结果回流成训练 supervision
+  - full benchmark 在本轮继续保持为 holdout acceptance / generalization measurement
+  - 详细计划见 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
+
+#### 阶段 W-A：Freeze V2.5 Truth
+
+- 把 `v2.5` 明确冻结为 retained baseline/package closeout
+- 保留 `v2.5` retained train/eval/canary/gain artifacts 作为对照线
+- 后续所有 gain 都相对 `v2.5` retained baseline 计算
+
+#### 阶段 W-B：Gain-First Write
+
+- current-head `write` train/eval/gain artifact 全部刷新
+- `write` 至少在一个 current-head retained artifact 中出现 `positive_gain = true`
+- 不允许再把 purely structural/package change 计为 write gain
+
+#### 阶段 W-C：Gain-First Retrieve
+
+- current-head `retrieve` gain artifact 刷新
+- retrieval miss / failure bucket 必须相对 `v2.5` retained baseline 有可解释改善
+- 不允许把 prompt / projection tweak 误记成 retrieve gain
+
+#### 阶段 W-D：Gain-First Belief
+
+- current-head `belief` gain artifact 刷新
+- belief semantic recovery 要在 online evidence 上产生可见收益
+- 不允许仅靠 coercion / package repair 被误判为 belief gain
+
+#### 阶段 W-E：LongMemEval-S Breakout
+
+- current-head `LongMemEval-S 128` 必须 beat `v2.5` retained `10/128`
+- refreshed `LongMemEval-S` analysis artifact
+- `LongMemEval-S` 继续作为第一质量 benchmark
+
+#### 阶段 W-F：Cross-Benchmark Guard
+
+- current-head `PersonaMem 128` 不明显退化
+- 仍然只把 `PersonaMem` 当 guard/secondary benchmark
+
+#### 阶段 W-G：Holdout Full-Benchmark
+
+- current-head full benchmark summary 只作 holdout evaluation
+- 必须显式保留 `holdout_only = true`
+- 不允许把 full benchmark 输出回流成训练 supervision
+
 ### 阶段 N：V2.1 Learned-Memory-First Pivot
 
 - 目标：把 stage-2 主线从 “继续强化 rule-heavy robustness” 切到 “用更 learned 的 memory write/read 与更强 latent memory 提升系统智能程度”

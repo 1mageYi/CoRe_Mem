@@ -144,3 +144,26 @@
     - launch-manifest guard 已在 retained HEAD `12a9a80` 上通过：`tests/test_stage2_v24_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
   - Boundary:
     - 当前能诚实声明的是 `v2.4 long-run` 的机械 stop condition 已达到；不能夸写成所有 benchmark 质量风险都已消失，或下一轮 stage-2 方向已经自动确定
+
+- `EV-015` -> `WS-022 / TD-036` `v2.5` baseline/package closeout 证据
+  - Status: partial
+  - Evidence:
+    - current HEAD `3036e3d` 上 `scripts/verify_stage2_v25_longrun.py --score-only` 已达到 stop condition `24/24`
+    - `research-results.tsv` / `autoresearch-state.json` 已记录 iteration `5 keep`、best/current metric `24`
+    - `outputs_v2/artifacts/latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、`latest_longmemeval_stage2_v25_canary.json`、`latest_personamem_stage2_v25_canary.json`、`latest_longmemeval_stage2_v25_analysis.json`、`latest_stage2_v25_full_benchmark.json` 已在 current HEAD 上落地
+    - `outputs_v2/artifacts/latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json`、`latest_stage2_v25_belief_gain.json` 已作为 current-head baseline decomposition artifacts 落地
+    - current-head `v24` baseline alias 已刷新到同一 HEAD，使 `latest_stage2_v24_eval.json`、`latest_longmemeval_stage2_v24_canary.json`、`latest_personamem_stage2_v24_canary.json` 可继续作为 `v2.5` retained baseline 复验
+  - Boundary:
+    - 当前 `24/24` 只说明 `v2.5` 的 artifact/verifier package 已机械齐套
+    - `write / retrieve / belief` 三段 artifact 当前都显式记录 `delta_vs_v24_retained = 0`
+    - 因此不能把本轮 closeout 误写成真实 `LongMemEval-S` / online quality gain 已超过 `v2.4`
+
+- `EV-016` -> `WS-023 / TD-037` `v2.6` gain-first 长跑基线
+  - Status: partial
+  - Evidence:
+    - `docs/v26_plan.md` 已把目标明确收紧为 gain-first：要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并要求 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline `10/128`
+    - `scripts/verify_stage2_v26_longrun.py` 已把 mechanical target 改为 `stage2_v26_longrun_score`
+    - `tests/test_stage2_v26_longrun.py` 已覆盖“只有在 positive gain 与超 baseline canary 同时出现时才可满分”的 verifier 合同
+    - 当前 `v2.5` retained baseline 继续保留为对照线：`latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、`latest_longmemeval_stage2_v25_canary.json`、`latest_personamem_stage2_v25_canary.json`、`latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json`、`latest_stage2_v25_belief_gain.json`
+  - Boundary:
+    - 当前这只是新一轮的严格 baseline，不代表任何新的 online gain 已经出现

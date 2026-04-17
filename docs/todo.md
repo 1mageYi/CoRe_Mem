@@ -2,9 +2,17 @@
 
 ## Doing
 
+- `TD-037` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+  - 当前起点：`TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但该完成态只代表 `v2.5` baseline/package closeout
+  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`；full benchmark 只作 holdout evaluation
+  - 当前硬门槛：current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益；current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
+  - 当前计划：见 [v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
+
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`
+  - 当前 managed run 状态：current HEAD `3036e3d` 已把 `stage2_v25_longrun_score` 推到 `24/24`
+  - 当前边界：这轮 `24/24` 属于 baseline/package closeout；`write / retrieve / belief` 三段 artifact 当前仍显式记录 `delta_vs_v24_retained = 0`
   - 当前计划：见 [v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 
 ## Blocked

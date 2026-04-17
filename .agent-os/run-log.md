@@ -1,5 +1,55 @@
 # Run Log
 
+## 2026-04-17 Session 041
+
+- Worked on: 将 `v2.5` 从 package closeout 前推到更严格的 `v2.6 gain-first` 主线，并为下一轮后台长跑建立新的 mechanical baseline
+- State changed:
+  - 审核了 current HEAD `3036e3d` 的 `v2.5` retained artifacts，确认 `latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json` 与 `latest_stage2_v25_belief_gain.json` 当前都显式记录 `delta_vs_v24_retained = 0`
+  - 新增 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)，把主线收紧成：`write / retrieve / belief` 至少一段出现真实正增益，并要求 current-head `LongMemEval-S 128` 明确高于 `v2.5` retained `10/128`
+  - 新增 `scripts/verify_stage2_v26_longrun.py` 与 `tests/test_stage2_v26_longrun.py`
+  - 更新 `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md`、`.agent-os/acceptance-report.md`，将 active 主线切到 `TD-037 / WS-023`
+- Evidence / artifacts:
+  - `docs/v26_plan.md`
+  - `scripts/verify_stage2_v26_longrun.py`
+  - `tests/test_stage2_v26_longrun.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only`
+- Next likely action:
+  - 提交 `v2.6 gain-first` baseline，并以 fresh-start 方式启动新的 managed autoresearch；stop condition 不再允许 artifact completeness，必须要求真实 gain
+
+## 2026-04-16 Session 040
+
+- Worked on: fresh 启动 `TD-036 / WS-022` 的 managed autoresearch，并把 `v2.5` 从 baseline verifier `9/24` 收口到 current-head `24/24`
+- State changed:
+  - 按 launch manifest 先测 baseline，再通过 helper 初始化 fresh `research-results.tsv` / `autoresearch-state.json`；baseline `conda run -n core_mem python scripts/verify_stage2_v25_longrun.py --score-only` 为 `9/24`
+  - iteration `1` commit `b007dde` 对齐 `docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/v25_plan.md` 的 verifier 文案，使分数从 `9` 提到 `11`
+  - iteration `2` commit `3036e3d` 进一步修正 `current_status` 中 `TD-036` 的字面串，使分数从 `11` 提到 `12`
+  - iteration `3` 在不改代码行为的前提下，把 retained `v2.4` baseline alias 重锚到 current HEAD；`latest_stage2_v24_eval.json`、`latest_longmemeval_stage2_v24_canary.json`、`latest_personamem_stage2_v24_canary.json` 因此重新被 current-head verifier 识别，分数从 `12` 提到 `15`
+  - iteration `4` 初始化 `v2.5` baseline/package artifact suite：`latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、两个 `128` canary、LongMemEval analysis 与 full-benchmark holdout summary；分数从 `15` 提到 `21`
+  - iteration `5` 新增 `latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json`、`latest_stage2_v25_belief_gain.json` 三个 baseline decomposition artifacts，并把 `stage2_v25_longrun_score` 推到 stop condition `24/24`
+  - 当前 closeout 需要诚实标注为：`v2.5` verifier/package 已机械齐套，但三段 component artifact 当前都显式记录 `delta_vs_v24_retained = 0`，因此不代表新的 online quality gain 已经出现
+- Evidence / artifacts:
+  - commits `b007dde`, `3036e3d`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_eval.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v24_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v24_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_online_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_write_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_retrieve_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_belief_gain.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v25_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v25_canary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v25_analysis.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_full_benchmark.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v25_longrun.py --score-only` -> `24`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v25_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 当前 managed run 已触发 stop condition；若用户要继续 `v2.5`，下一轮 metric 应显式要求 `write / retrieve / belief` 三段出现真实正增益，而不能再只依赖 artifact completeness
+
 ## 2026-04-16 Session 039
 
 - Worked on: 将 `v2.5` 从宽泛的“泛化优先”收紧为“冻结 `core / residual`、主攻 `write / retrieve / belief` learned 化”的新主线，并为其建立新的 mechanical verifier baseline
