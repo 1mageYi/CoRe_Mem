@@ -1,5 +1,22 @@
 # Run Log
 
+## 2026-04-16 Session 039
+
+- Worked on: 将 `v2.5` 从宽泛的“泛化优先”收紧为“冻结 `core / residual`、主攻 `write / retrieve / belief` learned 化”的新主线，并为其建立新的 mechanical verifier baseline
+- State changed:
+  - `docs/v25_plan.md` 已明确写入：不改 `core / residual` 双银行结构；只允许重点改动 `write / retrieve / belief`
+  - 新增 `scripts/verify_stage2_v25_longrun.py` 与 `tests/test_stage2_v25_longrun.py`
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 已同步到 `TD-036 / WS-022` 的更严格版本
+  - 当前 baseline：`conda run -n core_mem python scripts/verify_stage2_v25_longrun.py --score-only` 返回 `9`
+- Evidence / artifacts:
+  - `docs/v25_plan.md`
+  - `scripts/verify_stage2_v25_longrun.py`
+  - `tests/test_stage2_v25_longrun.py`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v25_longrun.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v25_longrun.py --score-only` -> `9`
+- Next likely action:
+  - 提交 `v2.5` 基线后，按 `TD-036 / WS-022` 启动新的 background autoresearch long-run
+
 ## 2026-04-16 Session 038
 
 - Worked on: 整理 `TD-035 / WS-021` 的 `24/24` closeout 文档，并把主线前推到 `TD-036 / WS-022` 的 `v2.5 generalization-first long-run`

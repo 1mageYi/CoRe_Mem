@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-036` `[doing]` 以 `v2.5 generalization-first long-run` 为目标，继续推进 `LongMemEval-S` 质量、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+- `TD-036` `[doing]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
   - Hard constraints:
     - no fallback
@@ -107,10 +107,10 @@
     - `research-results.tsv` / `autoresearch-state.json`：best iteration `7`、best/current metric `24`
 
 - `TD-036` `[doing]` 以 `v2.5 generalization-first long-run` 为锚点，把当前主线推进到更强的 `LongMemEval-S`、更泛化的 learned slot assignment、更强的 online latent，以及更大切片 / full benchmark holdout measurement。
-  - Reason: `v2.4` 已把 quality-first 机械目标推到 `24/24`，下一步最值得做的不再是补 closeout artifact，而是围绕质量、泛化与鲁棒性继续前推
+  - Reason: `v2.4` 已把 quality-first 机械目标推到 `24/24`，下一步最值得做的不再是补 closeout artifact，而是在**不动 `core / residual`** 的前提下，把 `write / retrieve / belief` 三段进一步 learned 化
   - Evidence target:
     - current-head 更强的 `LongMemEval-S 64/128` retained line
-    - generalized learned slot-assignment train/eval/gain artifact
+    - generalized learned `write / slot-assignment`、`retrieve`、`belief` train/eval/gain artifact
     - current-head `PersonaMem 128` 不明显退化
     - full benchmark holdout evaluation summary
 

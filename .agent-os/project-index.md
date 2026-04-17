@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 推进 `TD-036 / WS-022`，把主线切到 `v2.5 generalization-first long-run`；以 `v2.4` retained line 为 baseline，继续做 `LongMemEval-S` 质量、learned slot assignment 泛化鲁棒性、stronger latent 与 full benchmark holdout evaluation
+- Top next action: 推进 `TD-036 / WS-022`，把主线切到 `v2.5 learned core-path long-run`；以 `v2.4` retained line 为 baseline，在不改 `core / residual` 的前提下继续做 `LongMemEval-S` 质量、`write / retrieve / belief` 三段 learned 化、learned slot assignment 泛化鲁棒性、stronger latent 与 full benchmark holdout evaluation
 - Active workstreams: `WS-022`
 - Active blockers: `BL-004`
 - Verifier compatibility note: `TD-035 / WS-021` 的历史完成态仍保留在文档与 artifact 中，供 `v2.4` closeout 复验；当前 active 主线已经前推到 `TD-036 / WS-022`
@@ -75,8 +75,8 @@
     - `9331b62`：query-aware exactness tightening，把 `LongMemEval-S 128` current-head canary 从 `6/6` 推到 `10/10`
     - `12a9a80`：belief support-id repair，去掉 braceless belief payload 中误注入的字面量 `slot_ids`，使 retained full-data eval 跨过最终阈值
   - Remaining risk: 这里能诚实声明的是 `v2.4 long-run` 的机械目标已达到，不应夸写成所有 benchmark 质量问题都已解决，或 future stage-2 方向已经自动确定
-- `WS-022` `[doing]`: Stage-2 `v2.5 generalization-first long-run`
-  - Objective: 在 `v2.4` retained line 上继续提升 `LongMemEval-S` 质量、推进更泛化更鲁棒的 learned slot assignment、强化 stronger latent，并引入更大切片 / full benchmark holdout evaluation
+- `WS-022` `[doing]`: Stage-2 `v2.5 learned core-path long-run`
+  - Objective: 在 `v2.4` retained line 上、且**不改 `core / residual` 双银行结构**的前提下，继续提升 `LongMemEval-S` 质量，推进 `write / retrieve / belief` 三段 learned 化、更加泛化鲁棒的 learned slot assignment、强化 stronger latent，并引入更大切片 / full benchmark holdout evaluation
   - Constraints:
     - no fallback
     - no shortcut
@@ -99,7 +99,7 @@
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
 ## Recent Important Changes
 
-- 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 generalization-first long-run`
+- 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`
 - 2026-04-16: `TD-035 / WS-021` 的 managed run 已在 current HEAD `12a9a80` 上达到 stop condition `24/24`；`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `7 keep`，best/current metric 均为 `24`
 - 2026-04-16: 同一 run 的 retained line先在 `f36a377` 上补齐 `v2.4` current-head full-data artifact 发布链，把 `scripts/verify_stage2_v24_longrun.py --score-only` 从 baseline `12` 提到 `15`
 - 2026-04-16: 同一 run 的 trial commit `cd50887` 把 `composition_to_belief` repeats 从 `2` 提到 `3`，full-data trial train/eval 与 retained line 完全相同，因此已按 `discard` 记账并回滚；这条线已被证伪为当前主瓶颈

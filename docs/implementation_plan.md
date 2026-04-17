@@ -469,14 +469,15 @@
 - 默认 train recipe
 - 默认 benchmark recipe
 
-### 阶段 U：V2.5 Generalization-First Long Run
+### 阶段 U：V2.5 Learned Core-Path Long Run
 
-- Goal: 把主线从“`v2.4` 的质量门槛已跨过”继续推进到“更强的泛化、更强的 learned slot assignment、更强的 online latent，以及更大切片/全量 benchmark holdout 验证”
+- Goal: 在**不改 `core / residual` 双银行结构**的前提下，把主线从“`v2.4` 的质量门槛已跨过”继续推进到“更强的 learned write / retrieve / belief、更泛化的 learned slot assignment、更强的 online latent，以及更大切片/全量 benchmark holdout 验证”
 - Status: planned
 - Notes:
   - `v2.4` 已证明 full-data semantic-first、quality-first、learned slot assignment 和 stronger latent 可以把 current-head `LongMemEval-S 128` 提到 `10/128`
   - 这条线下一步不再追求单次机械 closeout，而是追求更强的 generalization / robustness
   - 本轮继续严格保留 `semantic-first`、`no fallback`、`no shortcut`、`no benchmark-specific heuristic`
+  - 本轮不再把 raw JSON exactness 当主优化目标，也不允许把 full benchmark 结果回流成训练 supervision
   - full benchmark 在本轮被正式提升为 holdout acceptance / generalization measurement，而不是局部 canary 的附庸
   - 详细计划见 [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 
@@ -492,7 +493,7 @@
 - 强化 candidate slot scoring / ranking
 - 仅保留最小 hard constraints 作为 safety boundary
 
-#### 阶段 U-C：Stronger Latent Main Path
+#### 阶段 U-C：Learned Retrieve / Belief Main Path
 
 - 继续加强 learned retrieval / rerank / belief composition
 - 保持 semantic-first

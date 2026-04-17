@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-036` 以 `v2.5 generalization-first long-run` 为目标，继续推进 `LongMemEval-S` 质量、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+- `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`
   - 当前计划：见 [v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
@@ -69,9 +69,9 @@
   - 当前结果：managed autoresearch run 已在 current HEAD `12a9a80` 上达到 `scripts/verify_stage2_v24_longrun.py --score-only = 24/24`
   - 关键证据：`latest_stage2_v24_eval.json` 的 `trained_eval.token_f1 = 0.9991150844073334`、`field_f1 = 0.9976704786107581`；`latest_longmemeval_stage2_v24_canary.json` 的 `provider/local = 10/128`；`latest_personamem_stage2_v24_canary.json` 的 `provider_exact = 38`、`local_exact = 28`；`latest_stage2_v24_online_gain.json` 的 `delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
 
-- `TD-036` 以 `v2.5 generalization-first long-run` 为锚点，把当前主线推进到更强的 `LongMemEval-S`、更泛化的 learned slot assignment、更强的 online latent，以及更大切片 / full benchmark holdout 测量。
-  - 说明：这条线的重点不再是补 current-head closeout artifact，而是把 `v2.4` retained 线当作 baseline，继续做质量和泛化提升。
-  - 关键边界：full benchmark 只做 holdout evaluation，不回流成训练 supervision；继续严格禁止任何 fallback / shortcut / benchmark-specific heuristic。
+- `TD-036` 以 `v2.5 learned core-path long-run` 为锚点，把当前主线推进到更强的 `LongMemEval-S`、更泛化的 learned slot assignment，以及 `write / retrieve / belief` 三段更真实的 learned 主模块。
+  - 说明：这条线的重点不再是补 current-head closeout artifact，而是在不动 `core / residual` 的前提下，把 `v2.4` retained 线当作 baseline，继续做质量和泛化提升。
+  - 关键边界：full benchmark 只做 holdout evaluation，不回流成训练 supervision；继续严格禁止任何 fallback / shortcut / benchmark-specific heuristic；不再把 raw JSON exactness 当作主优化目标。
 
 
 ## Notes

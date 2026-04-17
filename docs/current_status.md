@@ -244,9 +244,10 @@
   - iteration `2`：把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3`，full-data train/eval 与 retained line 无差别，已按 `discard` 记账并回滚；这说明瓶颈不是 task repeat 数量本身
   - iteration `4`：projection/prompt sharpen 虽然把 `LongMemEval-S 128` current-head 从 `8/8` 推到 `9/9`，但 verifier 仍停在 `19`，因此也已按 `discard` 记账
   - 当前能诚实声明的是：`v2.4 long-run` 的机械 stop condition 已达到；不能夸写成所有 benchmark 质量问题都已被根治
-- 当前 stage-2 的 runtime truth 已继续前推到 **`v2.5 generalization-first long-run`**。这轮的主目标不再是补 closeout artifact，而是：
+- 当前 stage-2 的 runtime truth 已继续前推到 **`v2.5 learned core-path long-run`**。这轮的主目标不再是补 closeout artifact，而是在**不改 `core / residual` 双银行结构**的前提下：
   - 持续提升 `LongMemEval-S` 质量
   - 把 `learned slot assignment` 从“可用”推进到“更泛化、更鲁棒”
+  - 把 `write -> retrieve -> belief` 三段真正 learned 化
   - 继续加强 stronger latent 对 online 主链的真实贡献
   - 在不发生 benchmark leakage 的前提下，引入更大切片乃至 full benchmark holdout 测量
 - 当前 `v2.5` 的硬边界也已锁定：
@@ -254,6 +255,8 @@
   - 不做任何 `shortcut`
   - 不做任何 benchmark-specific heuristic
   - full benchmark 只做 holdout evaluation，不回流为训练 supervision
+  - 不把 raw JSON exactness 当作主优化目标
+  - 不继续靠 rule patch 提升 online 分数
   - 相关计划见 [v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
