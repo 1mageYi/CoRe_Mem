@@ -29,6 +29,10 @@ _FREQUENCY_RE = re.compile(
     r"(?:day|week|month|year)|daily|weekly|monthly|yearly|every\s+(?:day|week|month|year))\b",
     re.IGNORECASE,
 )
+_HISTORICAL_COPULA_RE = re.compile(
+    r"\bmy\s+(?:old|former|previous)\s+[^,.!?;:-]{0,32}?\s+was\s+([^,.!?;:-]+)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +73,8 @@ class AnswerProjection:
             text = self._extract_numeric_phrase(lowered_query, raw_text)
         else:
             text = self._strip_explanatory_tail(raw_text)
+        if self._query_prefers_historical_clause(lowered_query):
+            text = self._extract_historical_copula_phrase(raw_text, fallback=text)
         return text or "unknown"
 
     @staticmethod
@@ -134,3 +140,13 @@ class AnswerProjection:
         if not any(noun in lowered for noun in ("store", "shop", "market", "boutique", "deli")):
             return text
         return self._normalize_whitespace(f"the {remainder}")
+
+    @staticmethod
+    def _query_prefers_historical_clause(query_text: str) -> bool:
+        return any(token in query_text for token in ("previous", "former", "old ", "before", "changed"))
+
+    def _extract_historical_copula_phrase(self, text: str, *, fallback: str) -> str:
+        match = _HISTORICAL_COPULA_RE.search(text)
+        if match:
+            return self._normalize_whitespace(match.group(1).strip(" ,.;"))
+        return fallback

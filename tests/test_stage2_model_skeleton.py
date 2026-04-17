@@ -1057,6 +1057,34 @@ def test_answer_projection_extracts_location_phrase_for_where_queries():
     assert result.answer_text == "the sports store downtown"
 
 
+def test_answer_projection_extracts_historical_name_from_other_fact_clause():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "still getting used to it - it's funny, my old name was johnson",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I'm still getting used to it, but it's funny because my old name was Johnson.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-old-name", "What was my last name before I changed it?")
+    assert result.answer_text == "johnson"
+
+
 def test_answer_projection_prefers_last_location_phrase_for_event_answers():
     def _predict(query_id: str, _query_text: str, _slots):
         return {
