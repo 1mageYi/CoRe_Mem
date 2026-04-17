@@ -469,7 +469,9 @@
 - 默认 train recipe
 - 默认 benchmark recipe
 
-### 阶段 U：V2.5 Learned Core-Path Long Run
+### 阶段 U：V2.5 Generalization-First Long Run
+
+- Alias: `V2.5 Learned Core-Path Long Run`
 
 - Goal: 在**不改 `core / residual` 双银行结构**的前提下，把主线从“`v2.4` 的质量门槛已跨过”继续推进到“更强的 learned write / retrieve / belief、更泛化的 learned slot assignment、更强的 online latent，以及更大切片/全量 benchmark holdout 验证”
 - Status: planned

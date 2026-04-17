@@ -34,6 +34,7 @@
 - 不把 raw JSON exactness 当成主优化目标
 - 不继续靠 rule patch 提升 online 分数
 - benchmark 只作为 evaluation source，不作为 primary training source
+- full benchmark 保持为 `holdout evaluation`
 - 保持 `semantic-first`
 - 允许外部格式约束、schema repair、structured coercion，但收益必须回流到语义正确与 online 主链，而不是伪装成模型进步
 - 训练默认继续使用完整 public-data prepared tasks

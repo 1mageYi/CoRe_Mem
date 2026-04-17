@@ -244,7 +244,7 @@
   - iteration `2`：把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3`，full-data train/eval 与 retained line 无差别，已按 `discard` 记账并回滚；这说明瓶颈不是 task repeat 数量本身
   - iteration `4`：projection/prompt sharpen 虽然把 `LongMemEval-S 128` current-head 从 `8/8` 推到 `9/9`，但 verifier 仍停在 `19`，因此也已按 `discard` 记账
   - 当前能诚实声明的是：`v2.4 long-run` 的机械 stop condition 已达到；不能夸写成所有 benchmark 质量问题都已被根治
-- 当前 stage-2 的 runtime truth 已继续前推到 **`v2.5 learned core-path long-run`**。这轮的主目标不再是补 closeout artifact，而是在**不改 `core / residual` 双银行结构**的前提下：
+- 当前 stage-2 的 runtime truth 已继续前推到 **`TD-036 / v2.5 learned core-path long-run`**。这轮的主目标不再是补 closeout artifact，而是在**不改 `core / residual` 双银行结构**的前提下：
   - 持续提升 `LongMemEval-S` 质量
   - 把 `learned slot assignment` 从“可用”推进到“更泛化、更鲁棒”
   - 把 `write -> retrieve -> belief` 三段真正 learned 化
