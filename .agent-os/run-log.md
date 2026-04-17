@@ -1,5 +1,39 @@
 # Run Log
 
+## 2026-04-17 Session 047
+
+- Worked on: 在 `160e29f` 上用一个窄投影修正尝试把 current-head `LongMemEval-S 128` 的 local 从 `10` 推到 `11`
+- State changed:
+  - 新 commit `160e29f` 更新 `src/core_mem/v2/projection.py` 与 `tests/test_stage2_model_skeleton.py`，让 answer projection 在 historical query 上能够从 `other_fact` clause 里抽取 `my old ... was <value>` 这类答案
+  - 离线重放确认关键失败样本 `c5e8278d` 已从 `still getting used to it` 修到 `johnson`
+  - fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T083058Z_stage2_memory_canary_longmemeval/` 在一次 `HTTP 502` 后通过同一 run-dir `--resume` 收口到 `provider_exact_match = 11`、`local_exact_match = 11`
+  - helper 已把这条单独的 LongMemEval breakout 证据记为 iteration `8 refine`
+- Evidence / artifacts:
+  - commit `160e29f`
+  - `outputs_v2/runs/20260417T083058Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/evals_benchmark/20260417T083058Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 串行补跑 current-head `PersonaMem 128` guard，并在同一 HEAD 上刷新 current-head publish/verifier，判断 `160e29f` 是不是可升格成 retained keep
+
+## 2026-04-17 Session 048
+
+- Worked on: 收口 `160e29f` 的 current-head `PersonaMem 128` guard、刷新 current-head publish artifacts，并把 `v2.6` verifier 推到 stop condition
+- State changed:
+  - fresh current-head `PersonaMem 128` run `outputs_v2/runs/20260417T094824Z_stage2_memory_canary_personamem/` 在一次 read timeout 后通过同一 run-dir `--resume` 收口到 `provider_exact_match = 44`、`local_exact_match = 33`
+  - `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 已把 `160e29f` 上的 current-head `v2.5` / `v2.6` aliases、gain artifacts、LongMemEval analysis 与 holdout full-benchmark summary 全部刷新到当前 HEAD
+  - refreshed verifier 当前返回 `26/26`，说明 `LongMemEval-S 128 = 11 / 11`、`PersonaMem 128 = 44 / 33`、`write_gain.positive_gain = true` 与 `belief_gain.positive_gain = true` 已共同满足 stop condition
+- Evidence / artifacts:
+  - `outputs_v2/runs/20260417T094824Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/evals_benchmark/20260417T094824Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v26_write_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v26_full_benchmark.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `26`
+- Next likely action:
+  - 更新状态文档、记录 final keep，并停止当前 managed autoresearch run，等待用户下一步方向
+
 ## 2026-04-17 Session 046
 
 - Worked on: 收口 current-head `PersonaMem 128`、publish 当前 HEAD 的 `v2.5` / `v2.6` aliases，并把 verifier 从缺失别名导致的伪状态纠正到真实 `25/26`

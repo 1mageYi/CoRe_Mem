@@ -159,7 +159,7 @@
     - 因此不能把本轮 closeout 误写成真实 `LongMemEval-S` / online quality gain 已超过 `v2.4`
 
 - `EV-016` -> `WS-023 / TD-037` `v2.6` gain-first 长跑基线
-  - Status: partial
+  - Status: verified
   - Evidence:
     - `docs/v26_plan.md` 已把目标明确收紧为 gain-first：要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并要求 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline `10/128`
     - `scripts/verify_stage2_v26_longrun.py` 已把 mechanical target 改为 `stage2_v26_longrun_score`
@@ -173,9 +173,12 @@
     - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 最终已完整结束在 `provider_exact_match = 11`、`local_exact_match = 10`
     - current-head `PersonaMem 128` run `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/` 已完整结束在 `provider_exact_match = 44`、`local_exact_match = 33`，相对 retained `v2.5` `38 / 28` 保持正向 guard
     - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；当前 publish 入口已把 current-head `v2.5` / `v2.6` aliases、component gain artifacts、LongMemEval analysis 与 holdout full-benchmark summary 全部刷新到 current HEAD `c8c8e19`
-    - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json` 当前已记录 `positive_gain = true`、`delta_vs_v25_retained = +1`；对应 `write_gain` 仍为 `delta_provider_exact_match = +1`、`delta_local_exact_match = 0`
-    - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 当前为 `25`
-    - 与 retained `v2.5` `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 仍只形成 `provider +1 / local +0`；helper 当前已将 `research-results.tsv` iteration `2`、`3`、`4`、`5`、`6` 诚实记为 `refine`，trial commit 依次为 `a04effe`、`3051b0f`、`b4c997d`、`8d68482`、`c8c8e19`
+    - trial commit `160e29f` 已在 `src/core_mem/v2/projection.py` 上加入 historical `other_fact` clause projection；对应 fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T083058Z_stage2_memory_canary_longmemeval/` 在一次 `HTTP 502` 后原地 `--resume` 收口到 `provider_exact_match = 11`、`local_exact_match = 11`
+    - current-head `PersonaMem 128` guard refresh `outputs_v2/runs/20260417T094824Z_stage2_memory_canary_personamem/` 在一次 read timeout 后原地 `--resume` 收口到 `provider_exact_match = 44`、`local_exact_match = 33`
+    - `outputs_v2/artifacts/latest_stage2_v26_write_gain.json` 当前已记录 `positive_gain = true`、`delta_provider_exact_match = +1`、`delta_local_exact_match = +1`
+    - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json` 当前已记录 `positive_gain = true`、`delta_vs_v25_retained = +1`
+    - `outputs_v2/artifacts/latest_stage2_v26_full_benchmark.json` 当前已记录 `holdout_only = true`
+    - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 当前为 `26`
   - Boundary:
-    - 当前不能再把这轮描述成“只有 baseline”；因为 current-head `belief` 段已经出现真实正增益，且 current-head `PersonaMem 128` guard、holdout full-benchmark 与 component artifacts 都已补齐
-    - 当前仍不能宣称 `v2.6` closeout 已达成；唯一剩余硬缺口是 current-head `LongMemEval-S 128` 仍未在 local 侧超过 retained `10`
+    - 当前能诚实声明的是 `v2.6` 的机械 stop condition 已达成
+    - 当前仍不能误写成 LongMemEval failure mass 已全面解决；remaining问题仍主要集中在 `other_fact / projection` family

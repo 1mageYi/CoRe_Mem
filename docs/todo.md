@@ -2,12 +2,7 @@
 
 ## Doing
 
-- `TD-037` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
-  - 当前起点：`TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但该完成态只代表 `v2.5` baseline/package closeout
-  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`；full benchmark 只作 holdout evaluation
-  - 当前硬门槛：current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益；current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
-  - 当前计划：见 [v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
-  - 当前 blocker：fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完整结束在 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，因此还不能诚实宣称 current-head `LongMemEval-S 128` 明确超过 baseline。partial failure analysis 仍主要落在 `other_fact` / `projection` family。current-head `PersonaMem 128` 已完成并达到 `44 / 33`，current-head `v2.5` / `v2.6` aliases、component gain artifacts、LongMemEval analysis 与 holdout full-benchmark 也都已通过 publish 入口刷新到当前 HEAD；`belief_gain.positive_gain = true`，`scripts/verify_stage2_v26_longrun.py --score-only = 25`。当前唯一剩余硬缺口是 `LongMemEval-S 128` local 侧仍未高于 retained `10`
+- None.
 
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`
@@ -38,6 +33,17 @@
   - 说明：当前机械 stop condition 已达到 `19/19`；此项 closeout 已完成，但不再是当前主线。
 
 ## Done
+
+- `TD-037` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+  - Stop condition：`scripts/verify_stage2_v26_longrun.py --score-only = 26`
+  - Final retained head：`160e29f`
+  - Final retained evidence：
+    - `outputs_v2/evals_benchmark/20260417T083058Z_stage2_memory_canary.json`：current-head `LongMemEval-S 128` `provider/local = 11 / 11`
+    - `outputs_v2/evals_benchmark/20260417T094824Z_stage2_memory_canary.json`：current-head `PersonaMem 128` `provider/local = 44 / 33`
+    - `outputs_v2/artifacts/latest_stage2_v26_write_gain.json`：`positive_gain = true`
+    - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json`：`positive_gain = true`
+    - `outputs_v2/artifacts/latest_stage2_v26_full_benchmark.json`：`holdout_only = true`
+  - Truth boundary：当前能诚实声明的是 `v2.6` 的机械 stop condition 已达到；remaining failure mass 仍主要集中在 `other_fact / projection` family，不能误写成 LongMemEval 质量已经全面稳定
 
 - `TD-001` 初始化项目文档系统与根契约文件。
 - `TD-002` 在默认 conda envs 目录创建并固定 conda 环境 `core_mem`（Python 3.10）。
