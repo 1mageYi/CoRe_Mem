@@ -7,7 +7,7 @@
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`；full benchmark 只作 holdout evaluation
   - 当前硬门槛：current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益；current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
   - 当前计划：见 [v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
-  - 当前 blocker：fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完整结束在 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，因此还不能诚实宣称 current-head `LongMemEval-S 128` 明确超过 baseline。partial failure analysis 仍主要落在 `other_fact` / `projection` family。同时 `b4c997d` 已把 `v2.6` artifact publish 入口并回 `scripts/verify_stage2_v26_longrun.py`，但 current-head `PersonaMem 128` / artifacts 仍待补齐，因此 `v2.6` 继续停在 baseline `9`
+  - 当前 blocker：fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完整结束在 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，因此还不能诚实宣称 current-head `LongMemEval-S 128` 明确超过 baseline。partial failure analysis 仍主要落在 `other_fact` / `projection` family。current-head `PersonaMem 128` 已完成并达到 `44 / 33`，current-head `v2.5` / `v2.6` aliases、component gain artifacts、LongMemEval analysis 与 holdout full-benchmark 也都已通过 publish 入口刷新到当前 HEAD；`belief_gain.positive_gain = true`，`scripts/verify_stage2_v26_longrun.py --score-only = 25`。当前唯一剩余硬缺口是 `LongMemEval-S 128` local 侧仍未高于 retained `10`
 
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`

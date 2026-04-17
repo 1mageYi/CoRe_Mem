@@ -78,6 +78,42 @@ def test_publish_stage2_v26_artifacts_emits_current_head_aliases(tmp_path: Path)
             },
         },
     )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v25_write_gain.json",
+        {
+            "commit_hash": "old",
+            "positive_gain": False,
+            "delta_vs_v25_retained": 0,
+            "delta_provider_exact_match": 0,
+            "delta_local_exact_match": 0,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v25_retrieve_gain.json",
+        {
+            "commit_hash": "old",
+            "positive_gain": False,
+            "delta_vs_v25_retained": 0,
+            "layered_breakdown": {"retrieval": {"count": 2}},
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v25_belief_gain.json",
+        {
+            "commit_hash": "old",
+            "positive_gain": False,
+            "delta_vs_v25_retained": 0,
+            "v25_projection_bottleneck_count": 118,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v25_full_benchmark.json",
+        {
+            "commit_hash": "old",
+            "holdout_only": True,
+            "num_benchmarks": 2,
+        },
+    )
 
     long_predictions = repo_root / "outputs_v2" / "runs" / "long" / "predictions.jsonl"
     persona_predictions = repo_root / "outputs_v2" / "runs" / "persona" / "predictions.jsonl"
@@ -162,11 +198,17 @@ def test_publish_stage2_v26_artifacts_emits_current_head_aliases(tmp_path: Path)
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["head"] == head
+    assert payload["v25_eval"]["commit_hash"] == head
+    assert payload["v25_longmemeval_canary"]["commit_hash"] == head
+    assert payload["v25_personamem_canary"]["commit_hash"] == head
 
     write_gain = json.loads((repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v26_write_gain.json").read_text(encoding="utf-8"))
     assert write_gain["positive_gain"] is True
     assert write_gain["delta_provider_exact_match"] == 1
     assert write_gain["delta_local_exact_match"] == 1
+
+    v25_eval = json.loads((repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v25_eval.json").read_text(encoding="utf-8"))
+    assert v25_eval["commit_hash"] == head
 
     full_benchmark = json.loads((repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v26_full_benchmark.json").read_text(encoding="utf-8"))
     assert full_benchmark["holdout_only"] is True

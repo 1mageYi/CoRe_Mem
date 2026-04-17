@@ -2,7 +2,7 @@
 
 ## 目标
 
-这轮 `v2.6` 的目标，不再是补齐 artifact/package/verifier，而是要求 **current-head 在保持 `core / residual` 双银行结构不变的前提下，出现真实的 learned gain**。
+这轮 `v2.6` 的目标，不再是补齐 artifact/package/verifier，而是要求 **current-head 在不改 `core / residual` 双银行结构的前提下，出现真实的 learned gain**。
 
 具体来说：
 

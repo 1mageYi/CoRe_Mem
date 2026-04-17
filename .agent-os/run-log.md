@@ -1,5 +1,25 @@
 # Run Log
 
+## 2026-04-17 Session 046
+
+- Worked on: 收口 current-head `PersonaMem 128`、publish 当前 HEAD 的 `v2.5` / `v2.6` aliases，并把 verifier 从缺失别名导致的伪状态纠正到真实 `25/26`
+- State changed:
+  - `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/` 已在 current HEAD `c8c8e19` 上完整结束，结果为 `provider_exact_match = 44`、`local_exact_match = 33`
+  - `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 已把 current-head `v2.5` / `v2.6` train/eval/canary/gain/analysis/full-benchmark artifacts 全部刷新到当前 HEAD；其中 `belief_gain.positive_gain = true`
+  - 新的 verifier 机械真相已从旧的缺失别名状态收敛到 `25/26`；当前唯一剩余失败检查为 `current_head_v26_longmemeval_128_beats_v25 = false`
+  - 为保证 publish 行为在测试夹具下可复验，已补齐 `tests/test_stage2_v26_publish.py` 中缺失的 `v2.5` write/retrieve/belief/full-benchmark artifact 夹具，并通过 `tests/test_stage2_v26_publish.py tests/test_stage2_v26_longrun.py`
+- Evidence / artifacts:
+  - `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/evals_benchmark/20260417T072623Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v25_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v26_full_benchmark.json`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v26_publish.py tests/test_stage2_v26_longrun.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --publish-artifacts --root . --longmemeval-summary-path outputs_v2/evals_benchmark/20260417T055905Z_stage2_memory_canary.json --personamem-summary-path outputs_v2/evals_benchmark/20260417T072623Z_stage2_memory_canary.json --json`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `25`
+- Next likely action:
+  - 不再重复补 canary / publish；直接围绕 `other_fact` ranking / answer projection 做下一轮单点 refine，目标是在保持 PersonaMem guard 与 no-shortcut/no-leakage 的前提下把 `LongMemEval-S 128 local_exact_match` 从 `10` 推到 `>10`
+
 ## 2026-04-17 Session 044
 
 - Worked on: 在 `v2.6` managed run 继续进行时，把 current-head canary 吞吐优化前推一轮，并把 `v2.6` artifact 发布链收回受控 scope 内的 verifier 入口

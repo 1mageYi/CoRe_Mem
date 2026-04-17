@@ -172,6 +172,60 @@ def publish_v26_artifacts(
     v25_personamem_path: Path,
 ) -> dict[str, Any]:
     current_head = _current_head(root)
+    v25_train_payload = _republish_artifact(
+        root=root,
+        source_path=train_source_path,
+        latest_name="latest_stage2_v25_train.json",
+        artifact_type="stage2_v25_train",
+    )
+    v25_eval_payload = _republish_artifact(
+        root=root,
+        source_path=eval_source_path,
+        latest_name="latest_stage2_v25_eval.json",
+        artifact_type="stage2_v25_eval",
+    )
+    v25_longmemeval_payload = _republish_artifact(
+        root=root,
+        source_path=v25_longmemeval_path,
+        latest_name="latest_longmemeval_stage2_v25_canary.json",
+        artifact_type="stage2_v25_longmemeval_canary",
+    )
+    v25_personamem_payload = _republish_artifact(
+        root=root,
+        source_path=v25_personamem_path,
+        latest_name="latest_personamem_stage2_v25_canary.json",
+        artifact_type="stage2_v25_personamem_canary",
+    )
+    v25_analysis_payload = _republish_artifact(
+        root=root,
+        source_path=root / "outputs_v2" / "artifacts" / "latest_longmemeval_stage2_v25_analysis.json",
+        latest_name="latest_longmemeval_stage2_v25_analysis.json",
+        artifact_type="stage2_v25_longmemeval_analysis",
+    )
+    v25_write_payload = _republish_artifact(
+        root=root,
+        source_path=root / "outputs_v2" / "artifacts" / "latest_stage2_v25_write_gain.json",
+        latest_name="latest_stage2_v25_write_gain.json",
+        artifact_type="stage2_v25_write_gain",
+    )
+    v25_retrieve_payload = _republish_artifact(
+        root=root,
+        source_path=root / "outputs_v2" / "artifacts" / "latest_stage2_v25_retrieve_gain.json",
+        latest_name="latest_stage2_v25_retrieve_gain.json",
+        artifact_type="stage2_v25_retrieve_gain",
+    )
+    v25_belief_payload = _republish_artifact(
+        root=root,
+        source_path=root / "outputs_v2" / "artifacts" / "latest_stage2_v25_belief_gain.json",
+        latest_name="latest_stage2_v25_belief_gain.json",
+        artifact_type="stage2_v25_belief_gain",
+    )
+    v25_full_benchmark_payload = _republish_artifact(
+        root=root,
+        source_path=root / "outputs_v2" / "artifacts" / "latest_stage2_v25_full_benchmark.json",
+        latest_name="latest_stage2_v25_full_benchmark.json",
+        artifact_type="stage2_v25_full_benchmark",
+    )
     train_payload = _republish_artifact(
         root=root,
         source_path=train_source_path,
@@ -312,6 +366,15 @@ def publish_v26_artifacts(
 
     return {
         "head": current_head,
+        "v25_train": v25_train_payload,
+        "v25_eval": v25_eval_payload,
+        "v25_longmemeval_canary": v25_longmemeval_payload,
+        "v25_personamem_canary": v25_personamem_payload,
+        "v25_analysis": v25_analysis_payload,
+        "v25_write_gain": v25_write_payload,
+        "v25_retrieve_gain": v25_retrieve_payload,
+        "v25_belief_gain": v25_belief_payload,
+        "v25_full_benchmark": v25_full_benchmark_payload,
         "train": train_payload,
         "eval": eval_payload,
         "longmemeval_canary": longmemeval_payload,

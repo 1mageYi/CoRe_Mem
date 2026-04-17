@@ -544,8 +544,10 @@
   - 同一 partial `LongMemEval-S 128` resumed run 已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上命中 `Target`
   - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 最终已结束在 `provider_exact_match = 11`、`local_exact_match = 10`
   - refine commit `b4c997d` 已把 `v2.6` artifact publish 入口并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口
-  - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 只形成 `provider +1 / local +0`
-  - 由于 current-head `LongMemEval-S 128 / PersonaMem 128` 以及 `v2.6` train/eval/gain/analysis/full-benchmark artifacts 仍未完成，`stage2_v26_longrun_score` 目前仍停在 baseline `9`
+  - current-head `PersonaMem 128` run `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/` 已完整结束在 `provider_exact_match = 44`、`local_exact_match = 33`，相对 retained `v2.5` `38 / 28` 保持正向 guard
+  - 当前 publish 入口已把 current-head `v2.5` / `v2.6` aliases、`write / retrieve / belief` gain artifacts、LongMemEval analysis 与 holdout full-benchmark summary 一并刷新到当前 HEAD
+  - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 仍只形成 `provider +1 / local +0`；但 `belief_gain.positive_gain = true`
+  - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 25`，唯一剩余硬缺口是 `current_head_v26_longmemeval_128_beats_v25 = false`
   - 详细计划见 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
 
 #### 阶段 W-A：Freeze V2.5 Truth

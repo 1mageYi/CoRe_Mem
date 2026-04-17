@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 串行补跑 current-head `PersonaMem 128`，再用已并入 `scripts/verify_stage2_v26_longrun.py` 的 publish 入口刷新 `v2.6` train/eval/gain/analysis/full-benchmark artifacts；当前 `LongMemEval-S 128` fresh canary 已在 `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 完成，但只形成 `provider +1 / local +0`，因此仍需继续寻找真实 gain
+- Top next action: 在 current-head `c8c8e19` 已完成 `PersonaMem 128` 与 current-head publish 的前提下，围绕 `other_fact` ranking / projection 做下一轮单点 refine，目标是把 `LongMemEval-S 128` 的 `local_exact_match` 从 `10` 推到 `>10`，从而让 `stage2_v26_longrun_score` 从 `25/26` 收口到 stop condition
 - Active workstreams: `WS-023`
 - Active blockers: `BL-004`, `BL-008`
 - Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
@@ -104,9 +104,11 @@
     - refine commit `a04effe` 已对 `src/core_mem/v2/system.py` 加入 slot-assignment prompt compaction 与 weak-`other_fact` overwrite fast-path，并通过 `tests/test_stage2_v26_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
     - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在一次 canary run 内复用 learned belief / slot-assignment predictors；对应 targeted runner test 与 full stage-2 guard 已通过
     - fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完成，结果为 `provider_exact_match = 11`、`local_exact_match = 10`
-    - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回受控 scope 内的 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 publish 入口；`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
-    - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 只形成 `provider +1 / local +0`；helper 已把 iteration `5` 诚实记为 `refine`
-    - helper 已把 iteration `2`、`3`、`4`、`5` 依次诚实记为 `refine`；由于 current-head `v2.6` 的完整 `PersonaMem 128` canary 与配套 artifacts 仍未完成，且 `LongMemEval-S 128` 还未在 local 侧超过 retained baseline，`stage2_v26_longrun_score` 当前继续停在 baseline `9`
+    - current-head `PersonaMem 128` run `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/` 已完成，结果为 `provider_exact_match = 44`、`local_exact_match = 33`
+    - refine commit `b4c997d` 的 publish 入口现已在 current HEAD `c8c8e19` 上完成 current-head `v2.5` / `v2.6` aliases、component gain artifacts、LongMemEval analysis 与 holdout full-benchmark summary 的刷新；`tests/test_stage2_v26_publish.py tests/test_stage2_v26_longrun.py` 已通过
+    - 当前 `belief_gain.positive_gain = true`，而 `write` 仍是 `provider +1 / local +0`
+    - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 仍只形成 `provider +1 / local +0`；helper 已把 iteration `5`、`6` 诚实记为 `refine`
+    - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 25`；唯一剩余缺口是 `current_head_v26_longmemeval_128_beats_v25 = false`
   - Required truth for closeout:
     - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
     - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
@@ -121,8 +123,8 @@
 
 - 推进 `TD-037 / WS-023`
   - Runtime truth: `TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但那只是 `v2.5` baseline/package closeout
-  - Immediate blocker: current-head `LongMemEval-S 128` 虽然已完成 fresh canary，但结果只到 `11 / 10`，相对 retained `v2.5` 仅有 `provider +1 / local +0`，尚未满足 gain-first 要求；remaining current evidence 仍指向 `other_fact` 的 ranking / projection family
-  - Next focus: 串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并基于完整 current-head evidence 决定下一轮应优先打 `other_fact` ranking 还是 answer projection
+  - Immediate blocker: current-head `LongMemEval-S 128` 虽然已完成 fresh canary，但结果仍是 `11 / 10`，相对 retained `v2.5` 仅有 `provider +1 / local +0`；remaining current evidence 仍指向 `other_fact` 的 ranking / projection family
+  - Next focus: 不再重复补 canary 或 publish，而是直接围绕 `other_fact` ranking / answer projection 做下一轮单点 refine，目标是在保持 PersonaMem guard 与 no-shortcut/no-leakage 的前提下把 `LongMemEval-S 128 local_exact_match` 推到 `>10`
 
 ## Active Blockers
 

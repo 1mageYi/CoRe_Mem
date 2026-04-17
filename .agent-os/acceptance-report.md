@@ -171,8 +171,11 @@
     - profiling 证据已显示 sample `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`
     - 同一 partial `LongMemEval-S 128` resumed run 已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上记录 `memory_answer_local = target`、`provider_prediction = target`
     - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 最终已完整结束在 `provider_exact_match = 11`、`local_exact_match = 10`
-    - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
-    - 与 retained `v2.5` `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 只形成 `provider +1 / local +0`；helper 当前已将 `research-results.tsv` iteration `2`、`3`、`4`、`5` 诚实记为 `refine`，trial commit 依次为 `a04effe`、`3051b0f`、`b4c997d`、`8d68482`
+    - current-head `PersonaMem 128` run `outputs_v2/runs/20260417T072623Z_stage2_memory_canary_personamem/` 已完整结束在 `provider_exact_match = 44`、`local_exact_match = 33`，相对 retained `v2.5` `38 / 28` 保持正向 guard
+    - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；当前 publish 入口已把 current-head `v2.5` / `v2.6` aliases、component gain artifacts、LongMemEval analysis 与 holdout full-benchmark summary 全部刷新到 current HEAD `c8c8e19`
+    - `outputs_v2/artifacts/latest_stage2_v26_belief_gain.json` 当前已记录 `positive_gain = true`、`delta_vs_v25_retained = +1`；对应 `write_gain` 仍为 `delta_provider_exact_match = +1`、`delta_local_exact_match = 0`
+    - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 当前为 `25`
+    - 与 retained `v2.5` `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 仍只形成 `provider +1 / local +0`；helper 当前已将 `research-results.tsv` iteration `2`、`3`、`4`、`5`、`6` 诚实记为 `refine`，trial commit 依次为 `a04effe`、`3051b0f`、`b4c997d`、`8d68482`、`c8c8e19`
   - Boundary:
-    - 当前这只是新一轮的严格 baseline，不代表任何新的 online gain 已经出现
-    - 当前尚未形成完整的 current-head `v2.6` canary / gain / train/eval / holdout artifacts，因此 `stage2_v26_longrun_score` 仍停在 `9`；本轮 refine 只能诚实声明为“LongMemEval-S 128 current-head 已刷新，但只拿到 provider-only 增益，remaining PersonaMem guard 与下一轮 gain 修正仍待继续”
+    - 当前不能再把这轮描述成“只有 baseline”；因为 current-head `belief` 段已经出现真实正增益，且 current-head `PersonaMem 128` guard、holdout full-benchmark 与 component artifacts 都已补齐
+    - 当前仍不能宣称 `v2.6` closeout 已达成；唯一剩余硬缺口是 current-head `LongMemEval-S 128` 仍未在 local 侧超过 retained `10`

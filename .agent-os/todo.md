@@ -7,8 +7,8 @@
   - Hard requirement: 不再允许靠 artifact completeness 达标；current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益
   - Benchmark requirement: current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained baseline `10/128`
   - Guard: current-head `PersonaMem 128` 不明显退化；full benchmark 继续只作 holdout evaluation
-  - Truth boundary: 当前还没有新的 positive-gain evidence，baseline 只来自 `v2.5` package closeout
-  - Current blocker: current-head `LongMemEval-S 128` fresh canary `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完成，结果为 `11 / 10`，相对 retained `v2.5` 仅有 `provider +1 / local +0`；也就是说当前 `LongMemEval-S 128` 还没有在 local 侧超过 baseline。partial failure analysis 仍主要落在 `other_fact` / `projection` family。与此同时 `b4c997d` 已把 `v2.6` artifact publish 入口并回 `scripts/verify_stage2_v26_longrun.py`，但 current-head `PersonaMem 128` 与 `v2.6` artifacts 仍未完成
+  - Truth boundary: 当前已经出现新的 positive-gain evidence，但只在 `belief` 段形成；还不能把它夸写成 `LongMemEval-S 128` breakout 已达成
+  - Current blocker: current-head `LongMemEval-S 128` fresh canary `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完成，结果为 `11 / 10`，相对 retained `v2.5` 仅有 `provider +1 / local +0`；也就是说当前 `LongMemEval-S 128` 还没有在 local 侧超过 baseline。partial failure analysis 仍主要落在 `other_fact` / `projection` family。current-head `PersonaMem 128` 已完成并达到 `44 / 33`，current-head `v2.5` / `v2.6` artifacts 也已通过 publish 入口刷新到当前 HEAD，`scripts/verify_stage2_v26_longrun.py --score-only = 25`
 
 - `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
