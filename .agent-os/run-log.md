@@ -1,5 +1,25 @@
 # Run Log
 
+## 2026-04-17 Session 043
+
+- Worked on: 恢复 `v2.6` managed run，在 live provider env 已恢复的前提下继续 current-head `LongMemEval-S 128`，并把 dense `other_fact` write throughput 瓶颈前推成一轮 current-head refine
+- State changed:
+  - 通过 helper 与 shell preflight 确认当前 run 仍是 `full_resume`，且本 session 已恢复 `GPT_AGENT_API_KEY=SET`；因此历史 `BL-007`（provider env missing）不再代表 current runtime truth
+  - 直接续跑 partial `LongMemEval-S 128` run `outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/` 后，发现 live refresh 会长期停在 `2/128`；检查已落盘 rows 确认前两条 `e47becba` / `118b2229` 已命中 current-head exact match，说明主问题不是 provider env，而是后续 dense sample 的在线写入吞吐
+  - profiling 确认 sample `51a45a95` 会触发 `129` 条 observation，其中旧 current-head 需要 `11` 次 learned slot-assignment arbitration，且 `10` 次属于低 overlap 的 `other_fact` overwrite；这是 live canary 卡住的主瓶颈
+  - 新 commit `a04effe` 更新 `src/core_mem/v2/system.py` 与 `tests/test_stage2_model_skeleton.py`，把 learned slot-assignment prompt 压缩为 `symbolic target + top candidates + 少量最近上下文`，并为 weak `other_fact` overwrite 增加 fast-path
+  - 当前 profiling 已显示 `51a45a95` 的 learned arbitration 次数从 `11` 降到 `1`；同一 partial `LongMemEval-S 128` resumed run 也已从 `2/128` 前进到 `3/128`，且第三条样本 `51a45a95` 当前在 current-head 上记录 `memory_answer_local = target`、`provider_prediction = target`
+  - 由于完整 `LongMemEval-S 128 / PersonaMem 128` 与 `v2.6` train/eval/gain/analysis/full-benchmark artifacts 仍未完成，`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 继续为 `9`；helper 已把 iteration `2` 诚实记为 `refine`
+- Evidence / artifacts:
+  - commit `a04effe`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - partial run `outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v26_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `9`
+- Next likely action:
+  - 在 committed HEAD `a04effe` 上继续串行重跑 current-head `LongMemEval-S 128 / PersonaMem 128`，并补齐 `latest_stage2_v26_*` artifacts，再判断这轮 write-path refine 是否能真正把 `LongMemEval-S 128` 推过 `v2.5` retained baseline `10/128`
+
 ## 2026-04-17 Session 042
 
 - Worked on: 在 fresh `v2.6` managed run 上完成第一轮 current-head trial，尝试用 query-intent-aware temporal retrieval / belief scoring 修正历史型 query 的 stale-slot 偏置，并在 live provider env 缺失处停机

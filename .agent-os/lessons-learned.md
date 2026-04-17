@@ -44,3 +44,4 @@
 - 2026-04-17:
   - 对 background managed run 来说，历史 artifact 曾经在另一 session 成功跑过 live provider，并不等于当前 session 仍然带着同样的 env；在任何 live canary / full benchmark 刷新前，必须先机械确认 `GPT_AGENT_API_KEY` 已进入当前进程环境，否则会白白烧掉 slot-assignment / model 预处理时间，最后只得到 `provider_configured=false`。
   - query-intent-aware temporal retrieval / belief scoring 可以先用 unit tests 锁住“历史型 query 不被当前槽位压掉”的行为，但没有 live provider env 时，不能把这种 trial commit 误写成 `v2.6 gain`；应诚实停在 `blocked`，把 commit 留作未验证 trial，而不是伪造 canary/gain artifact。
+  - learned slot-assignment 在线 prompt 如果直接吃全量 memory context，会在 dense `other_fact` 样本上把 live canary 拖成分钟级；即使真正需要 arbitration 的 observation 只有十来条，T5 generation 也会被 60+ 候选 prompt 放大到不可用。对 `other_fact` 这类 open-world relation，应该优先把 online prompt 收缩到 `symbolic target + top candidates + 少量最近上下文`，并对低 lexical-overlap 的 overwrite 直接 fast-path 为 `new`，再把剩余 live refresh 交回 background runtime。
