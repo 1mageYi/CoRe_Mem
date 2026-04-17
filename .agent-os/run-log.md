@@ -1,5 +1,32 @@
 # Run Log
 
+## 2026-04-17 Session 052
+
+- Worked on: 为 `TD-038 / WS-024` 补齐 fresh background run 初始化、`gpu2` tiny pilot train/eval/timing/internal gate，以及 `v27` 的非-teacher artifact 发布链
+- State changed:
+  - 先以 baseline `scripts/verify_stage2_v27_longrun.py --score-only = 18` 调用 helper 初始化 fresh `research-results.tsv` 与 `autoresearch-state.json`；当前 `autoresearch_resume_check.py --repo ...` 已返回 `full_resume`
+  - `scripts/train_stage2.py` 已新增真实 timing / throughput / peak GPU memory 记录；`scripts/verify_stage2_v27_longrun.py` 已新增 `--publish-artifacts` 聚合入口，可从 train/eval 结果发布 `latest_stage2_v27_train.json`、`latest_stage2_v27_eval.json`、`latest_stage2_v27_training_timing.json`、`latest_stage2_v27_internal_test.json` 与 `latest_stage2_v27_holdout_summary.json`
+  - current HEAD `6333689` 上，`gpu2` tiny pilot 已使用 `outputs_v2/artifacts/stage2_v27_32k/train/stage2_prepared_samples_manifest.json` 完成 `4096` effective examples、`512` steps；当前 timing 为 wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
+  - 对应 val/test checkpoint eval 已落地在 `outputs_v2/evals_local/20260417T203318Z_stage2_local_eval.json` 与 `outputs_v2/evals_local/20260417T203349Z_stage2_local_eval.json`
+  - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only` 已从 `18` 提升到 `23`
+  - 当前真实 blocker 已从旧的 guard 叙述切换为 `MiniMax-M2.7` teacher provider env 缺失：当前 shell 下 `GPT_AGENT_API_KEY=UNSET`，因此 teacher observation / slot-assignment / belief artifacts 仍未真实生成
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260417T203240Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/checkpoints/20260417T203240Z_stage2_train_exec/`
+  - `outputs_v2/evals_local/20260417T203318Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260417T203349Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_training_timing.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_internal_test.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_holdout_summary.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v27_longrun.py --score-only` -> `23`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v27_longrun.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+- Next likely action:
+  - provider env 恢复后，优先生成 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json`，再决定是否扩大 `32k` pilot 或进入 full-data
+
 ## 2026-04-17 Session 050
 
 - Worked on: 为 `TD-038 / WS-024` 落地真实 `32k` source-level split / manifest / audit pipeline，并把 fresh `v2.7` baseline 从纯文档态推进到真实 data-pipeline 证据
@@ -9,7 +36,7 @@
   - 对应 `32k` split 的真实 task counts 为：train `24000/24000/2774/24000`，val/test 各 `4000/4000/462/4000`
   - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/v27_plan.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 与 `docs/todo.md` 已同步到 fresh `v2.7` 进展
   - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only` 已从 baseline `11` 提升到 `18`
-  - 当前真实 blocker 已切到 launch manifest guard：相关 tests 通过，但完整 guard 因 `test 10 = 26` 恒失败，故本轮 progress 还不能机械 retain
+  - 当前真实 blocker 已切到 launch manifest guard：相关 tests 通过，但 authoritative launch manifest 仍要求 `scripts/verify_stage2_v26_longrun.py --score-only = 26`；在 current `v2.7` runtime truth 下，该 verifier 机械返回 `10`，`autoresearch-state.json` 又把它损坏成 `test 10 = 26`，故本轮 progress 还不能机械 retain
 - Evidence / artifacts:
   - commit `21dd40b`
   - `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`
@@ -20,6 +47,25 @@
   - `conda run -n core_mem pytest -q tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py`
 - Next likely action:
   - 若 runtime guard 合约恢复可用，则下一步进入 `MiniMax-M2.7` teacher observation / slot-assignment / belief artifacts，再推进 `gpu2` train / eval / timing / internal test
+
+## 2026-04-17 Session 051
+
+- Worked on: 复核 `v2.7` managed run 的 resume / guard 真相，确认当前停机原因是 launch guard 与 runtime truth 结构性冲突，而不只是 state 文件里的 shell 尾部写坏
+- State changed:
+  - 通过 `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_resume_check.py --repo /media/storage/mingjing/workspace/CoRe_Mem` 确认当前 run 仍是 `full_resume`，`research-results.tsv` / `autoresearch-state.json` 一致
+  - 现 HEAD `6333689` 上，fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only` 仍为 `18`
+  - 同一 HEAD 上，`scripts/verify_stage2_v26_longrun.py --score-only` 机械返回 `10`；关键失败项来自 `agentos_tracks_td037_ws023 = false` 等“文档 / agent 状态仍停在 `v2.6`”检查
+  - 因此当前 authoritative launch manifest 中要求的 `scripts/verify_stage2_v26_longrun.py --score-only = 26` 与 `TD-038 / WS-024` 的 current-head runtime truth 结构性冲突；`autoresearch-state.json` 中的 `test 10 = 26` 只是 guard 在状态文件中的损坏展开
+  - `docs/current_status.md`、`docs/todo.md`、`.agent-os/project-index.md` 与 `.agent-os/todo.md` 已同步到上述 blocker 真相
+- Evidence / artifacts:
+  - `autoresearch-launch.json`
+  - `autoresearch-state.json`
+  - `research-results.tsv`
+  - `conda run -n core_mem python scripts/verify_stage2_v27_longrun.py --score-only` -> `18`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --json`
+  - `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_resume_check.py --repo /media/storage/mingjing/workspace/CoRe_Mem`
+- Next likely action:
+  - 只有在 authoritative launch guard 被重新定义为与 `TD-038 / WS-024` 相容的合约，或切换到新的 runtime handoff 后，当前 `v2.7` managed run 才能继续进入 teacher labels、gpu2 训练计时与 internal generalization gate
 
 ## 2026-04-17 Session 049
 

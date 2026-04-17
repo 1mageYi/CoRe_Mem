@@ -81,6 +81,9 @@ def test_train_stage2_execute_train_uses_tiny_runtime(tmp_path: Path):
     assert payload["online_aligned"] is True
     assert Path(payload["metrics_path"]).exists()
     assert Path(payload["checkpoint_dir"]).exists()
+    assert payload["wall_clock_seconds"] >= 0.0
+    assert payload["examples_per_second"] is not None
+    assert payload["steps_per_second"] is not None
 
 
 def test_balanced_cap_examples_spreads_budget_across_tasks(tmp_path: Path):
@@ -146,6 +149,7 @@ def test_train_stage2_respects_gradient_accumulation(tmp_path: Path):
     payload = json.loads(result.stdout)
     assert payload["num_steps"] == 3
     assert payload["optimizer_steps"] == 3
+    assert payload["wall_clock_seconds"] >= 0.0
 
 
 def test_stage2_train_plan_emits_direct_train_launcher(tmp_path: Path):

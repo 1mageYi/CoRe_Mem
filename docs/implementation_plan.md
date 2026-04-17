@@ -128,6 +128,13 @@
 - benchmark 继续保持 holdout-only，不回流成训练 supervision
 - **只有在 32k internal test work well 后，才允许进入 full-data**
 
+当前已落地的 `v2.7` 运行时证据：
+
+- `latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json`、`latest_stage2_v27_32k_audit.json` 已证明 `24k/4k/4k` source-level split 和 audit 已存在
+- `latest_stage2_v27_train.json`、`latest_stage2_v27_eval.json`、`latest_stage2_v27_training_timing.json`、`latest_stage2_v27_internal_test.json` 与 `latest_stage2_v27_holdout_summary.json` 已补齐一条真实 `gpu2` tiny pilot 闭环
+- 当前这条 `gpu2` pilot 使用 `outputs_v2/artifacts/stage2_v27_32k/train/stage2_prepared_samples_manifest.json`，记录 `4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
+- 当前 `MiniMax-M2.7` teacher 路径仍因 `GPT_AGENT_API_KEY=UNSET` 保持 pending；因此 `v2.7` 当前真相是“non-teacher 32k internal pipeline 已推进，teacher labels 尚未生成”
+
 ## 第二阶段拆分
 
 ### 阶段 G：V2.0 设计锁定

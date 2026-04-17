@@ -224,14 +224,28 @@
   - 当前 `32k` split 的真实 task counts 为：
     - train: `slot_autoencoding=24000`、`retrieval_alignment=24000`、`lifecycle_prediction=2774`、`composition_to_belief=24000`
     - val/test: 各自 `slot_autoencoding=4000`、`retrieval_alignment=4000`、`lifecycle_prediction=462`、`composition_to_belief=4000`
-- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18/26`；当前新增通过项是：
+- 当前又补齐了非-teacher 的 `gpu2` pilot 闭环：
+  - `outputs_v2/artifacts/latest_stage2_v27_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_training_timing.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_internal_test.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_holdout_summary.json`
+  其中当前 `gpu2` tiny pilot 的真实记录为：`4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
+- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 23/26`；当前新增通过项是：
   - `32k split artifact`
   - `32k manifest artifact`
   - `32k audit artifact`
+  - `v27 train artifact`
+  - `v27 eval artifact`
+  - `v27 training timing artifact`
+  - `v27 internal test artifact`
+  - `v27 holdout summary artifact`
   - `TD-038 / WS-024` 的 verifier 文档口径已对齐
-- 当前 `v2.7` 的真实 runtime blocker 不是代码测试失败，而是 launch manifest 中的 guard 命令尾部固定为 `test 10 = 26`。本轮相关测试
-  `tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py`
-  已通过，但完整 guard 仍必然 `EXIT:1`，因此当前 managed run 还不能把 `18/26` 机械记为 retained keep
+- 当前 `v2.7` 的真实 runtime blocker 已从“guard 冲突”切换为 **teacher provider env 缺失**：
+  - fresh background run 已通过 helper 正常初始化 `research-results.tsv` 与 `autoresearch-state.json`
+  - `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_resume_check.py --repo /media/storage/mingjing/workspace/CoRe_Mem` 当前返回 `full_resume`
+  - 当前 shell 下 `GPT_AGENT_API_KEY=UNSET`，因此 `MiniMax-M2.7` teacher observation / slot-assignment / belief labels 还不能真实执行
+  - 因而 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json` 仍是 pending，而不是可以伪造补齐的 artifact
 - `v2.7` 继续严格保持：
   - 不改 `core / residual`
   - 不做任何 `fallback / shortcut / benchmark-specific heuristic`

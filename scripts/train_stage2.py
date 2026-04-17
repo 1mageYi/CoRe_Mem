@@ -10,8 +10,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
+import torch
 import yaml
 
 from eval_stage2_local import run_local_eval
@@ -208,6 +210,14 @@ def stage2_train_execute(
         encoding="utf-8",
     )
 
+    peak_gpu_memory_mb = None
+    gpu_name = None
+    if device.startswith("cuda") and torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        gpu_name = torch.cuda.get_device_name(torch.cuda.current_device())
+
+    started_at = datetime.now(timezone.utc)
+    started_perf = time.perf_counter()
     metrics = train_stage2_model(
         config,
         prepared_manifest_path,
@@ -216,6 +226,11 @@ def stage2_train_execute(
         device=device,
         disabled_pools=variant.get("disabled_pools"),
     )
+    wall_clock_seconds = max(time.perf_counter() - started_perf, 0.0)
+    finished_at = datetime.now(timezone.utc)
+    if device.startswith("cuda") and torch.cuda.is_available():
+        peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+
     artifact_paths = save_training_artifacts(
         run_dir=run_dir,
         output_root=output_root,
@@ -234,6 +249,13 @@ def stage2_train_execute(
         "cuda_visible_devices": cuda_visible_devices,
         "variant": variant,
         "online_aligned": bool(config.get("training", {}).get("online_aligned", False)),
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "wall_clock_seconds": wall_clock_seconds,
+        "examples_per_second": (metrics["num_examples"] / wall_clock_seconds) if wall_clock_seconds else None,
+        "steps_per_second": (metrics["num_steps"] / wall_clock_seconds) if wall_clock_seconds else None,
+        "peak_gpu_memory_mb": peak_gpu_memory_mb,
+        "gpu_name": gpu_name,
     }
     (run_dir / "execution_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload

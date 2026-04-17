@@ -7,7 +7,10 @@
   - Current progress:
     - current HEAD `21dd40b` 已新增真实 `32k` source-level split / manifest / audit pipeline
     - `latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已落地
-    - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18`
+    - fresh background run 已通过 helper 初始化 `research-results.tsv` 与 `autoresearch-state.json`；`autoresearch_resume_check.py --repo ...` 当前返回 `full_resume`
+    - current HEAD `6333689` 已补齐 `latest_stage2_v27_train.json`、`latest_stage2_v27_eval.json`、`latest_stage2_v27_training_timing.json`、`latest_stage2_v27_internal_test.json` 与 `latest_stage2_v27_holdout_summary.json`
+    - `gpu2` tiny pilot 当前真实记录为：`4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
+    - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 23`
   - Core requirements:
     - `32k` 作为锚点；先做 `24k train / 4k val / 4k test`
     - 训练前先做 data-quality audit
@@ -22,7 +25,7 @@
     - full benchmark 只作 holdout evaluation
     - 只有 `32k` internal test work well 后，才允许进入 full-data
   - Current blocker:
-    - launch manifest 的 guard 命令尾部固定为 `test 10 = 26`；因此相关 tests 全部通过后，完整 guard 仍必然失败，当前 fresh `18/26` 还不能作为 retained keep 记账
+    - 当前 shell 下 `GPT_AGENT_API_KEY=UNSET`，因此 `MiniMax-M2.7` teacher observation / slot-assignment / belief labels 还不能真实执行；本轮只诚实补齐了非-teacher 的 `gpu2` train/eval/timing/internal gate 闭环，teacher artifacts 仍 pending
 
 - `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
@@ -61,9 +64,9 @@
   - Evidence target: PersonaMem 与 LongMemEval-S 在正式范围内完成可重复结果运行。
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
 
-- `TD-038-guard` `[blocked]` `v2.7` managed run 的 launch guard 当前恒失败。
-  - Reason: launch manifest 中 guard 命令尾部固定为 `test 10 = 26`；因此即使 `tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py` 全部通过，完整 guard 仍必然返回非零。
-  - Evidence target: 修正 runtime guard 合约，或改用不受该常量比较卡死的 runtime handoff。
+- `TD-038-teacher` `[blocked]` `v2.7` 的 MiniMax teacher labels 当前未执行。
+  - Reason: 当前 shell 下 `GPT_AGENT_API_KEY=UNSET`，因此 observation / slot-assignment / belief fields 的 `MiniMax-M2.7` teacher labels 还不能真实生成；当前只能诚实保留为 pending，而不能伪造 teacher artifacts。
+  - Evidence target: provider env 恢复后，生成 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json`。
 
 ## Done
 
