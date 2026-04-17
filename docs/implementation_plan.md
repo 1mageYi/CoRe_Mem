@@ -133,7 +133,9 @@
 - `latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json`、`latest_stage2_v27_32k_audit.json` 已证明 `24k/4k/4k` source-level split 和 audit 已存在
 - `latest_stage2_v27_train.json`、`latest_stage2_v27_eval.json`、`latest_stage2_v27_training_timing.json`、`latest_stage2_v27_internal_test.json` 与 `latest_stage2_v27_holdout_summary.json` 已补齐一条真实 `gpu2` tiny pilot 闭环
 - 当前这条 `gpu2` pilot 使用 `outputs_v2/artifacts/stage2_v27_32k/train/stage2_prepared_samples_manifest.json`，记录 `4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
-- 当前 `MiniMax-M2.7` teacher 路径仍因 `GPT_AGENT_API_KEY=UNSET` 保持 pending；因此 `v2.7` 当前真相是“non-teacher 32k internal pipeline 已推进，teacher labels 尚未生成”
+- `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json` 已补齐一轮真实 `MiniMax-M2.7` teacher pilot artifacts
+- 当前 teacher pilot 使用 sample caps `8/2/2` 与 batch size `1`；`slot_assignment` 与 `belief` artifact 状态为 `completed`，`observation` artifact 状态为 `completed_with_failures`
+- 当前需要诚实保留的边界是：这轮 teacher 只是一轮 pilot，不是 full `32k` teacher coverage；`latest_stage2_v27_teacher_observation.json` 当前显式记录 `total_labeled_examples = 6`、`total_failed_examples = 6`
 
 ## 第二阶段拆分
 

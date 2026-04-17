@@ -231,21 +231,35 @@
   - `outputs_v2/artifacts/latest_stage2_v27_internal_test.json`
   - `outputs_v2/artifacts/latest_stage2_v27_holdout_summary.json`
   其中当前 `gpu2` tiny pilot 的真实记录为：`4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
-- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 23/26`；当前新增通过项是：
+- 当前又补齐了一轮真实 `MiniMax-M2.7` teacher pilot artifacts：
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_observation.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_slot_assignment.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_belief.json`
+  - 当前 teacher pilot 使用 sample caps `8/2/2` 与 batch size `1`
+  - 其中 `slot_assignment` 与 `belief` artifact 状态为 `completed`
+  - `observation` artifact 状态为 `completed_with_failures`，当前显式记录 `total_labeled_examples = 6`、`total_failed_examples = 6`
+- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 26/26`；当前新增通过项是：
   - `32k split artifact`
   - `32k manifest artifact`
   - `32k audit artifact`
+  - `v27 teacher observation artifact`
+  - `v27 teacher slot-assignment artifact`
+  - `v27 teacher belief artifact`
   - `v27 train artifact`
   - `v27 eval artifact`
   - `v27 training timing artifact`
   - `v27 internal test artifact`
   - `v27 holdout summary artifact`
   - `TD-038 / WS-024` 的 verifier 文档口径已对齐
-- 当前 `v2.7` 的真实 runtime blocker 已从“guard 冲突”切换为 **teacher provider env 缺失**：
+- 当前 `v2.7` 的 provider-env blocker 已不再代表 runtime truth：
   - fresh background run 已通过 helper 正常初始化 `research-results.tsv` 与 `autoresearch-state.json`
   - `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_resume_check.py --repo /media/storage/mingjing/workspace/CoRe_Mem` 当前返回 `full_resume`
-  - 当前 shell 下 `GPT_AGENT_API_KEY=UNSET`，因此 `MiniMax-M2.7` teacher observation / slot-assignment / belief labels 还不能真实执行
-  - 因而 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json` 仍是 pending，而不是可以伪造补齐的 artifact
+  - 当前 shell 内 `GPT_AGENT_API_KEY=SET`
+  - `configs/minimax_m27.yaml` 已可在 `https://gpt-agent.cc/v1` 上完成真实 `MiniMax-M2.7` 请求
+- Truth boundary：
+  - 当前 `26/26` 代表 `v2.7` 的机械 stop condition 已由 `32k split + gpu2 tiny pilot + teacher pilot artifacts` 共同满足
+  - 不能把这轮完成态误写成 full `32k` teacher coverage 已完成
+  - 也不能把它误写成 teacher-conditioned `gpu2` retrain 已完成
 - `v2.7` 继续严格保持：
   - 不改 `core / residual`
   - 不做任何 `fallback / shortcut / benchmark-specific heuristic`

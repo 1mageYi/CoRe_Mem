@@ -1,5 +1,42 @@
 # Run Log
 
+## 2026-04-17 Session 054
+
+- Worked on: 恢复 `TD-038 / WS-024` 的 teacher 路径，落地真实 `MiniMax-M2.7` teacher artifact 发布链，并把 `v2.7` verifier 推到 stop condition
+- State changed:
+  - 当前 shell 已确认 `GPT_AGENT_API_KEY=SET`，先前“teacher provider env 缺失”不再代表 runtime truth
+  - `scripts/prepare_stage2_data.py` 已新增 `--publish-v27-teacher-artifacts`，支持基于 `latest_stage2_v27_32k_manifest.json` 发布 observation / slot-assignment / belief 三类 teacher artifacts，并把缺失 sample_id / 非 JSON 返回如实记录到 failure jsonl，而不是伪造标签
+  - current worktree 已用真实 `MiniMax-M2.7` 跑完一轮 sample-capped teacher pilot：caps `8/2/2`、batch size `1`
+  - `latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json` 当前为 `completed`；`latest_stage2_v27_teacher_observation.json` 当前为 `completed_with_failures`，显式记录 `total_labeled_examples = 6`、`total_failed_examples = 6`
+  - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only` 已从 `23` 提升到 `26`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/todo.md` 已同步到上述 runtime truth
+- Evidence / artifacts:
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_observation.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_slot_assignment.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_teacher_belief.json`
+  - `outputs_v2/artifacts/stage2_v27_teacher/`
+  - `conda run -n core_mem python scripts/prepare_stage2_data.py --output-root outputs_v2 --publish-v27-teacher-artifacts --v27-manifest-artifact outputs_v2/artifacts/latest_stage2_v27_32k_manifest.json --teacher-config configs/minimax_m27.yaml --teacher-train-max-rows 8 --teacher-val-max-rows 2 --teacher-test-max-rows 2 --teacher-batch-size 1 --json`
+  - `conda run -n core_mem python scripts/verify_stage2_v27_longrun.py --json`
+- Next likely action:
+  - 若继续 `v2.7`，优先在保持 `core / residual` 冻结与 holdout-only 的前提下，决定是扩大 teacher pilot coverage，还是直接消费当前 teacher labels 进入一轮新的 `gpu2` train/eval refresh
+
+## 2026-04-17 Session 053
+
+- Worked on: 继续恢复 `TD-038 / WS-024` 的 teacher 路径，最终确认 `MiniMax-M2.7` provider env 在当前工作机会话中是硬 blocker
+- State changed:
+  - `autoresearch_resume_check.py --repo ...` 继续返回 `full_resume`；当前 retained metric 仍是 `23`
+  - 已确认仓库内不存在可 source 的 `.env` 文件
+  - 已检查并 source `~/.bashrc` / `~/.profile`；之后 `GPT_AGENT_API_KEY`、`OPENAI_API_KEY`、`ALIYUN_API_KEY` 与 `GEMINI_API_KEY` 仍全部为 `UNSET`
+  - 因此当前无法真实执行 `MiniMax-M2.7` teacher observation / slot-assignment / belief labels；本轮到达 true blocker，run 在 `23/26` 暂停
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md` 与 `docs/todo.md` 已同步到上述 blocker 真相
+- Evidence / artifacts:
+  - `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_resume_check.py --repo /media/storage/mingjing/workspace/CoRe_Mem`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - shell profile probe on `~/.bashrc` / `~/.profile`
+- Next likely action:
+  - 只有在本地 provider env 恢复后，才能继续生成 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json`
+
 ## 2026-04-17 Session 052
 
 - Worked on: 为 `TD-038 / WS-024` 补齐 fresh background run 初始化、`gpu2` tiny pilot train/eval/timing/internal gate，以及 `v27` 的非-teacher artifact 发布链
