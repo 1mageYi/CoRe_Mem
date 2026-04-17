@@ -217,6 +217,21 @@
   - 用 `MiniMax-M2.7` 作为 teacher 提升 `observation / slot assignment / belief fields`
   - 训练优先用 `gpu2`
   - 记录训练耗时、吞吐与显存，判断这个量级是否过重
+- 当前 fresh `v2.7` 进展已经补齐首批真实 data-pipeline artifacts：
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_manifest.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_audit.json`
+  - 当前 `32k` split 的真实 task counts 为：
+    - train: `slot_autoencoding=24000`、`retrieval_alignment=24000`、`lifecycle_prediction=2774`、`composition_to_belief=24000`
+    - val/test: 各自 `slot_autoencoding=4000`、`retrieval_alignment=4000`、`lifecycle_prediction=462`、`composition_to_belief=4000`
+- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18/26`；当前新增通过项是：
+  - `32k split artifact`
+  - `32k manifest artifact`
+  - `32k audit artifact`
+  - `TD-038 / WS-024` 的 verifier 文档口径已对齐
+- 当前 `v2.7` 的真实 runtime blocker 不是代码测试失败，而是 launch manifest 中的 guard 命令尾部固定为 `test 10 = 26`。本轮相关测试
+  `tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py`
+  已通过，但完整 guard 仍必然 `EXIT:1`，因此当前 managed run 还不能把 `18/26` 机械记为 retained keep
 - `v2.7` 继续严格保持：
   - 不改 `core / residual`
   - 不做任何 `fallback / shortcut / benchmark-specific heuristic`

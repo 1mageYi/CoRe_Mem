@@ -8,6 +8,8 @@
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
   - 当前训练要求：优先使用 `gpu2`，并记录 wall-clock / throughput / memory
   - Truth boundary：先只做 `32k`；只有 internal test work well 后，才允许进入 full-data
+  - 最新进展：`latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已落地，fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18`
+  - 当前 blocker：launch manifest 的 guard 命令尾部固定为 `test 10 = 26`；因此相关 tests 通过后，完整 guard 仍必然失败，当前 `18/26` 还不能作为 retained keep 记账
 
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`
@@ -20,6 +22,7 @@
 
 - `TD-012` 补齐 stage-1 外部前置条件：当前 formal benchmark 继续受 provider `HTTP 429` 阻断，且在用户明确要求前不主动继续推进。
 - `TD-013` 将 PersonaMem / LongMemEval-S 从 1-sample real run 推进到正式全量 protocol 运行：当前作为 pending baseline / acceptance 项保留，直到用户要求 AI 去跑。
+- `TD-038-guard` 修正 `v2.7` managed run 的 guard 合约：当前 launch manifest 中的 `... && test 10 = 26` 会恒失败，因此这轮 fresh progress 还不能机械 retain。
 
 ## Backlog
 

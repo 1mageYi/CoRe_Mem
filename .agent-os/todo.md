@@ -4,6 +4,10 @@
 
 - `TD-038` `[doing]` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成；`TD-038` 是新的 active 主线
+  - Current progress:
+    - current HEAD `21dd40b` 已新增真实 `32k` source-level split / manifest / audit pipeline
+    - `latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已落地
+    - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18`
   - Core requirements:
     - `32k` 作为锚点；先做 `24k train / 4k val / 4k test`
     - 训练前先做 data-quality audit
@@ -17,6 +21,8 @@
     - no benchmark leakage
     - full benchmark 只作 holdout evaluation
     - 只有 `32k` internal test work well 后，才允许进入 full-data
+  - Current blocker:
+    - launch manifest 的 guard 命令尾部固定为 `test 10 = 26`；因此相关 tests 全部通过后，完整 guard 仍必然失败，当前 fresh `18/26` 还不能作为 retained keep 记账
 
 - `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
@@ -54,6 +60,10 @@
   - Reason: 当前只能证明最小链路打通，尚不足以满足 AC-002 / AC-003 的正式运行要求；同时该项被用户触发条件与 provider blocker 双重约束。
   - Evidence target: PersonaMem 与 LongMemEval-S 在正式范围内完成可重复结果运行。
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
+
+- `TD-038-guard` `[blocked]` `v2.7` managed run 的 launch guard 当前恒失败。
+  - Reason: launch manifest 中 guard 命令尾部固定为 `test 10 = 26`；因此即使 `tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py` 全部通过，完整 guard 仍必然返回非零。
+  - Evidence target: 修正 runtime guard 合约，或改用不受该常量比较卡死的 runtime handoff。
 
 ## Done
 

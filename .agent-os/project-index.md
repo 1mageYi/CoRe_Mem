@@ -5,7 +5,7 @@
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
 - Top next action: 启动 `TD-038 / WS-024` 的 `v2.7` 32k teacher-first 长跑；当前 active 项显式为 `TD-038 / WS-024`，先建立 `32k` source-level split、teacher labels、internal test 与 training timing，再决定是否进入 full-data
 - Active workstreams: `WS-024`
-- Active blockers: `BL-004`
+- Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022` 与 `TD-037 / WS-023` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout 与 `v2.6` gain-first closeout 复验；当前 active 主线已经前推到 `TD-038 / WS-024`
 
 ## Objective Summary
@@ -136,6 +136,12 @@
     - full benchmark 只作 holdout evaluation
   - Boundary:
     - 当前阶段只先做 `32k`；只有 internal test work well 后，才允许进入 full-data
+  - Latest retained progress:
+    - current HEAD `21dd40b` 已新增真实 `32k` source-level split / manifest / audit pipeline
+    - `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已落地
+    - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 18`
+  - Current blocker note:
+    - launch manifest 的 guard 命令尾部固定为 `test 10 = 26`，导致相关 tests 通过后完整 guard 仍必然失败；当前 run 因此还不能机械 retain `18/26`
   - Plan: [docs/v27_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v27_plan.md)
 
 ## Top Next Action
@@ -148,6 +154,9 @@
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
 - `BL-008`: 当前 `TD-037 / WS-023` 的主瓶颈已从 provider env 缺失切到 `other_fact` family 的 current-head online quality 与尾段 provider stability。`a04effe` 把 dense overwrite arbitration 从 `11` 压到 `1`，`3051b0f` 又把 learned predictors 的初始化复用到 run 级别，因此 fresh current-head `LongMemEval-S 128` canary 已能在若干次 `--resume` 后完成；但最终结果只到 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，且 partial failure analysis 仍主要落在 `other_fact` / `projection`。因此 gain-first 目标当前仍被该质量瓶颈阻断。
+- `BL-009`: 当前 `TD-038 / WS-024` 的 managed runtime guard 在 launch manifest 中固定为 `... && test 10 = 26`。因此即使
+  `tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py`
+  全部通过，完整 guard 仍必然返回非零；当前 `v2.7` fresh progress 只能诚实记为“current-head verifier 提升到 `18/26`，但不能 retained keep”，直到 guard 合约被修正或 runtime handoff 改变。
 ## Recent Important Changes
 
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`
@@ -159,6 +168,7 @@
 - 2026-04-16: `TD-036 / WS-022` 的 managed autoresearch 已在 current HEAD `3036e3d` 上把 `scripts/verify_stage2_v25_longrun.py --score-only` 从 baseline `9` 推到 stop condition `24/24`；新增 retained evidence 包括 current-head `v24` baseline alias refresh、`v2.5` baseline/package artifacts、以及 `write / retrieve / belief` 三段的 baseline decomposition artifacts
 - 2026-04-16: 当前 `v2.5` closeout 必须诚实标注为“mechanical stop condition reached via baseline/package initialization”；三段 component artifacts 当前均显式记录 `delta_vs_v24_retained = 0`，不能误写成真实 benchmark gain 已经出现
 - 2026-04-17: 用户批准继续下一轮，但要求 stop condition 收紧为“必须出现真实 gain”；当前 next action 已前推到 `TD-037 / WS-023`，并新增 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md) 与 `scripts/verify_stage2_v26_longrun.py`。这轮不再允许靠 artifact completeness 达标，而是要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，同时 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline `10/128`。
+- 2026-04-17: fresh `v2.7` current HEAD `21dd40b` 已落地真实 `32k` source-level split / manifest / audit pipeline。当前 `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已存在，`scripts/verify_stage2_v27_longrun.py --score-only` 从 baseline `11` 提升到 `18`。但 launch manifest 的 guard 命令固定以 `test 10 = 26` 结尾，因此相关 tests 全部通过后，完整 guard 仍必然失败；当前 run 只能诚实标注为“fresh progress landed, guard-blocked before retain”。
 - 2026-04-17: current session 已确认 `GPT_AGENT_API_KEY=SET`，因此历史 `BL-007` 已被清除；新的运行时主瓶颈切换为 dense `other_fact` write throughput。refine commit `a04effe` 对 learned slot-assignment prompt 做了 current-head compaction，并为 weak `other_fact` overwrite 增加 fast-path。对应 profiling 显示 sample `51a45a95` 的 learned arbitration 次数已从 `11` 降到 `1`，同一 partial `LongMemEval-S 128` resumed run 也已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上命中 `Target`。由于完整 `128` canary / gain artifacts 仍未补齐，helper 已把本轮 iteration `2` 记为 `refine`，`stage2_v26_longrun_score` 继续保持 `9`
 - 2026-04-17: refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`，helper 已把 iteration `3` 记为 `refine`
 - 2026-04-17: refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；对应 `tests/test_stage2_v26_longrun.py tests/test_stage2_v26_publish.py` 通过，`scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`，helper 已把 iteration `4` 记为 `refine`

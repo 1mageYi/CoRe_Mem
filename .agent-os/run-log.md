@@ -1,5 +1,26 @@
 # Run Log
 
+## 2026-04-17 Session 050
+
+- Worked on: 为 `TD-038 / WS-024` 落地真实 `32k` source-level split / manifest / audit pipeline，并把 fresh `v2.7` baseline 从纯文档态推进到真实 data-pipeline 证据
+- State changed:
+  - 新 commit `21dd40b` 更新 `src/core_mem/v2/datasets.py`、`scripts/prepare_stage2_data.py` 与 `tests/test_stage2_data_pipeline.py`，新增 source-level split builder、split-aware prepared payload 选择、以及 `--prepare-v27-32k` 发布入口
+  - fresh public-data run 已生成 `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json`
+  - 对应 `32k` split 的真实 task counts 为：train `24000/24000/2774/24000`，val/test 各 `4000/4000/462/4000`
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/v27_plan.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 与 `docs/todo.md` 已同步到 fresh `v2.7` 进展
+  - fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only` 已从 baseline `11` 提升到 `18`
+  - 当前真实 blocker 已切到 launch manifest guard：相关 tests 通过，但完整 guard 因 `test 10 = 26` 恒失败，故本轮 progress 还不能机械 retain
+- Evidence / artifacts:
+  - commit `21dd40b`
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_manifest.json`
+  - `outputs_v2/artifacts/latest_stage2_v27_32k_audit.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v27_longrun.py --score-only` -> `18`
+  - `conda run -n core_mem pytest -q tests/test_stage2_data_pipeline.py`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v27_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_training_runtime.py`
+- Next likely action:
+  - 若 runtime guard 合约恢复可用，则下一步进入 `MiniMax-M2.7` teacher observation / slot-assignment / belief artifacts，再推进 `gpu2` train / eval / timing / internal test
+
 ## 2026-04-17 Session 049
 
 - Worked on: 确认 `v2.6` 已机械完成后，把主线前推到 `v2.7 32k teacher-first`，为下一轮后台长跑建立新的 baseline
