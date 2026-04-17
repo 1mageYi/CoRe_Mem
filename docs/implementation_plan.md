@@ -542,8 +542,9 @@
   - 历史 trial HEAD `077cbf3` 已通过 stage-2 guard；当前 session 也已确认 `GPT_AGENT_API_KEY=SET`，因此 provider-env blocker 已被清除
   - 最新 refine commit `a04effe` 已把 learned slot-assignment prompt 收缩到相关候选上下文，并为 weak `other_fact` overwrite 增加 fast-path；对应 profiling 已把 sample `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`
   - 同一 partial `LongMemEval-S 128` resumed run 已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上命中 `Target`
-  - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`
+  - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 最终已结束在 `provider_exact_match = 11`、`local_exact_match = 10`
   - refine commit `b4c997d` 已把 `v2.6` artifact publish 入口并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口
+  - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 只形成 `provider +1 / local +0`
   - 由于 current-head `LongMemEval-S 128 / PersonaMem 128` 以及 `v2.6` train/eval/gain/analysis/full-benchmark artifacts 仍未完成，`stage2_v26_longrun_score` 目前仍停在 baseline `9`
   - 详细计划见 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
 

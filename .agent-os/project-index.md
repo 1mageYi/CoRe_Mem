@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 等待 fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 完成后，继续串行补跑 `PersonaMem 128`，再用已并入 `scripts/verify_stage2_v26_longrun.py` 的 publish 入口刷新 `v2.6` train/eval/gain/analysis/full-benchmark artifacts；在保持 `core / residual` 不变的前提下，继续要求 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline
+- Top next action: 串行补跑 current-head `PersonaMem 128`，再用已并入 `scripts/verify_stage2_v26_longrun.py` 的 publish 入口刷新 `v2.6` train/eval/gain/analysis/full-benchmark artifacts；当前 `LongMemEval-S 128` fresh canary 已在 `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 完成，但只形成 `provider +1 / local +0`，因此仍需继续寻找真实 gain
 - Active workstreams: `WS-023`
 - Active blockers: `BL-004`, `BL-008`
 - Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
@@ -103,9 +103,10 @@
     - 当前 session 已恢复 `GPT_AGENT_API_KEY=SET`，历史 `BL-007` 不再代表 runtime truth；但 dense `other_fact` write path 在 `51a45a95` 这类样本上仍暴露出 learned slot-assignment 在线吞吐瓶颈
     - refine commit `a04effe` 已对 `src/core_mem/v2/system.py` 加入 slot-assignment prompt compaction 与 weak-`other_fact` overwrite fast-path，并通过 `tests/test_stage2_v26_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
     - refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在一次 canary run 内复用 learned belief / slot-assignment predictors；对应 targeted runner test 与 full stage-2 guard 已通过
-    - fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`
+    - fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已完成，结果为 `provider_exact_match = 11`、`local_exact_match = 10`
     - refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回受控 scope 内的 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 publish 入口；`conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
-    - helper 已把 iteration `2`、`3`、`4` 依次诚实记为 `refine`；由于 current-head `v2.6` 的完整 `LongMemEval-S 128 / PersonaMem 128` canary 与配套 artifacts 仍未完成，`stage2_v26_longrun_score` 当前继续停在 baseline `9`
+    - 与 retained `v2.5` 的 `LongMemEval-S 128 = 10 / 10` 相比，这轮 current-head fresh canary 只形成 `provider +1 / local +0`；helper 已把 iteration `5` 诚实记为 `refine`
+    - helper 已把 iteration `2`、`3`、`4`、`5` 依次诚实记为 `refine`；由于 current-head `v2.6` 的完整 `PersonaMem 128` canary 与配套 artifacts 仍未完成，且 `LongMemEval-S 128` 还未在 local 侧超过 retained baseline，`stage2_v26_longrun_score` 当前继续停在 baseline `9`
   - Required truth for closeout:
     - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
     - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
@@ -120,13 +121,13 @@
 
 - 推进 `TD-037 / WS-023`
   - Runtime truth: `TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但那只是 `v2.5` baseline/package closeout
-  - Immediate blocker: dense `other_fact` sample 仍会把 current-head `LongMemEval-S 128` live refresh 拖到分钟级；`a04effe` 已把 `51a45a95` 的 learned arbitration 次数从 `11` 压到 `1`，`3051b0f` 又把 predictor 重载成本挪出 sample loop，但 fresh `128` canary 目前也只推进到 `13/128`
-  - Next focus: 等待 `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 完成后立刻串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并判断这轮 write-path refine 是否能把 `LongMemEval-S 128` 真正推过 `10/128`
+  - Immediate blocker: current-head `LongMemEval-S 128` 虽然已完成 fresh canary，但结果只到 `11 / 10`，相对 retained `v2.5` 仅有 `provider +1 / local +0`，尚未满足 gain-first 要求；remaining current evidence 仍指向 `other_fact` 的 ranking / projection family
+  - Next focus: 串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并基于完整 current-head evidence 决定下一轮应优先打 `other_fact` ranking 还是 answer projection
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
-- `BL-008`: 当前 `TD-037 / WS-023` 的主瓶颈已从 provider env 缺失切到 dense-sample learned write 吞吐。current-head partial `LongMemEval-S 128` resumed run 在旧 trial HEAD 上曾卡在 `2/128`，定位到 sample `51a45a95` 会触发 `11` 次 learned slot-assignment arbitration，其中 `10` 次是低 overlap 的 `other_fact` overwrite。refine commit `a04effe` 已把这类 arbitration 压到 `1` 次，`3051b0f` 又把 learned predictors 的初始化复用到 run 级别；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`，但 full `128` canary 与 `v2.6` artifacts 仍未完成，因此该瓶颈当前仍属于 active blocker。
+- `BL-008`: 当前 `TD-037 / WS-023` 的主瓶颈已从 provider env 缺失切到 `other_fact` family 的 current-head online quality 与尾段 provider stability。`a04effe` 把 dense overwrite arbitration 从 `11` 压到 `1`，`3051b0f` 又把 learned predictors 的初始化复用到 run 级别，因此 fresh current-head `LongMemEval-S 128` canary 已能在若干次 `--resume` 后完成；但最终结果只到 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，且 partial failure analysis 仍主要落在 `other_fact` / `projection`。因此 gain-first 目标当前仍被该质量瓶颈阻断。
 ## Recent Important Changes
 
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`
@@ -141,6 +142,7 @@
 - 2026-04-17: current session 已确认 `GPT_AGENT_API_KEY=SET`，因此历史 `BL-007` 已被清除；新的运行时主瓶颈切换为 dense `other_fact` write throughput。refine commit `a04effe` 对 learned slot-assignment prompt 做了 current-head compaction，并为 weak `other_fact` overwrite 增加 fast-path。对应 profiling 显示 sample `51a45a95` 的 learned arbitration 次数已从 `11` 降到 `1`，同一 partial `LongMemEval-S 128` resumed run 也已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上命中 `Target`。由于完整 `128` canary / gain artifacts 仍未补齐，helper 已把本轮 iteration `2` 记为 `refine`，`stage2_v26_longrun_score` 继续保持 `9`
 - 2026-04-17: refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`，helper 已把 iteration `3` 记为 `refine`
 - 2026-04-17: refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；对应 `tests/test_stage2_v26_longrun.py tests/test_stage2_v26_publish.py` 通过，`scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`，helper 已把 iteration `4` 记为 `refine`
+- 2026-04-17: fresh current-head `LongMemEval-S 128` canary `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已在 `8d68482` 上完整结束，结果为 `provider_exact_match = 11`、`local_exact_match = 10`。相对 retained `v2.5` 的 `10 / 10`，这轮只形成 `provider +1 / local +0`，仍不能诚实宣称 current-head `LongMemEval-S 128` 已明确超过 baseline；helper 已把 iteration `5` 记为 `refine`
 - 2026-04-16: `v2.2` managed autoresearch 在 current HEAD `510aeb7` 上完成 projection-aware semantic closeout：`src/core_mem/v2/projection.py` 新增 generic answer projection normalization，并补充对应单测；`outputs_v2/evals_benchmark/20260416T021743Z_stage2_memory_canary.json` 已把 current-head `LongMemEval-S` semantic canary 扩到 `128`，`outputs_v2/artifacts/latest_stage2_semantic_online_gain.json` 记录 `LongMemEval-S 64` 相对 retained symbolic 64 baseline 的 `delta_local_exact_match = +1`，`outputs_v2/evals_benchmark/20260416T024146Z_stage2_memory_canary.json` 已补齐 current-head `PersonaMem 128` semantic canary；`scripts/verify_stage2_v22_completion.py --score-only` 因此达到 stop condition `19/19`
 - 2026-04-16: 用户确认把下一阶段切到 `v2.3 stronger learned slot assignment + stronger latent`；当前 next action 已切到 `TD-033 / WS-019`，并新增计划文档 [docs/v23_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_plan.md)。这条线继续保留 `semantic-first` 与 `no fallback / no shortcut` 约束，但主收益目标从 “补齐 semantic evidence” 转向 `LongMemEval-S` 质量、learned slot assignment 和更强的 online latent memory 主链。
 - 2026-04-16: 用户进一步要求“把目标再往前推进一些”，并批准后台长跑允许多卡并行实验；当前 next action 已继续切到 `TD-034 / WS-020`，并新增 [docs/v23_longrun_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v23_longrun_plan.md) 与对应 verifier 计划。新的长跑主线要求的不仅是 `learned slot assignment` 接上，还要求它在 `LongMemEval-S 64/128` 和 `PersonaMem 128` 上形成 current-head retained artifact 与 gain 证据。

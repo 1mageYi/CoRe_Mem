@@ -20,6 +20,24 @@
 - Next likely action:
   - 等待当前 `LongMemEval-S 128` fresh run 完成后，串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并据此判断是否出现真实 `write / retrieve / belief` gain
 
+## 2026-04-17 Session 045
+
+- Worked on: 完成 current-head `LongMemEval-S 128` fresh canary，并把 negative result 记入 managed run 状态机
+- State changed:
+  - `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 已在 current HEAD `8d68482` 上完整结束；尾段两次 provider read timeout 均通过同一 run-dir `--resume` 续跑收口
+  - final canary 结果为 `provider_exact_match = 11`、`provider_label_prefix_match = 11`、`local_exact_match = 10`
+  - 相对 retained `v2.5` `LongMemEval-S 128 = 10 / 10`，这轮 current-head 只形成 `provider +1 / local +0`，因此 gain-first 条件仍未满足
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`
+  - helper 已把本轮 evidence 记为 iteration `5 refine`，labels 为 `longmemeval-128-refresh`、`provider-only-gain`
+- Evidence / artifacts:
+  - `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/evals_benchmark/20260417T055905Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `9`
+- Next likely action:
+  - 串行补跑 current-head `PersonaMem 128`，再用 `scripts/verify_stage2_v26_longrun.py --publish-artifacts ...` 刷新 `latest_stage2_v26_*` artifacts，并据此决定下一轮要优先修 `other_fact` ranking 还是 answer projection
+
 ## 2026-04-17 Session 043
 
 - Worked on: 恢复 `v2.6` managed run，在 live provider env 已恢复的前提下继续 current-head `LongMemEval-S 128`，并把 dense `other_fact` write throughput 瓶颈前推成一轮 current-head refine
