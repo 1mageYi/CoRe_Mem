@@ -7,6 +7,7 @@
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`；full benchmark 只作 holdout evaluation
   - 当前硬门槛：current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益；current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
   - 当前计划：见 [v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
+  - 当前 blocker：本轮 managed session 缺少 `GPT_AGENT_API_KEY`；trial HEAD `077cbf3` 已通过 stage-2 guard，但 current-head `LongMemEval-S / PersonaMem` live canary 仍无法刷新，故 `v2.6` 继续停在 baseline `9`
 
 - `TD-036` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - 当前起点：`TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `24/24`

@@ -41,3 +41,6 @@
   - `LongMemEval-S` 的一部分 retained 收益来自 answer exactness，而不是更重的训练配方；对 `How many / How often / where-did-you-buy` 这类 query-aware exactness case，先修 projection/prompt contract 比盲目加训练更有效。
   - `semantic_outputs.py` 里直接用 `_SLOT_ID_RE.findall(text)` 去扫 malformed belief payload 会把字面量 `slot_ids` 当成真的 support slot id；对 braceless / partially malformed belief JSON，必须先做真实 slot-id 值过滤，再做 support evidence 恢复。
   - 一旦进入 `v2.5` 这类更激进阶段，full benchmark 应只当 holdout measurement；如果把 benchmark slice 的错误模式直接回灌成 task supervision、prompt special case 或 benchmark-specific heuristic，短期分数可能会上升，但会直接破坏“更泛化、更鲁棒”的目标。
+- 2026-04-17:
+  - 对 background managed run 来说，历史 artifact 曾经在另一 session 成功跑过 live provider，并不等于当前 session 仍然带着同样的 env；在任何 live canary / full benchmark 刷新前，必须先机械确认 `GPT_AGENT_API_KEY` 已进入当前进程环境，否则会白白烧掉 slot-assignment / model 预处理时间，最后只得到 `provider_configured=false`。
+  - query-intent-aware temporal retrieval / belief scoring 可以先用 unit tests 锁住“历史型 query 不被当前槽位压掉”的行为，但没有 live provider env 时，不能把这种 trial commit 误写成 `v2.6 gain`；应诚实停在 `blocked`，把 commit 留作未验证 trial，而不是伪造 canary/gain artifact。

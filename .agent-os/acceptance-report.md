@@ -165,5 +165,9 @@
     - `scripts/verify_stage2_v26_longrun.py` 已把 mechanical target 改为 `stage2_v26_longrun_score`
     - `tests/test_stage2_v26_longrun.py` 已覆盖“只有在 positive gain 与超 baseline canary 同时出现时才可满分”的 verifier 合同
     - 当前 `v2.5` retained baseline 继续保留为对照线：`latest_stage2_v25_train.json`、`latest_stage2_v25_eval.json`、`latest_longmemeval_stage2_v25_canary.json`、`latest_personamem_stage2_v25_canary.json`、`latest_stage2_v25_write_gain.json`、`latest_stage2_v25_retrieve_gain.json`、`latest_stage2_v25_belief_gain.json`
+    - fresh baseline 已通过 helper 固化：`research-results.tsv` iteration `0` 与 `autoresearch-state.json` 当前都记录 `stage2_v26_longrun_score = 9`
+    - trial HEAD `077cbf3` 已加入 query-intent-aware temporal retrieval / belief scoring，并通过 stage-2 guard：`tests/test_stage2_v26_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
+    - `outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/run_metadata.json` 已记录本轮 blocker 证据：`provider_configured = false`
   - Boundary:
     - 当前这只是新一轮的严格 baseline，不代表任何新的 online gain 已经出现
+    - 当前 managed session 缺少 `GPT_AGENT_API_KEY`，所以本轮 trial 仍未形成任何 current-head `v2.6` live canary / gain artifact；`research-results.tsv` iteration `1` 已诚实记为 `blocked`

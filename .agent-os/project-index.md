@@ -3,9 +3,9 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 推进 `TD-037 / WS-023`，把主线切到更严格的 `v2.6 gain-first long-run`；在保持 `core / residual` 不变的前提下，要求 current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline
+- Top next action: 恢复 `TD-037 / WS-023` 所需的 live provider env，然后重跑 current-head `LongMemEval-S 128 / PersonaMem 128` canary；在保持 `core / residual` 不变的前提下，继续要求 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline
 - Active workstreams: `WS-023`
-- Active blockers: `BL-004`
+- Active blockers: `BL-004`, `BL-007`
 - Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
 
 ## Objective Summary
@@ -98,6 +98,10 @@
   - Current retained baseline:
     - `TD-036 / WS-022` 已完成，`v2.5` current HEAD `3036e3d` 上 `24/24`
     - 但该完成态只代表 baseline/package closeout，不代表新的 quality gain
+  - Latest trial status:
+    - current trial HEAD `077cbf3` 已加入一轮 query-intent-aware temporal retrieval / belief scoring，并通过 `tests/test_stage2_model_skeleton.py`
+    - 但当前 managed session 缺少 `GPT_AGENT_API_KEY`，`outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/run_metadata.json` 已记录 `provider_configured=false`
+    - 因此本轮尚未形成任何 current-head `v2.6` live canary / gain artifact，`stage2_v26_longrun_score` 仍停在 baseline `9`
   - Required truth for closeout:
     - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
     - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
@@ -112,11 +116,13 @@
 
 - 推进 `TD-037 / WS-023`
   - Runtime truth: `TD-036 / WS-022` 已在 current HEAD `3036e3d` 上达到 `24/24`，但那只是 `v2.5` baseline/package closeout
-  - Next focus: current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 超过 `v2.5` retained baseline `10/128`
+  - Immediate blocker: 当前 managed session 缺少 `GPT_AGENT_API_KEY`，必须先恢复 live provider env，才能继续刷新 current-head `LongMemEval-S 128 / PersonaMem 128`
+  - Next focus after blocker clears: current-head 的 `write / retrieve / belief` 至少一段出现真实正增益，并让 `LongMemEval-S 128` 超过 `v2.5` retained baseline `10/128`
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
+- `BL-007`: 当前 `TD-037 / WS-023` managed session 缺少 `GPT_AGENT_API_KEY` live provider env。trial HEAD `077cbf3` 已通过 stage-2 guard，但 `outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/run_metadata.json` 记录 `provider_configured=false`，因此 current-head `LongMemEval-S 128 / PersonaMem 128` live canary 无法刷新，`v2.6` 仍停在 baseline `9`。该 blocker 不代表代码失败，而是当前 session/runtime env 缺失。
 ## Recent Important Changes
 
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`

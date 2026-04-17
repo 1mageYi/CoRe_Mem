@@ -532,13 +532,14 @@
 - Alias: `V2.6 Gain-First Long Run`
 
 - Goal: 在**不改 `core / residual` 双银行结构**的前提下，不再允许靠 artifact completeness 达成 stop condition，而是要求 current-head 出现真实 `write / retrieve / belief` learned gain，并让 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline。
-- Status: planned
+- Status: doing, currently blocked by live provider env
 - Notes:
   - 这轮的中心要求是“真实正增益”，而不是 artifact completeness
   - `v2.5` 已被诚实收口为 baseline/package closeout，而不是 quality-gain closeout
   - 本轮继续严格保留 `semantic-first`、`no fallback`、`no shortcut`、`no benchmark-specific heuristic`
   - 本轮继续禁止 raw JSON exactness 作为主优化目标，也禁止把 full benchmark 结果回流成训练 supervision
   - full benchmark 在本轮继续保持为 holdout acceptance / generalization measurement
+  - 最新 trial HEAD `077cbf3` 已通过 stage-2 guard，但当前 managed session 缺少 `GPT_AGENT_API_KEY`，因此 current-head `LongMemEval-S / PersonaMem` live canary 刷新被 blocker 卡住，`stage2_v26_longrun_score` 仍停在 baseline `9`
   - 详细计划见 [docs/v26_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v26_plan.md)
 
 #### 阶段 W-A：Freeze V2.5 Truth

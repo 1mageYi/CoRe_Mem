@@ -1,5 +1,24 @@
 # Run Log
 
+## 2026-04-17 Session 042
+
+- Worked on: 在 fresh `v2.6` managed run 上完成第一轮 current-head trial，尝试用 query-intent-aware temporal retrieval / belief scoring 修正历史型 query 的 stale-slot 偏置，并在 live provider env 缺失处停机
+- State changed:
+  - 按 launch manifest 与 helper 先测 baseline，再初始化 fresh `research-results.tsv` / `autoresearch-state.json`；baseline `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` 为 `9`
+  - trial commit `077cbf3` 更新了 `src/core_mem/v2/system.py`、`src/core_mem/v2/decoder.py` 与 `tests/test_stage2_model_skeleton.py`，让 retrieval / belief 对 historical/date/number query 使用更明确的 query-intent scoring；对应 `tests/test_stage2_model_skeleton.py` 通过
+  - full stage-2 guard 通过，但当前 session 检测到 `GPT_AGENT_API_KEY=unset`；`outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/run_metadata.json` 已记录 `provider_configured=false`
+  - 因为 live provider env 缺失，本轮无法诚实刷新 current-head `LongMemEval-S 128 / PersonaMem 128` canary，也无法生成任何 `v2.6` positive-gain artifact；helper 已把 iteration `1` 记为 `blocked`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`.agent-os/acceptance-report.md`、`docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/todo.md` 已同步到 “`TD-037 / WS-023` 继续 doing，但当前被 live provider env 缺失阻断” 的 runtime truth
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - commit `077cbf3`
+  - `outputs_v2/runs/20260417T000000Z_stage2_memory_canary_longmemeval_v26_iter1/run_metadata.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v26_longrun.py --score-only` -> `9`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v26_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 恢复当前 managed session 的 `GPT_AGENT_API_KEY` live provider env，然后在 trial HEAD `077cbf3` 上重跑 current-head `LongMemEval-S 128` 与 `PersonaMem 128`，再判断这轮 temporal retrieval / belief scoring 是 `keep` 还是 `revert`
+
 ## 2026-04-17 Session 041
 
 - Worked on: 将 `v2.5` 从 package closeout 前推到更严格的 `v2.6 gain-first` 主线，并为下一轮后台长跑建立新的 mechanical baseline
