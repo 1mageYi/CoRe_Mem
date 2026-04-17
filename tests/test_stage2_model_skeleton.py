@@ -594,6 +594,127 @@ def test_structured_memory_system_short_circuits_other_fact_slot_assignment_with
     assert len(system.state.active_slots()) == 2
 
 
+def test_structured_memory_system_short_circuits_weak_other_fact_overwrite():
+    calls = {"count": 0}
+
+    def _predict(_observation, _slots):
+        calls["count"] += 1
+        return {"target_action": "overwrite", "target_flags": {"promote": False, "stale_old": True}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    for index, value in enumerate(["updating my email address", "considering a vacation cabin"]):
+        system.observe_observation(
+            Observation.from_dict(
+                {
+                    "obs_id": f"obs-weak-{index}",
+                    "source_dataset": "synthetic",
+                    "source_dialogue_id": "dlg-1",
+                    "source_turn_id": f"turn-{index}",
+                    "session_id": "sess-1",
+                    "speaker": "user",
+                    "entity": "user",
+                    "relation": "other_fact",
+                    "value": value,
+                    "value_type": "other",
+                    "time_scope": "current",
+                    "status_hint": "active",
+                    "polarity": "neutral",
+                    "confidence": 1.0,
+                    "evidence_text": value,
+                    "canonical_gloss": f"other_fact={value}",
+                }
+            ),
+            timestamp=f"2026-04-07T05:0{index}:00Z",
+        )
+
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-weak-overwrite",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-overwrite",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "designing steering column stalks",
+                "value_type": "other",
+                "time_scope": "past",
+                "status_hint": "unknown",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "I was designing steering column stalks.",
+                "canonical_gloss": "other_fact=designing steering column stalks",
+            }
+        ),
+        timestamp="2026-04-07T06:00:00Z",
+    )
+
+    assert calls["count"] == 0
+    assert any("designing steering column stalks" in slot.canonical_gloss for slot in system.state.active_slots())
+
+
+def test_structured_memory_system_preserves_strong_other_fact_overwrite_candidates():
+    system = StructuredMemorySystem()
+    candidate = system.slot_encoder.encode(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-strong-0",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-0",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "learning about a data analysis course for work",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "learning about a data analysis course for work",
+                "canonical_gloss": "other_fact=learning about a data analysis course for work",
+            }
+        ),
+        timestamp="2026-04-07T05:10:00Z",
+        bank="residual",
+    )
+    overwrite_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-strong-overwrite",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-strong-overwrite",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "interested in a data analysis course for work",
+            "value_type": "other",
+            "time_scope": "past",
+            "status_hint": "unknown",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I was interested in a data analysis course for work.",
+            "canonical_gloss": "other_fact=interested in a data analysis course for work",
+        }
+    )
+
+    decision = system._fast_path_weak_other_fact_overwrite(
+        overwrite_observation,
+        candidates=[candidate],
+        symbolic_decision=type("Decision", (), {"action": "overwrite", "matched_slot_id": candidate.slot_id, "promote": False})(),
+    )
+
+    assert decision is None
+
+
 def test_structured_memory_system_caps_slot_assignment_decode_length(tmp_path: Path):
     config_path = tmp_path / "train.yaml"
     checkpoint_dir = tmp_path / "checkpoint"
@@ -651,6 +772,147 @@ def test_structured_memory_system_caps_slot_assignment_decode_length(tmp_path: P
     assert captured["max_source_length"] == 256
     assert captured["max_target_length"] == 48
     assert captured["device"] == "cpu"
+
+
+def test_structured_memory_system_compacts_slot_assignment_prompt_slots_for_dense_other_fact_overwrite():
+    system = StructuredMemorySystem()
+    for index in range(15):
+        value = f"seed fact {index}"
+        if index == 0:
+            value = "planning a longer backpacking trip"
+        system.observe_observation(
+            Observation.from_dict(
+                {
+                    "obs_id": f"obs-seed-{index}",
+                    "source_dataset": "synthetic",
+                    "source_dialogue_id": "dlg-1",
+                    "source_turn_id": f"turn-{index}",
+                    "session_id": "sess-1",
+                    "speaker": "user",
+                    "entity": "user",
+                    "relation": "other_fact",
+                    "value": value,
+                    "value_type": "other",
+                    "time_scope": "current",
+                    "status_hint": "active",
+                    "polarity": "neutral",
+                    "confidence": 1.0,
+                    "evidence_text": value,
+                    "canonical_gloss": f"other_fact={value}",
+                }
+            ),
+            timestamp=f"2026-04-07T05:{index:02d}:00Z",
+        )
+
+    overwrite_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-overwrite",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-overwrite",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "planning a longer backpacking trip through europe soon",
+            "value_type": "other",
+            "time_scope": "past",
+            "status_hint": "unknown",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I was planning a longer backpacking trip soon.",
+            "canonical_gloss": "other_fact=planning a longer backpacking trip through europe soon",
+        }
+    )
+    symbolic_target = system.state.active_slots()[0]
+    prompt_slots = system._slot_assignment_prompt_slots(
+        overwrite_observation,
+        system.state.active_slots(),
+        candidates=system._slot_assignment_candidates(overwrite_observation, system.state.active_slots()),
+        symbolic_decision=type(
+            "Decision",
+            (),
+            {"action": "overwrite", "matched_slot_id": symbolic_target.slot_id, "promote": False},
+        )(),
+    )
+
+    assert len(prompt_slots) <= 12
+    assert prompt_slots[0].slot_id == symbolic_target.slot_id
+    assert len(prompt_slots) < len(system.state.active_slots())
+
+
+def test_structured_memory_system_compacted_slot_assignment_prompt_keeps_topical_candidate():
+    system = StructuredMemorySystem()
+    seed_values = [
+        "tracking coupon redemptions",
+        "learning more about wildlife management",
+        "social media growth tips for my bakery business",
+        "thinking about a vacation cabin",
+        "reading about composting",
+        "shopping for hiking boots",
+        "updating my email address",
+        "planning a small herb garden",
+        "trying yoga before bed",
+    ]
+    for index, value in enumerate(seed_values):
+        system.observe_observation(
+            Observation.from_dict(
+                {
+                    "obs_id": f"obs-topical-{index}",
+                    "source_dataset": "synthetic",
+                    "source_dialogue_id": "dlg-1",
+                    "source_turn_id": f"turn-{index}",
+                    "session_id": "sess-1",
+                    "speaker": "user",
+                    "entity": "user",
+                    "relation": "other_fact",
+                    "value": value,
+                    "value_type": "other",
+                    "time_scope": "current",
+                    "status_hint": "active",
+                    "polarity": "neutral",
+                    "confidence": 1.0,
+                    "evidence_text": value,
+                    "canonical_gloss": f"other_fact={value}",
+                }
+            ),
+            timestamp=f"2026-04-07T05:{index:02d}:00Z",
+        )
+
+    overwrite_observation = Observation.from_dict(
+        {
+            "obs_id": "obs-social-media",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-social-media",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "looking for more social media advice for my bakery business",
+            "value_type": "other",
+            "time_scope": "past",
+            "status_hint": "unknown",
+            "polarity": "neutral",
+            "confidence": 1.0,
+            "evidence_text": "I was looking for more social media advice for my bakery.",
+            "canonical_gloss": "other_fact=looking for more social media advice for my bakery business",
+        }
+    )
+
+    prompt_slots = system._slot_assignment_prompt_slots(
+        overwrite_observation,
+        system.state.active_slots(),
+        candidates=system._slot_assignment_candidates(overwrite_observation, system.state.active_slots()),
+        symbolic_decision=type(
+            "Decision",
+            (),
+            {"action": "overwrite", "matched_slot_id": system.state.active_slots()[0].slot_id, "promote": False},
+        )(),
+    )
+
+    assert any("social media growth tips for my bakery" in slot.canonical_gloss for slot in prompt_slots)
+    assert len(prompt_slots) <= 12
 
 
 def test_structured_memory_system_query_terms_normalize_question_noise():

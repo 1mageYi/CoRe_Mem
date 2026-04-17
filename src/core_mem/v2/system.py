@@ -21,6 +21,9 @@ from core_mem.v2.vector_ops import dot_product
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
 _SLOT_ASSIGNMENT_MAX_TARGET_LENGTH_CAP = 48
+_SLOT_ASSIGNMENT_PROMPT_MAX_SLOTS = 12
+_SLOT_ASSIGNMENT_PROMPT_MAX_CANDIDATES = 8
+_SLOT_ASSIGNMENT_PROMPT_MAX_CONTEXT_SLOTS = 4
 _DATE_VALUE_RE = re.compile(
     r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b",
     re.IGNORECASE,
@@ -388,12 +391,25 @@ class StructuredMemorySystem:
         # head to solve.
         if symbolic_decision.action in {"merge", "overwrite"} and len(candidates) <= 1:
             return symbolic_decision
+        weak_other_fact_overwrite = self._fast_path_weak_other_fact_overwrite(
+            observation,
+            candidates=candidates,
+            symbolic_decision=symbolic_decision,
+        )
+        if weak_other_fact_overwrite is not None:
+            return weak_other_fact_overwrite
 
         predictor = self._resolve_slot_assignment_predictor()
         if predictor is None:
             return LifecycleDecision(action="ignore")
+        prompt_slots = self._slot_assignment_prompt_slots(
+            observation,
+            slots,
+            candidates=candidates,
+            symbolic_decision=symbolic_decision,
+        )
         try:
-            payload = predictor(observation, slots)
+            payload = predictor(observation, prompt_slots)
         except Exception:
             return LifecycleDecision(action="ignore")
         return self._coerce_slot_assignment_decision(
@@ -414,6 +430,84 @@ class StructuredMemorySystem:
             for slot in slots
             if slot.active_flag and slot.entity == observation.entity and slot.relation == observation.relation
         ]
+
+    def _slot_assignment_prompt_slots(
+        self,
+        observation: Observation,
+        slots: list[SlotRecord],
+        *,
+        candidates: list[SlotRecord],
+        symbolic_decision: LifecycleDecision,
+    ) -> list[SlotRecord]:
+        if not slots:
+            return []
+
+        prompt_slots: list[SlotRecord] = []
+        seen_slot_ids: set[str] = set()
+
+        def _append(slot: SlotRecord | None) -> None:
+            if slot is None or slot.slot_id in seen_slot_ids:
+                return
+            prompt_slots.append(slot)
+            seen_slot_ids.add(slot.slot_id)
+
+        symbolic_target = self._find_slot(candidates, symbolic_decision.matched_slot_id)
+        _append(symbolic_target)
+
+        observation_terms = set(_TOKEN_RE.findall(observation.value.lower()))
+        query_vector = self.query_encoder.encode(observation.value)
+        ranked_candidates = sorted(
+            candidates,
+            key=lambda slot: self._slot_assignment_candidate_priority(
+                slot,
+                observation_terms=observation_terms,
+                query_vector=query_vector,
+            ),
+            reverse=True,
+        )
+        for slot in ranked_candidates[:_SLOT_ASSIGNMENT_PROMPT_MAX_CANDIDATES]:
+            _append(slot)
+
+        for slot in reversed(slots):
+            if len(prompt_slots) >= _SLOT_ASSIGNMENT_PROMPT_MAX_SLOTS:
+                break
+            if not slot.active_flag:
+                continue
+            _append(slot)
+            if len(prompt_slots) >= len(ranked_candidates) + _SLOT_ASSIGNMENT_PROMPT_MAX_CONTEXT_SLOTS:
+                break
+        return prompt_slots[:_SLOT_ASSIGNMENT_PROMPT_MAX_SLOTS]
+
+    def _slot_assignment_candidate_priority(
+        self,
+        slot: SlotRecord,
+        *,
+        observation_terms: set[str],
+        query_vector: list[float],
+    ) -> tuple[float, float, float]:
+        lexical_overlap = len(observation_terms & self._slot_terms(slot))
+        semantic_overlap = dot_product(query_vector, slot.retrieval_key)
+        return lexical_overlap, semantic_overlap, float(slot.confidence)
+
+    def _fast_path_weak_other_fact_overwrite(
+        self,
+        observation: Observation,
+        *,
+        candidates: list[SlotRecord],
+        symbolic_decision: LifecycleDecision,
+    ) -> LifecycleDecision | None:
+        if observation.relation != "other_fact" or symbolic_decision.action != "overwrite":
+            return None
+        target = self._select_slot_assignment_target(observation, candidates, symbolic_decision)
+        if target is None:
+            return LifecycleDecision(action="new", promote=symbolic_decision.promote)
+        observation_terms = set(_TOKEN_RE.findall(observation.value.lower()))
+        lexical_overlap = len(observation_terms & self._slot_terms(target))
+        normalized_value = observation.value.lower().strip()
+        normalized_target = target.canonical_gloss.lower().strip()
+        if lexical_overlap >= 3 or normalized_value in normalized_target or normalized_target in normalized_value:
+            return None
+        return LifecycleDecision(action="new", promote=symbolic_decision.promote)
 
     def _select_slot_assignment_target(
         self,
