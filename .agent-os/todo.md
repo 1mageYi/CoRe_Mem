@@ -2,7 +2,15 @@
 
 ## Doing
 
-- None.
+- `TD-037` `[doing]` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+  - Runtime truth: stop condition 已在 current HEAD `95f7b64` 上机械达到，当前正处于 final keep logging / closeout 同步阶段
+  - Hard requirement: current-head 的 `write / retrieve / belief` 至少一段必须出现真实正增益，且 `LongMemEval-S 128` 必须明确高于 `v2.5` retained baseline `10/128`
+  - Current retained evidence:
+    - `LongMemEval-S 128 = 11 / 11`
+    - `PersonaMem 128 = 44 / 33`
+    - `write_gain.positive_gain = true`
+    - `belief_gain.positive_gain = true`
+  - Truth boundary: stop condition 已达成，但 remaining failure mass 仍主要集中在 `other_fact / projection` family
 
 - `TD-036` `[done]` 以 `v2.5 learned core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
   - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
@@ -16,15 +24,6 @@
     - full benchmark is holdout evaluation, not training supervision
   - Plan: [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 
-- `TD-037` `[done]` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续推进 `LongMemEval-S` 质量、`write / retrieve / belief` 三段的 learned 化、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
-  - Runtime truth: managed autoresearch 已在 current HEAD `160e29f` 上达到 `stage2_v26_longrun_score = 26/26`
-  - Evidence shape:
-    - current-head `LongMemEval-S 128` fresh retained canary `11 / 11`
-    - current-head `PersonaMem 128` fresh retained guard `44 / 33`
-    - current-head `write_gain.positive_gain = true`
-    - current-head `belief_gain.positive_gain = true`
-    - holdout full benchmark current-head artifact 已落地
-  - Truth boundary: stop condition 已达成，但 remaining failure mass 仍主要集中在 `other_fact / projection` family，不能误写成 online quality 已全面稳定
 
 ## Backlog
 

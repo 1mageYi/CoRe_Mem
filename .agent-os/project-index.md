@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 当前 `WS-023 / TD-037` 已在 `160e29f` 上达到 stop condition `26/26`；暂无新的 active trial，等待用户下一步方向
+- Top next action: 记录 `TD-037 / WS-023` 的 final keep 并收口当前 managed run；当前 `95f7b64` 上 verifier 已返回 `26/26`
 - Active workstreams: `WS-023`
 - Active blockers: `BL-004`, `BL-008`
 - Verifier compatibility note: `TD-035 / WS-021` 与 `TD-036 / WS-022` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout 与 `v2.5` baseline/package closeout 复验；当前 active 主线已经前推到 `TD-037 / WS-023`
@@ -93,7 +93,7 @@
   - Boundary:
     - 当前 `24/24` 代表 `v2.5` verifier/package closeout 已机械成立，不代表 online quality 已经超过 `v2.4`
   - Plan: [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
-- `WS-023` `[done]`: Stage-2 `v2.6 gain-first long-run`
+- `WS-023` `[doing]`: Stage-2 `v2.6 gain-first long-run`
   - Mechanical target: `stage2_v26_longrun_score`
   - Current retained baseline:
     - `TD-036 / WS-022` 已完成，`v2.5` current HEAD `3036e3d` 上 `24/24`
@@ -109,7 +109,7 @@
     - trial commit `160e29f` 已在 `src/core_mem/v2/projection.py` 上加入 historical `other_fact` clause projection；对应 fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T083058Z_stage2_memory_canary_longmemeval/` 最终达到 `provider_exact_match = 11`、`local_exact_match = 11`
     - current-head `PersonaMem 128` guard refresh `outputs_v2/runs/20260417T094824Z_stage2_memory_canary_personamem/` 最终达到 `provider_exact_match = 44`、`local_exact_match = 33`
     - 当前 `write_gain.positive_gain = true`、`belief_gain.positive_gain = true`
-    - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 26`；`WS-023` 已机械收口
+    - 当前 `scripts/verify_stage2_v26_longrun.py --score-only = 26`；当前正处于 final keep logging / closeout 同步阶段
   - Required truth for closeout:
     - current-head 的 `write / retrieve / belief` 至少一段出现真实 `positive_gain`
     - current-head `LongMemEval-S 128` 必须明确高于 `v2.5` retained `10/128`
@@ -122,9 +122,9 @@
 
 ## Top Next Action
 
-- 暂无新的 active autoresearch experiment
-  - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `160e29f` 上达到 `stage2_v26_longrun_score = 26/26`
-  - Next focus: 等待用户确认后续 stage-2 方向；当前 retained 主要剩余风险仍集中在 `other_fact / projection` family 的 failure mass，而不是 stop condition 未达成
+- 推进 `TD-037 / WS-023` 的 final closeout
+  - Runtime truth: 当前 HEAD `95f7b64` 上 verifier 已返回 `stage2_v26_longrun_score = 26/26`
+  - Next focus: 记录 final keep 并停止当前 managed autoresearch run；当前 retained 主要剩余风险仍集中在 `other_fact / projection` family 的 failure mass，而不是 stop condition 未达成
 
 ## Active Blockers
 
