@@ -229,17 +229,32 @@
 - 同一轮 current-head `PersonaMem 128` canary `outputs_v2/evals_benchmark/20260416T095030Z_stage2_memory_canary.json` 已达到 `provider_exact = 38`、`local_exact = 16`，继续保住 `TD-034` verifier 对 current-head guard 的要求
 - 本轮最关键的 targeted 质量信号来自 `LongMemEval-S` 已知失败子集：在 `118b2229 / 51a45a95 / 58bf7951` 这组三样本上，current-head targeted probe 已从此前的 `2/3` 提升到 `3/3`，其中 `51a45a95` 的 `Target` 修复来自跨 turn coupon/store context 解析，而不是 fallback 或 benchmark-specific shortcut
 - 当前 `TD-034` 的真实 blocker 已不再是 provider 未配置，也不再是 canary 未完成：`GPT_AGENT_API_KEY` provider 路径可用，current-head `LongMemEval-S 128` / `PersonaMem 128` slot-assignment canary 与 gain artifact 已全部落地。因此当前 `v2.3 long-run` 的诚实状态应标注为：`22/22 retained on 7a1802f; managed run mechanically closed out`
-- 当前主线已继续前推到 `TD-035` / `v2.4 quality-first long-run`：下一轮不再以“把 slot-assignment 证据链补齐”为目标，而是以更高质量的 `LongMemEval-S`、更强的 full-data learned slot assignment 和更强的 online latent main path 为目标
-- 当前这里的版本标签明确为 `v2.4`，并继续保持 stage-2 主线执行。
-- 当前 `TD-035` 的新基线来自 `TD-034` closeout：
-  - `LongMemEval-S 128` current-head retained baseline：`provider/local = 6/128`
-  - `PersonaMem 128` current-head retained guard：`provider_exact = 38`、`local_exact = 16`
-  - `latest_stage2_slot_assignment_eval.json` 当前仍显示 slot-assignment local eval 基本为零，这意味着 online gain 证据已经出现，但 learned slot assignment 本体仍没有被真正做强
-- 因此当前最值得推进的方向是：
-  - 把 `LongMemEval-S` 从“刚刚有正增益”继续推到“明显更强”
-  - 把 learned slot assignment 从 plumbing/gain 推到 full-data train/eval 与稳定 online 增益
-  - 继续强化 `retrieval -> composed latent -> belief -> answer` 主链，让 retained 收益更多来自 stronger latent
-- 当前 next action 已继续前推到 `TD-035 / v2.4 quality-first long-run`：在 `TD-034` 的基础上，不再只要求 current-head train/eval/gain/canary 证据，而是要求更强的 `LongMemEval-S 64/128` 质量、更强的 full-data slot-assignment 训练结果，以及更强的 online latent 增益。
+- 当前 `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上机械收口；managed autoresearch run 已把 `stage2_v24_longrun_score` 从 baseline `12/24` 推到 stop condition `24/24`，并已停止继续消耗 background runtime。
+- 当前 `TD-035` 的 retained 终态来自两条关键 retained 变更：
+  - `9331b62`：query-aware exactness tightening。该线刷新了 current-head `LongMemEval-S 128` 与 `PersonaMem 128` canary，并把 `LongMemEval-S 128` current-head 结果推到 `provider_exact = 10/128`、`provider_label_prefix = 10/128`、`local_exact = 10/128`
+  - `12a9a80`：belief support-id repair。该线修复了 malformed/braceless belief payload 会把字面量 `slot_ids` 当成真实 support slot id 的问题，并把 retained full-data eval 推到最终阈值之上
+- 当前 `TD-035` 的 current-head retained 证据为：
+  - `outputs_v2/artifacts/latest_stage2_v24_train.json`：full-data current-head train artifact，已对齐到 `12a9a80`
+  - `outputs_v2/artifacts/latest_stage2_v24_eval.json`：`trained_eval.token_f1 = 0.9991150844073334`、`trained_eval.field_f1 = 0.9976704786107581`、`slot_assignment_metrics.token_f1 = 0.9961127308066084`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v24_canary.json` 与 `latest_longmemeval_stage2_v24_analysis.json`：current-head `LongMemEval-S 128` `provider_exact = 10`、`provider_label_prefix = 10`、`local_exact = 10`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v24_canary.json`：current-head `PersonaMem 128` `provider_exact = 38`、`provider_label_prefix = 38`、`local_exact = 28`
+  - `outputs_v2/artifacts/latest_stage2_v24_online_gain.json`：相对 `TD-034 / WS-020` retained baseline 的 `LongMemEval-S 128` gain 为 `delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
+  - `research-results.tsv` / `autoresearch-state.json`：best iteration `7`、best/current metric `24`
+- 当前 `TD-035` 的已记录失败探索与边界：
+  - iteration `2`：把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3`，full-data train/eval 与 retained line 无差别，已按 `discard` 记账并回滚；这说明瓶颈不是 task repeat 数量本身
+  - iteration `4`：projection/prompt sharpen 虽然把 `LongMemEval-S 128` current-head 从 `8/8` 推到 `9/9`，但 verifier 仍停在 `19`，因此也已按 `discard` 记账
+  - 当前能诚实声明的是：`v2.4 long-run` 的机械 stop condition 已达到；不能夸写成所有 benchmark 质量问题都已被根治
+- 当前 stage-2 的 runtime truth 已继续前推到 **`v2.5 generalization-first long-run`**。这轮的主目标不再是补 closeout artifact，而是：
+  - 持续提升 `LongMemEval-S` 质量
+  - 把 `learned slot assignment` 从“可用”推进到“更泛化、更鲁棒”
+  - 继续加强 stronger latent 对 online 主链的真实贡献
+  - 在不发生 benchmark leakage 的前提下，引入更大切片乃至 full benchmark holdout 测量
+- 当前 `v2.5` 的硬边界也已锁定：
+  - 不做任何 `fallback`
+  - 不做任何 `shortcut`
+  - 不做任何 benchmark-specific heuristic
+  - full benchmark 只做 holdout evaluation，不回流为训练 supervision
+  - 相关计划见 [v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 - 当前最值得延续的训练结论是：
   - 仅增加训练 budget 或只改 prompt/target 不能稳定解决 learned belief JSON 失效；真正带来 retained 收益的是把语义恢复从 raw JSON 壳错误中解耦，并让训练/评测/online parse 共享同一套 semantic-first 结构修复
   - 该 retained 路线已经在正式 artifact 上把 non-tiny `trained_eval.token_f1` 提升到 `0.879714215455919`

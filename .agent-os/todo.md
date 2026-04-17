@@ -2,24 +2,14 @@
 
 ## Doing
 
-- `TD-035` `[doing]` 以更远的 `v2.4 quality-first long-run` 为目标推进 `LongMemEval-S` 质量、full-data learned slot assignment 与 stronger latent。
-  - Reason: `TD-034 / WS-020` 已把 learned slot assignment 的主链、current-head canary 与 gain artifact 做出来了；下一步真正缺的是把 `LongMemEval-S` 从 `6/128` 继续往上推，并把 learned slot assignment 本体从“有 online gain”推进到“full-data train/eval 与 online 都更强”。
-  - Evidence target: `scripts/verify_stage2_v24_longrun.py --score-only`
-  - Mechanical target: `scripts/verify_stage2_v24_longrun.py --score-only`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first；允许多卡并行实验，但 live benchmark 保持串行；训练与测试默认使用完整 public-data prepared tasks
-  - Current retained baseline: `TD-034 / WS-020` 已在 current HEAD `7a1802f` 上达到 `22/22`
-  - Current retained progress: `LongMemEval-S 128` current-head baseline 已达到 `provider/local = 6/128`，`PersonaMem 128` current-head guard 为 `provider_exact = 38`、`local_exact = 16`
-  - Current runtime truth: `TD-034` 作为 closeout 保持可复验；当前主线切到 `TD-035 / WS-021`
-  - Remaining risk: `LongMemEval-S` 当前仍明显偏弱；同时 `latest_stage2_slot_assignment_eval.json` 的 slot-assignment local eval 仍基本为零，说明在线 gain 虽已出现，但 learned slot assignment 本体还没有真正做强
-
-- `TD-033` `[doing]` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为锚点推进 `v2.3`。
-  - Reason: `v2.2` 已经把 full-data semantic-first 证据链补齐；下一步真正缺的不是更多 closeout artifact，而是更强的 online memory 主链、更强的 slot assignment 和更高的 `LongMemEval-S` 质量。
-  - Evidence target: 待新增 `stage2_v23_completion_score`
-  - Mechanical target: 待新增 `stage2_v23_completion_score`
-  - Hard constraint: 不做任何兜底/fallback/benchmark-specific shortcut；继续保持 semantic-first，但不把结构修复伪装成模型本体收益
-  - Current retained baseline: `TD-032 / v2.2` 已在 current HEAD `510aeb7` 上达到 `19/19`
-  - Current runtime truth: `v2.2` 只作为 closeout 保持可复验，当前 active workstream 已切到 `v2.3`
-  - Remaining risk: `LongMemEval-S 128` 当前仍只有 `provider_exact = 4/128`、`local_exact = 4/128`；`observation -> slot` 目前仍主要靠 rule-heavy lifecycle，说明在线 memory 主链本体还不够强
+- `TD-036` `[doing]` 以 `v2.5 generalization-first long-run` 为目标，继续推进 `LongMemEval-S` 质量、learned slot assignment 泛化鲁棒性、更强 latent 与 full benchmark holdout evaluation。
+  - Runtime truth: `TD-035 / WS-021` 已在 current HEAD `12a9a80` 上达到 `stage2_v24_longrun_score = 24/24`，当前作为 `v2.5` retained baseline 保留
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - full benchmark is holdout evaluation, not training supervision
+  - Plan: [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
 
 ## Backlog
 
@@ -101,6 +91,28 @@
 - `TD-032` `[done]` 把 semantic-first 路线推进到 full-data current-head 训练、extended semantic canaries、LongMemEval-S semantic analysis 与 semantic online gain。
   - Reason: current-head full-data semantic train/eval、`PersonaMem 128` / `LongMemEval-S 64/128` semantic canaries、fresh semantic analysis 与 semantic online gain 已全部补齐。
   - Evidence target: `scripts/verify_stage2_v22_completion.py --score-only = 19`
+
+- `TD-033` `[done]` 以 `LongMemEval-S` 质量提升、learned slot assignment 与 stronger latent 为锚点推进 `v2.3`。
+  - Reason: 这条主线已由后续 `TD-034 / WS-020` 机械收口；当前不再是 active 主线。
+  - Evidence target: `scripts/verify_stage2_v23_longrun.py --score-only = 22`
+
+- `TD-035` `[done]` 以 `v2.4 quality-first long-run` 为锚点推进 `LongMemEval-S` 质量、full-data learned slot assignment 与 stronger latent。
+  - Reason: managed autoresearch run 已在 current HEAD `12a9a80` 上触发 stop condition，`stage2_v24_longrun_score = 24/24`
+  - Evidence target:
+    - `scripts/verify_stage2_v24_longrun.py --score-only = 24`
+    - `outputs_v2/artifacts/latest_stage2_v24_eval.json`：`trained_eval.token_f1 = 0.9991150844073334`、`trained_eval.field_f1 = 0.9976704786107581`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_v24_canary.json`：`provider_exact = 10`、`local_exact = 10`
+    - `outputs_v2/artifacts/latest_personamem_stage2_v24_canary.json`：`provider_exact = 38`、`local_exact = 28`
+    - `outputs_v2/artifacts/latest_stage2_v24_online_gain.json`：`delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
+    - `research-results.tsv` / `autoresearch-state.json`：best iteration `7`、best/current metric `24`
+
+- `TD-036` `[doing]` 以 `v2.5 generalization-first long-run` 为锚点，把当前主线推进到更强的 `LongMemEval-S`、更泛化的 learned slot assignment、更强的 online latent，以及更大切片 / full benchmark holdout measurement。
+  - Reason: `v2.4` 已把 quality-first 机械目标推到 `24/24`，下一步最值得做的不再是补 closeout artifact，而是围绕质量、泛化与鲁棒性继续前推
+  - Evidence target:
+    - current-head 更强的 `LongMemEval-S 64/128` retained line
+    - generalized learned slot-assignment train/eval/gain artifact
+    - current-head `PersonaMem 128` 不明显退化
+    - full benchmark holdout evaluation summary
 
 
 

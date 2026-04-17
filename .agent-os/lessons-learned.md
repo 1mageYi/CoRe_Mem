@@ -35,3 +35,9 @@
   - public-data lifecycle 标签必须和当前 lifecycle 规则一致，否则 local eval 会把“标签构造偏差”误判成模块退化。
   - 如果 verifier 只检查 experiment registry，而没有任何代码路径去维护它，那么 completion score 会永远卡死在 baseline；应先补 `outputs_v2/artifacts/stage2_experiment_index.json` 的 authoritative writer，再谈自动运行矩阵。
   - background autoresearch 的 shell loop 很容易在复杂 quoting 上出错，导致“实验已完成但未记账”；对需要“每完成一个实验立刻记账”的序列任务，用 Python driver 调 subprocess 更稳。
+- 2026-04-16:
+  - `v2.4` 的 nested `slot_assignment_metrics` 如果只保留 `slot_assignment_token_f1` 这类前缀字段，当前 verifier 不会把它记进 `token_f1/field_f1` 阈值检查；发布 current-head artifact 时需要同时带通用键名。
+  - 单纯把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3`，在 full-data train/eval 上不会自动换来更高的 `trained_eval.token_f1 / field_f1`；当前瓶颈不是 task repeat 数量本身。
+  - `LongMemEval-S` 的一部分 retained 收益来自 answer exactness，而不是更重的训练配方；对 `How many / How often / where-did-you-buy` 这类 query-aware exactness case，先修 projection/prompt contract 比盲目加训练更有效。
+  - `semantic_outputs.py` 里直接用 `_SLOT_ID_RE.findall(text)` 去扫 malformed belief payload 会把字面量 `slot_ids` 当成真的 support slot id；对 braceless / partially malformed belief JSON，必须先做真实 slot-id 值过滤，再做 support evidence 恢复。
+  - 一旦进入 `v2.5` 这类更激进阶段，full benchmark 应只当 holdout measurement；如果把 benchmark slice 的错误模式直接回灌成 task supervision、prompt special case 或 benchmark-specific heuristic，短期分数可能会上升，但会直接破坏“更泛化、更鲁棒”的目标。

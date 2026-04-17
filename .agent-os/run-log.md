@@ -1,5 +1,71 @@
 # Run Log
 
+## 2026-04-16 Session 038
+
+- Worked on: 整理 `TD-035 / WS-021` 的 `24/24` closeout 文档，并把主线前推到 `TD-036 / WS-022` 的 `v2.5 generalization-first long-run`
+- State changed:
+  - 新增 [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)，把下一阶段目标正式锁定为：更强的 `LongMemEval-S`、更泛化更鲁棒的 learned slot assignment、更强的 latent，以及更大切片 / full benchmark holdout evaluation
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md` 与 `.agent-os/project-index.md`、`.agent-os/todo.md` 已从“等待下一轮方向”切到新的 active 主线：`TD-036 / WS-022`
+  - 同步明确了新的硬约束：不做任何 `fallback / shortcut / benchmark-specific heuristic`，且 full benchmark 只作 holdout evaluation，不回流为训练 supervision
+- Evidence / artifacts:
+  - `docs/v25_plan.md`
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+  - `docs/todo.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/todo.md`
+- Next likely action:
+  - 若用户批准，下一步应以 `TD-036 / WS-022` 为主线启动新的 long-run autoresearch，并优先围绕 `LongMemEval-S`、generalized learned slot assignment 与 full benchmark holdout measurement 继续推进
+
+## 2026-04-16 Session 037
+
+- Worked on: 收口 `TD-035 / WS-021` 的 managed autoresearch，完成 iteration `4-7` 的记账与 retained closeout，并把 `.agent-os/*` / `docs/*` 同步到 `24/24` 的最终 runtime truth
+- State changed:
+  - iteration `4` commit `3bc6c89` 做了 projection/prompt sharpen，`LongMemEval-S 128` current-head 从 `8/8` 提到 `9/9`，但 verifier 仍停在 `19`；该试验已按 `discard` 记账并通过 revert commit `ed213d8` 回滚
+  - iteration `5` commit `6ee5d1f` 尝试更强的 belief training（显式 composition JSON 指令 + `max_source_length=384`）；full-data train/eval 与 retained line 无差别，因此已按 `discard` 记账并通过 revert commit `2248474` 回滚
+  - iteration `6` commit `9331b62` 在 `src/core_mem/v2/projection.py` 与 `scripts/run_stage2_memory_canary.py` 上做 query-aware exactness tightening；fresh current-head `LongMemEval-S 128` canary `outputs_v2/evals_benchmark/20260416T205200Z_stage2_memory_canary.json` 达到 `provider_exact = 10`、`local_exact = 10`，`PersonaMem 128` canary `outputs_v2/evals_benchmark/20260416T214000Z_stage2_memory_canary.json` 达到 `provider_exact = 38`、`local_exact = 28`，并把 `stage2_v24_longrun_score` 提到 `22`
+  - iteration `7` commit `12a9a80` 修复 `src/core_mem/v2/semantic_outputs.py` 中 braceless belief payload 对字面量 `slot_ids` 的误提取；在 retained checkpoint refresh 后，`outputs_v2/evals_local/20260416T230121Z_stage2_local_eval.json` 把 `trained_eval.token_f1` 提到 `0.9991150844073334`、`field_f1` 提到 `0.9976704786107581`，最终使 `scripts/verify_stage2_v24_longrun.py --score-only` 达到 `24`
+  - `research-results.tsv` / `autoresearch-state.json` 已记录 best iteration `7`、best/current metric `24`、last commit `12a9a80cdc06faa1d5a964be17dcc9406f02bca5`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`.agent-os/acceptance-report.md`、`docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md` 已同步到 “`TD-035 / WS-021` 完成、当前等待用户给出下一轮 stage-2 方向” 的 runtime truth
+- Evidence / artifacts:
+  - commits `3bc6c89`, `ed213d8`, `6ee5d1f`, `2248474`, `9331b62`, `12a9a80`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260416T205200Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260416T214000Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_local/20260416T230121Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_eval.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v24_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v24_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_online_gain.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v24_longrun.py --score-only` -> `24`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v24_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 当前 `v2.4` managed run 已机械完成；等待用户给出下一轮 stage-2 研究方向，在此之前不自动开启新的 background run
+
+## 2026-04-16 Session 036
+
+- Worked on: fresh 启动 `TD-035 / WS-021` 的 managed autoresearch，并围绕 current-head `v2.4` train/eval artifact 与 full-data quality 做了 1 次 keep、1 次 discard
+- State changed:
+  - 按 launch manifest 先测 baseline，再通过 helper 初始化 fresh `research-results.tsv` / `autoresearch-state.json`；baseline `conda run -n core_mem python scripts/verify_stage2_v24_longrun.py --score-only` 为 `12/24`
+  - 新 commit `d58676c` 为 `scripts/train_stage2.py` / `scripts/eval_stage2_local.py` 增加 `v2.4` current-head artifact 发布链，并补充 `tests/test_stage2_local_eval.py` 覆盖；随后在同一线上的 follow-up commit `f36a377` 统一了 `latest_stage2_v24_eval.json` 的 nested slot-assignment metric key，使 verifier 能正确读取 `token_f1 / field_f1`
+  - 在 kept line 上完成 current-head full-data train/eval：`outputs_v2/artifacts/latest_stage2_v24_train.json` 与 `latest_stage2_v24_eval.json` 已落地，`trained_eval.token_f1 = 0.9256364586879273`、`trained_eval.field_f1 = 0.9299025836510066`、`slot_assignment_metrics.token_f1 = 0.9961127308066084`
+  - `scripts/verify_stage2_v24_longrun.py --score-only` 因此从 baseline `12` 提升到 retained `15`；launch-manifest guard 在 current retained line 上通过；helper 已记账 iteration `1 keep`
+  - 新 trial commit `cd50887` 把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3`，并在 `outputs_v2/trials/iter2_comp/` 下完成 full-data trial train/eval；结果 `trained_eval.token_f1 / field_f1` 与 retained line 完全相同，因此该 trial 已按 `discard` 记账，并通过 `git revert --no-edit HEAD` 回滚到 current HEAD `9ef5178`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - commits `d58676c`, `f36a377`, `cd50887`, `9ef5178`
+  - `outputs_v2/artifacts/latest_stage2_v24_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v24_eval.json`
+  - `outputs_v2/evals_local/20260416T165954Z_stage2_local_eval.json`
+  - `outputs_v2/trials/iter2_comp/runs/20260416T172138Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/trials/iter2_comp/evals_local/20260416T172942Z_stage2_local_eval.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v24_longrun.py --score-only` -> `15`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v24_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+- Next likely action:
+  - 在 retained `15/24` 的 current-head `v2.4` train/eval 基线上，优先刷新 current-head `LongMemEval-S / PersonaMem` `v2.4` canary、analysis 与 online gain，同时避免继续在 “只改 composition task repeat 次数” 这条已证伪路线重复消耗
+
 ## 2026-04-16 Session 035
 
 - Worked on: 把 `TD-034 / WS-020` 的 closeout 结果前推成 `TD-035 / WS-021` 的 `v2.4 quality-first long-run` 基线

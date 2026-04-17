@@ -323,7 +323,7 @@
 4. 当前 `latent core / local intrinsic quality` 目标已达成，`stage2_latent_core_quality_score = 10/10`
 5. 后续应以阶段 L 的完整 v2 milestone 为主线，同时允许 `GPU3` 正式训练与 `MiniMax-M2.7` live benchmark 成为里程碑验证的一部分
 6. 不允许 benchmark-specific heuristic / fallback 成为 retained 收益；如果 canary 分数只能靠 shortcut 维持，该结果不算完成 v2
-7. 当前阶段 L、阶段 M、阶段 N、阶段 P 与阶段 Q 的当前机械里程碑都已完成；若继续推进，下一步更合理的是围绕 `LongMemEval-S` 质量、learned slot assignment 与更强 latent 进入新的质量修复项，而不是重复证明 current-head canary 覆盖
+7. 当前阶段 L、阶段 M、阶段 N、阶段 P、阶段 Q、阶段 S 与阶段 T 的当前机械里程碑都已完成；若继续推进，下一步更合理的是围绕 `LongMemEval-S` 质量、learned slot assignment 的泛化鲁棒性、更强 latent 与 full benchmark holdout measurement 进入新的质量与泛化阶段，而不是重复证明 current-head canary 覆盖
 
 ### 阶段 P：Semantic-First Learned Decoder
 
@@ -415,13 +415,20 @@
 ### 阶段 T：V2.4 LongMemEval-S Quality + Learned Slot Assignment + Stronger Latent
 
 - Goal: 把当前主线从“`v2.3` 的 slot-assignment closeout”继续推进到“更强的 `LongMemEval-S`、更强的 full-data learned slot assignment、更强的 online latent main path”
-- Status: doing
+- Status: done
 - Notes:
   - 当前 `v2.3 long-run` 已在 current HEAD `7a1802f` 上机械收口，`stage2_v23_longrun_score = 22/22`
-  - 当前最真实的下一步，不是继续补 closeout artifact，而是围绕 `LongMemEval-S 128 = 6/128` 这个偏低基线继续做质量提升
+  - 这条线最终已在 current HEAD `12a9a80` 上机械收口，`stage2_v24_longrun_score = 24/24`
   - 本轮继续严格保留 `semantic-first`、`no fallback`、`no benchmark-specific shortcut`
   - 训练与测试默认使用完整 public-data prepared tasks
   - 新机械指标为 `scripts/verify_stage2_v24_longrun.py --score-only`
+  - retained full-data eval 最终为：`trained_eval.token_f1 = 0.9991150844073334`、`trained_eval.field_f1 = 0.9976704786107581`、`slot_assignment_metrics.token_f1 = 0.9961127308066084`
+  - retained current-head online evidence 最终为：`LongMemEval-S 128` `provider/local = 10/128`、`PersonaMem 128` `provider_exact = 38`、`local_exact = 28`
+  - retained gain 最终为：相对 `v2.3` baseline 的 `LongMemEval-S 128` `delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
+  - 已验证的失败探索：
+    - 把 `composition_to_belief` 的 online-aligned repeats 从 `2` 提到 `3` 不会改善 full-data `trained_eval`
+    - 单独的 projection/prompt sharpen 虽能把 `LongMemEval-S` current-head 从 `8/8` 提到 `9/9`，但不足以跨过最终 verifier 阈值
+  - 最终跨过 stop condition 的关键 retained 修复是：query-aware exactness tightening + belief support-id repair
   - 详细计划见 [docs/v24_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v24_plan.md)
 
 #### 阶段 S-A：Baseline And Taxonomy
@@ -461,6 +468,59 @@
 
 - 默认 train recipe
 - 默认 benchmark recipe
+
+### 阶段 U：V2.5 Generalization-First Long Run
+
+- Goal: 把主线从“`v2.4` 的质量门槛已跨过”继续推进到“更强的泛化、更强的 learned slot assignment、更强的 online latent，以及更大切片/全量 benchmark holdout 验证”
+- Status: planned
+- Notes:
+  - `v2.4` 已证明 full-data semantic-first、quality-first、learned slot assignment 和 stronger latent 可以把 current-head `LongMemEval-S 128` 提到 `10/128`
+  - 这条线下一步不再追求单次机械 closeout，而是追求更强的 generalization / robustness
+  - 本轮继续严格保留 `semantic-first`、`no fallback`、`no shortcut`、`no benchmark-specific heuristic`
+  - full benchmark 在本轮被正式提升为 holdout acceptance / generalization measurement，而不是局部 canary 的附庸
+  - 详细计划见 [docs/v25_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v25_plan.md)
+
+#### 阶段 U-A：Freeze V2.4 Baseline
+
+- 固化 `v2.4` 的 `LongMemEval-S 128`、`PersonaMem 128` 与 online gain retained baseline
+- 明确 `v2.5` 的所有提升都要相对这一基线计算
+
+#### 阶段 U-B：Generalized Learned Slot Assignment
+
+- 把 `learned slot assignment` 从“可用”推进到“更泛化、更鲁棒”
+- 强化 `merge / new / overwrite / ignore` action head
+- 强化 candidate slot scoring / ranking
+- 仅保留最小 hard constraints 作为 safety boundary
+
+#### 阶段 U-C：Stronger Latent Main Path
+
+- 继续加强 learned retrieval / rerank / belief composition
+- 保持 semantic-first
+- 优先把 retained 收益落实到 `LongMemEval-S` 主 benchmark
+
+#### 阶段 U-D：LongMemEval-S Quality Ramp
+
+- current-head `LongMemEval-S 64/128`
+- 更大切片或 full benchmark holdout measurement
+- refreshed layered analysis
+
+#### 阶段 U-E：Cross-Benchmark Guard
+
+- current-head `PersonaMem 128` 持续刷新
+- 保证为 `LongMemEval-S` 提升质量时不明显破坏 `PersonaMem`
+
+#### 阶段 U-F：Full-Benchmark Holdout Evaluation
+
+- current-head full benchmark measurement
+- 只做 evaluation，不回流成训练 supervision
+- 对比 `v2.4` retained baseline 与 current-head 趋势稳定性
+
+#### 阶段 U-G：V2.5 Packaging
+
+- 固化 default full-data train recipe
+- 固化 default canary recipe
+- 固化 default full-benchmark evaluation recipe
+- 固化新的 verifier / guard / anti-overfitting contract
 - 默认 verifier
 - 文档与 `.agent-os` 对齐
 

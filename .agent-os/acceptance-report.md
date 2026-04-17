@@ -130,3 +130,17 @@
     - `docs/v2_design.md` 已写入 canary 设计与 benchmark 作为 evaluation source 的原则
     - `scripts/run_stage2_canary.py` 已生成 `outputs_v2/evals_benchmark/20260407T042120Z_stage2_canary_plan.json`
     - `outputs_v2/evals_benchmark/20260407T042120Z_personamem_canary.json` 与 `outputs_v2/evals_benchmark/20260407T042120Z_longmemeval_canary.json` 已落地，且二者均固定为 `64` 条
+
+- `EV-014` -> `WS-021 / TD-035` `v2.4` 长跑阶段性证据
+  - Status: verified
+  - Evidence:
+    - managed run 已完成 `research-results.tsv` 与 `autoresearch-state.json` 的全程记账；当前记录 best iteration `7`、best/current metric `24`
+    - `scripts/verify_stage2_v24_longrun.py --score-only` 已在 current HEAD `12a9a80` 上达到 stop condition `24/24`
+    - `outputs_v2/artifacts/latest_stage2_v24_train.json` 已记录 current-head full-data train，并与 retained HEAD `12a9a80` 对齐
+    - `outputs_v2/artifacts/latest_stage2_v24_eval.json` 已记录 current-head full-data eval：`trained_eval.token_f1 = 0.9991150844073334`、`trained_eval.field_f1 = 0.9976704786107581`、`slot_assignment_metrics.token_f1 = 0.9961127308066084`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_v24_canary.json` 与 `latest_longmemeval_stage2_v24_analysis.json` 已记录 current-head `LongMemEval-S 128`：`provider_exact_match = 10`、`provider_label_prefix_match = 10`、`local_exact_match = 10`
+    - `outputs_v2/artifacts/latest_personamem_stage2_v24_canary.json` 已记录 current-head `PersonaMem 128`：`provider_exact_match = 38`、`provider_label_prefix_match = 38`、`local_exact_match = 28`
+    - `outputs_v2/artifacts/latest_stage2_v24_online_gain.json` 已记录相对 `v2.3` retained baseline 的 `delta_provider_exact_match = +4`、`delta_local_exact_match = +4`
+    - launch-manifest guard 已在 retained HEAD `12a9a80` 上通过：`tests/test_stage2_v24_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_local_eval.py tests/test_stage2_memory_canary.py tests/test_stage2_memory_canary_quality.py tests/test_stage2_parser.py`
+  - Boundary:
+    - 当前能诚实声明的是 `v2.4 long-run` 的机械 stop condition 已达到；不能夸写成所有 benchmark 质量风险都已消失，或下一轮 stage-2 方向已经自动确定
