@@ -2,6 +2,27 @@
 
 ## Doing
 
+- `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
+  - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
+  - Current focus:
+    - 扩大 teacher coverage，而不是停留在 `8/2/2` pilot
+    - 修 observation teacher 的 `completed_with_failures`
+    - 在同一 `32k` split 上做 `teacher-vs-silver` 对照训练
+    - benchmark 继续只作 holdout guard
+  - Target teacher scale:
+    - train `512`
+    - val `128`
+    - test `128`
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - full benchmark 只作 holdout evaluation
+  - Truth boundary:
+    - 暂不进入 full-data
+    - 当前成功定义不是 artifact completeness，而是 teacher-enhanced 在 `32k` internal test 上真实优于 silver baseline
+
 - `TD-038` `[doing]` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成；`TD-038` 是新的 active 主线
   - Current progress:

@@ -109,6 +109,29 @@
 4. 本地 intrinsic evaluation 完整，减少盲目烧 benchmark API
 5. benchmark 仍作为 evaluation source，而不是 primary training source
 
+### 当前 `v2.8` 执行锚点
+
+当前 active 主线已经前推到 **`TD-039` / `WS-025` / `v2.8 teacher-quality`**，核心约束是：
+
+- 保持 `core / residual` 双银行结构不变
+- 继续以 `32k` source-level split 为锚点，而不是直接进入 full-data
+- 在完全相同的 `24k train / 4k val / 4k test` 上做 `teacher-vs-silver` 的 internal generalization 比较
+- 优先扩大 teacher coverage 到中等规模：
+  - train `512`
+  - val `128`
+  - test `128`
+- 优先修 observation teacher 的 schema / coercion failure
+- 训练优先使用 `gpu2`
+- benchmark 继续保持 holdout-only，不回流成训练 supervision
+- 只有在 teacher-enhanced 的 `32k` internal test 明显优于 silver baseline 后，才允许讨论 full-data
+
+当前 `v2.8` 的直接工作内容是：
+
+- `teacher coverage`
+- `teacher quality audit`
+- `teacher-vs-silver train/eval refresh`
+- `32k internal generalization gate`
+
 ### 当前 `v2.7` 执行锚点
 
 当前 active 主线已经前推到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**，核心约束是：

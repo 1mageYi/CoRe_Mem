@@ -3,10 +3,10 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 当前 `TD-038 / WS-024` 已通过真实 `MiniMax-M2.7` teacher pilot artifacts 把 `stage2_v27_longrun_score` 推到 stop condition `26/26`；下一步不再是“先把 teacher artifact 补齐”，而是基于这轮 pilot 的覆盖与失败分布，决定是否扩大 teacher coverage 或进入 teacher-conditioned `gpu2` train refresh
-- Active workstreams: `WS-024`
+- Top next action: 当前 `TD-038 / WS-024` 已通过真实 `MiniMax-M2.7` teacher pilot artifacts 把 `stage2_v27_longrun_score` 推到 stop condition `26/26`；下一步正式切到 `TD-039 / WS-025`，先扩大 teacher coverage、修 observation teacher failure，并在同一 `32k` split 上做 `teacher-vs-silver` 对照训练
+- Active workstreams: `WS-025`
 - Active blockers: `BL-004`
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022` 与 `TD-037 / WS-023` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout 与 `v2.6` gain-first closeout 复验；当前 active 主线已经前推到 `TD-038 / WS-024`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023` 与 `TD-038 / WS-024` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout 与 `v2.7` teacher-pilot closeout 复验；当前 active 主线已经前推到 `TD-039 / WS-025`
 
 ## Objective Summary
 
@@ -148,13 +148,31 @@
     - 不能把这轮完成态误写成 full `32k` teacher coverage 已完成，也不能误写成 teacher-conditioned `gpu2` retrain 已完成
     - `latest_stage2_v27_teacher_observation.json` 当前显式记录 `total_labeled_examples = 6`、`total_failed_examples = 6`，因此 observation teacher 仍是 pilot quality，而不是 full-scale clean label suite
   - Plan: [docs/v27_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v27_plan.md)
+- `WS-025` `[doing]`: Stage-2 `v2.8` teacher-quality long-run
+  - Mechanical target: `stage2_v28_longrun_score`
+  - Core scope:
+    - 保持 `core / residual` 双银行结构不变
+    - 继续以 `32k` source-level split 为锚点
+    - 扩大 `MiniMax-M2.7` teacher coverage，而不是停留在 `8/2/2` pilot
+    - 优先修 observation teacher 的 schema / coercion failure
+    - 在同一 `32k` split 上做 `teacher-vs-silver` 对照训练
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - full benchmark 只作 holdout evaluation
+  - Boundary:
+    - 暂不进入 full-data
+    - 当前成功定义不是 artifact completeness，而是 teacher-enhanced 在 `32k` internal test 上真实优于 silver baseline
+  - Plan: [docs/v28_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v28_plan.md)
 
 ## Top Next Action
 
-- 启动 `TD-038 / WS-024` 的 `v2.7 32k teacher-first` 长跑
-  - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成，`stage2_v26_longrun_score = 26/26`
-  - Current retained progress: 当前 worktree 已在 `32k` split + `gpu2` tiny pilot 基础上补齐一轮真实 `MiniMax-M2.7` teacher pilot artifacts，并把 `scripts/verify_stage2_v27_longrun.py --score-only` 推到 stop condition `26/26`
-  - Next focus: 在保持 `core / residual` 冻结与 holdout-only 前提下，判断要不要扩大 teacher pilot coverage，还是直接消费现有 teacher labels 进入新的 `gpu2` train/eval refresh
+- 启动 `TD-039 / WS-025` 的 `v2.8 teacher-quality` 长跑
+  - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`stage2_v27_longrun_score = 26/26`
+  - Current retained baseline: 当前 worktree 已具备 `32k` split、`gpu2` tiny pilot 与真实 `MiniMax-M2.7` teacher pilot artifacts
+  - Next focus: 先扩大 teacher coverage、修 observation teacher failure，再在同一 `32k` split 上做 `teacher-vs-silver` 的 `gpu2` train/eval refresh
 
 ## Active Blockers
 

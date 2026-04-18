@@ -1,5 +1,16 @@
 # Run Log
 
+## 2026-04-17 Session 055
+
+- Worked on: 把主线从 `v2.7 teacher pilot closeout` 前推到 `v2.8 teacher-quality`
+- State changed:
+  - 新增 `docs/v28_plan.md`、`scripts/verify_stage2_v28_longrun.py` 与 `tests/test_stage2_v28_longrun.py`
+  - 当前主线正式切到 `TD-039 / WS-025`
+  - 下一轮不再以 artifact completeness 为成功，而是要求 `teacher-vs-silver` 在同一 `32k` split 上给出真实 internal generalization 增益
+  - 新锚点已经写入文档系统：扩大 teacher coverage、修 observation teacher failure、保持 `gpu2` 训练与 holdout-only 边界
+- Next likely action:
+  - 以 `32k` split 为锚点启动新的 background autoresearch，先扩大 teacher coverage，再进入 `teacher-vs-silver` 的 `gpu2` train/eval refresh
+
 ## 2026-04-17 Session 054
 
 - Worked on: 恢复 `TD-038 / WS-024` 的 teacher 路径，落地真实 `MiniMax-M2.7` teacher artifact 发布链，并把 `v2.7` verifier 推到 stop condition

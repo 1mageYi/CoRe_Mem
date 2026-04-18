@@ -210,7 +210,15 @@
 ## 当前最重要的下一步
 
 - `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
-- 当前 active 主线正式切到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**
+- 当前 active 主线正式切到 **`TD-039` / `WS-025` / `v2.8 teacher-quality`**
+- `v2.8` 的新锚点不是继续补 artifact，而是：
+  - 在同一 `32k` split 上扩大 teacher coverage
+  - 修 observation teacher 的 `completed_with_failures`
+  - 建立 `teacher-vs-silver` 对照训练
+  - 用 internal test 验证 teacher-enhanced 是否真的优于 silver baseline
+- `v2.7` 当前作为 retained baseline 保留：
+  - `32k split + gpu2 tiny pilot + teacher pilot artifacts`
+  - `scripts/verify_stage2_v27_longrun.py --score-only = 26/26`
 - `v2.7` 的新锚点不是直接上 full-data，而是：
   - 建立 `32k` source-level split
   - 先做 `24k train / 4k val / 4k test`
@@ -265,6 +273,9 @@
   - 不做任何 `fallback / shortcut / benchmark-specific heuristic`
   - benchmark 只作 holdout evaluation，不回流训练 supervision
 - 当前不允许直接跳 full-data；**只有在 32k internal test work well 后，才允许进入 full-data**
+- `v2.8` 在这个边界上更进一步：
+  - 暂不进入 full-data
+  - 只有当 teacher-enhanced 在 `32k` internal test 上明显优于 silver baseline 后，才允许讨论更大规模
 
 - 第一阶段 formal benchmark 继续保留为 pending baseline/acceptance 项；第二阶段 `TD-027` 已完成，因此 stage-2 当前主线正式切换到 `v2.1`。
 - `TD-029`、`TD-030`、`TD-031` 与 `TD-032` 已机械完成；当前 runtime truth 正式从 `v2.2 closeout` 切到 `v2.3` 规划态。

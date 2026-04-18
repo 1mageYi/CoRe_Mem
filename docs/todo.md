@@ -2,6 +2,18 @@
 
 ## Doing
 
+- `TD-039` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
+  - 当前锚点：`24k train / 4k val / 4k test`
+  - 当前 teacher：`MiniMax-M2.7`
+  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
+  - 当前重点：
+    - 扩大 teacher coverage
+    - 修 observation teacher failure
+    - 建立 `teacher-vs-silver` 对照训练
+    - 用 internal test 验证真实泛化增益
+  - 当前训练要求：优先使用 `gpu2`，并记录 wall-clock / throughput / memory
+  - Truth boundary：暂不进入 full-data；只有 `32k` internal test 明显成立后，才允许扩到 full-data
+
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`
   - 当前 teacher：`MiniMax-M2.7`
