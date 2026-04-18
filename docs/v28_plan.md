@@ -72,6 +72,19 @@
 - slot-assignment quality
 - belief-field quality
 
+## 最新运行时更新
+
+- current-head 已经完成 `raw observation teacher + matched teacher-vs-silver subset` 的真实 rerun
+- 当前 matched manifests 会按 changed `raw-observation / slot-assignment / belief` sample_ids 取 source-record 对齐子集，确保训练/评测真正消费 teacher 改动
+- 这轮 matched compare 没有转正，反而在 internal test 上记录：
+  - `delta_internal_token_f1 = -0.05357191517996174`
+  - `delta_internal_field_f1 = -0.08173076923076938`
+  - `delta_internal_exact_match = -0.1826923076923077`
+- 当前主退化项是 `lifecycle_prediction`，说明旧的“teacher 改动未被消费”假设已经被排除
+- current-head 又已完成一轮 selective integration：保持 all-changed matched subset 不变、让 `lifecycle_prediction` 保持 silver、只应用 `observation + belief` teacher；结果仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`
+- 这说明当前 launch 的真实 blocker 已进一步收敛为：`lifecycle` teacher 负增益、去掉 `lifecycle` 后 `belief` teacher 仍负增益，而 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`
+- 因此本轮 managed run 不应继续重复当前 label suite 的 refresh；若未来继续 `v2.8`，必须先更换 teacher 生成策略或标签定义
+
 ### 5. internal test 优先于 full-data
 
 只有当下面两件事同时成立，才考虑扩大 teacher coverage 或进入 full-data：

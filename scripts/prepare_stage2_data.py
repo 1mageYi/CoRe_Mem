@@ -718,6 +718,46 @@ def _load_teacher_label_map(path: Path) -> dict[str, dict[str, Any]]:
     return label_map
 
 
+def _teacher_label_changed(row: dict[str, Any]) -> bool:
+    source_label = row.get("source_label")
+    teacher_label = row.get("teacher_label")
+    if not isinstance(teacher_label, dict):
+        return False
+    if not isinstance(source_label, dict):
+        return True
+    agreement = row.get("agreement")
+    if isinstance(agreement, dict):
+        return not all(bool(value) for value in agreement.values())
+    return json.dumps(source_label, ensure_ascii=False, sort_keys=True) != json.dumps(
+        teacher_label,
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+def _load_teacher_changed_label_map(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    changed_map: dict[str, dict[str, Any]] = {}
+    for row in _load_jsonl(path):
+        sample_id = str(row.get("sample_id", "")).strip()
+        if not sample_id or not _teacher_label_changed(row):
+            continue
+        teacher_label = dict(row.get("teacher_label") or {})
+        if "belief_items" in teacher_label:
+            teacher_label["belief_items"] = [
+                {
+                    **dict(item),
+                    "status": _normalize_teacher_belief_status(item.get("status", "unknown")),
+                    "time_scope": _normalize_teacher_belief_time_scope(item.get("time_scope", "unknown")),
+                }
+                for item in (teacher_label.get("belief_items") or [])
+                if isinstance(item, dict)
+            ]
+        changed_map[sample_id] = teacher_label
+    return changed_map
+
+
 def _status_from_hint(status_hint: str) -> str:
     normalized = str(status_hint or "unknown").strip()
     return normalized or "unknown"
@@ -843,7 +883,9 @@ def _build_matched_teacher_vs_silver_split_manifests(
     *,
     v27_manifest_artifact: Path,
     teacher_root: Path,
-    matched_kinds: tuple[str, ...] = ("slot_assignment", "belief"),
+    matched_kinds: tuple[str, ...] = ("observation", "slot_assignment", "belief"),
+    teacher_apply_kinds: tuple[str, ...] | None = None,
+    manifest_namespace: str = "stage2_v28_matched_manifests",
 ) -> dict[str, dict[str, dict[str, Any]]]:
     manifest_payload = json.loads(v27_manifest_artifact.read_text(encoding="utf-8"))
     task_by_kind = {
@@ -852,8 +894,8 @@ def _build_matched_teacher_vs_silver_split_manifests(
         "belief": "composition_to_belief",
     }
     task_kind = {task: kind for kind, task in task_by_kind.items()}
-    matched_task_names = {task_by_kind[kind] for kind in matched_kinds}
-    matched_root = output_root / "artifacts" / "stage2_v28_matched_manifests"
+    teacher_apply_kinds = teacher_apply_kinds or matched_kinds
+    matched_root = output_root / "artifacts" / manifest_namespace
     manifests: dict[str, dict[str, dict[str, Any]]] = {}
 
     for split_name, manifest_path in _teacher_task_paths(manifest_payload).items():
@@ -868,10 +910,13 @@ def _build_matched_teacher_vs_silver_split_manifests(
             kind: _load_teacher_label_map(teacher_root / kind / f"{split_name}_labels.jsonl")
             for kind in matched_kinds
         }
-        matched_sample_ids = {
-            task_by_kind[kind]: set(label_maps[kind].keys())
+        changed_label_maps = {
+            kind: _load_teacher_changed_label_map(teacher_root / kind / f"{split_name}_labels.jsonl")
             for kind in matched_kinds
         }
+        matched_sample_ids = set()
+        for changed_map in changed_label_maps.values():
+            matched_sample_ids.update(changed_map.keys())
 
         split_payload: dict[str, dict[str, Any]] = {}
         for variant_name, variant_root in (("silver", silver_root), ("teacher", teacher_split_root)):
@@ -879,37 +924,47 @@ def _build_matched_teacher_vs_silver_split_manifests(
             task_counts: dict[str, int] = {}
             teacher_replaced_counts: dict[str, int] = {}
             matched_sample_counts: dict[str, int] = {}
+            changed_sample_counts: dict[str, int] = {}
 
             for task_name, task_file in (base_manifest.get("task_files") or {}).items():
                 rows = _load_jsonl(Path(task_file))
-                if task_name in matched_task_names:
-                    allowed_sample_ids = matched_sample_ids.get(task_name, set())
-                    rows = [
-                        row
-                        for row in rows
-                        if _task_row_sample_id(row) in allowed_sample_ids
-                    ]
-                else:
-                    rows = []
+                rows = [
+                    row
+                    for row in rows
+                    if _task_row_sample_id(row) in matched_sample_ids
+                ]
                 replaced = 0
                 kind = task_kind.get(task_name)
-                if variant_name == "teacher" and kind in matched_kinds:
+                if variant_name == "teacher" and kind in teacher_apply_kinds:
                     label_map = label_maps[kind]
+                    changed_label_map = changed_label_maps[kind]
                     rewritten_rows = []
                     for row in rows:
                         sample_id = _task_row_sample_id(row)
                         if sample_id in label_map:
-                            rewritten_rows.append(_apply_teacher_label(kind, row, label_map[sample_id]))
-                            replaced += 1
+                            teacher_label = label_map[sample_id]
+                            rewritten_rows.append(_apply_teacher_label(kind, row, teacher_label))
+                            if sample_id in changed_label_map:
+                                replaced += 1
                         else:
                             rewritten_rows.append(row)
                     rows = rewritten_rows
+                elif variant_name == "teacher":
+                    rows = list(rows)
+                if variant_name == "teacher" and kind in teacher_apply_kinds and not rows:
+                    rows = []
                 target_path = variant_root / Path(task_file).name
                 _write_jsonl(target_path, rows)
                 task_files[task_name] = str(target_path)
                 task_counts[task_name] = len(rows)
                 teacher_replaced_counts[task_name] = replaced
                 matched_sample_counts[task_name] = len(rows)
+                if kind in matched_kinds:
+                    changed_sample_counts[task_name] = sum(
+                        1 for row in rows if _task_row_sample_id(row) in changed_label_maps[kind]
+                    )
+                else:
+                    changed_sample_counts[task_name] = 0
 
             manifest_out = variant_root / "stage2_prepared_samples_manifest.json"
             enhanced_manifest = {
@@ -917,11 +972,15 @@ def _build_matched_teacher_vs_silver_split_manifests(
                 "prepared_by": "stage2_v28_matched_teacher_vs_silver",
                 "base_prepared_manifest": str(manifest_path),
                 "variant": variant_name,
+                "manifest_namespace": manifest_namespace,
                 "matched_kinds": list(matched_kinds),
+                "teacher_apply_kinds": list(teacher_apply_kinds),
+                "matched_sample_id_count": len(matched_sample_ids),
                 "task_files": task_files,
                 "task_counts": task_counts,
                 "teacher_replaced_counts": teacher_replaced_counts,
                 "matched_sample_counts": matched_sample_counts,
+                "changed_sample_counts": changed_sample_counts,
             }
             _write_json(manifest_out, enhanced_manifest)
             split_payload[variant_name] = {
@@ -929,6 +988,7 @@ def _build_matched_teacher_vs_silver_split_manifests(
                 "task_counts": task_counts,
                 "teacher_replaced_counts": teacher_replaced_counts,
                 "matched_sample_counts": matched_sample_counts,
+                "changed_sample_counts": changed_sample_counts,
             }
         manifests[split_name] = split_payload
 

@@ -3,10 +3,12 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-039 / WS-025` 仍是当前主线，但 current-head 已确认真正 blocker 不再是 teacher publisher，而是训练/评测没有真正消费到 teacher 改过的样本；下一步应先切到 `raw observation teacher + matched teacher-vs-silver subset`
-- Active workstreams: `WS-025`
+- Top next action: `TD-040 / WS-026` 现为当前主线；下一步不再继续扩大 teacher 覆盖，而是以 `32k` 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并用 expanded holdout 验证真实 gain
+- Active workstreams: `WS-026`
+- Active workstream label: `TD-040 / WS-026`
+- Active workstream version: `v2.9`
 - Active blockers: `BL-004`, `BL-009`
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023` 与 `TD-038 / WS-024` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout 与 `v2.7` teacher-pilot closeout 复验；当前 active 主线已经前推到 `TD-039 / WS-025`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-040 / WS-026`
 
 ## Objective Summary
 
@@ -168,11 +170,14 @@
   - Current runtime truth:
     - current-head `v2.8` teacher suite 已真实落地，sample caps 为 `256 / 128 / 128`
     - observation teacher 当前 `success_rate = 1.0`
-    - same-split `gpu2` non-tiny `teacher-vs-silver` compare 已完成，silver/test `trained_eval.token_f1 = 0.9725304472117797`，teacher/test `trained_eval.token_f1 = 0.9719352091165416`
-    - fresh compare artifact 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
+    - `scripts/prepare_stage2_data.py` 现已把 matched manifests 改为按 changed `raw-observation / slot-assignment / belief` sample_ids 取 source-record 对齐子集，确保 compare 真正消费 teacher 改动
+    - same-split matched compare 已完成；fresh current-head `teacher-vs-silver` internal gate 记录 `delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`
+    - 当前主退化项是 `lifecycle_prediction`：val `token_f1` 从 `0.9655172413793104` 降到 `0.8004926108374386`，test 从 `0.9285714285714286` 降到 `0.8482142857142859`
+    - selective integration 也已验证：保持 all-changed matched subset 不变、仅把 `observation + belief` teacher 写回、让 `lifecycle_prediction` 保持 silver 后，fresh compare 仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`
+    - 在这轮 selective integration 里，退化已主要收敛到 `composition_to_belief`；与此同时，剩余可单独保留的 raw-observation teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`
     - current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
   - Current blocker:
-    - teacher supervision 当前没有形成正的 internal generalization delta，因此不能进入 full-data，也不能把 current-head 写成 keep
+    - “训练/评测没有消费到 teacher 改动” 这个旧假设已被排除；当前真实 blocker 是：`lifecycle` teacher 负增益、去掉 `lifecycle` 后 `belief` teacher 仍负增益、而 observation-only raw-teacher 改动又稀疏到不足以支撑有意义的 same-budget compare。因此当前 launch 在 `32 / 34` 进入 true blocker，不能进入 full-data，也不能把 current-head 写成 keep
   - Plan: [docs/v28_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v28_plan.md)
 
 ## Top Next Action
@@ -180,15 +185,17 @@
 - 启动 `TD-039 / WS-025` 的 `v2.8 teacher-quality` 长跑
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`stage2_v27_longrun_score = 26/26`
   - Current retained baseline: 当前 worktree 已具备 `32k` split、`gpu2` tiny pilot 与真实 `MiniMax-M2.7` teacher pilot artifacts
-  - Next focus: 当前已完成 teacher coverage 扩大、observation repair 与 same-split compare；下一步不是继续重复同配方 refresh，而是先提出新的 teacher integration 假设，解释为何 non-tiny same-budget compare 仍略低于 silver
+  - Next focus: 当前 run 已把 `lifecycle` 和 `belief` 两条高覆盖 teacher 信号都证伪；若未来要继续 `TD-039 / WS-025`，必须先更换 teacher 生成策略或标签定义，而不是再重复当前 label suite 的 refresh / weighting
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
 - `BL-008`: 当前 `TD-037 / WS-023` 的主瓶颈已从 provider env 缺失切到 `other_fact` family 的 current-head online quality 与尾段 provider stability。`a04effe` 把 dense overwrite arbitration 从 `11` 压到 `1`，`3051b0f` 又把 learned predictors 的初始化复用到 run 级别，因此 fresh current-head `LongMemEval-S 128` canary 已能在若干次 `--resume` 后完成；但最终结果只到 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，且 partial failure analysis 仍主要落在 `other_fact` / `projection`。因此 gain-first 目标当前仍被该质量瓶颈阻断。
-- `BL-009`: `TD-039 / WS-025` 当前的真实 blocker 已从 teacher publisher / provider throughput 切到 internal delta 本身。current-head 已完成 `256 / 128 / 128` teacher suite，并在同一 `32k` split 上跑完一轮 `gpu2` non-tiny same-budget `teacher-vs-silver` compare；结果是 silver/test `trained_eval.token_f1 = 0.9725304472117797`、teacher/test `trained_eval.token_f1 = 0.9719352091165416`，对应 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 当前停在 `32 / 34`，不能诚实宣称 teacher-enhanced 已真实优于 silver baseline。
+- `BL-009`: `TD-039 / WS-025` 当前已进入 true blocker。current-head 已完成 `256 / 128 / 128` teacher suite，并已用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，确保训练/评测真正消费 teacher 改动；但 all-changed compare 明显变差，`delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`，主退化项是 `lifecycle_prediction`。随后 selective integration 继续把 `lifecycle_prediction` 留在 silver、只应用 `observation + belief` teacher，结果仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`。剩余 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`，不足以支撑有意义的 same-budget compare。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 仍停在 `32 / 34`，当前 launch 只能停在 blocked。
 ## Recent Important Changes
 
+- 2026-04-18: current session 又完成了第二轮 selective integration 验证：`scripts/prepare_stage2_data.py` 现支持把 `matched_kinds` 与 `teacher_apply_kinds` 解耦，并支持独立 manifest namespace；fresh `observation+belief` selective compare 已验证去掉 `lifecycle` teacher 后，`belief` teacher 仍带来负增益。helper 已把这轮记为 iteration `2 discard`，随后又把 “observation-only 信号过稀、当前 launch 进入 true blocker” 记为 iteration `3 blocked`
+- 2026-04-18: current session 已把 `TD-039 / WS-025` 的关键旧假设跑实并证伪：`scripts/prepare_stage2_data.py` 现在用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，并新增 `configs/stage2_train_v28_matched.yaml` 让 compare 真正消费 teacher edits。fresh matched compare 在 val/test 上都明显退化，尤其 `lifecycle_prediction` 下滑最重；helper 已把 fresh background run 记为 iteration `1 discard`，`research-results.tsv` / `autoresearch-state.json` 当前 retained metric 仍是 `32`
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`
 - 2026-04-16: `TD-035 / WS-021` 的 managed run 已在 current HEAD `12a9a80` 上达到 stop condition `24/24`；`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `7 keep`，best/current metric 均为 `24`
 - 2026-04-16: 同一 run 的 retained line先在 `f36a377` 上补齐 `v2.4` current-head full-data artifact 发布链，把 `scripts/verify_stage2_v24_longrun.py --score-only` 从 baseline `12` 提到 `15`

@@ -109,39 +109,45 @@
 4. 本地 intrinsic evaluation 完整，减少盲目烧 benchmark API
 5. benchmark 仍作为 evaluation source，而不是 primary training source
 
-### 当前 `v2.8` 执行锚点
+### 当前 `v2.9` 执行锚点
 
-当前 active 主线已经前推到 **`TD-039` / `WS-025` / `v2.8 teacher-quality`**，核心约束是：
+当前 active 主线已经前推到 **`TD-040` / `WS-026` / `v2.9 learned-core-path long-run`**，核心约束是：
 
 - 保持 `core / residual` 双银行结构不变
 - 继续以 `32k` source-level split 为锚点，而不是直接进入 full-data
-- 在完全相同的 `24k train / 4k val / 4k test` 上做 `teacher-vs-silver` 的 internal generalization 比较
-- 优先扩大 teacher coverage 到中等规模：
-  - train `512`
-  - val `128`
-  - test `128`
-- 优先修 observation teacher 的 schema / coercion failure
-- 训练优先使用 `gpu2`
+- 优先让 `write -> latent composition -> belief` 三段出现真实正增益
+- expanded holdout 从 `128` 扩到 `512`
 - benchmark 继续保持 holdout-only，不回流成训练 supervision
-- 只有在 teacher-enhanced 的 `32k` internal test 明显优于 silver baseline 后，才允许讨论 full-data
+- 训练优先使用 `gpu2`
 
-当前 `v2.8` 的直接工作内容是：
+当前 `v2.9` 的直接工作内容是：
 
-- `teacher coverage`
-- `teacher quality audit`
-- `teacher-vs-silver train/eval refresh`
-- `32k internal generalization gate`
+- `write` gain
+- `latent` gain
+- `belief` gain
+- expanded holdout `LongMemEval-S 512 / PersonaMem 512`
 
 当前 runtime truth 已更新为：
 
-- current-head `v2.8` teacher suite 已真实落地，现有 `latest_stage2_v28_teacher_{observation,slot_assignment,belief}.json` 与 `latest_stage2_v28_teacher_quality_audit.json`
-- 当前这轮 teacher suite 的已验证 sample caps 为 `256 / 128 / 128`
-- observation teacher 已从 `v2.7` 的 `completed_with_failures` 修到 current-head `success_rate = 1.0`
-- 在完全相同的 `32k` split 上，已补齐一轮 `gpu2` non-tiny `google/flan-t5-base` 的 same-budget `teacher-vs-silver` refresh：两侧都使用 `256` examples、`192` steps
-- 当前真实 blocker 不再是 publisher / provider throughput，而是 internal delta 本身没有转正：fresh current-head compare 记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
-- 因此 current-head `scripts/verify_stage2_v28_longrun.py --score-only` 当前停在 `32 / 34`，不能诚实宣称 `teacher-enhanced` 已真实优于 silver baseline
-- 进一步分析已确认：当前 teacher line 的主问题不是 teacher suite 覆盖不够，而是训练/评测没有真正消费到 teacher 改过的样本；因此下一步必须切到 `matched teacher-vs-silver subset`
-- `observation teacher` 也不能继续沿用 `candidate_observation -> relabel` 这条保守路径，必须改成 `raw observation -> teacher label`
+- `v2.6` 当前 retained baseline 已证明：
+  - `write_gain.positive_gain = true`
+  - `belief_gain.positive_gain = true`
+  - `LongMemEval-S 128 = 11/11`
+  - `PersonaMem 128 = 44/33`
+- `v2.7` 当前 retained baseline 已证明：
+  - `32k split / manifest / audit` 已落地
+  - `gpu2` pilot 训练、评测、时序与 holdout summary 可复验
+- `v2.8` 当前 retained truth 已证明：
+  - teacher suite 已真实跑完
+  - matched compare 已真实消费 teacher 改动
+  - 但 `teacher-vs-silver` internal compare 仍为负，`scripts/verify_stage2_v28_longrun.py --score-only = 32/34`
+  - 当前 blocker 不是消费路径，而是 `lifecycle` 与 `belief` teacher label 定义本身
+
+因此，`v2.9` 的策略不是继续扩大 teacher coverage，而是：
+
+- 暂时把 teacher 从默认主线降级为可选探索线
+- 用现有 retained 32k / gain baseline 继续推进真正的 learned `write / latent / belief`
+- 只有出现真实正增益后，才允许再扩大到更大 holdout 或 full holdout
 
 ### 当前 `v2.7` 执行锚点
 

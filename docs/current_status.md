@@ -210,68 +210,57 @@
 ## 当前最重要的下一步
 
 - `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
-- 当前 active 主线正式切到 **`TD-039` / `WS-025` / `v2.8 teacher-quality`**
-- `v2.8` 的新锚点不是继续补 artifact，而是：
-  - 在同一 `32k` split 上扩大 teacher coverage
-  - 修 observation teacher 的 `completed_with_failures`
-  - 建立 `teacher-vs-silver` 对照训练
-  - 用 internal test 验证 teacher-enhanced 是否真的优于 silver baseline
-- `v2.7` 当前作为 retained baseline 保留：
-  - `32k split + gpu2 tiny pilot + teacher pilot artifacts`
+- 当前 active 主线正式切到 **`TD-040` / `WS-026` / `v2.9 learned-core-path long-run`**
+- `v2.9` 的目标不再是继续修 teacher 本身，而是：
+  - 保持 `core / residual` 双银行结构不变
+  - 继续以 `32k` split 为训练锚点
+  - 依次推进 `write -> latent composition -> belief` 三段 learned 主链
+  - 把 holdout benchmark 从 `128` 扩到 `512`
+- `v2.8` 当前作为 retained blocker baseline 保留：
+  - teacher suite 已完成 `256 / 128 / 128`
+  - matched `teacher-vs-silver` compare 已真实消费 teacher 改动
+  - 但 internal compare 仍为负，current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32/34`
+  - 当前 blocker 已明确收敛为：`lifecycle` teacher 负增益、移除 `lifecycle` 后 `belief` teacher 仍负增益，而 raw observation teacher 改动太稀疏
+- `v2.7` 当前作为 retained 32k baseline 保留：
+  - `32k split + gpu2 pilot + teacher pilot artifacts`
   - `scripts/verify_stage2_v27_longrun.py --score-only = 26/26`
-- `v2.7` 的新锚点不是直接上 full-data，而是：
-  - 建立 `32k` source-level split
-  - 先做 `24k train / 4k val / 4k test`
-  - 用 `MiniMax-M2.7` 作为 teacher 提升 `observation / slot assignment / belief fields`
-  - 训练优先用 `gpu2`
-  - 记录训练耗时、吞吐与显存，判断这个量级是否过重
-- 当前 fresh `v2.7` 进展已经补齐首批真实 data-pipeline artifacts：
-  - `outputs_v2/artifacts/latest_stage2_v27_32k_split.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_32k_manifest.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_32k_audit.json`
-  - 当前 `32k` split 的真实 task counts 为：
-    - train: `slot_autoencoding=24000`、`retrieval_alignment=24000`、`lifecycle_prediction=2774`、`composition_to_belief=24000`
-    - val/test: 各自 `slot_autoencoding=4000`、`retrieval_alignment=4000`、`lifecycle_prediction=462`、`composition_to_belief=4000`
-- 当前又补齐了非-teacher 的 `gpu2` pilot 闭环：
-  - `outputs_v2/artifacts/latest_stage2_v27_train.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_eval.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_training_timing.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_internal_test.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_holdout_summary.json`
-  其中当前 `gpu2` tiny pilot 的真实记录为：`4096` effective examples、`512` steps、wall-clock `5.420951s`、`755.59 examples/s`、peak GPU memory `55.09MB`
-- 当前又补齐了一轮真实 `MiniMax-M2.7` teacher pilot artifacts：
-  - `outputs_v2/artifacts/latest_stage2_v27_teacher_observation.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_teacher_slot_assignment.json`
-  - `outputs_v2/artifacts/latest_stage2_v27_teacher_belief.json`
-  - 当前 teacher pilot 使用 sample caps `8/2/2` 与 batch size `1`
-  - 其中 `slot_assignment` 与 `belief` artifact 状态为 `completed`
-  - `observation` artifact 状态为 `completed_with_failures`，当前显式记录 `total_labeled_examples = 6`、`total_failed_examples = 6`
-- 对应 fresh current-head `scripts/verify_stage2_v27_longrun.py --score-only = 26/26`；当前新增通过项是：
-  - `32k split artifact`
-  - `32k manifest artifact`
-  - `32k audit artifact`
-  - `v27 teacher observation artifact`
-  - `v27 teacher slot-assignment artifact`
-  - `v27 teacher belief artifact`
-  - `v27 train artifact`
-  - `v27 eval artifact`
-  - `v27 training timing artifact`
-  - `v27 internal test artifact`
-  - `v27 holdout summary artifact`
+- `v2.9` 当前起点明确使用的 retained 证据包括：
+  - `latest_stage2_v26_write_gain.json`
+  - `latest_stage2_v26_belief_gain.json`
+  - `latest_longmemeval_stage2_v26_canary.json`
+  - `latest_personamem_stage2_v26_canary.json`
+  - `latest_stage2_v27_32k_split.json`
+  - `latest_stage2_v27_train.json`
+  - `latest_stage2_v27_eval.json`
+  - `latest_stage2_v27_training_timing.json`
+  - `latest_stage2_v28_teacher_compare.json`
+  - `latest_stage2_v28_internal_test.json`
+- `v2.9` 当前 stop condition 的方向是：
+  - `write` gain 为正
+  - `latent` gain 为正
+  - `belief` gain 为正
+  - `LongMemEval-S` 在 expanded holdout 上高于 current retained `11/11` 基线
+  - `PersonaMem` guard 不明显退化
 - `TD-039 / WS-025` 的当前代码进展：`scripts/prepare_stage2_data.py` 现已补上 observation teacher coercion failure 的 single-sample retry / failure 落盘，并新增 `publish_v28_teacher_suite`，可在不覆盖 retained `v2.7` latest artifacts 的前提下发布 `v2.8` teacher artifacts、teacher quality audit 与 teacher-enhanced manifests；`scripts/verify_stage2_v28_longrun.py` 现已补上 `silver baseline / teacher train-eval / compare / internal gate` 发布路径，对应 targeted tests 已通过
 - 当前 `TD-039` 的 runtime truth 已前进到更强但仍未达标的状态：
   - `latest_stage2_v28_teacher_observation.json`、`latest_stage2_v28_teacher_slot_assignment.json`、`latest_stage2_v28_teacher_belief.json`、`latest_stage2_v28_teacher_quality_audit.json` 已落地
   - 当前已验证的 teacher suite caps 为 `256 / 128 / 128`
   - observation teacher 当前已修到 `success_rate = 1.0`，不再停留在 `v2.7` 的 `completed_with_failures`
-  - same-split `teacher-vs-silver` 对照已经补齐一轮真实 `gpu2` non-tiny refresh：silver 与 teacher 都使用 `configs/stage2_train.yaml`、`256` examples、`192` steps
-  - silver baseline 当前 internal test `trained_eval.token_f1 = 0.9725304472117797`、`field_f1 = 0.938151041666667`
-  - teacher-enhanced 当前 internal test `trained_eval.token_f1 = 0.9719352091165416`、`field_f1 = 0.9381510416666669`
-  - 因此 fresh current-head compare 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`，gate 仍未通过
+  - `scripts/prepare_stage2_data.py` 当前又已把 matched manifests 改成按 changed `raw-observation / slot-assignment / belief` sample_ids 取 source-record 对齐子集；对应 `configs/stage2_train_v28_matched.yaml` 只训练真正会消费 teacher 变更的 `slot_autoencoding / lifecycle_prediction / composition_to_belief`
+  - 在这组 matched manifests 上，same-split `teacher-vs-silver` 对照已经补齐一轮真实 `gpu2` non-tiny refresh
+  - silver baseline 当前 matched internal test `trained_eval.token_f1 = 0.9711538461538465`、`field_f1 = 0.5785256410256411`
+  - teacher-enhanced 当前 matched internal test `trained_eval.token_f1 = 0.9175819309738847`、`field_f1 = 0.4967948717948717`
+  - 因此 fresh current-head compare 当前记录 `delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`，gate 仍未通过
+  - 具体退化主要集中在 `lifecycle_prediction`：val `token_f1` 从 `0.9655172413793104` 降到 `0.8004926108374386`，test 从 `0.9285714285714286` 降到 `0.8482142857142859`
+  - 当前 session 又补了一轮 selective integration：在 all-changed matched subset 上让 `lifecycle_prediction` 保持 silver、只应用 `observation + belief` teacher。对应 fresh current-head internal test 仍为负：`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`
+  - 这轮 selective integration 里，`lifecycle_prediction` 指标已与 silver 对齐，新的主退化项收敛到 `composition_to_belief`
+  - 与此同时，剩余可单独保留的 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`
   - 对应 current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
 - 进一步分析已确认：
-  - 当前 `teacher-vs-silver` compare 的主问题不是 teacher suite 缺失，而是训练/评测几乎没有真正消费到 teacher 改过的样本
-  - `observation teacher` 当前任务定义也过于接近 silver；下一步必须改成 `raw observation -> teacher label`
-- 现在必须诚实保留的新边界是：`v2.8` 的 teacher suite / compare artifact 已经完整，但 `teacher-enhanced` 仍没有在同一 `32k` split 上真实优于 silver baseline。当前 blocker 已从 “teacher suite 尚未收口” 切换到 “teacher supervision 线没有形成正 internal generalization delta”，且下一步应先修 `raw observation teacher + matched teacher-vs-silver subset`
+  - 旧的“训练/评测几乎没有真正消费到 teacher 改过的样本”假设已经被排除
+  - 当前新的真实 blocker 已进一步收敛：`lifecycle` teacher 是负增益、去掉 `lifecycle` 后 `belief` teacher 仍是负增益，而 observation-only raw-teacher 又太稀疏
+  - `research-results.tsv` / `autoresearch-state.json` 当前已依次记录 iteration `1 discard`、iteration `2 discard` 与 iteration `3 blocked`
+- 现在必须诚实保留的新边界是：`v2.8` 的 `raw observation teacher + matched teacher-vs-silver subset` 已经完整验证，但当前 teacher suite 中能覆盖 enough samples 的 supervision 都没有形成正 internal delta。当前 launch 因此停在 true blocker；若未来继续，必须先更换 teacher 生成策略，而不是再重复同配方 refresh
   - `TD-038 / WS-024` 的 verifier 文档口径已对齐
 - 当前 `v2.7` 的 provider-env blocker 已不再代表 runtime truth：
   - fresh background run 已通过 helper 正常初始化 `research-results.tsv` 与 `autoresearch-state.json`

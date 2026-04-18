@@ -2,12 +2,31 @@
 
 ## Doing
 
+- `TD-040` `[doing]` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 从 `128` 扩到 `512`。
+  - Runtime truth: `TD-039 / WS-025` 已把 teacher suite、matched subset 与 negative internal delta 的 blocker truth 跑清楚；当前主线不再继续刷新 teacher coverage，而是把 teacher 降级为可选探索线
+  - Current focus:
+    - 保持 retained `v2.6` gain line、`v2.7` 32k baseline、`v2.8` blocked truth 可复验
+    - 让 `write` gain 转正
+    - 让 `latent` gain 转正
+    - 让 `belief` gain 转正
+    - 扩大 `LongMemEval-S 512 / PersonaMem 512` holdout
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - full benchmark 只作 holdout evaluation
+  - Truth boundary:
+    - 当前不把 teacher 当作默认主线 supervision
+    - 当前不进入 full benchmark training
+    - `v2.9` 的 stop condition 不是 artifact completeness，而是 `write / latent / belief` 都出现真实正增益
+
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
   - Current focus:
-    - 扩大 teacher coverage，而不是停留在 `8/2/2` pilot
-    - 修 observation teacher 的 `completed_with_failures`
-    - 在同一 `32k` split 上做 `teacher-vs-silver` 对照训练
+    - 保持 current-head `256 / 128 / 128` teacher suite、matched manifests 与 holdout guard 可复验
+    - 记录当前 launch 已到达的 true blocker，而不是继续重复 refresh
+    - 若后续恢复 `TD-039`，必须先提出新的 teacher-generation hypothesis
     - benchmark 继续只作 holdout guard
   - Target teacher scale:
     - train `512`
@@ -24,16 +43,18 @@
     - 当前成功定义不是 artifact completeness，而是 teacher-enhanced 在 `32k` internal test 上真实优于 silver baseline
   - Latest runtime truth:
     - current-head teacher suite 已以 `256 / 128 / 128` caps 完成，observation teacher 当前 `success_rate = 1.0`
-    - same-split `gpu2` non-tiny compare 已完成；silver/test `trained_eval.token_f1 = 0.9725304472117797`，teacher/test `trained_eval.token_f1 = 0.9719352091165416`
-    - fresh compare 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
+    - `raw observation teacher + matched teacher-vs-silver subset` 已真实跑完；当前 matched manifests 按 changed `raw-observation / slot-assignment / belief` sample_ids 取 source-record 对齐子集，确保训练/评测真正消费 teacher 改动
+    - same-split matched non-tiny compare 已完成；fresh compare 当前记录 `delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`
+    - 当前主退化项是 `lifecycle_prediction`：val `token_f1` 从 `0.9655172413793104` 降到 `0.8004926108374386`，test 从 `0.9285714285714286` 降到 `0.8482142857142859`
+    - selective integration 也已验证：在 all-changed matched subset 上让 `lifecycle_prediction` 保持 silver、只应用 `observation + belief` teacher 后，fresh compare 仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`
+    - 剩余可单独保留的 raw-observation teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`
     - current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
-    - 当前新的分析结论是：teacher line 的主问题不是 teacher suite 覆盖，而是训练/评测没有真正消费 teacher 改过的样本
-    - 下一步要切到 `raw observation teacher + matched teacher-vs-silver subset`
+    - `research-results.tsv` / `autoresearch-state.json` 当前已依次记录 iteration `1 discard`、iteration `2 discard` 与 iteration `3 blocked`
   - Current blocker:
-    - teacher supervision 当前没有形成正 internal delta，因此这条线不能写成 keep，也不能进入 full-data
+    - “teacher 改动未被消费” 已不是当前 blocker；真实 blocker 是：`lifecycle` teacher 负增益、去掉 `lifecycle` 后 `belief` teacher 仍负增益、而 observation-only raw-teacher 改动又过于稀疏。当前 launch 因此停在 blocked，不能写成 keep，也不能进入 full-data
 
 - `TD-038` `[doing]` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
-  - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成；`TD-038` 是新的 active 主线
+  - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成；`TD-038` 当前作为 retained `32k` split / teacher pilot baseline 保留
   - Current progress:
     - current HEAD `21dd40b` 已新增真实 `32k` source-level split / manifest / audit pipeline
     - `latest_stage2_v27_32k_split.json`、`latest_stage2_v27_32k_manifest.json` 与 `latest_stage2_v27_32k_audit.json` 已落地

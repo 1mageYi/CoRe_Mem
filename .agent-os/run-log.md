@@ -1,5 +1,77 @@
 # Run Log
 
+## 2026-04-18 Session 060
+
+- Worked on: 把当前主线从 `v2.8 teacher-quality blocker` 前推到 `v2.9 learned-core-path long-run`，把下一阶段目标从“继续扩 teacher”收紧为“在 32k 锚点上让 write / latent / belief 出现真实正增益，并扩大 holdout benchmark”
+- State changed:
+  - 新增 [docs/v29_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v29_plan.md)，明确冻结 `core / residual`，并把主线切到 `write -> latent composition -> belief`
+  - 新增 `scripts/verify_stage2_v29_longrun.py` 与 `tests/test_stage2_v29_longrun.py`
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md` 与 `.agent-os/todo.md` 已同步到 `TD-040 / WS-026`
+  - `v2.8` 当前 blocker truth 被保留为 retained baseline：teacher suite 完整，但 matched compare 为负，因此 teacher 暂时降级为可选探索线，而不是 `v2.9` 默认主线
+- Evidence / artifacts:
+  - `docs/v29_plan.md`
+  - `scripts/verify_stage2_v29_longrun.py`
+  - `tests/test_stage2_v29_longrun.py`
+- Next likely action:
+  - 运行 `v2.9` baseline verifier / tests，提交 long-run baseline commit，并以 fresh background 方式启动新的 `v2.9` autoresearch
+
+## 2026-04-18 Session 059
+
+- Worked on: 对 `TD-039 / WS-025` 再做一轮 selective integration 验证，并在 evidence 足够后把当前 managed run 判定为 true blocker
+- State changed:
+  - `scripts/prepare_stage2_data.py` 当前已支持把 matched subset 的 `matched_kinds` 与 `teacher_apply_kinds` 解耦，并支持独立 `manifest_namespace`，避免新实验覆盖上一轮 matched artifact
+  - `tests/test_stage2_teacher_labels.py` 已新增 selective integration 回归：当 `slot_assignment` 只用于选 matched subset、但不实际应用 teacher label 时，`lifecycle_prediction` 仍保持 silver，而 `belief` teacher 仍会被正确替换
+  - fresh selective manifests 已落地到 `outputs_v2/artifacts/stage2_v28_matched_manifests_obs_belief/`
+  - fresh selective compare 保持 all-changed matched subset 不变、只应用 `observation + belief` teacher；对应 silver train 为 `outputs_v2/runs/20260418T160913Z_stage2_train_exec/`，teacher train 为 `outputs_v2/runs/20260418T161000Z_stage2_train_exec/`
+  - fresh selective val/test eval 结果显示：去掉 `lifecycle` teacher 后，`lifecycle_prediction` 指标已与 silver 对齐，但 compare 仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`
+  - 这轮 selective integration 的主退化项已收敛到 `composition_to_belief`
+  - 与此同时，剩余可单独保留的 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`，不足以支撑有意义的 same-budget compare
+  - launch guard 当前通过；helper 已把这轮 experiment 记为 iteration `2 discard`，随后又把“当前 launch 已进入 true blocker”记为 iteration `3 blocked`
+- Evidence / artifacts:
+  - `outputs_v2/artifacts/stage2_v28_matched_manifests_obs_belief/`
+  - `outputs_v2/runs/20260418T160913Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/runs/20260418T161000Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260418T161101Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T161805Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T162010Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T162334Z_stage2_local_eval.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v28_longrun.py --score-only` -> `32`
+- Next likely action:
+  - 本轮 managed run 已到 true blocker；若未来继续 `TD-039 / WS-025`，必须先更换 teacher 生成策略或标签定义，而不是再重复当前 label suite
+
+## 2026-04-18 Session 058
+
+- Worked on: 把 `TD-039 / WS-025` 的 `raw observation teacher + matched teacher-vs-silver subset` 真正跑完、记录 fresh managed-run 结果，并把 runtime truth 从“teacher 改动未被消费”切换到“teacher lifecycle supervision 带来负增益”
+- State changed:
+  - `scripts/prepare_stage2_data.py` 当前已新增 changed-only teacher label map 与 source-record 对齐的 matched manifest builder；matched manifests 现按 changed `raw-observation / slot-assignment / belief` sample_ids 收缩到真正消费 teacher 改动的样本
+  - 当前新增 `configs/stage2_train_v28_matched.yaml`，把 same-budget compare 的训练任务收敛到 `slot_autoencoding / lifecycle_prediction / composition_to_belief`
+  - `tests/test_stage2_teacher_labels.py` 已新增 matched subset 对 changed sample_ids 与 source-record 对齐的回归覆盖；targeted tests 与 launch guard 当前均通过
+  - fresh `v2.8` teacher suite 已在缓存标签上重新发布；当前 latest matched manifests 已落地到 `outputs_v2/artifacts/stage2_v28_matched_manifests/`
+  - same-split matched non-tiny compare 已完成：silver train 为 `outputs_v2/runs/20260418T154514Z_stage2_train_exec/`，teacher train 为 `outputs_v2/runs/20260418T154614Z_stage2_train_exec/`
+  - fresh matched eval 结果显示 teacher 线明显退化：`delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`
+  - 主退化集中在 `lifecycle_prediction`：val `token_f1` 从 `0.9655172413793104` 降到 `0.8004926108374386`，test 从 `0.9285714285714286` 降到 `0.8482142857142859`
+  - `scripts/verify_stage2_v28_longrun.py --score-only` 复核后仍为 `32`
+  - `research-results.tsv` / `autoresearch-state.json` 已把这轮 fresh background run 记为 iteration `1 discard`，retained metric 继续保持 baseline `32`
+- Evidence / artifacts:
+  - `configs/stage2_train_v28_matched.yaml`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_observation.json`
+  - `outputs_v2/artifacts/stage2_v28_matched_manifests/`
+  - `outputs_v2/runs/20260418T154514Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/runs/20260418T154614Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260418T155317Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T155319Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T155046Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T155047Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_internal_test.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v28_longrun.py --score-only` -> `32`
+- Next likely action:
+  - 若继续 `TD-039 / WS-025`，下一轮不能再重复当前 teacher 配方；必须先解释 `teacher lifecycle` supervision 为何在 changed subset 上显著拉低 internal quality，再决定是否做 task-level weighting、partial integration 或直接 pivot
+
 ## 2026-04-18 Session 057
 
 - Worked on: 把 `TD-039 / WS-025` 从 “teacher suite 是否能收口” 推进到 “teacher-enhanced 是否真的优于 silver baseline” 的真实判定，并完成一轮 same-split non-tiny `gpu2` 对照

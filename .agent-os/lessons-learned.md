@@ -45,3 +45,7 @@
   - 对 background managed run 来说，历史 artifact 曾经在另一 session 成功跑过 live provider，并不等于当前 session 仍然带着同样的 env；在任何 live canary / full benchmark 刷新前，必须先机械确认 `GPT_AGENT_API_KEY` 已进入当前进程环境，否则会白白烧掉 slot-assignment / model 预处理时间，最后只得到 `provider_configured=false`。
   - query-intent-aware temporal retrieval / belief scoring 可以先用 unit tests 锁住“历史型 query 不被当前槽位压掉”的行为，但没有 live provider env 时，不能把这种 trial commit 误写成 `v2.6 gain`；应诚实停在 `blocked`，把 commit 留作未验证 trial，而不是伪造 canary/gain artifact。
   - learned slot-assignment 在线 prompt 如果直接吃全量 memory context，会在 dense `other_fact` 样本上把 live canary 拖成分钟级；即使真正需要 arbitration 的 observation 只有十来条，T5 generation 也会被 60+ 候选 prompt 放大到不可用。对 `other_fact` 这类 open-world relation，应该优先把 online prompt 收缩到 `symbolic target + top candidates + 少量最近上下文`，并对低 lexical-overlap 的 overwrite 直接 fast-path 为 `new`，再把剩余 live refresh 交回 background runtime。
+- 2026-04-18:
+  - `v2.8` 这条线里，“teacher 改动没有被训练/评测真正消费” 和 “teacher supervision 本身有害” 是两件不同的事；必须先用 changed-sample matched subset 把前者排除掉，才能诚实断定后者。
+  - 在当前 `256 / 128 / 128` teacher suite 下，能覆盖 enough samples 的 teacher supervision 只有 `slot_assignment` 和 `belief`；如果这两条线都在 matched internal compare 上显式退化，而 observation-only raw-teacher 改动又只剩 `train=1 / val=0 / test=3`，那就应把 run 判成 true blocker，而不是继续靠更窄的 refresh 刷随机噪声。
+  - `train_stage2.py` 与 `eval_stage2_local.py` 当前都用秒级 UTC 时间戳生成 artifact 路径；并行启动时会直接撞到同一个 `run_dir` / `result_path`。后续若还要做并行 compare，必须先加更细粒度时间戳或显式 run namespace，否则结果不可审计。
