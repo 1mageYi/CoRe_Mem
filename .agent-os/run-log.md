@@ -1,5 +1,57 @@
 # Run Log
 
+## 2026-04-18 Session 057
+
+- Worked on: 把 `TD-039 / WS-025` 从 “teacher suite 是否能收口” 推进到 “teacher-enhanced 是否真的优于 silver baseline” 的真实判定，并完成一轮 same-split non-tiny `gpu2` 对照
+- State changed:
+  - `scripts/prepare_stage2_data.py` 当前已把 `v2.8` teacher suite 真正跑完；`latest_stage2_v28_teacher_observation.json`、`latest_stage2_v28_teacher_slot_assignment.json`、`latest_stage2_v28_teacher_belief.json` 与 `latest_stage2_v28_teacher_quality_audit.json` 已落地
+  - 当前已验证的 teacher suite caps 为 `256 / 128 / 128`；其中 observation teacher 已从 `v2.7` 的 `completed_with_failures` 修到 current-head `success_rate = 1.0`
+  - 先前 `v2.8` compare 之所以全零，已确认不是 teacher 数据本身，而是 `teacher-vs-silver` refresh 误用了 `configs/stage2_train_tiny.yaml` 的 `__tiny_debug_seq2seq__`；对应 helper 已把 iteration `2` 记为 `refine`
+  - 随后在完全相同的 `32k` split 上补齐一轮更可信的 non-tiny same-budget compare：silver 与 teacher 都使用 `configs/stage2_train.yaml`、`gpu2`、`256` examples、`192` steps
+  - silver baseline 当前 fresh internal test 为：`trained_eval.token_f1 = 0.9725304472117797`、`field_f1 = 0.938151041666667`
+  - teacher-enhanced 当前 fresh internal test 为：`trained_eval.token_f1 = 0.9719352091165416`、`field_f1 = 0.9381510416666669`
+  - 因此 current-head `latest_stage2_v28_teacher_compare.json` 现明确记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`，`latest_stage2_v28_internal_test.json` 当前 `gate_passed = false`
+  - fresh current-head `scripts/verify_stage2_v28_longrun.py --score-only` 因此停在 `32 / 34`；helper 已把 iteration `3` 记为 `blocked`
+  - 当前 `TD-039 / WS-025` 的真实 blocker 已从 teacher publisher / provider throughput 切换为：teacher supervision 线本身没有形成正的 internal generalization delta
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_observation.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_slot_assignment.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_belief.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_quality_audit.json`
+  - `outputs_v2/runs/20260418T061903Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260418T062020Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T062508Z_stage2_local_eval.json`
+  - `outputs_v2/runs/20260418T062939Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260418T063052Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260418T063541Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_teacher_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v28_internal_test.json`
+  - `conda run -n core_mem python scripts/verify_stage2_v28_longrun.py --json` -> `32 / 34`
+- Next likely action:
+  - 若继续 `TD-039 / WS-025`，下一轮不能再重复当前 teacher 配方；必须先提出新的 teacher integration / weighting 假设，解释为何 same-split non-tiny compare 仍略低于 silver
+
+## 2026-04-17 Session 056
+
+- Worked on: 为 `TD-039 / WS-025` 落地 `v2.8` teacher-quality 的数据发布与对照发布链，并定位 observation teacher 在更大 coverage 下的真实失败模式
+- State changed:
+  - `scripts/prepare_stage2_data.py` 已新增 observation teacher coercion failure 的 single-sample retry / failure 落盘逻辑，不再因单条 partial schema label 直接中断整批发布
+  - 同一脚本已新增 `publish_v28_teacher_suite` 与 `--publish-v28-teacher-suite`，可在不覆盖 retained `v2.7` latest artifacts 的前提下发布 `latest_stage2_v28_teacher_{observation,slot_assignment,belief}.json`、`latest_stage2_v28_teacher_quality_audit.json` 以及 teacher-enhanced split manifests
+  - `scripts/verify_stage2_v28_longrun.py` 已新增 `publish_v28_artifacts` 与对应 CLI，可发布 `latest_stage2_v28_silver_baseline.json`、`latest_stage2_v28_teacher_train.json`、`latest_stage2_v28_teacher_eval.json`、`latest_stage2_v28_teacher_compare.json` 与 `latest_stage2_v28_internal_test.json`
+  - 新增回归覆盖：`tests/test_stage2_teacher_labels.py` 现覆盖 incomplete observation label retry 与 `v2.8` quality-audit/manifest 发布；`tests/test_stage2_v28_longrun.py` 现覆盖 `v2.8` compare/internal gate 发布
+  - `conda run -n core_mem pytest -q tests/test_stage2_v28_longrun.py tests/test_stage2_teacher_labels.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py` 已通过
+  - fresh current-head `scripts/verify_stage2_v28_longrun.py --score-only` 仍为 `19`
+  - 当前回合又做了多次真实 `MiniMax-M2.7` teacher suite 尝试（`512/128/128`、`256/64/64`、`256/0/0`），但都未在可接受窗口内收口；当前还不能诚实声明 `v2.8` teacher artifacts 已落地
+- Evidence / artifacts:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v28_longrun.py tests/test_stage2_teacher_labels.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v28_longrun.py --score-only` -> `19`
+  - live probes:
+    - `conda run --no-capture-output -n core_mem python - <<'PY' ... recoe-aggregation-142 ...`
+    - `conda run --no-capture-output -n core_mem python scripts/prepare_stage2_data.py --output-root outputs_v2 --publish-v28-teacher-suite ...`
+- Next likely action:
+  - 继续 `TD-039 / WS-025`，但下一轮优先从 teacher provider throughput / batching 策略入手，把真实 `v2.8` teacher suite 先跑完，再进入 `silver-vs-teacher` train/eval refresh
+
 ## 2026-04-17 Session 055
 
 - Worked on: 把主线从 `v2.7 teacher pilot closeout` 前推到 `v2.8 teacher-quality`

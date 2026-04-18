@@ -46,6 +46,20 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def _rows_by_sample_id(path: Path, *, allowed_sample_ids: set[str] | None = None) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows_by_sample: dict[str, dict[str, Any]] = {}
+    for row in _load_jsonl(path):
+        sample_id = str(row.get("sample_id", "")).strip()
+        if not sample_id:
+            continue
+        if allowed_sample_ids is not None and sample_id not in allowed_sample_ids:
+            continue
+        rows_by_sample[sample_id] = row
+    return rows_by_sample
+
+
 def _materialize_prepared_payload(
     output_root: Path,
     *,
@@ -239,6 +253,29 @@ def _compact_observation_payload(observation: dict[str, Any]) -> dict[str, Any]:
     return {key: observation.get(key) for key in keys if key in observation}
 
 
+def _observation_teacher_payload(observation: dict[str, Any]) -> dict[str, Any]:
+    metadata = observation.get("metadata") or {}
+    allowed_metadata = {
+        key: metadata.get(key)
+        for key in ("service", "slot_name", "source_type", "domain", "speaker_role")
+        if key in metadata
+    }
+    keys = [
+        "obs_id",
+        "source_dataset",
+        "source_dialogue_id",
+        "source_turn_id",
+        "session_id",
+        "speaker",
+        "entity",
+        "evidence_text",
+    ]
+    payload = {key: observation.get(key) for key in keys if key in observation}
+    if allowed_metadata:
+        payload["metadata"] = allowed_metadata
+    return payload
+
+
 def _compact_slot_payload(slot: dict[str, Any]) -> dict[str, Any]:
     role_scores = slot.get("soft_role_scores") or {}
     top_role = None
@@ -319,7 +356,7 @@ def _teacher_payload(kind: str, row: dict[str, Any]) -> dict[str, Any]:
         "dataset": _task_row_dataset(row),
     }
     if kind == "observation":
-        payload["candidate_observation"] = _compact_observation_payload(row["input_observation"])
+        payload["raw_observation"] = _observation_teacher_payload(row["input_observation"])
         return payload
     if kind == "slot_assignment":
         payload["memory_context"] = _compact_slots(row["memory_context"])
@@ -336,10 +373,12 @@ def _teacher_prompt(kind: str, rows: list[dict[str, Any]]) -> tuple[str, str]:
         system_prompt = "You are a strict data-labeling teacher. Return JSON only."
         user_prompt = (
             "teacher_task: observation\n"
-            "Recover semantic observation fields from each candidate observation.\n"
+            "Infer semantic observation fields directly from each raw observation.\n"
             "Return a JSON object with a top-level `labels` array.\n"
             "Each label must contain: sample_id, relation, value, time_scope, status_hint, polarity.\n"
-            "Use evidence_text and canonical_gloss as grounding; keep values concise and do not invent unsupported facts.\n"
+            "Use evidence_text and lightweight metadata as grounding.\n"
+            "Do not rely on pre-filled relation/value/time labels; infer them from the raw observation content.\n"
+            "Keep values concise and do not invent unsupported facts.\n"
             f"examples={json.dumps(examples, ensure_ascii=False, sort_keys=True)}"
         )
         return system_prompt, user_prompt
@@ -418,8 +457,8 @@ def _coerce_label(kind: str, row: dict[str, Any], payload: dict[str, Any]) -> di
             {
                 "relation": relation,
                 "value": value,
-                "status": str(item.get("status", "unknown")).strip() or "unknown",
-                "time_scope": str(item.get("time_scope", "unknown")).strip() or "unknown",
+                "status": _normalize_teacher_belief_status(item.get("status", "unknown")),
+                "time_scope": _normalize_teacher_belief_time_scope(item.get("time_scope", "unknown")),
                 "support_slot_ids": support_ids,
             }
         )
@@ -470,7 +509,27 @@ def _request_teacher_labels(
         )
     labels = payload.get("labels") if isinstance(payload, dict) else payload
     if not isinstance(labels, list):
-        raise ValueError(f"Teacher response for {kind} must contain a labels list.")
+        if len(rows) > 1:
+            label_map = {}
+            request_count = 1
+            failures = []
+            for row in rows:
+                single_map, single_requests, single_failures = _request_teacher_labels(kind, [row], provider=provider)
+                label_map.update(single_map)
+                request_count += single_requests
+                failures.extend(single_failures)
+            return label_map, request_count, failures
+        return (
+            {},
+            1,
+            [
+                {
+                    "sample_id": _task_row_sample_id(rows[0]),
+                    "error": "missing_labels_list",
+                    "response_preview": response.content[:800],
+                }
+            ],
+        )
     label_map = {
         str(item.get("sample_id")): item
         for item in labels
@@ -579,6 +638,303 @@ def _summarize_teacher_rows(kind: str, rows: list[dict[str, Any]]) -> dict[str, 
     return summary
 
 
+def _coerce_teacher_label_with_retry(
+    kind: str,
+    row: dict[str, Any],
+    payload: dict[str, Any] | None,
+    *,
+    provider: Any,
+) -> tuple[dict[str, Any] | None, int, list[dict[str, Any]]]:
+    sample_id = _task_row_sample_id(row)
+    if payload is None:
+        return None, 0, []
+    try:
+        return _coerce_label(kind, row, payload), 0, []
+    except ValueError as exc:
+        retry_map, retry_requests, retry_failures = _request_teacher_labels(kind, [row], provider=provider)
+        failures = [
+            {
+                **failure,
+                "sample_id": failure.get("sample_id") or sample_id,
+                "error": failure.get("error", "retry_failed"),
+                "retry_after_error": str(exc),
+            }
+            for failure in retry_failures
+        ]
+        retry_payload = retry_map.get(sample_id)
+        if retry_payload is None:
+            failures.append(
+                {
+                    "sample_id": sample_id,
+                    "error": "retry_missing_or_invalid_label",
+                    "retry_after_error": str(exc),
+                    "raw_label": payload,
+                }
+            )
+            return None, retry_requests, failures
+        try:
+            return _coerce_label(kind, row, retry_payload), retry_requests, failures
+        except ValueError as retry_exc:
+            failures.append(
+                {
+                    "sample_id": sample_id,
+                    "error": "coercion_failed_after_retry",
+                    "retry_after_error": str(exc),
+                    "final_error": str(retry_exc),
+                    "raw_label": retry_payload,
+                }
+            )
+            return None, retry_requests, failures
+
+
+def _teacher_task_paths(manifest_payload: dict[str, Any]) -> dict[str, Path]:
+    return {
+        split_name: Path((split_payload or {}).get("prepared_manifest", ""))
+        for split_name, split_payload in (manifest_payload.get("splits") or {}).items()
+    }
+
+
+def _load_teacher_label_map(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows = _load_jsonl(path)
+    label_map: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        sample_id = str(row.get("sample_id", "")).strip()
+        if not sample_id:
+            continue
+        teacher_label = dict(row.get("teacher_label") or {})
+        if "belief_items" in teacher_label:
+            teacher_label["belief_items"] = [
+                {
+                    **dict(item),
+                    "status": _normalize_teacher_belief_status(item.get("status", "unknown")),
+                    "time_scope": _normalize_teacher_belief_time_scope(item.get("time_scope", "unknown")),
+                }
+                for item in (teacher_label.get("belief_items") or [])
+                if isinstance(item, dict)
+            ]
+        label_map[sample_id] = teacher_label
+    return label_map
+
+
+def _status_from_hint(status_hint: str) -> str:
+    normalized = str(status_hint or "unknown").strip()
+    return normalized or "unknown"
+
+
+def _normalize_teacher_belief_status(status: Any) -> str:
+    normalized = str(status or "unknown").strip().lower()
+    if normalized in {"active", "affirmed", "asserted", "believed", "belief", "confirmed", "current", "factual", "known", "positive", "relevant", "stable", "verified"}:
+        return "active"
+    if normalized in {"stale", "historical", "inactive", "irrelevant", "negated", "negative", "previous", "retracted", "superseded"}:
+        return "stale"
+    if normalized == "conflicted":
+        return "conflicted"
+    return "unknown"
+
+
+def _normalize_teacher_belief_time_scope(time_scope: Any) -> str:
+    normalized = str(time_scope or "unknown").strip().lower()
+    if normalized in {"current", "general", "global", "long_term", "preference", "present", "stable", "static"}:
+        return "current"
+    if normalized in {"past", "historical", "previous"}:
+        return "past"
+    if normalized == "future":
+        return "future"
+    if normalized in {"ephemeral", "instantaneous", "latest", "recent", "recent_change", "temporal"}:
+        return "recent_change"
+    return "unknown"
+
+
+def _apply_teacher_label(kind: str, row: dict[str, Any], teacher_label: dict[str, Any]) -> dict[str, Any]:
+    updated = json.loads(json.dumps(row, ensure_ascii=False))
+    if kind == "observation":
+        updated["target_record"] = {
+            **dict(updated.get("target_record") or {}),
+            "relation": teacher_label.get("relation"),
+            "value": teacher_label.get("value"),
+            "time_scope": teacher_label.get("time_scope"),
+            "status": _status_from_hint(str(teacher_label.get("status_hint", "unknown"))),
+        }
+        return updated
+    if kind == "slot_assignment":
+        updated["target_action"] = teacher_label.get("target_action")
+        updated["target_flags"] = {
+            "promote": bool(teacher_label.get("promote", False)),
+            "stale_old": bool(teacher_label.get("stale_old", False)),
+        }
+        matched_slot_id = teacher_label.get("matched_slot_id")
+        updated["affected_slot_ids"] = [matched_slot_id] if matched_slot_id else []
+        return updated
+    updated["target_belief_json"] = {
+        "belief_items": list(teacher_label.get("belief_items") or []),
+    }
+    return updated
+
+
+def _build_teacher_enhanced_split_manifests(
+    output_root: Path,
+    *,
+    v27_manifest_artifact: Path,
+    teacher_root: Path,
+) -> dict[str, dict[str, Any]]:
+    manifest_payload = json.loads(v27_manifest_artifact.read_text(encoding="utf-8"))
+    task_by_kind = {
+        "observation": "slot_autoencoding",
+        "slot_assignment": "lifecycle_prediction",
+        "belief": "composition_to_belief",
+    }
+    task_kind = {task: kind for kind, task in task_by_kind.items()}
+    enhanced_root = output_root / "artifacts" / "stage2_v28_teacher_manifests"
+    manifests: dict[str, dict[str, Any]] = {}
+
+    for split_name, manifest_path in _teacher_task_paths(manifest_payload).items():
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"Missing prepared manifest for split {split_name}: {manifest_path}")
+        base_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        split_root = enhanced_root / split_name
+        task_files: dict[str, str] = {}
+        teacher_replaced_counts: dict[str, int] = {}
+
+        label_maps = {
+            kind: _load_teacher_label_map(teacher_root / kind / f"{split_name}_labels.jsonl")
+            for kind in task_by_kind
+        }
+        for task_name, task_file in (base_manifest.get("task_files") or {}).items():
+            rows = _load_jsonl(Path(task_file))
+            kind = task_kind.get(task_name)
+            replaced = 0
+            if kind is not None:
+                label_map = label_maps[kind]
+                rewritten_rows = []
+                for row in rows:
+                    sample_id = _task_row_sample_id(row)
+                    if sample_id in label_map:
+                        rewritten_rows.append(_apply_teacher_label(kind, row, label_map[sample_id]))
+                        replaced += 1
+                    else:
+                        rewritten_rows.append(row)
+                rows = rewritten_rows
+            teacher_replaced_counts[task_name] = replaced
+            target_path = split_root / Path(task_file).name
+            _write_jsonl(target_path, rows)
+            task_files[task_name] = str(target_path)
+
+        enhanced_manifest = {
+            **base_manifest,
+            "prepared_by": "stage2_v28_teacher_suite",
+            "base_prepared_manifest": str(manifest_path),
+            "task_files": task_files,
+            "teacher_replaced_counts": teacher_replaced_counts,
+        }
+        manifest_out = split_root / "stage2_prepared_samples_manifest.json"
+        _write_json(manifest_out, enhanced_manifest)
+        manifests[split_name] = {
+            "prepared_manifest": str(manifest_out),
+            "teacher_replaced_counts": teacher_replaced_counts,
+            "base_prepared_manifest": str(manifest_path),
+        }
+    return manifests
+
+
+def _build_matched_teacher_vs_silver_split_manifests(
+    output_root: Path,
+    *,
+    v27_manifest_artifact: Path,
+    teacher_root: Path,
+    matched_kinds: tuple[str, ...] = ("slot_assignment", "belief"),
+) -> dict[str, dict[str, dict[str, Any]]]:
+    manifest_payload = json.loads(v27_manifest_artifact.read_text(encoding="utf-8"))
+    task_by_kind = {
+        "observation": "slot_autoencoding",
+        "slot_assignment": "lifecycle_prediction",
+        "belief": "composition_to_belief",
+    }
+    task_kind = {task: kind for kind, task in task_by_kind.items()}
+    matched_task_names = {task_by_kind[kind] for kind in matched_kinds}
+    matched_root = output_root / "artifacts" / "stage2_v28_matched_manifests"
+    manifests: dict[str, dict[str, dict[str, Any]]] = {}
+
+    for split_name, manifest_path in _teacher_task_paths(manifest_payload).items():
+        if not manifest_path.exists():
+            raise FileNotFoundError(f"Missing prepared manifest for split {split_name}: {manifest_path}")
+        base_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        split_root = matched_root / split_name
+        silver_root = split_root / "silver"
+        teacher_split_root = split_root / "teacher"
+
+        label_maps = {
+            kind: _load_teacher_label_map(teacher_root / kind / f"{split_name}_labels.jsonl")
+            for kind in matched_kinds
+        }
+        matched_sample_ids = {
+            task_by_kind[kind]: set(label_maps[kind].keys())
+            for kind in matched_kinds
+        }
+
+        split_payload: dict[str, dict[str, Any]] = {}
+        for variant_name, variant_root in (("silver", silver_root), ("teacher", teacher_split_root)):
+            task_files: dict[str, str] = {}
+            task_counts: dict[str, int] = {}
+            teacher_replaced_counts: dict[str, int] = {}
+            matched_sample_counts: dict[str, int] = {}
+
+            for task_name, task_file in (base_manifest.get("task_files") or {}).items():
+                rows = _load_jsonl(Path(task_file))
+                if task_name in matched_task_names:
+                    allowed_sample_ids = matched_sample_ids.get(task_name, set())
+                    rows = [
+                        row
+                        for row in rows
+                        if _task_row_sample_id(row) in allowed_sample_ids
+                    ]
+                else:
+                    rows = []
+                replaced = 0
+                kind = task_kind.get(task_name)
+                if variant_name == "teacher" and kind in matched_kinds:
+                    label_map = label_maps[kind]
+                    rewritten_rows = []
+                    for row in rows:
+                        sample_id = _task_row_sample_id(row)
+                        if sample_id in label_map:
+                            rewritten_rows.append(_apply_teacher_label(kind, row, label_map[sample_id]))
+                            replaced += 1
+                        else:
+                            rewritten_rows.append(row)
+                    rows = rewritten_rows
+                target_path = variant_root / Path(task_file).name
+                _write_jsonl(target_path, rows)
+                task_files[task_name] = str(target_path)
+                task_counts[task_name] = len(rows)
+                teacher_replaced_counts[task_name] = replaced
+                matched_sample_counts[task_name] = len(rows)
+
+            manifest_out = variant_root / "stage2_prepared_samples_manifest.json"
+            enhanced_manifest = {
+                **base_manifest,
+                "prepared_by": "stage2_v28_matched_teacher_vs_silver",
+                "base_prepared_manifest": str(manifest_path),
+                "variant": variant_name,
+                "matched_kinds": list(matched_kinds),
+                "task_files": task_files,
+                "task_counts": task_counts,
+                "teacher_replaced_counts": teacher_replaced_counts,
+                "matched_sample_counts": matched_sample_counts,
+            }
+            _write_json(manifest_out, enhanced_manifest)
+            split_payload[variant_name] = {
+                "prepared_manifest": str(manifest_out),
+                "task_counts": task_counts,
+                "teacher_replaced_counts": teacher_replaced_counts,
+                "matched_sample_counts": matched_sample_counts,
+            }
+        manifests[split_name] = split_payload
+
+    return manifests
+
+
 def publish_v27_teacher_artifacts(
     output_root: Path,
     *,
@@ -616,6 +972,7 @@ def publish_v27_teacher_artifacts(
         split_metrics: dict[str, Any] = {}
         total_requests = 0
         total_rows: list[dict[str, Any]] = []
+        total_selected_examples = 0
         for split_name in ("train", "val", "test"):
             prepared_manifest = Path((splits.get(split_name) or {}).get("prepared_manifest", ""))
             if not prepared_manifest.exists():
@@ -629,38 +986,95 @@ def publish_v27_teacher_artifacts(
                 max_rows=split_caps.get(split_name),
             )
             selected_rows = sorted(selected_rows, key=_task_row_sample_id)
-            teacher_rows: list[dict[str, Any]] = []
-            teacher_failures: list[dict[str, Any]] = []
+            total_selected_examples += len(selected_rows)
+            label_path = teacher_root / kind / f"{split_name}_labels.jsonl"
+            failure_path = teacher_root / kind / f"{split_name}_failures.jsonl"
+            selected_sample_ids = {_task_row_sample_id(row) for row in selected_rows}
+            teacher_row_map = _rows_by_sample_id(label_path, allowed_sample_ids=selected_sample_ids)
+            failure_map = {
+                sample_id: row
+                for sample_id, row in _rows_by_sample_id(
+                    failure_path,
+                    allowed_sample_ids=selected_sample_ids,
+                ).items()
+                if sample_id not in teacher_row_map
+            }
+            reused_count = len(teacher_row_map)
             split_request_count = 0
-            for batch in _batched(selected_rows, max(batch_size, 1)):
+            pending_rows = [
+                row
+                for row in selected_rows
+                if _task_row_sample_id(row) not in teacher_row_map
+            ]
+            for batch in _batched(pending_rows, max(batch_size, 1)):
                 if not batch:
                     continue
                 label_map, request_count, failures = _request_teacher_labels(kind, batch, provider=provider)
-                teacher_failures.extend([{**failure, "split": split_name, "task_name": task_name} for failure in failures])
+                for failure in failures:
+                    sample_id = str(failure.get("sample_id", "")).strip()
+                    if not sample_id:
+                        continue
+                    failure_map[sample_id] = {**failure, "split": split_name, "task_name": task_name}
                 for row in batch:
                     sample_id = _task_row_sample_id(row)
                     if sample_id not in label_map:
                         continue
-                    source_label = _source_label(kind, row)
-                    teacher_label = _coerce_label(kind, row, label_map[sample_id])
-                    agreement = _agreement_metrics(kind, source_label, teacher_label)
-                    relation = _task_row_relation(kind, row)
-                    teacher_rows.append(
-                        {
+                    teacher_label, retry_requests, retry_failures = _coerce_teacher_label_with_retry(
+                        kind,
+                        row,
+                        label_map[sample_id],
+                        provider=provider,
+                    )
+                    total_requests += retry_requests
+                    split_request_count += retry_requests
+                    for failure in retry_failures:
+                        failure_sample_id = str(failure.get("sample_id") or sample_id).strip()
+                        if not failure_sample_id:
+                            continue
+                        failure_map[failure_sample_id] = {
+                            **failure,
+                            "sample_id": failure_sample_id,
                             "split": split_name,
                             "task_name": task_name,
-                            "dataset": _task_row_dataset(row),
-                            "relation": relation,
-                            "sample_id": sample_id,
-                            "source_label": source_label,
-                            "teacher_label": teacher_label,
-                            "agreement": agreement,
                         }
-                    )
+                    if teacher_label is None:
+                        continue
+                    source_label = _source_label(kind, row)
+                    agreement = _agreement_metrics(kind, source_label, teacher_label)
+                    relation = _task_row_relation(kind, row)
+                    teacher_row_map[sample_id] = {
+                        "split": split_name,
+                        "task_name": task_name,
+                        "dataset": _task_row_dataset(row),
+                        "relation": relation,
+                        "sample_id": sample_id,
+                        "source_label": source_label,
+                        "teacher_label": teacher_label,
+                        "agreement": agreement,
+                    }
+                    failure_map.pop(sample_id, None)
+                current_teacher_rows = [
+                    teacher_row_map[sample_id]
+                    for sample_id in sorted(teacher_row_map)
+                ]
+                current_failures = [
+                    failure_map[sample_id]
+                    for sample_id in sorted(failure_map)
+                ]
+                _write_jsonl(label_path, current_teacher_rows)
+                _write_jsonl(failure_path, current_failures)
                 total_requests += request_count
                 split_request_count += request_count
-            label_path = teacher_root / kind / f"{split_name}_labels.jsonl"
-            failure_path = teacher_root / kind / f"{split_name}_failures.jsonl"
+            teacher_rows = [
+                teacher_row_map[_task_row_sample_id(row)]
+                for row in selected_rows
+                if _task_row_sample_id(row) in teacher_row_map
+            ]
+            teacher_failures = [
+                failure_map[_task_row_sample_id(row)]
+                for row in selected_rows
+                if _task_row_sample_id(row) in failure_map
+            ]
             _write_jsonl(label_path, teacher_rows)
             _write_jsonl(failure_path, teacher_failures)
             label_files[split_name] = str(label_path)
@@ -670,6 +1084,7 @@ def publish_v27_teacher_artifacts(
                 "selected_examples": len(selected_rows),
                 "request_count": split_request_count,
                 "failed_examples": len(teacher_failures),
+                "reused_labeled_examples": reused_count,
                 "failure_path": str(failure_path),
                 **_summarize_teacher_rows(kind, teacher_rows),
             }
@@ -686,8 +1101,10 @@ def publish_v27_teacher_artifacts(
             "sample_caps": split_caps,
             "label_files": label_files,
             "total_request_count": total_requests,
+            "total_requested_examples": total_selected_examples,
             "total_labeled_examples": len(total_rows),
             "total_failed_examples": sum(int(split_metrics[name]["failed_examples"]) for name in split_metrics),
+            "success_rate": (len(total_rows) / total_selected_examples) if total_selected_examples else 0.0,
             "split_metrics": split_metrics,
         }
         latest_path = artifact_root / f"latest_stage2_v27_teacher_{kind}.json"
@@ -700,6 +1117,93 @@ def publish_v27_teacher_artifacts(
             **artifact_payload,
         }
     return published
+
+
+def publish_v28_teacher_suite(
+    output_root: Path,
+    *,
+    v27_manifest_artifact: Path,
+    teacher_config_path: Path,
+    train_max_rows: int = 512,
+    val_max_rows: int = 128,
+    test_max_rows: int = 128,
+    batch_size: int = 8,
+    provider: Any | None = None,
+) -> dict[str, Any]:
+    commit_hash = _current_commit_hash()
+    working_root = output_root / "_stage2_v28_teacher_tmp"
+    published_v27 = publish_v27_teacher_artifacts(
+        working_root,
+        v27_manifest_artifact=v27_manifest_artifact,
+        teacher_config_path=teacher_config_path,
+        train_max_rows=train_max_rows,
+        val_max_rows=val_max_rows,
+        test_max_rows=test_max_rows,
+        batch_size=batch_size,
+        provider=provider,
+    )
+    artifact_root = output_root / "artifacts"
+    teacher_root = working_root / "artifacts" / "stage2_v27_teacher"
+    teacher_manifests = _build_teacher_enhanced_split_manifests(
+        output_root,
+        v27_manifest_artifact=v27_manifest_artifact,
+        teacher_root=teacher_root,
+    )
+    matched_manifests = _build_matched_teacher_vs_silver_split_manifests(
+        output_root,
+        v27_manifest_artifact=v27_manifest_artifact,
+        teacher_root=teacher_root,
+    )
+
+    published: dict[str, Any] = {}
+    for kind, payload in published_v27.items():
+        v28_payload = {
+            **payload,
+            "artifact_type": payload["artifact_type"].replace("stage2_v27", "stage2_v28"),
+            "prompt_version": str(payload.get("prompt_version", "")).replace("v27_", "v28_", 1),
+            "v27_manifest_artifact": str(v27_manifest_artifact),
+            "teacher_enhanced_manifests": teacher_manifests,
+            "matched_teacher_vs_silver_manifests": matched_manifests,
+        }
+        latest_path = artifact_root / f"latest_stage2_v28_teacher_{kind}.json"
+        stamped_path = artifact_root / f"{_timestamp()}_latest_stage2_v28_teacher_{kind}.json"
+        _write_json(latest_path, v28_payload)
+        _write_json(stamped_path, v28_payload)
+        published[kind] = {
+            **v28_payload,
+            "artifact_path": str(latest_path),
+            "stamped_artifact_path": str(stamped_path),
+        }
+
+    quality_audit = {
+        "artifact_type": "stage2_v28_teacher_quality_audit",
+        "commit_hash": commit_hash,
+        "tasks_covered": ["observation", "slot_assignment", "belief"],
+        "sample_caps": {"train": train_max_rows, "val": val_max_rows, "test": test_max_rows},
+        "teacher_artifacts": {
+            kind: payload["artifact_path"]
+            for kind, payload in published.items()
+        },
+        "teacher_enhanced_manifests": teacher_manifests,
+        "matched_teacher_vs_silver_manifests": matched_manifests,
+        "observation_success_rate": float(published["observation"].get("success_rate", 0.0)),
+        "slot_assignment_success_rate": float(published["slot_assignment"].get("success_rate", 0.0)),
+        "belief_success_rate": float(published["belief"].get("success_rate", 0.0)),
+    }
+    latest_audit = artifact_root / "latest_stage2_v28_teacher_quality_audit.json"
+    stamped_audit = artifact_root / f"{_timestamp()}_latest_stage2_v28_teacher_quality_audit.json"
+    _write_json(latest_audit, quality_audit)
+    _write_json(stamped_audit, quality_audit)
+
+    return {
+        **published,
+        "quality_audit": {
+            **quality_audit,
+            "artifact_path": str(latest_audit),
+            "stamped_artifact_path": str(stamped_audit),
+        },
+        "teacher_enhanced_manifests": teacher_manifests,
+    }
 
 
 def prepare_v27_source_split(
@@ -833,10 +1337,21 @@ def main() -> int:
     parser.add_argument("--teacher-val-max-rows", type=int, default=64)
     parser.add_argument("--teacher-test-max-rows", type=int, default=64)
     parser.add_argument("--teacher-batch-size", type=int, default=8)
+    parser.add_argument("--publish-v28-teacher-suite", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    if args.publish_v27_teacher_artifacts:
+    if args.publish_v28_teacher_suite:
+        payload = publish_v28_teacher_suite(
+            Path(args.output_root),
+            v27_manifest_artifact=Path(args.v27_manifest_artifact),
+            teacher_config_path=Path(args.teacher_config),
+            train_max_rows=args.teacher_train_max_rows,
+            val_max_rows=args.teacher_val_max_rows,
+            test_max_rows=args.teacher_test_max_rows,
+            batch_size=args.teacher_batch_size,
+        )
+    elif args.publish_v27_teacher_artifacts:
         payload = publish_v27_teacher_artifacts(
             Path(args.output_root),
             v27_manifest_artifact=Path(args.v27_manifest_artifact),
@@ -867,7 +1382,12 @@ def main() -> int:
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        if args.publish_v27_teacher_artifacts:
+        if args.publish_v28_teacher_suite:
+            print(f"teacher_observation_artifact={payload['observation']['artifact_path']}")
+            print(f"teacher_slot_assignment_artifact={payload['slot_assignment']['artifact_path']}")
+            print(f"teacher_belief_artifact={payload['belief']['artifact_path']}")
+            print(f"teacher_quality_audit_artifact={payload['quality_audit']['artifact_path']}")
+        elif args.publish_v27_teacher_artifacts:
             print(f"teacher_observation_artifact={payload['observation']['artifact_path']}")
             print(f"teacher_slot_assignment_artifact={payload['slot_assignment']['artifact_path']}")
             print(f"teacher_belief_artifact={payload['belief']['artifact_path']}")

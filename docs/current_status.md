@@ -258,6 +258,20 @@
   - `v27 training timing artifact`
   - `v27 internal test artifact`
   - `v27 holdout summary artifact`
+- `TD-039 / WS-025` 的当前代码进展：`scripts/prepare_stage2_data.py` 现已补上 observation teacher coercion failure 的 single-sample retry / failure 落盘，并新增 `publish_v28_teacher_suite`，可在不覆盖 retained `v2.7` latest artifacts 的前提下发布 `v2.8` teacher artifacts、teacher quality audit 与 teacher-enhanced manifests；`scripts/verify_stage2_v28_longrun.py` 现已补上 `silver baseline / teacher train-eval / compare / internal gate` 发布路径，对应 targeted tests 已通过
+- 当前 `TD-039` 的 runtime truth 已前进到更强但仍未达标的状态：
+  - `latest_stage2_v28_teacher_observation.json`、`latest_stage2_v28_teacher_slot_assignment.json`、`latest_stage2_v28_teacher_belief.json`、`latest_stage2_v28_teacher_quality_audit.json` 已落地
+  - 当前已验证的 teacher suite caps 为 `256 / 128 / 128`
+  - observation teacher 当前已修到 `success_rate = 1.0`，不再停留在 `v2.7` 的 `completed_with_failures`
+  - same-split `teacher-vs-silver` 对照已经补齐一轮真实 `gpu2` non-tiny refresh：silver 与 teacher 都使用 `configs/stage2_train.yaml`、`256` examples、`192` steps
+  - silver baseline 当前 internal test `trained_eval.token_f1 = 0.9725304472117797`、`field_f1 = 0.938151041666667`
+  - teacher-enhanced 当前 internal test `trained_eval.token_f1 = 0.9719352091165416`、`field_f1 = 0.9381510416666669`
+  - 因此 fresh current-head compare 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`，gate 仍未通过
+  - 对应 current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
+- 进一步分析已确认：
+  - 当前 `teacher-vs-silver` compare 的主问题不是 teacher suite 缺失，而是训练/评测几乎没有真正消费到 teacher 改过的样本
+  - `observation teacher` 当前任务定义也过于接近 silver；下一步必须改成 `raw observation -> teacher label`
+- 现在必须诚实保留的新边界是：`v2.8` 的 teacher suite / compare artifact 已经完整，但 `teacher-enhanced` 仍没有在同一 `32k` split 上真实优于 silver baseline。当前 blocker 已从 “teacher suite 尚未收口” 切换到 “teacher supervision 线没有形成正 internal generalization delta”，且下一步应先修 `raw observation teacher + matched teacher-vs-silver subset`
   - `TD-038 / WS-024` 的 verifier 文档口径已对齐
 - 当前 `v2.7` 的 provider-env blocker 已不再代表 runtime truth：
   - fresh background run 已通过 helper 正常初始化 `research-results.tsv` 与 `autoresearch-state.json`

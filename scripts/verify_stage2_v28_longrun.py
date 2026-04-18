@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +36,146 @@ def _artifact_exists(root: Path, name: str) -> bool:
 
 def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
     return _read_json(root / "outputs_v2" / "artifacts" / name)
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _current_head(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and head else "unknown"
+
+
+def _trained_eval_metrics(payload: dict[str, Any] | None) -> dict[str, Any]:
+    return (((payload or {}).get("trained_eval")) or {}).get("metrics") or {}
+
+
+def publish_v28_artifacts(
+    *,
+    root: Path,
+    silver_train_summary_path: Path,
+    silver_val_eval_path: Path,
+    silver_test_eval_path: Path,
+    silver_train_manifest_path: Path,
+    silver_val_manifest_path: Path,
+    silver_test_manifest_path: Path,
+    teacher_train_summary_path: Path,
+    teacher_val_eval_path: Path,
+    teacher_test_eval_path: Path,
+    teacher_train_manifest_path: Path,
+    teacher_val_manifest_path: Path,
+    teacher_test_manifest_path: Path,
+) -> dict[str, Any]:
+    artifact_root = root / "outputs_v2" / "artifacts"
+    current_head = _current_head(root)
+
+    silver_train = _read_json(silver_train_summary_path)
+    silver_val_eval = _read_json(silver_val_eval_path)
+    silver_test_eval = _read_json(silver_test_eval_path)
+    teacher_train = _read_json(teacher_train_summary_path)
+    teacher_val_eval = _read_json(teacher_val_eval_path)
+    teacher_test_eval = _read_json(teacher_test_eval_path)
+    if not all([silver_train, silver_val_eval, silver_test_eval, teacher_train, teacher_val_eval, teacher_test_eval]):
+        raise FileNotFoundError("Missing v28 publish inputs.")
+
+    silver_val_metrics = _trained_eval_metrics(silver_val_eval)
+    silver_test_metrics = _trained_eval_metrics(silver_test_eval)
+    teacher_val_metrics = _trained_eval_metrics(teacher_val_eval)
+    teacher_test_metrics = _trained_eval_metrics(teacher_test_eval)
+
+    silver_payload = {
+        "artifact_type": "stage2_v28_silver_baseline",
+        "commit_hash": current_head,
+        "train_summary_path": str(silver_train_summary_path),
+        "val_result_path": str(silver_val_eval_path),
+        "test_result_path": str(silver_test_eval_path),
+        "train_prepared_manifest": str(silver_train_manifest_path),
+        "val_prepared_manifest": str(silver_val_manifest_path),
+        "test_prepared_manifest": str(silver_test_manifest_path),
+        "train_summary": silver_train,
+        "val_metrics": silver_val_metrics,
+        "test_metrics": silver_test_metrics,
+    }
+    _write_json(artifact_root / "latest_stage2_v28_silver_baseline.json", silver_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v28_silver_baseline.json", silver_payload)
+
+    teacher_train_payload = {
+        "artifact_type": "stage2_v28_teacher_train",
+        "commit_hash": current_head,
+        "prepared_manifest": str(teacher_train_manifest_path),
+        "train_summary_path": str(teacher_train_summary_path),
+        **teacher_train,
+    }
+    _write_json(artifact_root / "latest_stage2_v28_teacher_train.json", teacher_train_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v28_teacher_train.json", teacher_train_payload)
+
+    teacher_eval_payload = {
+        "artifact_type": "stage2_v28_teacher_eval",
+        "commit_hash": current_head,
+        "val_prepared_manifest": str(teacher_val_manifest_path),
+        "test_prepared_manifest": str(teacher_test_manifest_path),
+        "val_result_path": str(teacher_val_eval_path),
+        "test_result_path": str(teacher_test_eval_path),
+        "val_metrics": teacher_val_metrics,
+        "test_metrics": teacher_test_metrics,
+        "val_eval": teacher_val_eval,
+        "test_eval": teacher_test_eval,
+    }
+    _write_json(artifact_root / "latest_stage2_v28_teacher_eval.json", teacher_eval_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v28_teacher_eval.json", teacher_eval_payload)
+
+    compare_payload = {
+        "artifact_type": "stage2_v28_teacher_compare",
+        "commit_hash": current_head,
+        "silver_val_metrics": silver_val_metrics,
+        "silver_test_metrics": silver_test_metrics,
+        "teacher_val_metrics": teacher_val_metrics,
+        "teacher_test_metrics": teacher_test_metrics,
+        "delta_val_token_f1": float(teacher_val_metrics.get("token_f1", 0.0)) - float(silver_val_metrics.get("token_f1", 0.0)),
+        "delta_val_field_f1": float(teacher_val_metrics.get("field_f1", 0.0)) - float(silver_val_metrics.get("field_f1", 0.0)),
+        "delta_internal_token_f1": float(teacher_test_metrics.get("token_f1", 0.0)) - float(silver_test_metrics.get("token_f1", 0.0)),
+        "delta_internal_field_f1": float(teacher_test_metrics.get("field_f1", 0.0)) - float(silver_test_metrics.get("field_f1", 0.0)),
+        "delta_internal_exact_match": float(teacher_test_metrics.get("exact_match", 0.0)) - float(silver_test_metrics.get("exact_match", 0.0)),
+    }
+    _write_json(artifact_root / "latest_stage2_v28_teacher_compare.json", compare_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v28_teacher_compare.json", compare_payload)
+
+    internal_payload = {
+        "artifact_type": "stage2_v28_internal_test",
+        "commit_hash": current_head,
+        "silver_test_metrics": silver_test_metrics,
+        "teacher_test_metrics": teacher_test_metrics,
+        "delta_internal_token_f1": compare_payload["delta_internal_token_f1"],
+        "delta_internal_field_f1": compare_payload["delta_internal_field_f1"],
+        "gate_mode": "teacher_vs_silver_internal_delta",
+        "gate_passed": (
+            compare_payload["delta_internal_token_f1"] > 0.0
+            or compare_payload["delta_internal_field_f1"] > 0.0
+        ),
+    }
+    _write_json(artifact_root / "latest_stage2_v28_internal_test.json", internal_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v28_internal_test.json", internal_payload)
+
+    return {
+        "silver_baseline": silver_payload,
+        "teacher_train": teacher_train_payload,
+        "teacher_eval": teacher_eval_payload,
+        "teacher_compare": compare_payload,
+        "internal_test": internal_payload,
+    }
 
 
 def compute_v28_longrun(root: Path) -> dict[str, Any]:
@@ -103,11 +245,59 @@ def compute_v28_longrun(root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify stage-2 v2.8 teacher-quality long-run status")
+    parser.add_argument("--root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--publish-artifacts", action="store_true")
+    parser.add_argument("--silver-train-summary", type=Path)
+    parser.add_argument("--silver-val-eval", type=Path)
+    parser.add_argument("--silver-test-eval", type=Path)
+    parser.add_argument("--silver-train-manifest", type=Path)
+    parser.add_argument("--silver-val-manifest", type=Path)
+    parser.add_argument("--silver-test-manifest", type=Path)
+    parser.add_argument("--teacher-train-summary", type=Path)
+    parser.add_argument("--teacher-val-eval", type=Path)
+    parser.add_argument("--teacher-test-eval", type=Path)
+    parser.add_argument("--teacher-train-manifest", type=Path)
+    parser.add_argument("--teacher-val-manifest", type=Path)
+    parser.add_argument("--teacher-test-manifest", type=Path)
     parser.add_argument("--score-only", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    payload = compute_v28_longrun(REPO_ROOT)
+    root = args.root.resolve()
+    if args.publish_artifacts:
+        required = [
+            args.silver_train_summary,
+            args.silver_val_eval,
+            args.silver_test_eval,
+            args.silver_train_manifest,
+            args.silver_val_manifest,
+            args.silver_test_manifest,
+            args.teacher_train_summary,
+            args.teacher_val_eval,
+            args.teacher_test_eval,
+            args.teacher_train_manifest,
+            args.teacher_val_manifest,
+            args.teacher_test_manifest,
+        ]
+        if any(item is None for item in required):
+            raise ValueError("--publish-artifacts requires silver/teacher train summaries, evals, and manifests.")
+        payload = publish_v28_artifacts(
+            root=root,
+            silver_train_summary_path=args.silver_train_summary.resolve(),
+            silver_val_eval_path=args.silver_val_eval.resolve(),
+            silver_test_eval_path=args.silver_test_eval.resolve(),
+            silver_train_manifest_path=args.silver_train_manifest.resolve(),
+            silver_val_manifest_path=args.silver_val_manifest.resolve(),
+            silver_test_manifest_path=args.silver_test_manifest.resolve(),
+            teacher_train_summary_path=args.teacher_train_summary.resolve(),
+            teacher_val_eval_path=args.teacher_val_eval.resolve(),
+            teacher_test_eval_path=args.teacher_test_eval.resolve(),
+            teacher_train_manifest_path=args.teacher_train_manifest.resolve(),
+            teacher_val_manifest_path=args.teacher_val_manifest.resolve(),
+            teacher_test_manifest_path=args.teacher_test_manifest.resolve(),
+        )
+    else:
+        payload = compute_v28_longrun(root)
     if args.score_only:
         print(payload["score"])
     elif args.json:

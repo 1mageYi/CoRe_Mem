@@ -22,6 +22,15 @@
   - Truth boundary:
     - 暂不进入 full-data
     - 当前成功定义不是 artifact completeness，而是 teacher-enhanced 在 `32k` internal test 上真实优于 silver baseline
+  - Latest runtime truth:
+    - current-head teacher suite 已以 `256 / 128 / 128` caps 完成，observation teacher 当前 `success_rate = 1.0`
+    - same-split `gpu2` non-tiny compare 已完成；silver/test `trained_eval.token_f1 = 0.9725304472117797`，teacher/test `trained_eval.token_f1 = 0.9719352091165416`
+    - fresh compare 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
+    - current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
+    - 当前新的分析结论是：teacher line 的主问题不是 teacher suite 覆盖，而是训练/评测没有真正消费 teacher 改过的样本
+    - 下一步要切到 `raw observation teacher + matched teacher-vs-silver subset`
+  - Current blocker:
+    - teacher supervision 当前没有形成正 internal delta，因此这条线不能写成 keep，也不能进入 full-data
 
 - `TD-038` `[doing]` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - Runtime truth: `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上完成；`TD-038` 是新的 active 主线

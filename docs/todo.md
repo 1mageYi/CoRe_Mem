@@ -13,6 +13,11 @@
     - 用 internal test 验证真实泛化增益
   - 当前训练要求：优先使用 `gpu2`，并记录 wall-clock / throughput / memory
   - Truth boundary：暂不进入 full-data；只有 `32k` internal test 明显成立后，才允许扩到 full-data
+  - 最新 runtime truth：`v2.8` teacher suite 已在 current-head 上以 `256 / 128 / 128` caps 落地，observation success_rate 已修到 `1.0`
+  - 最新对照结果：同一 `32k` split 上的 non-tiny `gpu2` same-budget compare 已完成，但 teacher-enhanced internal test 仍未超过 silver baseline；当前 `delta_internal_token_f1 = -0.0005952380952380931`
+  - 新分析结论：当前主要问题不是 teacher suite 缺失，而是训练/评测几乎没有真正消费 teacher 改过的样本；下一步要切到 `matched teacher-vs-silver subset`
+  - observation teacher 下一步要改成 `raw observation -> teacher label`，不再继续 `candidate_observation` 轻量重标注
+  - 当前 blocker：fresh current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`，剩余两项都是真实 positive-delta gate 未过
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

@@ -132,6 +132,17 @@
 - `teacher-vs-silver train/eval refresh`
 - `32k internal generalization gate`
 
+当前 runtime truth 已更新为：
+
+- current-head `v2.8` teacher suite 已真实落地，现有 `latest_stage2_v28_teacher_{observation,slot_assignment,belief}.json` 与 `latest_stage2_v28_teacher_quality_audit.json`
+- 当前这轮 teacher suite 的已验证 sample caps 为 `256 / 128 / 128`
+- observation teacher 已从 `v2.7` 的 `completed_with_failures` 修到 current-head `success_rate = 1.0`
+- 在完全相同的 `32k` split 上，已补齐一轮 `gpu2` non-tiny `google/flan-t5-base` 的 same-budget `teacher-vs-silver` refresh：两侧都使用 `256` examples、`192` steps
+- 当前真实 blocker 不再是 publisher / provider throughput，而是 internal delta 本身没有转正：fresh current-head compare 记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
+- 因此 current-head `scripts/verify_stage2_v28_longrun.py --score-only` 当前停在 `32 / 34`，不能诚实宣称 `teacher-enhanced` 已真实优于 silver baseline
+- 进一步分析已确认：当前 teacher line 的主问题不是 teacher suite 覆盖不够，而是训练/评测没有真正消费到 teacher 改过的样本；因此下一步必须切到 `matched teacher-vs-silver subset`
+- `observation teacher` 也不能继续沿用 `candidate_observation -> relabel` 这条保守路径，必须改成 `raw observation -> teacher label`
+
 ### 当前 `v2.7` 执行锚点
 
 当前 active 主线已经前推到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**，核心约束是：

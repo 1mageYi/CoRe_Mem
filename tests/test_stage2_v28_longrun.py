@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v28_longrun import compute_v28_longrun
+from scripts.verify_stage2_v28_longrun import compute_v28_longrun, publish_v28_artifacts
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -82,3 +82,66 @@ def test_v28_longrun_verifier_passes_with_teacher_quality_artifacts(tmp_path: Pa
 
     payload = compute_v28_longrun(repo_root)
     assert payload["score"] == payload["total"] == 34
+
+
+def test_publish_v28_artifacts_writes_compare_and_gate(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    run_root = repo_root / "outputs_v2" / "runs"
+    eval_root = repo_root / "outputs_v2" / "evals_local"
+    manifest_root = repo_root / "outputs_v2" / "manifests"
+    artifact_root.mkdir(parents=True)
+    run_root.mkdir(parents=True)
+    eval_root.mkdir(parents=True)
+    manifest_root.mkdir(parents=True)
+
+    silver_train = run_root / "silver_train.json"
+    silver_val = eval_root / "silver_val.json"
+    silver_test = eval_root / "silver_test.json"
+    teacher_train = run_root / "teacher_train.json"
+    teacher_val = eval_root / "teacher_val.json"
+    teacher_test = eval_root / "teacher_test.json"
+    silver_manifest = manifest_root / "silver.json"
+    teacher_manifest = manifest_root / "teacher.json"
+
+    _write_json(silver_train, {"run_dir": "silver", "num_examples": 128})
+    _write_json(teacher_train, {"run_dir": "teacher", "num_examples": 128})
+    _write_json(
+        silver_val,
+        {"trained_eval": {"metrics": {"token_f1": 0.20, "field_f1": 0.10, "exact_match": 0.0}}},
+    )
+    _write_json(
+        silver_test,
+        {"trained_eval": {"metrics": {"token_f1": 0.18, "field_f1": 0.09, "exact_match": 0.0}}},
+    )
+    _write_json(
+        teacher_val,
+        {"trained_eval": {"metrics": {"token_f1": 0.24, "field_f1": 0.12, "exact_match": 0.0}}},
+    )
+    _write_json(
+        teacher_test,
+        {"trained_eval": {"metrics": {"token_f1": 0.22, "field_f1": 0.11, "exact_match": 0.0}}},
+    )
+    _write_json(silver_manifest, {"task_files": {}})
+    _write_json(teacher_manifest, {"task_files": {}})
+
+    published = publish_v28_artifacts(
+        root=repo_root,
+        silver_train_summary_path=silver_train,
+        silver_val_eval_path=silver_val,
+        silver_test_eval_path=silver_test,
+        silver_train_manifest_path=silver_manifest,
+        silver_val_manifest_path=silver_manifest,
+        silver_test_manifest_path=silver_manifest,
+        teacher_train_summary_path=teacher_train,
+        teacher_val_eval_path=teacher_val,
+        teacher_test_eval_path=teacher_test,
+        teacher_train_manifest_path=teacher_manifest,
+        teacher_val_manifest_path=teacher_manifest,
+        teacher_test_manifest_path=teacher_manifest,
+    )
+
+    assert published["teacher_compare"]["delta_internal_token_f1"] > 0.0
+    assert published["internal_test"]["gate_passed"] is True
+    assert (artifact_root / "latest_stage2_v28_silver_baseline.json").exists()
+    assert (artifact_root / "latest_stage2_v28_teacher_compare.json").exists()

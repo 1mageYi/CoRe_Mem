@@ -3,9 +3,9 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: 当前 `TD-038 / WS-024` 已通过真实 `MiniMax-M2.7` teacher pilot artifacts 把 `stage2_v27_longrun_score` 推到 stop condition `26/26`；下一步正式切到 `TD-039 / WS-025`，先扩大 teacher coverage、修 observation teacher failure，并在同一 `32k` split 上做 `teacher-vs-silver` 对照训练
+- Top next action: `TD-039 / WS-025` 仍是当前主线，但 current-head 已确认真正 blocker 不再是 teacher publisher，而是训练/评测没有真正消费到 teacher 改过的样本；下一步应先切到 `raw observation teacher + matched teacher-vs-silver subset`
 - Active workstreams: `WS-025`
-- Active blockers: `BL-004`
+- Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023` 与 `TD-038 / WS-024` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout 与 `v2.7` teacher-pilot closeout 复验；当前 active 主线已经前推到 `TD-039 / WS-025`
 
 ## Objective Summary
@@ -165,6 +165,14 @@
   - Boundary:
     - 暂不进入 full-data
     - 当前成功定义不是 artifact completeness，而是 teacher-enhanced 在 `32k` internal test 上真实优于 silver baseline
+  - Current runtime truth:
+    - current-head `v2.8` teacher suite 已真实落地，sample caps 为 `256 / 128 / 128`
+    - observation teacher 当前 `success_rate = 1.0`
+    - same-split `gpu2` non-tiny `teacher-vs-silver` compare 已完成，silver/test `trained_eval.token_f1 = 0.9725304472117797`，teacher/test `trained_eval.token_f1 = 0.9719352091165416`
+    - fresh compare artifact 当前记录 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`
+    - current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32 / 34`
+  - Current blocker:
+    - teacher supervision 当前没有形成正的 internal generalization delta，因此不能进入 full-data，也不能把 current-head 写成 keep
   - Plan: [docs/v28_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v28_plan.md)
 
 ## Top Next Action
@@ -172,12 +180,13 @@
 - 启动 `TD-039 / WS-025` 的 `v2.8 teacher-quality` 长跑
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`stage2_v27_longrun_score = 26/26`
   - Current retained baseline: 当前 worktree 已具备 `32k` split、`gpu2` tiny pilot 与真实 `MiniMax-M2.7` teacher pilot artifacts
-  - Next focus: 先扩大 teacher coverage、修 observation teacher failure，再在同一 `32k` split 上做 `teacher-vs-silver` 的 `gpu2` train/eval refresh
+  - Next focus: 当前已完成 teacher coverage 扩大、observation repair 与 same-split compare；下一步不是继续重复同配方 refresh，而是先提出新的 teacher integration 假设，解释为何 non-tiny same-budget compare 仍略低于 silver
 
 ## Active Blockers
 
 - `BL-004`: 当前 Gemini key/provider 组合在 formal benchmark 负载下已构成真实外部 blocker。LongMemEval-S formal run 仅推进到 `19/500`，PersonaMem formal run 仅推进到 `22/589`；即使加入 pacing、bounded retry、outer supervisor、chunked relaunch 和 ultra-slow single-sample 检查，仍连续返回 `HTTP 429`，无法把 PersonaMem 从 `22` 推进到 `23`。该 blocker 当前只影响 stage-1 formal benchmark；stage-1 formal benchmark 同时处于“待用户显式触发”状态，不阻断 stage-2 主线。
 - `BL-008`: 当前 `TD-037 / WS-023` 的主瓶颈已从 provider env 缺失切到 `other_fact` family 的 current-head online quality 与尾段 provider stability。`a04effe` 把 dense overwrite arbitration 从 `11` 压到 `1`，`3051b0f` 又把 learned predictors 的初始化复用到 run 级别，因此 fresh current-head `LongMemEval-S 128` canary 已能在若干次 `--resume` 后完成；但最终结果只到 `11 / 10`，相对 retained `v2.5` 只形成 `provider +1 / local +0`，且 partial failure analysis 仍主要落在 `other_fact` / `projection`。因此 gain-first 目标当前仍被该质量瓶颈阻断。
+- `BL-009`: `TD-039 / WS-025` 当前的真实 blocker 已从 teacher publisher / provider throughput 切到 internal delta 本身。current-head 已完成 `256 / 128 / 128` teacher suite，并在同一 `32k` split 上跑完一轮 `gpu2` non-tiny same-budget `teacher-vs-silver` compare；结果是 silver/test `trained_eval.token_f1 = 0.9725304472117797`、teacher/test `trained_eval.token_f1 = 0.9719352091165416`，对应 `delta_internal_token_f1 = -0.0005952380952380931`、`delta_internal_field_f1 ≈ 0`。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 当前停在 `32 / 34`，不能诚实宣称 teacher-enhanced 已真实优于 silver baseline。
 ## Recent Important Changes
 
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`
@@ -194,6 +203,7 @@
 - 2026-04-17: 当前 session 已进一步确认 teacher provider env 是真实硬 blocker：仓库内无可 source 的 `.env` 文件，且 `~/.bashrc` / `~/.profile` source 后 `GPT_AGENT_API_KEY`、`OPENAI_API_KEY`、`ALIYUN_API_KEY` 与 `GEMINI_API_KEY` 仍全部为 `UNSET`。因此 `v2.7` 继续推进到 teacher labels 前必须先恢复本地 provider env。
 - 2026-04-17: 当前 session 已确认先前的 provider-env blocker 不再代表 runtime truth：当前 shell 内 `GPT_AGENT_API_KEY=SET`，并已通过 `configs/minimax_m27.yaml` 在 `https://gpt-agent.cc/v1` 上完成真实 MiniMax 请求。基于此，`scripts/prepare_stage2_data.py` 现已新增 `--publish-v27-teacher-artifacts` 路径，并补齐 `latest_stage2_v27_teacher_observation.json`、`latest_stage2_v27_teacher_slot_assignment.json` 与 `latest_stage2_v27_teacher_belief.json`
 - 2026-04-17: current worktree 的 teacher pilot artifact 已把 `scripts/verify_stage2_v27_longrun.py --score-only` 从 `23` 推到 stop condition `26`。当前 truth boundary 必须保留为：这轮是 sample-capped teacher pilot，不是 full `32k` teacher coverage；其中 observation artifact 显式记录 `completed_with_failures`，`total_labeled_examples = 6`、`total_failed_examples = 6`
+- 2026-04-17: 当前 worktree 已为 `TD-039 / WS-025` 新增 `v2.8` teacher-quality 发布链：`scripts/prepare_stage2_data.py` 现支持 observation teacher coercion failure retry、`publish_v28_teacher_suite` 与 teacher-enhanced manifests；`scripts/verify_stage2_v28_longrun.py` 现支持 `silver baseline / teacher train-eval / compare / internal gate` 发布。对应 targeted tests 已通过，但 fresh live `MiniMax-M2.7` teacher suite 在 `256+` train coverage 下仍未在当前 session 内收口，因此 `scripts/verify_stage2_v28_longrun.py --score-only` 继续停在 `19`
 - 2026-04-17: current session 已确认 `GPT_AGENT_API_KEY=SET`，因此历史 `BL-007` 已被清除；新的运行时主瓶颈切换为 dense `other_fact` write throughput。refine commit `a04effe` 对 learned slot-assignment prompt 做了 current-head compaction，并为 weak `other_fact` overwrite 增加 fast-path。对应 profiling 显示 sample `51a45a95` 的 learned arbitration 次数已从 `11` 降到 `1`，同一 partial `LongMemEval-S 128` resumed run 也已从 `2/128` 前进到 `3/128`，且 `51a45a95` 当前在 current-head 上命中 `Target`。由于完整 `128` canary / gain artifacts 仍未补齐，helper 已把本轮 iteration `2` 记为 `refine`，`stage2_v26_longrun_score` 继续保持 `9`
 - 2026-04-17: refine commit `3051b0f` 已让 `scripts/run_stage2_memory_canary.py` 在单次 canary run 内复用 learned belief / slot-assignment predictors；fresh current-head `LongMemEval-S 128` run `outputs_v2/runs/20260417T055905Z_stage2_memory_canary_longmemeval/` 当前已推进到 `13/128`，helper 已把 iteration `3` 记为 `refine`
 - 2026-04-17: refine commit `b4c997d` 已把 `v2.6` artifact 发布链并回 `scripts/verify_stage2_v26_longrun.py`，并新增 `tests/test_stage2_v26_publish.py` 覆盖 current-head publish 入口；对应 `tests/test_stage2_v26_longrun.py tests/test_stage2_v26_publish.py` 通过，`scripts/verify_stage2_v26_longrun.py --score-only` 仍为 `9`，helper 已把 iteration `4` 记为 `refine`
