@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v30_longrun import compute_v30_longrun
+from scripts.verify_stage2_v30_longrun import compute_v30_longrun, publish_v30_full_holdout_artifacts
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -99,3 +99,54 @@ def test_v30_longrun_verifier_passes_with_full_architecture_and_holdout_artifact
 
     payload = compute_v30_longrun(repo_root)
     assert payload["score"] == payload["total"] == 41
+
+
+def test_publish_v30_full_holdout_artifacts_emits_aliases_and_guards(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    benchmark_root = repo_root / "outputs_v2" / "evals_benchmark"
+    artifact_root.mkdir(parents=True)
+    benchmark_root.mkdir(parents=True)
+
+    _write_json(artifact_root / "latest_longmemeval_stage2_v29_canary.json", {"sample_count": 500, "provider_exact_match": 19, "local_exact_match": 14})
+    _write_json(artifact_root / "latest_personamem_stage2_v29_canary.json", {"sample_count": 512, "provider_exact_match": 171, "local_exact_match": 108})
+
+    long_summary = benchmark_root / "long.json"
+    persona_summary = benchmark_root / "persona.json"
+    _write_json(
+        long_summary,
+        {
+            "benchmark": "longmemeval_s",
+            "sample_count": 500,
+            "provider_exact_match": 20,
+            "local_exact_match": 15,
+            "provider_configured": True,
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "learned",
+        },
+    )
+    _write_json(
+        persona_summary,
+        {
+            "benchmark": "personamem",
+            "sample_count": 589,
+            "provider_exact_match": 200,
+            "local_exact_match": 130,
+            "provider_configured": True,
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "learned",
+        },
+    )
+
+    payload = publish_v30_full_holdout_artifacts(
+        root=repo_root,
+        longmemeval_summary_path=long_summary,
+        personamem_summary_path=persona_summary,
+    )
+
+    assert payload["full_holdout_baseline"]["holdout_only"] is True
+    assert payload["full_holdout_baseline"]["longmemeval_nonregression_guard"] is True
+    assert payload["full_holdout_baseline"]["personamem_nonregression_guard"] is True
+    assert (artifact_root / "latest_stage2_v30_full_holdout_baseline.json").exists()
+    assert (artifact_root / "latest_longmemeval_stage2_v30_full.json").exists()
+    assert (artifact_root / "latest_personamem_stage2_v30_full.json").exists()

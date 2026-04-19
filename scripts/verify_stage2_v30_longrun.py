@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -28,12 +30,42 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
     return _read_json(root / "outputs_v2" / "artifacts" / name)
 
 
 def _artifact_exists(root: Path, name: str) -> bool:
     return (root / "outputs_v2" / "artifacts" / name).exists()
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _current_head(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and head else "unknown"
+
+
+def _write_latest_and_stamped(root: Path, latest_name: str, payload: dict[str, Any]) -> dict[str, str]:
+    artifact_root = root / "outputs_v2" / "artifacts"
+    latest_path = artifact_root / latest_name
+    stamped_path = artifact_root / f"{_timestamp()}_{latest_name}"
+    _write_json(latest_path, payload)
+    _write_json(stamped_path, payload)
+    return {"latest_path": str(latest_path), "stamped_path": str(stamped_path)}
 
 
 def _float_metric(payload: dict[str, Any] | None, key: str) -> float:
@@ -54,6 +86,100 @@ def _int_metric(payload: dict[str, Any] | None, key: str) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _rate(payload: dict[str, Any] | None, *, key: str) -> float:
+    if not payload:
+        return 0.0
+    sample_count = _int_metric(payload, "sample_count")
+    if sample_count <= 0:
+        return 0.0
+    return _int_metric(payload, key) / sample_count
+
+
+def _publish_canary_alias(
+    *,
+    root: Path,
+    summary_path: Path,
+    latest_name: str,
+    artifact_type: str,
+) -> dict[str, Any]:
+    payload = _read_json(summary_path)
+    if payload is None:
+        raise FileNotFoundError(summary_path)
+    alias_payload = {
+        **payload,
+        "artifact_type": artifact_type,
+        "commit_hash": _current_head(root),
+        "aliased_from_summary_path": str(summary_path),
+        "aliased_from_commit_hash": payload.get("commit_hash"),
+        "aliased_at": datetime.now(timezone.utc).isoformat(),
+        "provider_exact_rate": _rate(payload, key="provider_exact_match"),
+        "local_exact_rate": _rate(payload, key="local_exact_match"),
+    }
+    alias_payload["artifact_paths"] = _write_latest_and_stamped(root, latest_name, alias_payload)
+    return alias_payload
+
+
+def publish_v30_full_holdout_artifacts(
+    *,
+    root: Path,
+    longmemeval_summary_path: Path,
+    personamem_summary_path: Path,
+) -> dict[str, Any]:
+    current_head = _current_head(root)
+    retained_v29_long = _artifact_json(root, "latest_longmemeval_stage2_v29_canary.json") or {}
+    retained_v29_persona = _artifact_json(root, "latest_personamem_stage2_v29_canary.json") or {}
+
+    longmemeval_payload = _publish_canary_alias(
+        root=root,
+        summary_path=longmemeval_summary_path,
+        latest_name="latest_longmemeval_stage2_v30_full.json",
+        artifact_type="stage2_v30_longmemeval_full",
+    )
+    personamem_payload = _publish_canary_alias(
+        root=root,
+        summary_path=personamem_summary_path,
+        latest_name="latest_personamem_stage2_v30_full.json",
+        artifact_type="stage2_v30_personamem_full",
+    )
+
+    longmemeval_nonregression = (
+        _int_metric(longmemeval_payload, "provider_exact_match") >= _int_metric(retained_v29_long, "provider_exact_match")
+        and _int_metric(longmemeval_payload, "local_exact_match") >= _int_metric(retained_v29_long, "local_exact_match")
+    )
+    personamem_nonregression = (
+        _float_metric(personamem_payload, "provider_exact_rate") >= _rate(retained_v29_persona, key="provider_exact_match")
+        and _float_metric(personamem_payload, "local_exact_rate") >= _rate(retained_v29_persona, key="local_exact_match")
+    )
+
+    holdout_payload = {
+        "artifact_type": "stage2_v30_full_holdout_baseline",
+        "commit_hash": current_head,
+        "holdout_only": True,
+        "benchmark_runs_executed": 2,
+        "longmemeval_summary_path": str(longmemeval_summary_path),
+        "personamem_summary_path": str(personamem_summary_path),
+        "longmemeval_sample_count": _int_metric(longmemeval_payload, "sample_count"),
+        "personamem_sample_count": _int_metric(personamem_payload, "sample_count"),
+        "longmemeval_provider_configured": bool(longmemeval_payload.get("provider_configured", False)),
+        "personamem_provider_configured": bool(personamem_payload.get("provider_configured", False)),
+        "memory_mode": longmemeval_payload.get("memory_mode") or personamem_payload.get("memory_mode"),
+        "slot_assignment_mode": longmemeval_payload.get("slot_assignment_mode") or personamem_payload.get("slot_assignment_mode"),
+        "longmemeval_nonregression_guard": longmemeval_nonregression,
+        "personamem_nonregression_guard": personamem_nonregression,
+        "v29_longmemeval_provider_exact_match": _int_metric(retained_v29_long, "provider_exact_match"),
+        "v29_longmemeval_local_exact_match": _int_metric(retained_v29_long, "local_exact_match"),
+        "v29_personamem_provider_exact_rate": _rate(retained_v29_persona, key="provider_exact_match"),
+        "v29_personamem_local_exact_rate": _rate(retained_v29_persona, key="local_exact_match"),
+        "note": "V30 full benchmark remains holdout-only and compares current-head learned artifacts against retained v2.9 expanded holdout.",
+    }
+    holdout_payload["artifact_paths"] = _write_latest_and_stamped(root, "latest_stage2_v30_full_holdout_baseline.json", holdout_payload)
+    return {
+        "longmemeval_full": longmemeval_payload,
+        "personamem_full": personamem_payload,
+        "full_holdout_baseline": holdout_payload,
+    }
 
 
 def compute_v30_longrun(root: Path) -> dict[str, Any]:
@@ -270,10 +396,29 @@ def compute_v30_longrun(root: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Verify the v30 architecture-focused long run state.")
+    parser.add_argument("--publish-full-holdout-artifacts", action="store_true", help="Publish current-head full holdout aliases and summary.")
+    parser.add_argument("--longmemeval-summary", type=Path, help="LongMemEval-S full summary JSON.")
+    parser.add_argument("--personamem-summary", type=Path, help="PersonaMem full summary JSON.")
     parser.add_argument("--score-only", action="store_true", help="Only print the score.")
     parser.add_argument("--json", action="store_true", help="Print full JSON payload.")
     parser.add_argument("--repo-root", default=str(REPO_ROOT), help="Repository root to inspect.")
     args = parser.parse_args()
+
+    if args.publish_full_holdout_artifacts:
+        if not args.longmemeval_summary or not args.personamem_summary:
+            raise SystemExit("--publish-full-holdout-artifacts requires both --longmemeval-summary and --personamem-summary")
+        if args.score_only:
+            raise SystemExit("--score-only cannot be combined with --publish-full-holdout-artifacts")
+        payload = publish_v30_full_holdout_artifacts(
+            root=Path(args.repo_root),
+            longmemeval_summary_path=args.longmemeval_summary,
+            personamem_summary_path=args.personamem_summary,
+        )
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print("published_v30_full_holdout_artifacts")
+        return
 
     payload = compute_v30_longrun(Path(args.repo_root))
     if args.score_only:
