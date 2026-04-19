@@ -19,6 +19,9 @@
     - retained `v30` 已到 `41/41`
     - `v31` 当前不是再补基础设施，而是验证 learned latent 主链能否成为 full holdout 上的主要增益来源
     - compare baseline 固定为 current retained `v30`
+    - current retained `v31` 已到 `18/32`
+    - `latest_stage2_v31_latent_mainline_train.json` 与 `latest_stage2_v31_latent_holdout_compare.json` 已落地；aligned `32k val` latent compare 当前为正
+    - 这条 retained latent keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`

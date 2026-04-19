@@ -56,3 +56,4 @@
   - `LongMemEval-S` 当前官方 cleaned 数据集实际上只有 `500` 条；`v2.9` 的 expanded holdout 目标和 verifier 不应再写成 `512`
   - `v30` 这种 non-tiny modular 训练不适合把 `train -> checkpoint eval -> register -> publish` 全塞进一次长命令里；训练 summary 往往很快就落盘，但 checkpoint eval 可能继续占住 GPU 很久。更稳的做法是先让训练独立完成，再单独跑 val eval 和 artifact publish。
   - 一旦进入 `v30` 这种强调“holdout-only / no leakage”的阶段，`scripts/train_stage2.py --register-experiment` 不能默认重用 train manifest 做 checkpoint eval；必须显式分离 `--prepared-manifest` 和 `--eval-manifest`，否则 compare 口径会直接漂移。
+  - `v31` latent compare 如果直接拿 retained `v30` 的 `val` 指标去对 current-head `test` 指标，数值变化会混进 split 差异而不是方法差异；在判断 latent-first 是否真的转正之前，必须先把 compare manifest 对齐到与 retained baseline 相同的 held-out split，再决定 keep/discard。

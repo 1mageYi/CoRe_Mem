@@ -18,6 +18,9 @@
     - retained `v30` 已到 `41/41 keep`
     - `v31` 当前是 quality push，不是 infrastructure push
     - 下一阶段必须证明 latent 是主要增益来源，而不是只做 internal 指标改善
+    - current retained `v31` 已到 `18/32`
+    - `latest_stage2_v31_latent_mainline_train.json` 与 `latest_stage2_v31_latent_holdout_compare.json` 已落地；aligned `32k val` latent compare 当前为正
+    - 这条 retained latent keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

@@ -4,12 +4,12 @@ project:
 
 model:
   latent_objective:
-    hidden_dim: 64
-    latent_dim: 32
-    latent_queries: 8
+    hidden_dim: 48
+    latent_dim: 24
+    latent_queries: 6
 
 training:
   latent_objective:
-    batch_size: 128
-    lr: 0.0008
-    num_train_epochs: 12
+    batch_size: 96
+    lr: 0.0006
+    num_train_epochs: 10

@@ -7,7 +7,7 @@
 - Active workstreams: `WS-028`
 - Active workstream label: `TD-042 / WS-028`
 - Active workstream version: `v31`
-- Current retained progress: retained `v30` baseline 仍为 current HEAD `75c70bc / 5eef99e closeout`；`latest_stage2_v30_shared_backbone_train.json`、`latest_stage2_v30_task_adapter_compare.json`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json`、`latest_stage2_v30_latent_gain.json`、`latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json`、`latest_stage2_v30_belief_gain.json`、`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已作为 `v31` compare baseline 保留；当前下一阶段的 success criterion 已切到 latent / belief / write 在 full holdout 上的真实增益与 ablation truth
+- Current retained progress: retained `v30` baseline 仍为 `v31` compare baseline；`latest_stage2_v30_shared_backbone_train.json`、`latest_stage2_v30_task_adapter_compare.json`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json`、`latest_stage2_v30_latent_gain.json`、`latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json`、`latest_stage2_v30_belief_gain.json`、`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已固定保留；当前 `v31` fresh managed run 已把 `scripts/verify_stage2_v31_longrun.py --score-only` 从 baseline `13` 推到 current retained `18`，并已新增 `latest_stage2_v31_latent_mainline_train.json` 与 `latest_stage2_v31_latent_holdout_compare.json`。其中 aligned `32k val` latent compare 当前记录 `current_top1_accuracy = 0.97265625`、`current_mrr = 0.986328125`，相对 retained `v30` 的 `0.96484375 / 0.982421875` 为正；但这条 retained truth 仍只代表 latent-first internal keep，不代表 full holdout gain 已经成立
 - Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-041 / WS-027`
 
@@ -183,13 +183,13 @@
 
 ## Top Next Action
 
-- 启动 `TD-041 / WS-027` 的 `v3.0 / v30 architecture-first long-run`
-  - Runtime truth: 当前 retained `v2.9` 已确认 `39/39`，并且 expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
-  - Current retained baseline: 当前训练主线仍是共享 `google/flan-t5-base + LoRA` Seq2Seq；current-head 已 landed shared backbone + task-specific adapters，并让 latent 主链与 checkpoint-backed belief decode 都进入 trainable/learned 路径，但 `parser` 仍 rule-first，`lifecycle` 仍 rule-heavy，full benchmark holdout baseline 仍未生成
+- 推进 `TD-042 / WS-028` 的 `v3.1 / v31 latent-first quality run`
+  - Runtime truth: fresh managed run 已把 `scripts/verify_stage2_v31_longrun.py --score-only` 从 baseline `13` 推到 current retained `18`
+  - Current retained baseline: retained `v30` full line继续作为 compare baseline；当前已新增 `latest_stage2_v31_latent_mainline_train.json` 与 `latest_stage2_v31_latent_holdout_compare.json`，并在 aligned `32k val` compare 上形成第一条真实 latent keep
   - Next focus:
-    - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
-    - LongMemEval-S / PersonaMem full artifact refresh
-    - non-regression guards against retained `v2.9`
+    - 在 current retained `18/32` latent keep 之上继续推进 belief strengthening
+    - 再推进 write strengthening
+    - 最后用 full benchmark holdout 与 ablation truth 证明增益主要来自 learned latent 主链
 
 ## Active Blockers
 
@@ -198,6 +198,7 @@
 - `BL-009`: `TD-039 / WS-025` 当前已进入 true blocker。current-head 已完成 `256 / 128 / 128` teacher suite，并已用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，确保训练/评测真正消费 teacher 改动；但 all-changed compare 明显变差，`delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`，主退化项是 `lifecycle_prediction`。随后 selective integration 继续把 `lifecycle_prediction` 留在 silver、只应用 `observation + belief` teacher，结果仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`。剩余 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`，不足以支撑有意义的 same-budget compare。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 仍停在 `32 / 34`，当前 launch 只能停在 blocked。
 ## Recent Important Changes
 
+- 2026-04-19: current session 已把 `TD-042 / WS-028` 从 fresh baseline `13/32` 推到 current retained `18/32`。新增真实证据包括 `latest_stage2_v31_latent_mainline_train.json` 与 `latest_stage2_v31_latent_holdout_compare.json`；当前 aligned `32k val` latent compare 记录 `current_top1_accuracy = 0.97265625`、`current_mrr = 0.986328125`，相对 retained `v30` 的 `0.96484375 / 0.982421875` 为正。与此同时，先前 `32k test` compare 曾短暂记录 `delta_score = -0.0087890625`，因此当前 truth 只能写成“apples-to-apples latent keep 已成立”，不能误写成 full holdout gain 已成立
 - 2026-04-19: current session 已把 `TD-041 / WS-027` 从 `27/41 keep` 推到 retained `33/41 keep`。新增真实证据包括 `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json`、`latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`；当前三条 artifact 均已记录 `positive_gain = true`。helper 已把这轮记为 iteration `3 keep`
 - 2026-04-19: current session 已把 `TD-041 / WS-027` 从 `21/41 keep` 推到 retained `27/41 keep`。新增真实证据包括 `outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json`；当前 latent objective 已记录 `current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`。helper 已把这轮记为 iteration `2 keep`
 - 2026-04-19: current session 已把 `TD-040 / WS-026` 从 `33/39 partial + provider blocker` 推到 retained keep `39/39`。新增真实证据包括 `outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json`（`LongMemEval-S 500`）、`outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json`（`PersonaMem 512`）、以及刷新后的 `latest_stage2_v29_{write,latent,belief}_gain.json` / `latest_stage2_v29_holdout_summary.json` / `latest_*_stage2_v29_canary.json`。helper 已把这轮记为 iteration `3 keep`
