@@ -180,6 +180,7 @@
 
 ### 下一阶段（v31）主线
 
+- 当前 active 主线为 `TD-042 / WS-028`，当前执行版本为独立的 `v31` latent-first quality run
 - latent strengthening
 - belief strengthening
 - write strengthening
@@ -190,6 +191,7 @@
 
 ### v31 成功标准
 
+- `TD-042` / `v31` 文档、计划、TODO 与 verifier 保持一致
 - latent mainline 为正
 - belief mainline 为正
 - write mainline 为正
