@@ -802,8 +802,9 @@ class StructuredMemorySystem:
                 fallback_support_ids = fallback_item.get("support_slot_ids")
                 if fallback_support_ids:
                     support_slot_ids = fallback_support_ids
-                if not value:
-                    value = str(fallback_item.get("value", ""))
+                fallback_value = str(fallback_item.get("value", ""))
+                if fallback_value:
+                    value = fallback_value
             if not support_slot_ids:
                 support_slot_ids = StructuredMemorySystem._infer_support_slot_ids(
                     fallback_slots,
@@ -929,6 +930,13 @@ class StructuredMemorySystem:
         if not canonical_value:
             return False
         if cleaned.lower() == canonical_value.lower():
+            return False
+        # Learned belief values can legitimately be a normalized or query-shaped
+        # projection of the same-relation slot content (for example extracting
+        # "johnson" from an `other_fact` clause). Only force a backfill when the
+        # inferred support slot points at a different relation and the value no
+        # longer looks grounded in that slot.
+        if support_slot.relation.strip().lower() == relation.strip().lower():
             return False
         return cleaned.lower() not in support_slot.canonical_gloss.lower()
 
