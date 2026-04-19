@@ -340,6 +340,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/stage2_train.yaml")
     parser.add_argument("--prepared-manifest", default="outputs_v2/artifacts/stage2_prepared_samples_manifest.json")
+    parser.add_argument("--eval-manifest")
     parser.add_argument("--output-root", default="outputs_v2")
     parser.add_argument("--execute-smoke", action="store_true")
     parser.add_argument("--execute-train", action="store_true")
@@ -409,7 +410,7 @@ def main() -> int:
             if not args.experiment_id:
                 raise ValueError("--register-experiment requires --experiment-id")
             eval_payload = run_local_eval(
-                Path(args.prepared_manifest),
+                Path(args.eval_manifest) if args.eval_manifest else Path(args.prepared_manifest),
                 Path(args.output_root),
                 top_k=args.eval_top_k or 8,
                 budgets=budgets,
