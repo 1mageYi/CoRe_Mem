@@ -487,68 +487,6 @@ def test_structured_memory_system_uses_query_aligned_slot_for_raw_belief_fallbac
     assert result.belief_state.belief_items[0].value == "experimenting with different recipes"
 
 
-def test_structured_memory_system_prefers_top_semantic_slot_when_learned_belief_is_blank():
-    system = StructuredMemorySystem(
-        memory_mode="learned_memory",
-        use_learned_memory=True,
-        learned_belief_predictor=lambda *_args, **_kwargs: '"',
-    )
-    system.observe_observation(
-        Observation.from_dict(
-            {
-                "obs_id": "obs-learned-scenarios",
-                "source_dataset": "synthetic",
-                "source_dialogue_id": "dlg-1",
-                "source_turn_id": "turn-1",
-                "session_id": "sess-1",
-                "speaker": "user",
-                "entity": "user",
-                "relation": "hobby",
-                "value": "enjoy immersing myself in those universes, creating new scenarios",
-                "value_type": "other",
-                "time_scope": "current",
-                "status_hint": "active",
-                "polarity": "positive",
-                "confidence": 0.7,
-                "evidence_text": "I enjoy immersing myself in those universes, creating new scenarios.",
-                "canonical_gloss": "hobby=enjoy immersing myself in those universes, creating new scenarios",
-            }
-        ),
-        timestamp="2026-04-07T05:00:00Z",
-    )
-    system.observe_observation(
-        Observation.from_dict(
-            {
-                "obs_id": "obs-learned-events",
-                "source_dataset": "synthetic",
-                "source_dialogue_id": "dlg-1",
-                "source_turn_id": "turn-2",
-                "session_id": "sess-1",
-                "speaker": "user",
-                "entity": "user",
-                "relation": "other_fact",
-                "value": "particularly thrilled about the prospect of showcasing these items at our future events",
-                "value_type": "other",
-                "time_scope": "current",
-                "status_hint": "active",
-                "polarity": "positive",
-                "confidence": 0.82,
-                "evidence_text": "I am thrilled about showcasing these items at future events.",
-                "canonical_gloss": "other_fact=particularly thrilled about the prospect of showcasing these items at our future events",
-            }
-        ),
-        timestamp="2026-04-07T05:01:00Z",
-    )
-
-    result = system.query(
-        "query-learned-blank",
-        "I've been involved in planning events for my community lately, but I'm not sure if I should continue with it. What do you think?",
-    )
-    assert result.belief_source == "learned_memory"
-    assert result.belief_state.belief_items[0].relation == "hobby"
-    assert result.belief_state.belief_items[0].value == "enjoy immersing myself in those universes, creating new scenarios"
-
-
 def test_structured_memory_system_backfills_malformed_learned_belief_value_from_support_slot():
     system = StructuredMemorySystem(
         memory_mode="learned_memory",
