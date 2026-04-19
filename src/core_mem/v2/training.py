@@ -796,10 +796,6 @@ def generate_prediction_text(
         predicted_ids = output.logits.argmax(dim=-1)[0].detach().cpu().tolist()
         return _decode_char_tokens(predicted_ids)
 
-    prefix_allowed_tokens_fn = None
-    if example.task_name in {SLOT_ASSIGNMENT_TASK_NAME, "composition_to_belief"}:
-        prefix_allowed_tokens_fn = _json_start_prefix_allowed_tokens_fn(tokenizer)
-
     encoded = tokenizer(
         example.input_text,
         return_tensors="pt",
@@ -811,27 +807,8 @@ def generate_prediction_text(
         generated = model.generate(
             **encoded,
             max_new_tokens=max_target_length,
-            prefix_allowed_tokens_fn=prefix_allowed_tokens_fn,
         )
     return tokenizer.decode(generated[0], skip_special_tokens=True).strip()
-
-
-def _json_start_prefix_allowed_tokens_fn(tokenizer: Any) -> Any:
-    brace_token_ids = tokenizer.encode("{", add_special_tokens=False)
-    if not brace_token_ids:
-        return None
-    first_token_id = int(brace_token_ids[0])
-    vocab_size = int(getattr(tokenizer, "vocab_size", 0) or 0)
-    if vocab_size <= 0:
-        return None
-    all_token_ids = list(range(vocab_size))
-
-    def _prefix_allowed_tokens_fn(_batch_id: int, input_ids: torch.Tensor) -> list[int]:
-        if int(input_ids.shape[-1]) <= 1:
-            return [first_token_id]
-        return all_token_ids
-
-    return _prefix_allowed_tokens_fn
 
 
 def evaluate_stage2_checkpoint(
