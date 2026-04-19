@@ -10,7 +10,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.eval_local import evaluate_local, module_inventory_payload
-from core_mem.v2.training import _repair_belief_payload_from_input_context
+from core_mem.v2.training import _repair_belief_payload_from_input_context, _repair_lifecycle_payload_from_input_context
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -426,6 +426,28 @@ def test_repair_belief_payload_from_input_context_can_fill_relation_value_and_su
     }
 
 
+def test_repair_lifecycle_payload_from_input_context_can_recover_overwrite() -> None:
+    input_text = "\n".join(
+        [
+            "task: lifecycle_prediction",
+            'memory_context: [{"active_flag": true, "bank": "core", "canonical_gloss": "temporal_fact=half past 7 in the evening", "confidence": 0.8, "relation": "temporal_fact", "slot_id": "slot_old_time"}]',
+            'new_observation: {"canonical_gloss": "temporal_fact=7:30 pm", "relation": "temporal_fact", "status_hint": "active"}',
+        ]
+    )
+    repaired = _repair_lifecycle_payload_from_input_context(
+        input_text,
+        'temporal_fact=half past 7 in the evening"',
+        None,
+    )
+    assert repaired == {
+        "target_action": "overwrite",
+        "target_flags": {
+            "promote": True,
+            "stale_old": True,
+        },
+    }
+
+
 def test_eval_script_can_publish_v31_belief_artifacts(tmp_path: Path):
     output_root = tmp_path / "outputs_v2"
     prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
@@ -497,6 +519,80 @@ def test_eval_script_can_publish_v31_belief_artifacts(tmp_path: Path):
         artifact_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         assert artifact_payload["artifact_type"] == expected_type
     compare_payload = json.loads(Path(payload["v31_belief_holdout_compare_artifact"]).read_text(encoding="utf-8"))
+    assert compare_payload["positive_gain"] is True
+
+
+def test_eval_script_can_publish_v31_write_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    baseline_eval = output_root / "artifacts" / "v31_write_baseline_eval.json"
+    baseline_eval.parent.mkdir(parents=True, exist_ok=True)
+    baseline_eval.write_text(
+        json.dumps(
+            {
+                "current_lifecycle_prediction": {
+                    "token_f1": -0.1,
+                    "field_f1": -0.1,
+                    "exact_match": -0.1,
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    train = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v30_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--json",
+    )
+    assert train.returncode == 0, train.stderr
+    train_payload = json.loads(train.stdout)
+
+    result = _run(
+        "scripts/eval_stage2_local.py",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--checkpoint-dir",
+        train_payload["checkpoint_dir"],
+        "--train-config",
+        "configs/stage2_train_v30_tiny.yaml",
+        "--max-eval-examples",
+        "4",
+        "--publish-v31-write-mainline-eval",
+        "--publish-v31-write-holdout-compare",
+        "--v31-write-baseline-eval",
+        str(baseline_eval),
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+
+    for key, expected_type in (
+        ("v31_write_mainline_eval_artifact", "stage2_v31_write_mainline_eval"),
+        ("v31_write_holdout_compare_artifact", "stage2_v31_write_holdout_compare"),
+    ):
+        artifact_path = Path(payload[key])
+        assert artifact_path.exists()
+        artifact_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+        assert artifact_payload["artifact_type"] == expected_type
+    compare_payload = json.loads(Path(payload["v31_write_holdout_compare_artifact"]).read_text(encoding="utf-8"))
     assert compare_payload["positive_gain"] is True
 
 

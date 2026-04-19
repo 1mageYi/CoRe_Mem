@@ -189,10 +189,11 @@
   - `LongMemEval-S 500`
   - `PersonaMem 589`
 - 当前 retained progress：
-  - `scripts/verify_stage2_v31_longrun.py --score-only = 21/32`
+  - `scripts/verify_stage2_v31_longrun.py --score-only = 24/32`
   - `latest_stage2_v31_latent_holdout_compare.json` 已记录 aligned `32k val` latent positive keep
   - `latest_stage2_v31_belief_holdout_compare.json` 已记录 aligned `32k val` belief positive keep
-  - 下一条增量必须优先来自 write，然后才是 full holdout 与 ablation closeout
+  - `latest_stage2_v31_write_holdout_compare.json` 已记录 aligned `32k val` write positive keep
+  - 下一条增量必须转到 full holdout，然后才是 ablation closeout
 
 ### v31 成功标准
 

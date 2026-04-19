@@ -19,9 +19,9 @@
     - retained `v30` 已到 `41/41`
     - `v31` 当前不是再补基础设施，而是验证 learned latent 主链能否成为 full holdout 上的主要增益来源
     - compare baseline 固定为 current retained `v30`
-    - current retained `v31` 已到 `21/32`
-    - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json` 与 `latest_stage2_v31_belief_holdout_compare.json` 已落地
-    - aligned `32k val` latent compare 与 belief compare 当前均为正
+    - current retained `v31` 已到 `24/32`
+    - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json` 已落地
+    - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正
     - 这条 retained keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。

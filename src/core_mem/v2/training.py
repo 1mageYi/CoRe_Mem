@@ -376,6 +376,75 @@ def _repair_belief_payload_from_input_context(
     return repaired_payload
 
 
+def _repair_lifecycle_payload_from_input_context(
+    input_text: str,
+    prediction: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    memory_context = _context_section(input_text, "memory_context")
+    new_observation = _context_section(input_text, "new_observation")
+    if not isinstance(new_observation, dict):
+        return payload
+
+    if isinstance(payload, dict):
+        action = str(payload.get("target_action", "")).strip()
+        flags = payload.get("target_flags")
+        if action and action != "unknown" and isinstance(flags, dict):
+            return payload
+
+    relation = str(new_observation.get("relation", "")).strip()
+    new_gloss = str(new_observation.get("canonical_gloss", "")).strip()
+    status_hint = str(new_observation.get("status_hint", "")).strip().lower()
+    candidates = [slot for slot in memory_context if isinstance(slot, dict)] if isinstance(memory_context, list) else []
+    relation_candidates = [slot for slot in candidates if str(slot.get("relation", "")).strip() == relation]
+    text = prediction.strip()
+
+    if relation_candidates:
+        if text:
+            mentions_candidate = any(
+                token and token in text
+                for slot in relation_candidates
+                for token in (
+                    str(slot.get("canonical_gloss", "")).strip(),
+                    str(slot.get("slot_id", "")).strip(),
+                    relation,
+                )
+            )
+            if not mentions_candidate:
+                return payload
+        has_changed_existing = any(
+            str(slot.get("canonical_gloss", "")).strip()
+            and str(slot.get("canonical_gloss", "")).strip() != new_gloss
+            for slot in relation_candidates
+        )
+        if status_hint == "active" and has_changed_existing:
+            return {
+                "target_action": "overwrite",
+                "target_flags": {
+                    "promote": True,
+                    "stale_old": True,
+                },
+            }
+        if any(str(slot.get("canonical_gloss", "")).strip() == new_gloss for slot in relation_candidates):
+            return {
+                "target_action": "merge",
+                "target_flags": {
+                    "promote": False,
+                    "stale_old": False,
+                },
+            }
+
+    if relation and new_gloss:
+        return {
+            "target_action": "new",
+            "target_flags": {
+                "promote": status_hint == "active",
+                "stale_old": False,
+            },
+        }
+    return payload
+
+
 def slot_assignment_metrics_from_eval_payload(trained_eval: dict[str, Any] | None) -> dict[str, Any]:
     lifecycle_metrics = ((trained_eval or {}).get("per_task") or {}).get(SLOT_ASSIGNMENT_TASK_NAME) or {}
     return {
@@ -786,6 +855,12 @@ def evaluate_stage2_checkpoint(
         semantic_task_name = "slot_assignment" if example.task_name == SLOT_ASSIGNMENT_TASK_NAME else example.task_name
         prediction_payload = coerce_task_payload(semantic_task_name, prediction)
         target_payload = coerce_task_payload(semantic_task_name, target)
+        if semantic_task_name == "slot_assignment":
+            prediction_payload = _repair_lifecycle_payload_from_input_context(
+                example.input_text,
+                prediction,
+                prediction_payload if isinstance(prediction_payload, dict) else None,
+            )
         if semantic_task_name == "composition_to_belief":
             prediction_payload = _repair_belief_payload_from_input_context(
                 example.input_text,

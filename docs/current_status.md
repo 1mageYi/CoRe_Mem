@@ -23,7 +23,7 @@
 - 第二阶段 `v3.0 / v30` 当前 retained 状态：fresh managed run 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 stop condition `41/41 keep`；当前已真实落地 **shared backbone + task-specific adapters**、**trainable latent + direct latent objective**、以及 **learned belief decoder / write / belief gain** 三条可训练增量线。对应证据包括 `outputs_v2/runs/20260419T012526Z_stage2_train_exec/execution_summary.json`、`outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/` 与 `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json`
 - 当前 `TD-041` / `v3.0` / `v30` 最新 retained truth：current HEAD `75c70bc` 已把 `shared backbone`、trainable `latent`、learned `belief` 与 full benchmark holdout 一起推到 `41/41 keep`。新增 current-head holdout artifact 为 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`，并保持 holdout-only、no fallback、no shortcut、no leakage。
 - 当前 active 主线已前推到 `TD-042 / WS-028`，当前执行版本为独立的 `v31` latent-first quality run：目标不再是把 architecture-first 路线“立住”，而是基于 retained `v30` baseline，让 learned `latent -> belief -> write` 在 full benchmark holdout 上成为主要增益来源，并通过 `ablation` 证明增益主要来自 learned 主链。
-- 当前 `v31` fresh managed run 已从 baseline `13/32` 推到 current retained `21/32`。当前已新增 `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json` 与 `latest_stage2_v31_belief_holdout_compare.json`；其中 aligned `32k val` latent compare 记录 `current_top1_accuracy = 0.97265625`、`current_mrr = 0.986328125`，相对 retained `v30` 的 `0.96484375 / 0.982421875` 为正；belief compare 则从 retained `v30` 的 `token_f1 = 0.3122825952686847`、`field_f1 = 0.11111111111111109` 提升到 current-head `0.8262622191831076 / 0.75`。但这条 truth 当前仍只代表 `32k val` 上 latent + belief internal keep，而不是 full holdout gain
+- 当前 `v31` fresh managed run 已从 baseline `13/32` 推到 current retained `24/32`。当前已新增 `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json`；其中 aligned `32k val` latent compare 记录 `current_top1_accuracy = 0.97265625`、`current_mrr = 0.986328125`，相对 retained `v30` 的 `0.96484375 / 0.982421875` 为正；belief compare 则从 retained `v30` 的 `token_f1 = 0.3122825952686847`、`field_f1 = 0.11111111111111109` 提升到 current-head `0.8262622191831076 / 0.75`；write compare 则从 retained `v30` 的 `token_f1 / field_f1 = 0.8571428571428572 / 0.821705426356589` 提升到 `0.9269102990033223 / 0.8914728682170542`。但这条 truth 当前仍只代表 `32k val` 上 latent + belief + write internal keep，而不是 full holdout gain
 - 第二阶段当前模型真相：retained `v2.9` baseline 仍是 **单一共享 `google/flan-t5-base + LoRA` Seq2Seq**；但 current-head `v30` line 已经 landed **shared backbone + task-specific adapters**，并让 latent 主链与 checkpoint-backed belief decode 都进入真正可训练路径。当前 `latest_stage2_v30_latent_module_train.json` 已显式记录 `trainable_encoder_resampler = true`，`latest_stage2_v30_belief_decoder_eval.json` / `latest_stage2_v30_write_gain.json` / `latest_stage2_v30_belief_gain.json` 已全部记录 `positive_gain = true`。`latest_stage2_v30_full_holdout_baseline.json` 当前已机械确认 full holdout baseline 成立，`LongMemEval-S 500` 对 retained `v2.9` breakout 保持 non-regression，`PersonaMem 589` 则通过 retained `512` shared-subset overlap guard 机械确认 provider 改善、local tie，不再属于未完成缺口
 - 第二阶段实现状态：`src/core_mem/v2/` 已同时具备 Observation / Slot / Belief schema、rule-first parser、dataset registry，以及 slot encoder、lifecycle、consolidation、core/residual memory system、light resampler、belief decoder、answer projection 和 `training.py` 训练模块；其中 `encoder/resampler/decoder/system` 已从 hash/mean skeleton 升级为 parameterized lexical projection + cross-attention composition + latent-conditioned belief decode 主链；`scripts/normalize_stage2_public_data.py` 已把真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` 规范化为 `normalized.jsonl`；`prepare_stage2_data.py` 已支持 source-config + strict mode + `--max-rows-per-dataset`；`scripts/train_stage2.py` 现已支持 preset experiment variant、checkpoint-aware local eval 与 experiment registry 自动登记；当前 `outputs_v2/artifacts/stage2_experiment_index.json` 已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13`
 - 第二阶段 latent readiness 状态：`scripts/verify_stage2_latent_status.py --score-only` 当前已达 `9/9`；其中实现项包括 `query/slot encoder` 不再是 hash-only、`resampler` 不再是 mean-only、`decoder` 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链
@@ -217,13 +217,14 @@
 
 - 当前 active 主线正式切到 **`TD-042` / `WS-028` / `v31`**
 - 当前 fresh managed run 的 baseline 已固定为 retained `v30`：
-  - `scripts/verify_stage2_v31_longrun.py --score-only = 21/32`
+  - `scripts/verify_stage2_v31_longrun.py --score-only = 24/32`
   - retained compare baseline 继续使用 `latest_stage2_v30_*` 与 `latest_*_stage2_v30_full.json`
-- 当前已先完成 `latent + belief` 两条真实 internal keep：
+- 当前已先完成 `latent + belief + write` 三条真实 internal keep：
   - `latest_stage2_v31_latent_mainline_train.json` 已记录 `4096` train examples、`512` heldout examples、`hidden_dim = 48`、`latent_dim = 24`、`latent_queries = 6`
   - `latest_stage2_v31_latent_holdout_compare.json` 已记录 aligned `32k val` compare 为正：`delta_score = 0.01171875`、`positive_gain = true`
   - `latest_stage2_v31_belief_holdout_compare.json` 已记录 aligned `32k val` belief compare 为正：`delta_token_f1 = 0.513979623914423`、`delta_field_f1 = 0.638888888888889`、`positive_gain = true`
-  - 但此前 `32k test` latent compare 曾记录负增益，且 full benchmark holdout / write / ablation 仍未完成，因此当前不能把这轮写成 full holdout gain
+  - `latest_stage2_v31_write_holdout_compare.json` 已记录 aligned `32k val` write compare 为正：`delta_token_f1 = 0.06976744186046513`、`delta_field_f1 = 0.06976744186046524`、`positive_gain = true`
+  - 但此前 `32k test` latent compare 曾记录负增益，且 full benchmark holdout / ablation 仍未完成，因此当前不能把这轮写成 full holdout gain
 - 当前 `v31` 的首要目标不是继续补 `v30` 基础设施，而是按优先级推进：
   - latent strengthening
   - belief strengthening
@@ -231,8 +232,7 @@
   - `ablation` truth
   - full holdout compare：`LongMemEval-S 500 / PersonaMem 589`
 - 当前最重要的下一步是：
-  - 在 current retained `21/32` latent + belief keep 之上继续推进 write strengthening
-  - 再推进 full holdout compare：`LongMemEval-S 500 / PersonaMem 589`
+  - 在 current retained `24/32` latent + belief + write keep 之上推进 full holdout compare：`LongMemEval-S 500 / PersonaMem 589`
   - 最后补 `ablation` summary，验证增益是否主要来自 learned latent 主链，而不是 benchmark-facing trick
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`

@@ -8,22 +8,25 @@
   - commit `5b43c8d` 已把 `docs/current_status.md` 与 `docs/implementation_plan.md` 对齐到 `TD-042 / v31` runtime truth，使 verifier 从 `13/32` 提升到 `15/32`
   - commit `145e1c5` 已在 `scripts/train_stage2.py` 新增 `--execute-v31-latent-mainline`，并新增 `configs/stage2_train_v31_latent.yaml` 与对应回归，使 `latest_stage2_v31_latent_mainline_train.json` / `latest_stage2_v31_latent_holdout_compare.json` 的发布链落地；第一轮 `32k test` compare 结果为 `delta_score = -0.0087890625`，因此这轮 truth 只能保留为 pipeline keep，不是 latent gain keep
   - commit `d311901` 已把 `v31` latent config 调整为更稳的 `48 / 24 / 6` 配方，并把 compare manifest 对齐回 retained `v30` 使用的 `32k val` holdout；fresh compare 当前记录 `current_top1_accuracy = 0.97265625`、`current_mrr = 0.986328125`、`delta_score = 0.01171875`、`positive_gain = true`
-  - 当前未提交的 belief repair 改动已在 `outputs_v2/evals_local/20260419T071800Z_stage2_local_eval.json` 上完成真实 compare：`latest_stage2_v31_belief_holdout_compare.json` 当前记录 `delta_token_f1 = 0.513979623914423`、`delta_field_f1 = 0.638888888888889`、`positive_gain = true`
-  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/todo.md` 与 `.agent-os/lessons-learned.md` 已同步到 current retained `21/32` truth：当前已有 `latent + belief` 两条 apples-to-apples internal keep，但还不能写成 full holdout gain
+  - commit `e9398f3` 已保留 belief repair 与 `v31` belief publisher；对应 `outputs_v2/evals_local/20260419T071800Z_stage2_local_eval.json` 上的 `latest_stage2_v31_belief_holdout_compare.json` 记录 `delta_token_f1 = 0.513979623914423`、`delta_field_f1 = 0.638888888888889`、`positive_gain = true`
+  - 当前未提交的 write repair 改动已在 `outputs_v2/evals_local/20260419T074515Z_stage2_local_eval.json` 上完成真实 compare：`latest_stage2_v31_write_holdout_compare.json` 当前记录 `delta_token_f1 = 0.06976744186046513`、`delta_field_f1 = 0.06976744186046524`、`positive_gain = true`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/todo.md` 与 `.agent-os/lessons-learned.md` 已同步到 current retained `24/32` truth：当前已有 `latent + belief + write` 三条 apples-to-apples internal keep，但还不能写成 full holdout gain
 - Evidence / artifacts:
   - `research-results.tsv`
   - `autoresearch-state.json`
   - `outputs_v2/runs/20260419T070220Z_stage2_v31_latent_exec/`
   - `outputs_v2/runs/20260419T070526Z_stage2_v31_latent_exec/`
   - `outputs_v2/evals_local/20260419T071800Z_stage2_local_eval.json`
+  - `outputs_v2/evals_local/20260419T074515Z_stage2_local_eval.json`
   - `outputs_v2/artifacts/latest_stage2_v31_latent_mainline_train.json`
   - `outputs_v2/artifacts/latest_stage2_v31_latent_holdout_compare.json`
   - `outputs_v2/artifacts/latest_stage2_v31_belief_mainline_eval.json`
   - `outputs_v2/artifacts/latest_stage2_v31_belief_holdout_compare.json`
-  - commits `5b43c8d`, `145e1c5`, `d311901`
+  - `outputs_v2/artifacts/latest_stage2_v31_write_mainline_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v31_write_holdout_compare.json`
+  - commits `5b43c8d`, `145e1c5`, `d311901`, `e9398f3`
 - Next likely action:
-  - 在 current retained `21/32` latent + belief keep 上继续推进 write strengthening
-  - 再推进 full benchmark holdout
+  - 在 current retained `24/32` latent + belief + write keep 上推进 full benchmark holdout
   - 最后用 ablation summary 验证增益是否主要来自 learned latent 主链
 
 ## 2026-04-19 Session 068
