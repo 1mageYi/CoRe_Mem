@@ -22,6 +22,10 @@
     - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json` 已落地
     - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正
     - 这条 retained keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
+    - `2026-04-19` 当前 `8`-sample quick-smoke holdout line 已到 soft blocker：最好的 learned-symbolic 仍只有 Persona subset `5/4`、LongMemEval subset `1/1` tie；learned+learned、blank-output fallback 与 json-start constrained decoding 都没有形成新的 keep
+    - `acd742...` 已在相同 prompt/evidence 下跨 run 发生 provider label 翻转，因此当前 quick-smoke gate 不能再被当作稳定的微调判断依据
+  - 下一步：
+    - 若继续 `v31`，要么把 holdout probe 扩成更大样本的稳定 measurement，要么切到更宽 scope 的 decoder / answer-selection redesign；不要再在当前 `8`-sample quick-smoke 上重复同类小修补
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

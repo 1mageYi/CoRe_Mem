@@ -1,5 +1,35 @@
 # Run Log
 
+## 2026-04-19 Session 070
+
+- Worked on: 继续 `TD-042 / WS-028 / v31` 的 full-holdout quick-smoke line，在 retained `24/32` 基线上依次尝试 online learned belief fallback、blank-output 修补、learned slot-assignment pivot、provider-stability repeat 与最小 constrained-decoding
+- State changed:
+  - current retained truth 未变化；`scripts/verify_stage2_v31_longrun.py --score-only` 仍为 `24/32`
+  - helper 当前已把 iteration `9` 记为 `refine`：commit `c82a56c` 的 online learned belief fallback 把 Persona `8`-sample subset 提到 `provider/local = 5/4`，但相对 retained `v30` 的 `6/3` 仍差 `1` 个 provider case；LongMemEval subset 持平 `1/1`
+  - helper 当前已把 iteration `10` 记为 `discard`：commit `158649f` 的 blank-output fallback 在 learned-symbolic line 上回落到 Persona `4/4`
+  - helper 当前已把 iteration `11` 记为 `pivot`：放弃继续在 symbolic-slot holdout 上做同类 fallback 微调，改切 learned slot-assignment holdout
+  - helper 当前已把 iteration `12` 记为 `refine`：在 revert base `40e006c` 上重跑 learned+learned，Persona subset 提到 `5/3`，但仍落后 retained `v30` 的 provider `6/3`
+  - helper 当前已把 iteration `13` 记为 `discard`：commit `a17d085` 把 blank-output fallback 嫁接到 learned+learned 后，Persona subset 回落到 `4/3`
+  - helper 当前已把 iteration `14` 记为第二次 `pivot`，iteration `15` 记为 `no-op`：对同一 learned-symbolic config 重跑后再次得到 Persona `5/4`、Long `1/1`，确认当前 quick-smoke gate 稳定停在“差 `1` 个 Persona provider case”
+  - helper 当前已把 iteration `16` 记为 `search`：基于 primary source 搜索锁定 `prefix_allowed_tokens_fn` / constrained generation 作为下一条结构性尝试
+  - helper 当前已把 iteration `17` 记为 `discard`：commit `a99a62c` 的 json-start constrained decoding 让 Persona subset 回落到 `4/3`，Long 仍 `1/1`
+  - helper 当前已把 iteration `18` 记为第三次 `pivot`：当前 `8`-sample quick-smoke holdout line 已到 soft-blocker handoff；下一步若继续 `v31`，需要更大样本的稳定 measurement 或更宽 scope 的 decoder / answer-selection redesign，而不是继续做同类 runtime micro-tune
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260419T084747Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T084752Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/runs/20260419T085629Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T085633Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/runs/20260419T090340Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T090344Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/runs/20260419T090911Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T090917Z_stage2_memory_canary_longmemeval/`
+  - commits `c82a56c`, `40e006c`, `a17d085`, `e1b2a8b`, `a99a62c`, `ee1e613`
+- Next likely action:
+  - 若继续 `TD-042 / WS-028 / v31`，优先放弃当前 `8`-sample quick-smoke 作为唯一 gate，改做更大样本的 holdout measurement 或更宽 scope 的 learned decoder / answer-selection 重构
+  - 在新的更稳定 measurement 出现前，不要把当前 quick-smoke line 写成“只差一个简单 patch 就能 keep”
+
 ## 2026-04-19 Session 069
 
 - Worked on: 以 fresh managed `v31` run 推进 `latent-first quality` 主线，先完成 runtime/doc sync，再落地 `v31` latent mainline train/publish 链，并把第一条 aligned `32k val` latent compare 推到 retained positive keep

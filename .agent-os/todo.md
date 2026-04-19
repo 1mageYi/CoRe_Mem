@@ -23,6 +23,10 @@
     - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json` 已落地
     - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正
     - 这条 retained keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
+    - `2026-04-19` 当前 quick-smoke holdout line 已到 soft blocker：learned-symbolic / learned+learned / blank-output fallback / constrained-decoding / stability repeat 全部未能把 retained `24/32` 推成新的 keep
+    - 当前最小 smoke 最好结果仍是 Persona subset `5/4`、LongMemEval subset `1/1` tie；同一 `acd742...` prompt 已跨 run 发生 provider 翻转，说明当前 `8`-sample micro-tune gate 已不足以稳定地区分方法信号与 provider 噪声
+  - Next unblock:
+    - 若继续 `TD-042`，需要切到更大样本的 holdout measurement，或直接推进更宽 scope 的 decoder / answer-selection redesign；不要再在当前 `8`-sample quick-smoke 上做同类 belief/runtime 微调
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
