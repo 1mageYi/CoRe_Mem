@@ -220,21 +220,42 @@ class StructuredMemorySystem:
         query_terms = self._query_terms(query_text)
         active_slots = self.state.active_slots()
         latent_scores = self._latent_slot_scores(query_text, active_slots)
+        scored_slots = [
+            (
+                slot,
+                self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
+                self._lexical_overlap(query_terms, slot),
+            )
+            for slot in active_slots
+        ]
         if latent_scores:
-            ranked = sorted(
-                active_slots,
-                key=lambda slot: (
-                    float(latent_scores.get(slot.slot_id, float("-inf"))),
-                    self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
-                ),
-                reverse=True,
-            )
+            if any(lexical_overlap > 0.0 for _, _, lexical_overlap in scored_slots):
+                ranked = [
+                    slot
+                    for slot, _, _ in sorted(
+                        scored_slots,
+                        key=lambda item: (
+                            item[2] > 0.0,
+                            float(latent_scores.get(item[0].slot_id, float("-inf"))) if item[2] > 0.0 else float("-inf"),
+                            item[1],
+                        ),
+                        reverse=True,
+                    )
+                ]
+            else:
+                ranked = [
+                    slot
+                    for slot, _, _ in sorted(
+                        scored_slots,
+                        key=lambda item: (
+                            float(latent_scores.get(item[0].slot_id, float("-inf"))),
+                            item[1],
+                        ),
+                        reverse=True,
+                    )
+                ]
         else:
-            ranked = sorted(
-                active_slots,
-                key=lambda slot: self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
-                reverse=True,
-            )
+            ranked = [slot for slot, _, _ in sorted(scored_slots, key=lambda item: item[1], reverse=True)]
         selected = ranked[: self.top_k]
         composed = self.resampler.compose(query_vector, selected)
         belief, belief_source = self._decode_belief(query_id, query_text, selected, composed)
@@ -292,6 +313,13 @@ class StructuredMemorySystem:
             if len(token) >= 3
         }
 
+    @classmethod
+    def _lexical_overlap(cls, query_terms: set[str], slot: SlotRecord) -> float:
+        if not query_terms:
+            return 0.0
+        slot_terms = cls._slot_terms(slot)
+        return (len(query_terms & slot_terms) / len(query_terms)) if slot_terms else 0.0
+
     @staticmethod
     def _query_prefers_historical_memory(query_text: str) -> bool:
         lowered = query_text.lower()
@@ -342,11 +370,7 @@ class StructuredMemorySystem:
         query_text: str,
     ) -> float:
         semantic = dot_product(query_vector, slot.retrieval_key)
-        if not query_terms:
-            lexical_overlap = 0.0
-        else:
-            slot_terms = self._slot_terms(slot)
-            lexical_overlap = (len(query_terms & slot_terms) / len(query_terms)) if slot_terms else 0.0
+        lexical_overlap = self._lexical_overlap(query_terms, slot)
 
         lowered_query = query_text.lower()
         temporal_role = float(slot.soft_role_scores.temporal)

@@ -223,6 +223,46 @@ def test_structured_memory_system_can_prioritize_slots_with_latent_ranker():
     assert result.selected_slots[0].canonical_gloss == "other_fact=more descriptive comments that highlight the purpose of code blocks"
 
 
+def test_structured_memory_system_keeps_query_anchored_slot_ahead_of_zero_overlap_latent_outlier():
+    def _latent_ranker(_query_text: str, slots):
+        return {
+            slot.slot_id: (
+                10.0 if "bachelor's degree in business administration" in slot.canonical_gloss else 0.0
+            )
+            for slot in slots
+        }
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_turn(
+        "I earned a bachelor's degree in business administration from the University of Michigan in 2012.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-latent-guard",
+        source_turn_id="turn-1",
+        session_id="sess-latent-guard",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I have been using the Cartwheel app from Target for household items.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-latent-guard",
+        source_turn_id="turn-2",
+        session_id="sess-latent-guard",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+    system.observe_turn(
+        "I actually redeemed a $5 coupon on coffee creamer last Sunday.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-latent-guard",
+        source_turn_id="turn-3",
+        session_id="sess-latent-guard",
+        timestamp="2026-04-07T05:10:00Z",
+    )
+
+    result = system.query("query-latent-guard", "Where did I redeem a $5 coupon on coffee creamer?")
+    assert "redeemed a $5 coupon on coffee creamer" in result.selected_slots[0].canonical_gloss
+    assert result.answer_text == "target"
+
+
 def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemption():
     system = StructuredMemorySystem()
     system.observe_turn(
