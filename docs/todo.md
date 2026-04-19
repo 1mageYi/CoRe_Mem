@@ -15,13 +15,15 @@
     - full benchmark 只作 holdout，不回流训练
     - 下一阶段的 retained 增益必须主要来自可训练部分能力本身，而不是 benchmark-facing trick
   - 最新进展：
-    - fresh managed run 已把 `stage2_v30_longrun_score` 从 baseline `17` 提升到 current retained `21/41 keep`
+    - fresh managed run 已把 `stage2_v30_longrun_score` 从 baseline `17` 提升到 current retained `27/41 keep`
     - current HEAD `13bb0fa` 已 landed `shared backbone + task-specific adapters`
     - `latest_stage2_v30_shared_backbone_train.json` 已记录 first modular train：`gpu2`、`4096` examples、`128` steps、`42.88473560567945s`
     - `latest_stage2_v30_task_adapter_compare.json` 已记录 first positive compare：`task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
+    - current HEAD `f0e3203` 已补齐 `latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json`
+    - direct latent objective 当前已给出正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
   - 当前边界：
-    - 当前 `21/41` 只代表 shared-backbone modular line 已形成 retained keep
-    - `trainable latent / direct latent objective / learned belief decoder / full holdout baseline` 仍未完成
+    - 当前 `27/41` 只代表 shared-backbone modular line 与 trainable latent line 已形成 retained keep
+    - `learned belief decoder / belief gain / write gain / full holdout baseline` 仍未完成
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

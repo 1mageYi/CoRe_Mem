@@ -1,5 +1,28 @@
 # Run Log
 
+## 2026-04-19 Session 065
+
+- Worked on: 继续 `TD-041 / WS-027` 的第二轮真实 `v30` experiment，把 modular shared-backbone 线推进到 trainable latent + direct latent objective，并完成 keep/discard 判定与受管结果记账
+- State changed:
+  - 新增 `src/core_mem/v2/latent_training.py`，当前已具备可训练 latent retriever：`query_encoder`、`slot_encoder` 与 `latent_query_bank` 可直接通过 latent objective 训练
+  - `scripts/train_stage2.py` 已新增 `--execute-v30-latent-objective` 与对应 artifact publish 路径，可发布 `latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json`、`latest_stage2_v30_latent_gain.json`
+  - 新增 `configs/stage2_train_v30_latent.yaml`，把第二轮 `v30` latent experiment 固定到 `32k` anchor manifest 与独立 eval manifest
+  - current HEAD `f0e3203` 上，fresh latent run `outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/` 已真实完成：`4096` train examples、`512` eval examples、`256` steps、`final_loss = 0.1376347839832306`
+  - 对应 latent eval 当前记录 `baseline_top1_accuracy = 0.724609375`、`current_top1_accuracy = 0.96484375`、`baseline_mrr = 0.8623046875`、`current_mrr = 0.982421875`、`delta_score = 0.3603515625`，`positive_gain = true`
+  - `scripts/verify_stage2_v30_longrun.py --score-only` 已从 retained `21` 提升到 `27`；launch guard 通过；helper 已把这轮记为 iteration `2 keep`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/`
+  - `outputs_v2/checkpoints/20260419T014522Z_stage2_v30_latent_exec/`
+  - `outputs_v2/artifacts/latest_stage2_v30_latent_module_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_latent_objective_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_latent_gain.json`
+  - commit `f0e3203`
+- Next likely action:
+  - 在 current-head `27/41 keep` 的 retained line 上推进 learned belief decoder，并补齐 `belief decoder eval / belief gain / write gain`
+  - 在 learned belief decoder 成立后，再补 full benchmark holdout baseline 与 non-regression refresh，而不是提前把 current line 写成 `v30` complete
+
 ## 2026-04-19 Session 064
 
 - Worked on: 启动 `TD-041 / WS-027` 的第一轮真实 `v30` modular-training experiment，把当前 shared-only 训练线推进到 `shared backbone + task-specific adapters`，并用 `32k train / 32k val` 分离口径做 first compare

@@ -157,7 +157,7 @@
 ### 当前 post-v2.9 训练与架构判断
 
 - retained `v2.9` baseline 仍是 **共享 `google/flan-t5-base + LoRA` Seq2Seq**
-- current-head `v30` partial line 已 landed 第一轮 **shared backbone + task-specific adapters**
+- current-head `v30` partial line 已 landed **shared backbone + task-specific adapters**，并新增了 **trainable latent + direct latent objective**
 - 当前统一训练任务为：
   - `retrieval_alignment`
   - `lifecycle_prediction`
@@ -165,7 +165,6 @@
 - 当前最明显的上限约束不是 data plumbing，而是：
   - `parser` 仍 rule-first
   - `lifecycle` 仍 rule-heavy
-  - `encoder / resampler` 仍主要是 fixed projection
   - `belief decoder` 仍主要是 heuristic/semantic-first
 
 ### 下一阶段（v30）主线
@@ -183,8 +182,10 @@
 - current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 提升到 `21`
 - `latest_stage2_v30_shared_backbone_train.json` 已记录 first modular train：`gpu2`、`4096` examples、`128` steps、`wall_clock_seconds = 42.88473560567945`
 - `latest_stage2_v30_task_adapter_compare.json` 已记录 first positive compare：`task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
-- 对应 val checkpoint eval `outputs_v2/evals_local/20260419T013221Z_stage2_local_eval.json` 当前为 `trained_eval.token_f1 = 0.6562995718106327`、`field_f1 = 0.5924479166666667`
-- 当前仍未完成的主轴是：`trainable latent / direct latent objectives / learned belief decoder / full benchmark holdout baseline`
+- current HEAD `f0e3203` 已继续把 retained score 提升到 `27`
+- `latest_stage2_v30_latent_module_train.json` 已记录 trainable latent module train，artifact 显式标记 `trainable_encoder_resampler = true`
+- `latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json` 已记录 direct latent objective 正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
+- 当前仍未完成的主轴是：`learned belief decoder / belief gain / write gain / full benchmark holdout baseline`
 
 ### 当前 `v2.7` 执行锚点
 

@@ -3,11 +3,11 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-041 / WS-027` 已成为当前主线；当前 retained line 已到 `21/41 keep`，shared backbone + task-specific adapters 已 landed，下一步应把 verifier 增量继续推进到 trainable latent、direct latent objectives、learned belief decoder 与 full benchmark holdout
+- Top next action: `TD-041 / WS-027` 已成为当前主线；当前 retained line 已到 `27/41 keep`，shared backbone + task-specific adapters 与 trainable latent + direct latent objective 已 landed，下一步应把 verifier 增量继续推进到 learned belief decoder、write/belief gain 与 full benchmark holdout
 - Active workstreams: `WS-027`
 - Active workstream label: `TD-041 / WS-027`
 - Active workstream version: `v30`
-- Current retained progress: current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 `21`；`latest_stage2_v30_shared_backbone_train.json` 与 `latest_stage2_v30_task_adapter_compare.json` 已落地，其中 modular compare 当前 `delta_score = 1.2487474884772993`
+- Current retained progress: current HEAD `f0e3203` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 `27`；`latest_stage2_v30_shared_backbone_train.json`、`latest_stage2_v30_task_adapter_compare.json`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json` 已落地，其中 latent eval 当前 `current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`，`delta_score = 0.3603515625`
 - Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-041 / WS-027`
 
@@ -185,12 +185,11 @@
 
 - 启动 `TD-041 / WS-027` 的 `v3.0 / v30 architecture-first long-run`
   - Runtime truth: 当前 retained `v2.9` 已确认 `39/39`，并且 expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
-  - Current retained baseline: 当前训练主线仍是共享 `google/flan-t5-base + LoRA` Seq2Seq；`parser` 仍 rule-first，`lifecycle` 仍 rule-heavy，`encoder / resampler` 仍以 fixed projection 为主，`belief decoder` 仍以 heuristic/semantic-first 为主
+  - Current retained baseline: 当前训练主线仍是共享 `google/flan-t5-base + LoRA` Seq2Seq；current-head 已 landed shared backbone + task-specific adapters，并让 latent 主链进入 trainable 状态，但 `parser` 仍 rule-first，`lifecycle` 仍 rule-heavy，`belief decoder` 仍以 heuristic/semantic-first 为主
   - Next focus:
-    - shared backbone + task-specific adapters
-    - trainable encoder / resampler
-    - direct latent objectives
     - learned belief decoder
+    - write gain
+    - belief gain
     - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
 
 ## Active Blockers
@@ -200,6 +199,7 @@
 - `BL-009`: `TD-039 / WS-025` 当前已进入 true blocker。current-head 已完成 `256 / 128 / 128` teacher suite，并已用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，确保训练/评测真正消费 teacher 改动；但 all-changed compare 明显变差，`delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`，主退化项是 `lifecycle_prediction`。随后 selective integration 继续把 `lifecycle_prediction` 留在 silver、只应用 `observation + belief` teacher，结果仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`。剩余 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`，不足以支撑有意义的 same-budget compare。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 仍停在 `32 / 34`，当前 launch 只能停在 blocked。
 ## Recent Important Changes
 
+- 2026-04-19: current session 已把 `TD-041 / WS-027` 从 `21/41 keep` 推到 retained `27/41 keep`。新增真实证据包括 `outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json`；当前 latent objective 已记录 `current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`。helper 已把这轮记为 iteration `2 keep`
 - 2026-04-19: current session 已把 `TD-040 / WS-026` 从 `33/39 partial + provider blocker` 推到 retained keep `39/39`。新增真实证据包括 `outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json`（`LongMemEval-S 500`）、`outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json`（`PersonaMem 512`）、以及刷新后的 `latest_stage2_v29_{write,latent,belief}_gain.json` / `latest_stage2_v29_holdout_summary.json` / `latest_*_stage2_v29_canary.json`。helper 已把这轮记为 iteration `3 keep`
 - 2026-04-18: current session 已把 `TD-040 / WS-026` 的 fresh managed run 初始化并推进到 partial retained state：baseline `25` 经 commit `374c78e` 的 `v29` publisher 变更提升到 `33`，对应 guard 通过，`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `1 keep`。同一 session 随后确认 `GPT_AGENT_API_KEY=UNSET`，两个 1-sample canary probe 均返回 `provider_configured=false`，helper 已把 iteration `2` 记为 `blocked`
 - 2026-04-18: current session 又完成了第二轮 selective integration 验证：`scripts/prepare_stage2_data.py` 现支持把 `matched_kinds` 与 `teacher_apply_kinds` 解耦，并支持独立 manifest namespace；fresh `observation+belief` selective compare 已验证去掉 `lifecycle` teacher 后，`belief` teacher 仍带来负增益。helper 已把这轮记为 iteration `2 discard`，随后又把 “observation-only 信号过稀、当前 launch 进入 true blocker” 记为 iteration `3 blocked`
