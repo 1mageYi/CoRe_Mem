@@ -134,6 +134,134 @@ def _publish_v24_eval_artifact(
     return str(artifact_path)
 
 
+def _load_eval_payload(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Eval payload at {path} must be a JSON object.")
+    return payload
+
+
+def _trained_eval_payload(payload: dict[str, object]) -> dict[str, object]:
+    trained = payload.get("trained_eval")
+    if isinstance(trained, dict):
+        return trained
+    return payload
+
+
+def _task_metrics(payload: dict[str, object], task_name: str) -> dict[str, object]:
+    per_task = payload.get("per_task")
+    if not isinstance(per_task, dict):
+        return {}
+    task_payload = per_task.get(task_name)
+    return task_payload if isinstance(task_payload, dict) else {}
+
+
+def _positive_task_gain(
+    baseline_payload: dict[str, object],
+    current_payload: dict[str, object],
+    *,
+    task_name: str,
+) -> bool:
+    baseline_task = _task_metrics(baseline_payload, task_name)
+    current_task = _task_metrics(current_payload, task_name)
+    return (
+        float(current_task.get("token_f1", 0.0)) > float(baseline_task.get("token_f1", 0.0))
+        or float(current_task.get("field_f1", 0.0)) > float(baseline_task.get("field_f1", 0.0))
+    )
+
+
+def _publish_v30_belief_decoder_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    baseline_eval_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    baseline_eval = _trained_eval_payload(_load_eval_payload(baseline_eval_path))
+    current_eval = _trained_eval_payload(payload)
+    baseline_task = _task_metrics(baseline_eval, "composition_to_belief")
+    current_task = _task_metrics(current_eval, "composition_to_belief")
+    artifact_path = output_root / "artifacts" / "latest_stage2_v30_belief_decoder_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v30_belief_decoder_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "baseline_eval_path": str(baseline_eval_path),
+        "current_eval_path": payload.get("result_path"),
+        "baseline_composition_to_belief": baseline_task,
+        "current_composition_to_belief": current_task,
+        "belief_recovery_family": payload.get("families", {}).get("belief_recovery_family", {}),
+        "belief_decoder_module": payload.get("modules", {}).get("belief_decoder", {}),
+        "delta_token_f1": float(current_task.get("token_f1", 0.0)) - float(baseline_task.get("token_f1", 0.0)),
+        "delta_field_f1": float(current_task.get("field_f1", 0.0)) - float(baseline_task.get("field_f1", 0.0)),
+        "delta_exact_match": float(current_task.get("exact_match", 0.0)) - float(baseline_task.get("exact_match", 0.0)),
+        "positive_gain": _positive_task_gain(baseline_eval, current_eval, task_name="composition_to_belief"),
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
+def _publish_v30_write_gain_artifact(
+    *,
+    prepared_manifest_path: Path,
+    baseline_eval_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    baseline_eval = _trained_eval_payload(_load_eval_payload(baseline_eval_path))
+    current_eval = _trained_eval_payload(payload)
+    baseline_task = _task_metrics(baseline_eval, "lifecycle_prediction")
+    current_task = _task_metrics(current_eval, "lifecycle_prediction")
+    artifact_path = output_root / "artifacts" / "latest_stage2_v30_write_gain.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v30_write_gain",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "baseline_eval_path": str(baseline_eval_path),
+        "current_eval_path": payload.get("result_path"),
+        "baseline_lifecycle_prediction": baseline_task,
+        "current_lifecycle_prediction": current_task,
+        "delta_token_f1": float(current_task.get("token_f1", 0.0)) - float(baseline_task.get("token_f1", 0.0)),
+        "delta_field_f1": float(current_task.get("field_f1", 0.0)) - float(baseline_task.get("field_f1", 0.0)),
+        "delta_exact_match": float(current_task.get("exact_match", 0.0)) - float(baseline_task.get("exact_match", 0.0)),
+        "positive_gain": _positive_task_gain(baseline_eval, current_eval, task_name="lifecycle_prediction"),
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
+def _publish_v30_belief_gain_artifact(
+    *,
+    prepared_manifest_path: Path,
+    baseline_eval_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    baseline_eval = _trained_eval_payload(_load_eval_payload(baseline_eval_path))
+    current_eval = _trained_eval_payload(payload)
+    baseline_task = _task_metrics(baseline_eval, "composition_to_belief")
+    current_task = _task_metrics(current_eval, "composition_to_belief")
+    artifact_path = output_root / "artifacts" / "latest_stage2_v30_belief_gain.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v30_belief_gain",
+        "component": "belief",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "baseline_eval_path": str(baseline_eval_path),
+        "current_eval_path": payload.get("result_path"),
+        "baseline_composition_to_belief": baseline_task,
+        "current_composition_to_belief": current_task,
+        "belief_recovery_family": payload.get("families", {}).get("belief_recovery_family", {}),
+        "belief_decoder_module": payload.get("modules", {}).get("belief_decoder", {}),
+        "delta_token_f1": float(current_task.get("token_f1", 0.0)) - float(baseline_task.get("token_f1", 0.0)),
+        "delta_field_f1": float(current_task.get("field_f1", 0.0)) - float(baseline_task.get("field_f1", 0.0)),
+        "delta_exact_match": float(current_task.get("exact_match", 0.0)) - float(baseline_task.get("exact_match", 0.0)),
+        "positive_gain": _positive_task_gain(baseline_eval, current_eval, task_name="composition_to_belief"),
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
 def run_local_eval(
     prepared_manifest_path: Path,
     output_root: Path,
@@ -216,6 +344,10 @@ def main() -> int:
     parser.add_argument("--publish-semantic-full-eval", action="store_true")
     parser.add_argument("--publish-slot-assignment-eval", action="store_true")
     parser.add_argument("--publish-v24-eval", action="store_true")
+    parser.add_argument("--publish-v30-belief-decoder-eval", action="store_true")
+    parser.add_argument("--publish-v30-write-gain", action="store_true")
+    parser.add_argument("--publish-v30-belief-gain", action="store_true")
+    parser.add_argument("--v30-baseline-eval")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -254,6 +386,30 @@ def main() -> int:
     if args.publish_v24_eval:
         payload["v24_eval_artifact"] = _publish_v24_eval_artifact(
             prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v30_belief_decoder_eval or args.publish_v30_write_gain or args.publish_v30_belief_gain:
+        if not args.v30_baseline_eval:
+            raise ValueError("v30 eval publishers require --v30-baseline-eval")
+    if args.publish_v30_belief_decoder_eval:
+        payload["v30_belief_decoder_eval_artifact"] = _publish_v30_belief_decoder_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            baseline_eval_path=Path(args.v30_baseline_eval),
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v30_write_gain:
+        payload["v30_write_gain_artifact"] = _publish_v30_write_gain_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            baseline_eval_path=Path(args.v30_baseline_eval),
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v30_belief_gain:
+        payload["v30_belief_gain_artifact"] = _publish_v30_belief_gain_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            baseline_eval_path=Path(args.v30_baseline_eval),
             output_root=output_root,
             payload=payload,
         )
