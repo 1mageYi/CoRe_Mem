@@ -208,3 +208,65 @@ def test_train_stage2_can_register_experiment_outputs(tmp_path: Path):
     assert Path(payload["experiment_index_path"]).exists()
     index_payload = json.loads(Path(payload["experiment_index_path"]).read_text(encoding="utf-8"))
     assert index_payload["experiments"]["mainline"]["completed"] is True
+
+
+def test_train_stage2_can_publish_v30_task_adapter_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    baseline_eval = output_root / "artifacts" / "shared_baseline_eval.json"
+    baseline_eval.parent.mkdir(parents=True, exist_ok=True)
+    baseline_eval.write_text(
+        json.dumps(
+            {
+                "trained_eval": {
+                    "metrics": {"token_f1": -0.1, "field_f1": -0.1},
+                    "per_task": {
+                        "retrieval_alignment": {"token_f1": -0.1, "field_f1": -0.1},
+                        "lifecycle_prediction": {"token_f1": -0.1, "field_f1": -0.1},
+                        "composition_to_belief": {"token_f1": -0.1, "field_f1": -0.1},
+                    },
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v30_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--experiment-id",
+        "mainline",
+        "--register-experiment",
+        "--max-eval-examples",
+        "4",
+        "--publish-v30-shared-backbone-train",
+        "--publish-v30-task-adapter-compare",
+        "--v30-shared-baseline-eval",
+        str(baseline_eval),
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["task_adapters_enabled"] is True
+    assert payload["task_adapter_names"]["retrieval_alignment"] == "retrieval_adapter"
+    shared_train_artifact = Path(payload["v30_shared_backbone_train_artifact"])
+    compare_artifact = Path(payload["v30_task_adapter_compare_artifact"])
+    assert shared_train_artifact.exists()
+    assert compare_artifact.exists()
+    compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
+    assert compare_payload["task_specific_positive_gain"] is True

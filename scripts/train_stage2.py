@@ -126,6 +126,79 @@ def _publish_v24_train_artifact(
     return str(artifact_path)
 
 
+def _publish_v30_shared_backbone_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    prepared_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_v30_shared_backbone_train.json"
+    payload = {
+        "artifact_type": "stage2_v30_shared_backbone_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "prepared_manifest": str(prepared_manifest_path),
+        "task_adapters_enabled": bool(summary.get("task_adapters_enabled", False)),
+        "task_adapter_names": summary.get("task_adapter_names", {}),
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
+def _publish_v30_task_adapter_compare_artifact(
+    *,
+    output_root: Path,
+    baseline_eval_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    baseline_payload = _load_json(baseline_eval_path)
+    baseline_eval = baseline_payload.get("trained_eval", baseline_payload)
+    current_eval = summary.get("trained_eval")
+    if not isinstance(current_eval, dict):
+        raise ValueError("v30 task-adapter compare requires trained_eval in the current summary.")
+    baseline_metrics = baseline_eval.get("metrics", {}) if isinstance(baseline_eval, dict) else {}
+    current_metrics = current_eval.get("metrics", {})
+    baseline_per_task = baseline_eval.get("per_task", {}) if isinstance(baseline_eval, dict) else {}
+    current_per_task = current_eval.get("per_task", {})
+    task_deltas = {}
+    for task_name, current_task_payload in current_per_task.items():
+        if not isinstance(current_task_payload, dict):
+            continue
+        baseline_task_payload = baseline_per_task.get(task_name, {}) if isinstance(baseline_per_task, dict) else {}
+        current_task_token_f1 = float(current_task_payload.get("token_f1", 0.0))
+        baseline_task_token_f1 = float((baseline_task_payload or {}).get("token_f1", 0.0))
+        current_task_field_f1 = float(current_task_payload.get("field_f1", 0.0))
+        baseline_task_field_f1 = float((baseline_task_payload or {}).get("field_f1", 0.0))
+        task_deltas[task_name] = {
+            "delta_token_f1": current_task_token_f1 - baseline_task_token_f1,
+            "delta_field_f1": current_task_field_f1 - baseline_task_field_f1,
+            "current_token_f1": current_task_token_f1,
+            "baseline_token_f1": baseline_task_token_f1,
+            "current_field_f1": current_task_field_f1,
+            "baseline_field_f1": baseline_task_field_f1,
+        }
+    baseline_score = float(baseline_metrics.get("token_f1", 0.0)) + float(baseline_metrics.get("field_f1", 0.0))
+    current_score = float(current_metrics.get("token_f1", 0.0)) + float(current_metrics.get("field_f1", 0.0))
+    artifact_path = output_root / "artifacts" / "latest_stage2_v30_task_adapter_compare.json"
+    payload = {
+        "artifact_type": "stage2_v30_task_adapter_compare",
+        "commit_hash": _current_commit_hash(),
+        "baseline_eval_path": str(baseline_eval_path),
+        "current_eval_path": str(summary.get("result_path", "")),
+        "baseline_score": baseline_score,
+        "current_score": current_score,
+        "delta_score": current_score - baseline_score,
+        "task_specific_positive_gain": current_score > baseline_score,
+        "task_deltas": task_deltas,
+        "task_adapters_enabled": bool(summary.get("task_adapters_enabled", False)),
+        "task_adapter_names": summary.get("task_adapter_names", {}),
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
 def stage2_train_plan(config_path: Path, prepared_manifest_path: Path, output_root: Path, *, execute_smoke: bool) -> dict[str, Any]:
     config = _load_yaml(config_path)
     manifest = _load_json(prepared_manifest_path)
@@ -256,6 +329,8 @@ def stage2_train_execute(
         "steps_per_second": (metrics["num_steps"] / wall_clock_seconds) if wall_clock_seconds else None,
         "peak_gpu_memory_mb": peak_gpu_memory_mb,
         "gpu_name": gpu_name,
+        "task_adapters_enabled": bool(metrics.get("task_adapters_enabled", False)),
+        "task_adapter_names": metrics.get("task_adapter_names", {}),
     }
     (run_dir / "execution_summary.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -288,6 +363,9 @@ def main() -> int:
     parser.add_argument("--publish-semantic-full-train", action="store_true")
     parser.add_argument("--publish-slot-assignment-train", action="store_true")
     parser.add_argument("--publish-v24-train", action="store_true")
+    parser.add_argument("--publish-v30-shared-backbone-train", action="store_true")
+    parser.add_argument("--publish-v30-task-adapter-compare", action="store_true")
+    parser.add_argument("--v30-shared-baseline-eval")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -358,6 +436,8 @@ def main() -> int:
             payload["local_eval_path"] = eval_payload["result_path"]
             payload["summary_table_path"] = eval_payload["summary_table_path"]
             payload["budget_table_path"] = eval_payload["budget_table_path"]
+            if "trained_eval" in eval_payload:
+                payload["trained_eval"] = eval_payload["trained_eval"]
             payload["experiment_index_path"] = str(index_path)
         if args.publish_semantic_full_train:
             payload["semantic_full_train_artifact"] = _publish_semantic_full_train_artifact(
@@ -378,6 +458,23 @@ def main() -> int:
                 output_root=output_root,
                 config_path=config_path,
                 prepared_manifest_path=prepared_manifest_path,
+                summary=payload,
+            )
+        if args.publish_v30_shared_backbone_train:
+            payload["v30_shared_backbone_train_artifact"] = _publish_v30_shared_backbone_train_artifact(
+                output_root=output_root,
+                config_path=config_path,
+                prepared_manifest_path=prepared_manifest_path,
+                summary=payload,
+            )
+        if args.publish_v30_task_adapter_compare:
+            if "trained_eval" not in payload:
+                raise ValueError("--publish-v30-task-adapter-compare requires --register-experiment so trained_eval is available.")
+            if not args.v30_shared_baseline_eval:
+                raise ValueError("--publish-v30-task-adapter-compare requires --v30-shared-baseline-eval")
+            payload["v30_task_adapter_compare_artifact"] = _publish_v30_task_adapter_compare_artifact(
+                output_root=output_root,
+                baseline_eval_path=Path(args.v30_shared_baseline_eval),
                 summary=payload,
             )
     else:

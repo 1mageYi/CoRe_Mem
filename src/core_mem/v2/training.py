@@ -21,6 +21,30 @@ from core_mem.v2.semantic_outputs import (
 )
 
 SLOT_ASSIGNMENT_TASK_NAME = "lifecycle_prediction"
+DEFAULT_TASK_ADAPTER_NAMES = {
+    "retrieval_alignment": "retrieval_adapter",
+    SLOT_ASSIGNMENT_TASK_NAME: "write_adapter",
+    "composition_to_belief": "belief_adapter",
+    "slot_autoencoding": "autoencoding_adapter",
+}
+
+
+def task_adapter_settings(
+    config: dict[str, Any],
+    *,
+    tasks: list[str] | None = None,
+) -> dict[str, Any]:
+    configured_tasks = tasks or list(config.get("training", {}).get("tasks", [])) or list(DEFAULT_TASK_ADAPTER_NAMES)
+    task_adapters = (config.get("model", {}) or {}).get("task_adapters", {}) or {}
+    raw_names = task_adapters.get("names", {}) or {}
+    adapter_names = {
+        task_name: str(raw_names.get(task_name) or DEFAULT_TASK_ADAPTER_NAMES.get(task_name) or f"{task_name}_adapter")
+        for task_name in configured_tasks
+    }
+    return {
+        "enabled": bool(task_adapters.get("enabled", False)),
+        "names": adapter_names,
+    }
 
 
 @dataclass(frozen=True)
@@ -386,6 +410,51 @@ class TinySeq2SeqModel(nn.Module):
         return type("TinySeq2SeqOutput", (), {"loss": loss, "logits": logits})
 
 
+class TinyTaskAdaptiveSeq2SeqModel(nn.Module):
+    def __init__(self, vocab_size: int, adapter_names: dict[str, str], hidden_size: int = 64) -> None:
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, hidden_size)
+        self.encoder = nn.GRU(hidden_size, hidden_size, batch_first=True)
+        unique_adapters = sorted(set(adapter_names.values()))
+        self.adapter_bridges = nn.ModuleDict({name: nn.Linear(hidden_size, hidden_size) for name in unique_adapters})
+        self.output_heads = nn.ModuleDict({name: nn.Linear(hidden_size, vocab_size) for name in unique_adapters})
+        self.active_adapter = unique_adapters[0] if unique_adapters else "default"
+
+    def set_adapter(self, adapter_name: str) -> None:
+        if adapter_name not in self.adapter_bridges:
+            raise KeyError(f"Unknown tiny task adapter: {adapter_name}")
+        self.active_adapter = adapter_name
+
+    def forward(
+        self,
+        *,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
+        adapter_name: str | None = None,
+    ) -> Any:
+        adapter_key = adapter_name or self.active_adapter
+        if adapter_key not in self.adapter_bridges:
+            raise KeyError(f"Unknown tiny task adapter: {adapter_key}")
+        embedded = self.embed(input_ids)
+        _, hidden = self.encoder(embedded)
+        if labels is None:
+            steps = input_ids.size(1)
+        else:
+            steps = labels.size(1)
+        shared = hidden.transpose(0, 1).expand(-1, steps, -1)
+        adapted = torch.tanh(self.adapter_bridges[adapter_key](shared))
+        logits = self.output_heads[adapter_key](adapted)
+        loss = None
+        if labels is not None:
+            loss = nn.functional.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                labels.reshape(-1),
+                ignore_index=-100,
+            )
+        return type("TinyTaskAdaptiveSeq2SeqOutput", (), {"loss": loss, "logits": logits})
+
+
 def _decode_char_tokens(tokens: list[int]) -> str:
     payload = bytearray()
     for token in tokens:
@@ -449,11 +518,19 @@ def configure_hf_cache(config: dict[str, Any]) -> dict[str, str]:
     return env_updates
 
 
-def build_runtime_components(config: dict[str, Any]) -> tuple[Any, Any]:
+def build_runtime_components(
+    config: dict[str, Any],
+    *,
+    tasks: list[str] | None = None,
+) -> tuple[Any, Any]:
     backbone = config.get("model", {}).get("backbone", "google/flan-t5-base")
+    adapter_settings = task_adapter_settings(config, tasks=tasks)
     if backbone == "__tiny_debug_seq2seq__":
         tokenizer = CharTokenizer()
-        model = TinySeq2SeqModel(tokenizer.vocab_size)
+        if adapter_settings["enabled"]:
+            model = TinyTaskAdaptiveSeq2SeqModel(tokenizer.vocab_size, adapter_settings["names"])
+        else:
+            model = TinySeq2SeqModel(tokenizer.vocab_size)
         return model, tokenizer
 
     from peft import LoraConfig, TaskType, get_peft_model
@@ -471,7 +548,15 @@ def build_runtime_components(config: dict[str, Any]) -> tuple[Any, Any]:
         target_modules=lora_cfg.get("target_modules", ["q", "v"]),
         task_type=TaskType.SEQ_2_SEQ_LM,
     )
-    model = get_peft_model(model, peft_config)
+    if adapter_settings["enabled"]:
+        adapter_names = list(dict.fromkeys(adapter_settings["names"].values()))
+        primary_adapter = adapter_names[0]
+        model = get_peft_model(model, peft_config, adapter_name=primary_adapter)
+        for adapter_name in adapter_names[1:]:
+            model.add_adapter(adapter_name, peft_config)
+        model.set_adapter(primary_adapter)
+    else:
+        model = get_peft_model(model, peft_config)
     return model, tokenizer
 
 
@@ -482,9 +567,13 @@ def load_runtime_components(
     device: str = "cpu",
 ) -> tuple[Any, Any]:
     backbone = config.get("model", {}).get("backbone", "google/flan-t5-base")
+    adapter_settings = task_adapter_settings(config)
     if backbone == "__tiny_debug_seq2seq__":
         tokenizer = CharTokenizer()
-        model = TinySeq2SeqModel(tokenizer.vocab_size)
+        if adapter_settings["enabled"]:
+            model = TinyTaskAdaptiveSeq2SeqModel(tokenizer.vocab_size, adapter_settings["names"])
+        else:
+            model = TinySeq2SeqModel(tokenizer.vocab_size)
         state_dict = torch.load(checkpoint_dir / "tiny_model.pt", map_location=device, weights_only=True)
         model.load_state_dict(state_dict)
         model.to(device)
@@ -498,7 +587,15 @@ def load_runtime_components(
     cache_dir = env_updates.get("HF_HUB_CACHE")
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir / "tokenizer", cache_dir=cache_dir)
     base_model = AutoModelForSeq2SeqLM.from_pretrained(backbone, cache_dir=cache_dir)
-    model = PeftModel.from_pretrained(base_model, checkpoint_dir)
+    if adapter_settings["enabled"]:
+        adapter_names = list(dict.fromkeys(adapter_settings["names"].values()))
+        primary_adapter = adapter_names[0]
+        model = PeftModel.from_pretrained(base_model, checkpoint_dir / primary_adapter, adapter_name=primary_adapter)
+        for adapter_name in adapter_names[1:]:
+            model.load_adapter(str(checkpoint_dir / adapter_name), adapter_name=adapter_name)
+        model.set_adapter(primary_adapter)
+    else:
+        model = PeftModel.from_pretrained(base_model, checkpoint_dir)
     model.to(device)
     model.eval()
     return model, tokenizer
@@ -521,7 +618,10 @@ def generate_prediction_text(
             device=device,
         )
         with torch.no_grad():
-            output = model(input_ids=input_ids, attention_mask=attention_mask)
+            if hasattr(model, "active_adapter"):
+                output = model(input_ids=input_ids, attention_mask=attention_mask, adapter_name=model.active_adapter)
+            else:
+                output = model(input_ids=input_ids, attention_mask=attention_mask)
         predicted_ids = output.logits.argmax(dim=-1)[0].detach().cpu().tolist()
         return _decode_char_tokens(predicted_ids)
 
@@ -550,6 +650,7 @@ def evaluate_stage2_checkpoint(
     device: str = "cpu",
 ) -> dict[str, Any]:
     configured_tasks = tasks or list(config.get("training", {}).get("tasks", [])) or None
+    adapter_settings = task_adapter_settings(config, tasks=configured_tasks)
     examples = build_training_examples(prepared_manifest_path, tasks=configured_tasks)
     examples = _balanced_cap_examples(examples, max_examples=max_eval_examples)
     if not examples:
@@ -569,6 +670,8 @@ def evaluate_stage2_checkpoint(
     per_task: dict[str, dict[str, list[float] | int]] = {}
     samples: list[dict[str, Any]] = []
     for example in examples:
+        if adapter_settings["enabled"] and hasattr(model, "set_adapter"):
+            model.set_adapter(adapter_settings["names"][example.task_name])
         prediction = generate_prediction_text(
             model,
             tokenizer,
@@ -667,9 +770,11 @@ def train_stage2_model(
     disabled_pools: list[str] | None = None,
 ) -> dict[str, Any]:
     online_aligned = bool(config.get("training", {}).get("online_aligned", False))
+    configured_tasks = list(config.get("training", {}).get("tasks", [])) or None
+    adapter_settings = task_adapter_settings(config, tasks=configured_tasks)
     examples = build_training_examples_with_variant(
         prepared_manifest_path,
-        tasks=list(config.get("training", {}).get("tasks", [])) or None,
+        tasks=configured_tasks,
         disabled_pools=disabled_pools,
         online_aligned=online_aligned,
     )
@@ -686,7 +791,7 @@ def train_stage2_model(
     if not examples:
         raise ValueError("No training examples were prepared for stage-2.")
 
-    model, tokenizer = build_runtime_components(config)
+    model, tokenizer = build_runtime_components(config, tasks=configured_tasks)
     model.to(device)
     batching = config.get("training", {}).get("batching", {})
     max_source_length = int(batching.get("max_source_length", 256))
@@ -694,13 +799,6 @@ def train_stage2_model(
     batch_size = int(batching.get("per_device_batch_size", 4))
     grad_accumulation = max(int(batching.get("gradient_accumulation_steps", 1)), 1)
     epochs = int(batching.get("num_train_epochs", 1))
-    dataset = PreparedSeq2SeqDataset(
-        examples,
-        tokenizer,
-        max_source_length=max_source_length,
-        max_target_length=max_target_length,
-    )
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config.get("training", {}).get("optimizer", {}).get("lr", 1e-4)),
@@ -710,26 +808,93 @@ def train_stage2_model(
     step = 0
     optimizer_steps = 0
     loss_history: list[float] = []
-    for _ in range(epochs):
-        optimizer.zero_grad(set_to_none=True)
-        for batch in loader:
-            step += 1
-            batch = {key: value.to(device) for key, value in batch.items()}
-            output = model(**batch)
-            loss = output.loss
-            if loss is None:
-                raise RuntimeError("Training model did not return a loss.")
-            scaled_loss = loss / grad_accumulation
-            scaled_loss.backward()
-            if step % grad_accumulation == 0:
-                optimizer.step()
-                optimizer.zero_grad(set_to_none=True)
-                optimizer_steps += 1
-            loss_history.append(float(loss.detach().cpu().item()))
+    if adapter_settings["enabled"]:
+        grouped_examples: dict[str, list[TrainingExample]] = {
+            task_name: [example for example in examples if example.task_name == task_name]
+            for task_name in configured_tasks or sorted({example.task_name for example in examples})
+        }
+        grouped_loaders = {
+            task_name: DataLoader(
+                PreparedSeq2SeqDataset(
+                    task_examples,
+                    tokenizer,
+                    max_source_length=max_source_length,
+                    max_target_length=max_target_length,
+                ),
+                batch_size=batch_size,
+                shuffle=True,
+            )
+            for task_name, task_examples in grouped_examples.items()
+            if task_examples
+        }
+        for _ in range(epochs):
+            optimizer.zero_grad(set_to_none=True)
+            iterators = {task_name: iter(loader) for task_name, loader in grouped_loaders.items()}
+            active_tasks = list(grouped_loaders)
+            while iterators:
+                progressed = False
+                for task_name in active_tasks:
+                    iterator = iterators.get(task_name)
+                    if iterator is None:
+                        continue
+                    try:
+                        batch = next(iterator)
+                    except StopIteration:
+                        iterators.pop(task_name, None)
+                        continue
+                    progressed = True
+                    step += 1
+                    batch = {key: value.to(device) for key, value in batch.items()}
+                    if hasattr(model, "set_adapter"):
+                        model.set_adapter(adapter_settings["names"][task_name])
+                    if hasattr(model, "active_adapter"):
+                        output = model(**batch, adapter_name=adapter_settings["names"][task_name])
+                    else:
+                        output = model(**batch)
+                    loss = output.loss
+                    if loss is None:
+                        raise RuntimeError("Training model did not return a loss.")
+                    scaled_loss = loss / grad_accumulation
+                    scaled_loss.backward()
+                    if step % grad_accumulation == 0:
+                        optimizer.step()
+                        optimizer.zero_grad(set_to_none=True)
+                        optimizer_steps += 1
+                    loss_history.append(float(loss.detach().cpu().item()))
+                    if max_steps is not None and step >= max_steps:
+                        break
+                if not progressed or (max_steps is not None and step >= max_steps):
+                    break
             if max_steps is not None and step >= max_steps:
                 break
-        if max_steps is not None and step >= max_steps:
-            break
+    else:
+        dataset = PreparedSeq2SeqDataset(
+            examples,
+            tokenizer,
+            max_source_length=max_source_length,
+            max_target_length=max_target_length,
+        )
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        for _ in range(epochs):
+            optimizer.zero_grad(set_to_none=True)
+            for batch in loader:
+                step += 1
+                batch = {key: value.to(device) for key, value in batch.items()}
+                output = model(**batch)
+                loss = output.loss
+                if loss is None:
+                    raise RuntimeError("Training model did not return a loss.")
+                scaled_loss = loss / grad_accumulation
+                scaled_loss.backward()
+                if step % grad_accumulation == 0:
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    optimizer_steps += 1
+                loss_history.append(float(loss.detach().cpu().item()))
+                if max_steps is not None and step >= max_steps:
+                    break
+            if max_steps is not None and step >= max_steps:
+                break
     if step % grad_accumulation != 0:
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
@@ -742,6 +907,8 @@ def train_stage2_model(
         "loss_history": loss_history,
         "final_loss": loss_history[-1] if loss_history else None,
         "online_aligned": online_aligned,
+        "task_adapters_enabled": adapter_settings["enabled"],
+        "task_adapter_names": adapter_settings["names"],
         "model": model,
         "tokenizer": tokenizer,
     }
@@ -755,6 +922,7 @@ def save_training_artifacts(
     metrics: dict[str, Any],
 ) -> dict[str, str]:
     backbone = config.get("model", {}).get("backbone", "google/flan-t5-base")
+    adapter_settings = task_adapter_settings(config)
     checkpoints_dir = output_root / "checkpoints"
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_dir = checkpoints_dir / run_dir.name
@@ -769,8 +937,24 @@ def save_training_artifacts(
         torch.save(model.state_dict(), checkpoint_dir / "tiny_model.pt")
         tokenizer.save_pretrained(checkpoint_dir / "tokenizer")
     else:
-        model.save_pretrained(checkpoint_dir)
+        if adapter_settings["enabled"]:
+            model.save_pretrained(checkpoint_dir, selected_adapters=list(dict.fromkeys(adapter_settings["names"].values())))
+        else:
+            model.save_pretrained(checkpoint_dir)
         tokenizer.save_pretrained(checkpoint_dir / "tokenizer")
+
+    if adapter_settings["enabled"]:
+        (checkpoint_dir / "task_adapters.json").write_text(
+            json.dumps(
+                {
+                    "enabled": True,
+                    "task_adapter_names": adapter_settings["names"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     return {
         "metrics_path": str(metrics_path),
