@@ -3,14 +3,19 @@ import json
 import subprocess
 import sys
 
+import torch
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from core_mem.v2.training import TrainingExample
 from core_mem.v2.training import build_training_examples
 from core_mem.v2.training import _balanced_cap_examples
+from core_mem.v2.training import generate_prediction_text
+from core_mem.v2.training import _json_start_prefix_allowed_tokens_fn
 from core_mem.v2.training import compact_slot_payload
 
 
@@ -359,3 +364,65 @@ def test_train_stage2_can_publish_v31_latent_mainline_artifacts(tmp_path: Path):
     assert compare_artifact.exists()
     compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
     assert compare_payload["positive_gain"] is True
+
+
+def test_json_start_prefix_allowed_tokens_fn_constrains_first_generated_token():
+    class DummyTokenizer:
+        vocab_size = 8
+
+        def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+            if text == "{":
+                return [5]
+            raise AssertionError(text)
+
+    fn = _json_start_prefix_allowed_tokens_fn(DummyTokenizer())
+    assert fn is not None
+    assert fn(0, torch.tensor([0])) == [5]
+    assert fn(0, torch.tensor([0, 5])) == list(range(8))
+
+
+def test_generate_prediction_text_uses_json_start_constraint_for_belief_tasks():
+    class DummyTokenizer:
+        vocab_size = 16
+
+        def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+            if text == "{":
+                return [7]
+            return [1]
+
+        def __call__(self, text: str, return_tensors: str, truncation: bool, max_length: int) -> dict[str, torch.Tensor]:
+            return {
+                "input_ids": torch.tensor([[1, 2, 3]], dtype=torch.long),
+                "attention_mask": torch.tensor([[1, 1, 1]], dtype=torch.long),
+            }
+
+        def decode(self, tokens: torch.Tensor, skip_special_tokens: bool = True) -> str:
+            return '{"belief_items":[]}'
+
+    class DummyModel:
+        def __init__(self) -> None:
+            self.kwargs = None
+
+        def generate(self, **kwargs: object) -> torch.Tensor:
+            self.kwargs = kwargs
+            return torch.tensor([[7, 8, 9]], dtype=torch.long)
+
+    model = DummyModel()
+    tokenizer = DummyTokenizer()
+    example = TrainingExample(
+        task_name="composition_to_belief",
+        input_text="task: composition_to_belief",
+        target_text='{"belief_items":[]}',
+    )
+    text = generate_prediction_text(
+        model,
+        tokenizer,
+        example,
+        max_source_length=32,
+        max_target_length=16,
+        device="cpu",
+    )
+    assert text == '{"belief_items":[]}'
+    prefix_fn = model.kwargs["prefix_allowed_tokens_fn"]
+    assert prefix_fn is not None
+    assert prefix_fn(0, torch.tensor([0])) == [7]
