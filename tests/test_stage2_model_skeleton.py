@@ -551,6 +551,52 @@ def test_structured_memory_system_repairs_learned_belief_from_context():
     assert result.answer_text == "burgers"
 
 
+def test_structured_memory_system_backfills_relation_name_placeholder_from_support_slot():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda query_id, *_args, **_kwargs: {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "class_location",
+                    "value": "class_location",
+                }
+            ],
+        },
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-class-location",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-class",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-class",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "class_location",
+                "value": "Serenity Yoga",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 1.0,
+                "evidence_text": "I take classes at Serenity Yoga.",
+                "canonical_gloss": "class_location=serenity yoga",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-class-location", "Where do I take yoga classes?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "class_location"
+    assert result.belief_state.belief_items[0].value == "serenity yoga"
+    assert result.answer_text == "serenity yoga"
+
+
 def test_structured_memory_system_falls_back_from_raw_value_fragment_in_learned_belief():
     system = StructuredMemorySystem(
         memory_mode="learned_memory",

@@ -839,7 +839,13 @@ class StructuredMemorySystem:
         }
         sections = [
             "task: composition_to_belief",
-            "instruction: Recover the semantic fields and emit a compact structured object. Semantic correctness matters more than raw JSON surface matching.",
+            (
+                "instruction: Recover the semantic fields and emit a compact structured object. "
+                "Semantic correctness matters more than raw JSON surface matching. "
+                "The memory_slots are already ordered from most query-relevant to least query-relevant. "
+                "If one of the top-ranked slots directly answers the query, copy that slot's relation and value "
+                "instead of switching to a generic relation such as other_fact."
+            ),
         ]
         for key, value in payload.items():
             sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
@@ -1046,6 +1052,8 @@ class StructuredMemorySystem:
         if not cleaned:
             return True
         if _STRUCTURAL_VALUE_NOISE_RE.search(cleaned):
+            return True
+        if cleaned.strip().lower() == relation.strip().lower():
             return True
         if "=" in cleaned:
             prefix = cleaned.split("=", 1)[0].strip().lower()
