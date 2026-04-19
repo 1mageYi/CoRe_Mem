@@ -236,6 +236,7 @@ class StructuredMemorySystem:
                         scored_slots,
                         key=lambda item: (
                             item[2] > 0.0,
+                            item[2],
                             float(latent_scores.get(item[0].slot_id, float("-inf"))) if item[2] > 0.0 else float("-inf"),
                             item[1],
                         ),

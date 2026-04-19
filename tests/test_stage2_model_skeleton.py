@@ -263,6 +263,66 @@ def test_structured_memory_system_keeps_query_anchored_slot_ahead_of_zero_overla
     assert result.answer_text == "target"
 
 
+def test_structured_memory_system_prefers_stronger_lexical_anchor_before_latent_rerank():
+    def _latent_ranker(_query_text: str, slots):
+        return {
+            slot.slot_id: (10.0 if "local italian restaurants" in slot.canonical_gloss else 0.0)
+            for slot in slots
+        }
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-latent-lexical-play",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-latent-lexical",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-latent-lexical",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "attended_play",
+                "value": "The Glass Menagerie at the local community theater",
+                "value_type": "event",
+                "time_scope": "past",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 1.0,
+                "evidence_text": "I attended a local community theater production of The Glass Menagerie last weekend.",
+                "canonical_gloss": "attended_play=the glass menagerie at the local community theater",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-latent-lexical-restaurants",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-latent-lexical",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-latent-lexical",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "looking for some recommendations for local italian restaurants",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "I'm looking for some recommendations for local Italian restaurants.",
+                "canonical_gloss": "other_fact=looking for some recommendations for local italian restaurants",
+            }
+        ),
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    result = system.query("query-latent-lexical", "What play did I attend at the local community theater?")
+    assert "glass menagerie" in result.selected_slots[0].canonical_gloss
+    assert "glass menagerie" in result.answer_text
+
+
 def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemption():
     system = StructuredMemorySystem()
     system.observe_turn(
