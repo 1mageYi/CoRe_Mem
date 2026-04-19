@@ -169,6 +169,7 @@
 
 ### 下一阶段（v30）主线
 
+- 当前 `TD-041` / `v30` runtime truth：`shared backbone` + `task-specific` adapters、`trainable latent`、learned `belief` 与 full benchmark holdout 已共同收口；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`
 - shared backbone + task-specific adapters
 - trainable latent encoder / resampler
 - direct latent objectives
