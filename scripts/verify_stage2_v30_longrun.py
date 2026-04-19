@@ -35,6 +35,18 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if stripped:
+                rows.append(json.loads(stripped))
+    return rows
+
+
 def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
     return _read_json(root / "outputs_v2" / "artifacts" / name)
 
@@ -97,6 +109,34 @@ def _rate(payload: dict[str, Any] | None, *, key: str) -> float:
     return _int_metric(payload, key) / sample_count
 
 
+def _normalize_answer(text: str | None) -> str:
+    if text is None:
+        return ""
+    return " ".join(str(text).strip().lower().split())
+
+
+def _subset_exact_metrics(summary_payload: dict[str, Any], sample_ids: set[str]) -> dict[str, float]:
+    predictions_path = summary_payload.get("predictions_path")
+    if not predictions_path:
+        return {"sample_count": 0.0, "provider_exact_rate": 0.0, "local_exact_rate": 0.0}
+    rows = _load_jsonl(Path(str(predictions_path)))
+    scoped = [row for row in rows if str(row.get("sample_id", "")) in sample_ids]
+    if not scoped:
+        return {"sample_count": 0.0, "provider_exact_rate": 0.0, "local_exact_rate": 0.0}
+    provider_exact = sum(
+        1 for row in scoped if _normalize_answer(row.get("provider_prediction")) == _normalize_answer(row.get("expected_answer"))
+    )
+    local_exact = sum(
+        1 for row in scoped if _normalize_answer(row.get("memory_answer_local")) == _normalize_answer(row.get("expected_answer"))
+    )
+    total = len(scoped)
+    return {
+        "sample_count": float(total),
+        "provider_exact_rate": provider_exact / total,
+        "local_exact_rate": local_exact / total,
+    }
+
+
 def _publish_canary_alias(
     *,
     root: Path,
@@ -148,9 +188,16 @@ def publish_v30_full_holdout_artifacts(
         _int_metric(longmemeval_payload, "provider_exact_match") >= _int_metric(retained_v29_long, "provider_exact_match")
         and _int_metric(longmemeval_payload, "local_exact_match") >= _int_metric(retained_v29_long, "local_exact_match")
     )
+    retained_personamem_manifest = retained_v29_persona.get("canary_manifest")
+    overlap_sample_ids: set[str] = set()
+    if retained_personamem_manifest:
+        retained_manifest_payload = _read_json(Path(str(retained_personamem_manifest))) or {}
+        overlap_sample_ids = {str(sample_id) for sample_id in retained_manifest_payload.get("sample_ids", [])}
+    personamem_overlap_metrics = _subset_exact_metrics(personamem_payload, overlap_sample_ids)
     personamem_nonregression = (
-        _float_metric(personamem_payload, "provider_exact_rate") >= _rate(retained_v29_persona, key="provider_exact_match")
-        and _float_metric(personamem_payload, "local_exact_rate") >= _rate(retained_v29_persona, key="local_exact_match")
+        personamem_overlap_metrics["sample_count"] > 0
+        and personamem_overlap_metrics["provider_exact_rate"] >= _rate(retained_v29_persona, key="provider_exact_match")
+        and personamem_overlap_metrics["local_exact_rate"] >= _rate(retained_v29_persona, key="local_exact_match")
     )
 
     holdout_payload = {
@@ -168,6 +215,9 @@ def publish_v30_full_holdout_artifacts(
         "slot_assignment_mode": longmemeval_payload.get("slot_assignment_mode") or personamem_payload.get("slot_assignment_mode"),
         "longmemeval_nonregression_guard": longmemeval_nonregression,
         "personamem_nonregression_guard": personamem_nonregression,
+        "personamem_overlap_sample_count": int(personamem_overlap_metrics["sample_count"]),
+        "personamem_overlap_provider_exact_rate": personamem_overlap_metrics["provider_exact_rate"],
+        "personamem_overlap_local_exact_rate": personamem_overlap_metrics["local_exact_rate"],
         "v29_longmemeval_provider_exact_match": _int_metric(retained_v29_long, "provider_exact_match"),
         "v29_longmemeval_local_exact_match": _int_metric(retained_v29_long, "local_exact_match"),
         "v29_personamem_provider_exact_rate": _rate(retained_v29_persona, key="provider_exact_match"),

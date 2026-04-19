@@ -108,11 +108,33 @@ def test_publish_v30_full_holdout_artifacts_emits_aliases_and_guards(tmp_path: P
     artifact_root.mkdir(parents=True)
     benchmark_root.mkdir(parents=True)
 
+    retained_persona_manifest = benchmark_root / "retained_persona_manifest.json"
+    _write_json(retained_persona_manifest, {"sample_ids": ["pm-1", "pm-2"]})
     _write_json(artifact_root / "latest_longmemeval_stage2_v29_canary.json", {"sample_count": 500, "provider_exact_match": 19, "local_exact_match": 14})
-    _write_json(artifact_root / "latest_personamem_stage2_v29_canary.json", {"sample_count": 512, "provider_exact_match": 171, "local_exact_match": 108})
+    _write_json(
+        artifact_root / "latest_personamem_stage2_v29_canary.json",
+        {
+            "sample_count": 512,
+            "provider_exact_match": 171,
+            "local_exact_match": 108,
+            "canary_manifest": str(retained_persona_manifest),
+        },
+    )
 
     long_summary = benchmark_root / "long.json"
     persona_summary = benchmark_root / "persona.json"
+    persona_predictions = benchmark_root / "persona_predictions.jsonl"
+    persona_predictions.write_text(
+        "\n".join(
+            [
+                json.dumps({"sample_id": "pm-1", "expected_answer": "(a)", "provider_prediction": "(a)", "memory_answer_local": "(a)"}),
+                json.dumps({"sample_id": "pm-2", "expected_answer": "(b)", "provider_prediction": "(b)", "memory_answer_local": "(b)"}),
+                json.dumps({"sample_id": "pm-3", "expected_answer": "(c)", "provider_prediction": "(a)", "memory_answer_local": "(c)"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     _write_json(
         long_summary,
         {
@@ -135,6 +157,7 @@ def test_publish_v30_full_holdout_artifacts_emits_aliases_and_guards(tmp_path: P
             "provider_configured": True,
             "memory_mode": "learned_memory",
             "slot_assignment_mode": "learned",
+            "predictions_path": str(persona_predictions),
         },
     )
 
@@ -147,6 +170,7 @@ def test_publish_v30_full_holdout_artifacts_emits_aliases_and_guards(tmp_path: P
     assert payload["full_holdout_baseline"]["holdout_only"] is True
     assert payload["full_holdout_baseline"]["longmemeval_nonregression_guard"] is True
     assert payload["full_holdout_baseline"]["personamem_nonregression_guard"] is True
+    assert payload["full_holdout_baseline"]["personamem_overlap_sample_count"] == 2
     assert (artifact_root / "latest_stage2_v30_full_holdout_baseline.json").exists()
     assert (artifact_root / "latest_longmemeval_stage2_v30_full.json").exists()
     assert (artifact_root / "latest_personamem_stage2_v30_full.json").exists()
