@@ -170,7 +170,7 @@
 ### 下一阶段（v30）主线
 
 - shared backbone + task-specific adapters
-- trainable encoder / resampler
+- trainable latent encoder / resampler
 - direct latent objectives
 - learned belief decoder
 - full benchmark holdout baseline：
@@ -187,7 +187,12 @@
 - `latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json` 已记录 direct latent objective 正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
 - current HEAD `e9be6f3` 已继续把 retained score 提升到 `33`
 - `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json` 已记录 current-head learned belief decoder / write / belief 正增益
-- 当前仍未完成的主轴是：`full benchmark holdout baseline / LongMemEval-S 500 + PersonaMem 589 full artifact / non-regression guard`
+- current HEAD `a52f59f` 已把 retained score 进一步推进到 `41`
+- `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已记录 current-head full benchmark holdout baseline
+- 当前 full benchmark holdout 仍明确是 holdout-only：
+  - `LongMemEval-S 500` symbolic full run 当前与 retained `v2.9` counts 持平，non-regression guard 为真
+  - `PersonaMem 589` symbolic full run 当前通过 retained `512` shared-subset overlap guard 机械确认 provider exact rate 提升到 `0.3515625`、local exact rate 持平 `0.2109375`
+- 因此，`implementation_plan` 的当前 `v30` runtime truth 已不再是 partial architecture keep，而是：`shared backbone`、`task-specific adapters`、`trainable latent`、learned `belief`、以及 full benchmark holdout baseline 已共同收口到 stop condition `41/41`
 
 ### 当前 `v2.7` 执行锚点
 

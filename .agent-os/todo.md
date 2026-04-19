@@ -18,7 +18,7 @@
   - Runtime truth:
     - 当前 retained `v2.9` 已到 `39/39`
     - 当前 shared training backbone 仍是 `google/flan-t5-base + LoRA`
-    - fresh managed run 已把 `stage2_v30_longrun_score` 从 baseline `17` 提升到 current retained `33/41 keep`
+    - fresh managed run 已把 `stage2_v30_longrun_score` 从 baseline `17` 提升到 current retained `41/41 keep`
     - current HEAD `13bb0fa` 已 landed `shared backbone + task-specific adapters`，并通过 `--eval-manifest` 把 `32k train / val` 口径分离
     - `latest_stage2_v30_shared_backbone_train.json` 已记录 first modular train：`gpu2`、`4096` examples、`128` steps、`42.88473560567945s`
     - `latest_stage2_v30_task_adapter_compare.json` 已记录 first positive compare：`task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
@@ -27,7 +27,9 @@
     - 当前 `encoder / latent query path` 已进入真正 trainable 状态；artifact 显式记录 `trainable_encoder_resampler = true`
     - current HEAD `e9be6f3` 已补齐 `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`
     - 当前 learned belief decoder / write / belief 当前都已给出正增益：belief `delta_token_f1 = 0.3122825952686847`、write `delta_token_f1 = 0.8571428571428572`
-    - full benchmark holdout baseline 仍未生成；当前 `33/41` 只能诚实标为 modular+latent+belief keep，不是 `v30` complete
+    - current HEAD `a52f59f` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
+    - 当前 full benchmark holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`，并已机械确认 non-regression：`LongMemEval-S` counts 持平 retained `v2.9`，`PersonaMem` 则通过 retained `512` overlap subset 达到 provider 提升、local 持平
+    - 当前 run 已达到 stop condition；下一步不是继续开新实验，而是先保留这条 retained `v30` baseline 并停止本轮 autoresearch
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
