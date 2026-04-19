@@ -1,5 +1,46 @@
 # Run Log
 
+## 2026-04-19 Session 073
+
+- Worked on: 解除 `TD-042 / WS-028 / v31` 的 zero-progress stable-holdout blocker，并补齐 `v31` full-holdout publisher，让 current resumed `500 + 512` measurement 可以继续推进到 artifact 发布
+- State changed:
+  - helper 已把 iteration `6` 记为 `refine`：commit `489ada0` 让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前停在 `completed_predictions = 0` 的 resumed `LongMemEval-S 500 / PersonaMem 512` runs 已恢复推进
+  - `LongMemEval-S 500` resumed run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 当前已推进到 `322/500`
+  - `PersonaMem 512` resumed run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 在默认共享 GPU 上先暴露出 shared belief predictor OOM；切到 `CUDA_VISIBLE_DEVICES=2` 后已恢复推进到 `238/512`
+  - helper 已把 iteration `7` 记为 `refine`：commit `838a861` 为 `scripts/verify_stage2_v31_longrun.py` 新增 authoritative full-holdout publisher，可在 current runs 完成后直接发布 `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json` 与 `latest_stage2_v31_full_holdout_compare.json`
+  - 当前 retained metric 仍是 `24/32`；真实状态已从 blocked 切回 active measurement，但 full holdout compare / ablation 仍未发布
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/`
+  - commits `489ada0`, `838a861`
+- Next likely action:
+  - 等待 current resumed `LongMemEval-S 500 / PersonaMem 512` runs 完成
+  - 立刻发布 `v31` full-holdout artifacts，并重新量 `scripts/verify_stage2_v31_longrun.py --score-only`
+  - 若 full holdout compare 仍不足以支撑 `v31` ablation truth，再单独补一轮 ablation evidence
+
+## 2026-04-19 Session 072
+
+- Worked on: 把 `TD-042 / WS-028 / v31` 的 stable holdout measurement 真实跑到底，并把 current managed run 在 helper 已记账的前提下收口为 true blocker，而不是继续重复同一路径
+- State changed:
+  - helper 已把 iteration `3` 记为 `pivot`：CPU-backed `LongMemEval-S 500 / PersonaMem 512` learned-memory stable holdout 在持续高负载下长时间保持 `completed_predictions = 0`，且没有生成 `predictions.jsonl`
+  - helper 已把 iteration `4` 记为 `refine`：切到 `cuda` 后，fresh `PersonaMem 1` 与 `LongMemEval-S 1` smoke 都能完成，说明 `learned belief checkpoint + v31 latent checkpoint` 的 online wiring 正常，不是 path 未接通
+  - helper 已把 iteration `5` 记为 `blocked`：随后 fresh `cuda` full-holdout run 仍在 checkpoint 已加载、GPU/CPU 持续忙碌的情况下停在 `completed_predictions = 0`，且始终没有生成第一条 `predictions.jsonl`
+  - 当前 retained truth 因此保持不变：`scripts/verify_stage2_v31_longrun.py --score-only = 24/32`，`autoresearch-state.json` 当前记录 `current_metric = 24`、`last_status = blocked`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260419T160946Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260419T160950Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/`
+  - `outputs_v2/runs/20260419T161051Z_stage2_memory_canary_personamem/`
+  - `outputs_v2/runs/20260419T161055Z_stage2_memory_canary_longmemeval/`
+- Next likely action:
+  - 不再重复当前 `LongMemEval-S 500 + PersonaMem 512` stable holdout gate
+  - 若后续恢复 `TD-042`，必须先提出新的 learned online throughput hypothesis 或替代稳定 measurement path；只有在新的 gate 能稳定增量产出 `predictions.jsonl` 后，才继续补 full holdout compare / ablation
+
 ## 2026-04-19 Session 071
 
 - Worked on: 以 fresh managed `v31` run 为上下文，先修 baseline guard，再把独立 `latent_retriever.pt` checkpoint 接进 online canary，给下一轮 `LongMemEval-S 500 + PersonaMem 512` 稳定 holdout measurement 清掉实现级 blocker

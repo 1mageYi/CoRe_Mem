@@ -16,17 +16,19 @@
     - no benchmark leakage
     - benchmark remains holdout-only
   - Runtime truth:
-    - retained `v30` 已到 `41/41`
-    - `v31` 当前不是再补基础设施，而是验证 learned latent 主链能否成为 full holdout 上的主要增益来源
-    - compare baseline 固定为 current retained `v30`
-    - current retained `v31` 已到 `24/32`
+    - retained `v30` 已到 `41/41 keep`
+    - current retained `v31` 仍是 `24/32`
     - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json` 已落地
-    - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正
-    - 这条 retained keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
-    - `2026-04-19` 当前 quick-smoke holdout line 已到 soft blocker：learned-symbolic / learned+learned / blank-output fallback / constrained-decoding / stability repeat 全部未能把 retained `24/32` 推成新的 keep
-    - 当前最小 smoke 最好结果仍是 Persona subset `5/4`、LongMemEval subset `1/1` tie；同一 `acd742...` prompt 已跨 run 发生 provider 翻转，说明当前 `8`-sample micro-tune gate 已不足以稳定地区分方法信号与 provider 噪声
-  - Next unblock:
-    - 若继续 `TD-042`，优先切到 `LongMemEval-S 500 + PersonaMem 512` 的稳定 holdout measurement；`8`-sample quick-smoke 只保留为 sanity/crash gate。若大样本 measurement 仍无增益，再推进更宽 scope 的 decoder / answer-selection redesign
+    - quick-smoke holdout line 仍停在 soft blocker，不能再作为 retained keep gate
+    - commit `489ada0` 已让 learned full-holdout runner 复用 `latent_slot_ranker` 并按 batch 增量落盘；此前停在 `completed_predictions = 0` 的 resumed runs 现已恢复推进
+    - current HEAD `838a861` 又补齐了 `scripts/verify_stage2_v31_longrun.py` 的 authoritative full-holdout publisher；对应 targeted test 与 configured guard 已通过
+    - 截至当前检查：`outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 已推进到 `322/500`，`outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`
+  - Truth boundary:
+    - 当前 truth 只代表 full-holdout stable gate 已从 true blocker 恢复到 active measurement，不代表 `v31` full holdout gain 已成立
+    - `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json`、`latest_stage2_v31_full_holdout_compare.json` 与 `latest_stage2_v31_ablation_summary.json` 仍未发布，因此 `scripts/verify_stage2_v31_longrun.py --score-only` 继续是 `24`
+  - Next step:
+    - 等当前 `500 + 512` resumed runs 完成后，立即发布 `v31` full-holdout artifacts
+    - 在 holdout compare 到位后，再决定是否已有足够证据发布 `v31` ablation summary，或是否需要单独补一轮 ablation evidence
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`

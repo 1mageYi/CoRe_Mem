@@ -11,21 +11,16 @@
     - write strengthening
     - ablation truth
     - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 512`
-  - Truth boundary：
-    - full benchmark 只作 holdout，不回流训练
-    - retained 增益必须主要来自 learned 主链本身，而不是 benchmark-facing trick
   - 最新真相：
     - retained `v30` 已到 `41/41 keep`
-    - `v31` 当前是 quality push，不是 infrastructure push
-    - 下一阶段必须证明 latent 是主要增益来源，而不是只做 internal 指标改善
-    - current retained `v31` 已到 `24/32`
-    - `latest_stage2_v31_latent_mainline_train.json`、`latest_stage2_v31_latent_holdout_compare.json`、`latest_stage2_v31_belief_mainline_eval.json`、`latest_stage2_v31_belief_holdout_compare.json`、`latest_stage2_v31_write_mainline_eval.json` 与 `latest_stage2_v31_write_holdout_compare.json` 已落地
-    - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正
-    - 这条 retained keep 当前仍只代表 apples-to-apples internal compare 为正，不代表 full holdout 已提升
-    - `2026-04-19` 当前 `8`-sample quick-smoke holdout line 已到 soft blocker：最好的 learned-symbolic 仍只有 Persona subset `5/4`、LongMemEval subset `1/1` tie；learned+learned、blank-output fallback 与 json-start constrained decoding 都没有形成新的 keep
-    - `acd742...` 已在相同 prompt/evidence 下跨 run 发生 provider label 翻转，因此当前 quick-smoke gate 不能再被当作稳定的 retained 判断依据
-  - 下一步：
-    - 若继续 `v31`，优先把 external gate 切成 `LongMemEval-S 500 + PersonaMem 512` 的稳定 measurement；`8`-sample quick-smoke 只保留为 sanity/crash gate。若更大样本 measurement 仍无增益，再切到更宽 scope 的 decoder / answer-selection redesign
+    - current retained `v31` 仍是 `24/32`
+    - aligned `32k val` latent compare、belief compare 与 write compare 当前均为正，但仍只代表 apples-to-apples internal compare 为正
+    - commit `489ada0` 已让 learned full-holdout runner 复用 `latent_slot_ranker` 并按 batch 增量落盘；此前停在 `completed_predictions = 0` 的 resumed runs 现已恢复推进
+    - current HEAD `838a861` 又补齐了 `v31` full-holdout publisher；对应 targeted test 与 configured guard 已通过
+    - 截至当前检查：`LongMemEval-S 500` resumed run 已推进到 `322/500`，`PersonaMem 512` resumed run 已推进到 `238/512`
+  - Truth boundary：
+    - 当前 truth 只代表 full-holdout stable gate 已恢复为 active measurement，不代表 `v31` full holdout gain 已成立
+    - `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json`、`latest_stage2_v31_full_holdout_compare.json` 与 `latest_stage2_v31_ablation_summary.json` 仍未发布，因此 verifier 继续是 `24/32`
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

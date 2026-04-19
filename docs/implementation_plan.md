@@ -193,7 +193,8 @@
   - `latest_stage2_v31_latent_holdout_compare.json` 已记录 aligned `32k val` latent positive keep
   - `latest_stage2_v31_belief_holdout_compare.json` 已记录 aligned `32k val` belief positive keep
   - `latest_stage2_v31_write_holdout_compare.json` 已记录 aligned `32k val` write positive keep
-  - 下一条增量必须转到 full holdout，然后才是 ablation closeout
+  - commit `489ada0` 已把 learned full-holdout canary path 从 `completed_predictions = 0` 的 zero-progress stall 恢复为增量推进；当前 resumed `LongMemEval-S 500` 已到 `322/500`，`PersonaMem 512` 已到 `238/512`
+  - current HEAD `838a861` 又补齐了 `v31` full-holdout publisher；当前下一条增量应先来自 full-holdout publish，而不是新的 unblock micro-tune
 
 ### v31 成功标准
 
