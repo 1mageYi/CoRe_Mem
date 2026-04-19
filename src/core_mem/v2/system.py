@@ -957,6 +957,24 @@ class StructuredMemorySystem:
         )
 
     @staticmethod
+    def _blank_output_fallback_slot_rank(
+        slot: SlotRecord,
+        *,
+        index: int,
+    ) -> tuple[float, float, float, float]:
+        semantic_priority = 0.0
+        if slot.relation.endswith("_preference") or slot.relation == "hobby":
+            semantic_priority = 2.0
+        elif slot.relation == "goal":
+            semantic_priority = 1.0
+        return (
+            semantic_priority,
+            float(slot.active_flag),
+            float(-index),
+            float(slot.confidence),
+        )
+
+    @staticmethod
     def _fallback_belief_payload_from_raw_text(
         raw_text: str,
         *,
@@ -967,16 +985,26 @@ class StructuredMemorySystem:
         cleaned = _RAW_VALUE_STRIP_RE.sub("", str(raw_text or "")).strip()
         if not fallback_slots:
             return None
-        ranked_slots = sorted(
-            enumerate(fallback_slots),
-            key=lambda item: StructuredMemorySystem._fallback_slot_rank(
-                item[1],
-                query_text=query_text,
-                raw_value=cleaned,
-                index=item[0],
-            ),
-            reverse=True,
-        )
+        if cleaned:
+            ranked_slots = sorted(
+                enumerate(fallback_slots),
+                key=lambda item: StructuredMemorySystem._fallback_slot_rank(
+                    item[1],
+                    query_text=query_text,
+                    raw_value=cleaned,
+                    index=item[0],
+                ),
+                reverse=True,
+            )
+        else:
+            ranked_slots = sorted(
+                enumerate(fallback_slots),
+                key=lambda item: StructuredMemorySystem._blank_output_fallback_slot_rank(
+                    item[1],
+                    index=item[0],
+                ),
+                reverse=True,
+            )
         if not ranked_slots:
             return None
         _, best_slot = ranked_slots[0]
