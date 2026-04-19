@@ -156,7 +156,8 @@
 
 ### 当前 post-v2.9 训练与架构判断
 
-- 当前训练主线仍是 **共享 `google/flan-t5-base + LoRA` Seq2Seq**
+- retained `v2.9` baseline 仍是 **共享 `google/flan-t5-base + LoRA` Seq2Seq**
+- current-head `v30` partial line 已 landed 第一轮 **shared backbone + task-specific adapters**
 - 当前统一训练任务为：
   - `retrieval_alignment`
   - `lifecycle_prediction`
@@ -176,6 +177,14 @@
 - full benchmark holdout baseline：
   - `LongMemEval-S 500`
   - `PersonaMem 589`
+
+当前 `v30` 的 retained progress 已前进到：
+
+- current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 提升到 `21`
+- `latest_stage2_v30_shared_backbone_train.json` 已记录 first modular train：`gpu2`、`4096` examples、`128` steps、`wall_clock_seconds = 42.88473560567945`
+- `latest_stage2_v30_task_adapter_compare.json` 已记录 first positive compare：`task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
+- 对应 val checkpoint eval `outputs_v2/evals_local/20260419T013221Z_stage2_local_eval.json` 当前为 `trained_eval.token_f1 = 0.6562995718106327`、`field_f1 = 0.5924479166666667`
+- 当前仍未完成的主轴是：`trainable latent / direct latent objectives / learned belief decoder / full benchmark holdout baseline`
 
 ### 当前 `v2.7` 执行锚点
 

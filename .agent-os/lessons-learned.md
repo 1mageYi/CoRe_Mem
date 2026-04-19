@@ -54,3 +54,5 @@
 - 2026-04-19:
   - 如果 `run_stage2_memory_canary.py` 只把 provider 调用并行化、却把 memory build / prompt precompute 保持串行，那么大 holdout 会长时间停在 `completed_predictions=0`；对 `memory_mode=symbolic` 且 `slot_assignment_mode=symbolic` 的路径，应该直接做 sample-level 并行并增量写 `predictions.jsonl`
   - `LongMemEval-S` 当前官方 cleaned 数据集实际上只有 `500` 条；`v2.9` 的 expanded holdout 目标和 verifier 不应再写成 `512`
+  - `v30` 这种 non-tiny modular 训练不适合把 `train -> checkpoint eval -> register -> publish` 全塞进一次长命令里；训练 summary 往往很快就落盘，但 checkpoint eval 可能继续占住 GPU 很久。更稳的做法是先让训练独立完成，再单独跑 val eval 和 artifact publish。
+  - 一旦进入 `v30` 这种强调“holdout-only / no leakage”的阶段，`scripts/train_stage2.py --register-experiment` 不能默认重用 train manifest 做 checkpoint eval；必须显式分离 `--prepared-manifest` 和 `--eval-manifest`，否则 compare 口径会直接漂移。

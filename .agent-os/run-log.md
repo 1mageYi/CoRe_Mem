@@ -1,5 +1,30 @@
 # Run Log
 
+## 2026-04-19 Session 064
+
+- Worked on: 启动 `TD-041 / WS-027` 的第一轮真实 `v30` modular-training experiment，把当前 shared-only 训练线推进到 `shared backbone + task-specific adapters`，并用 `32k train / 32k val` 分离口径做 first compare
+- State changed:
+  - `src/core_mem/v2/training.py` 当前已支持真正的 task-specific adapter runtime：tiny backend 走 shared backbone + per-task heads，HF/PEFT 路径走 shared backbone + multi-adapter，并在 train/eval 阶段按 task 切换 adapter
+  - `scripts/train_stage2.py` 当前已支持 `--eval-manifest`，避免 `register-experiment` 默认拿 train manifest 自己做 checkpoint eval；这条 anti-leakage 修正已由 targeted tests 复验
+  - 新增 `configs/stage2_train_v30.yaml` 与 `configs/stage2_train_v30_tiny.yaml`，把 `v30` 第一轮 modular line 固定为 task adapters enabled
+  - current HEAD `13bb0fa` 上，fresh `gpu2 + 32k anchor` 训练 `outputs_v2/runs/20260419T012526Z_stage2_train_exec/execution_summary.json` 已真实完成：`4096` examples、`128` steps、`wall_clock_seconds = 42.88473560567945`
+  - fresh val checkpoint eval `outputs_v2/evals_local/20260419T013221Z_stage2_local_eval.json` 已记录 `trained_eval.token_f1 = 0.6562995718106327`、`trained_eval.field_f1 = 0.5924479166666667`
+  - `latest_stage2_v30_shared_backbone_train.json` 与 `latest_stage2_v30_task_adapter_compare.json` 已落地；后者当前显式记录 `task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
+  - `scripts/verify_stage2_v30_longrun.py --score-only` 已从 baseline `17` 提升到 `21`；launch guard 通过；helper 已把这轮记为 iteration `1 keep`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/20260419T012526Z_stage2_train_exec/execution_summary.json`
+  - `outputs_v2/evals_local/20260419T013221Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_shared_backbone_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_task_adapter_compare.json`
+  - commit `b1f69f6`
+  - commit `13bb0fa`
+- Next likely action:
+  - 在 current-head `21/41 keep` 的 retained line 上继续推进 `trainable latent / direct latent objective / learned belief decoder`
+  - 把 future local eval 预算收紧到更适合 nightly iteration 的规模，再进入下一轮 `v30` keep/discard
+  - 之后再补 full benchmark holdout baseline / refresh，而不是把当前 modular keep 误写成 `v30` 已完成
+
 ## 2026-04-19 Session 063
 
 - Worked on: 把 next stage 从 `v2.9` closeout 前推到 `v3.0 / v30 architecture-first long-run`，明确下一条主线不再围绕 teacher，而是直接围绕可训练主链升级：shared backbone + task-specific adapters、trainable latent、direct latent objectives、learned belief decoder，以及 full benchmark holdout baseline

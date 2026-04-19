@@ -3,12 +3,13 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-041 / WS-027` 已成为当前主线；目标是在 `v2.9` retained line 上继续推进 shared backbone + task-specific adapters、trainable latent、direct latent objectives、learned belief decoder，并用 full benchmark holdout 做正式 external baseline
+- Top next action: `TD-041 / WS-027` 已成为当前主线；当前 retained line 已到 `21/41 keep`，shared backbone + task-specific adapters 已 landed，下一步应把 verifier 增量继续推进到 trainable latent、direct latent objectives、learned belief decoder 与 full benchmark holdout
 - Active workstreams: `WS-027`
 - Active workstream label: `TD-041 / WS-027`
 - Active workstream version: `v30`
+- Current retained progress: current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 `21`；`latest_stage2_v30_shared_backbone_train.json` 与 `latest_stage2_v30_task_adapter_compare.json` 已落地，其中 modular compare 当前 `delta_score = 1.2487474884772993`
 - Active blockers: `BL-004`, `BL-009`
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-040 / WS-026`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-041 / WS-027`
 
 ## Objective Summary
 
