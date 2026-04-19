@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -28,12 +30,54 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
     return _read_json(root / "outputs_v2" / "artifacts" / name)
 
 
 def _artifact_exists(root: Path, name: str) -> bool:
     return (root / "outputs_v2" / "artifacts" / name).exists()
+
+
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if stripped:
+                rows.append(json.loads(stripped))
+    return rows
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _current_head(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and head else "unknown"
+
+
+def _write_latest_and_stamped(root: Path, latest_name: str, payload: dict[str, Any]) -> dict[str, str]:
+    artifact_root = root / "outputs_v2" / "artifacts"
+    latest_path = artifact_root / latest_name
+    stamped_path = artifact_root / f"{_timestamp()}_{latest_name}"
+    _write_json(latest_path, payload)
+    _write_json(stamped_path, payload)
+    return {"latest_path": str(latest_path), "stamped_path": str(stamped_path)}
 
 
 def _float_metric(payload: dict[str, Any] | None, key: str) -> float:
@@ -54,6 +98,146 @@ def _int_metric(payload: dict[str, Any] | None, key: str) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _rate(payload: dict[str, Any] | None, *, key: str) -> float:
+    if not payload:
+        return 0.0
+    sample_count = _int_metric(payload, "sample_count")
+    if sample_count <= 0:
+        return 0.0
+    return _int_metric(payload, key) / sample_count
+
+
+def _subset_exact_metrics(summary_payload: dict[str, Any], sample_ids: set[str]) -> dict[str, float]:
+    predictions_path = summary_payload.get("predictions_path")
+    if not predictions_path:
+        return {"sample_count": 0.0, "provider_exact_rate": 0.0, "local_exact_rate": 0.0}
+    rows = _load_jsonl(Path(str(predictions_path)))
+    scoped = [row for row in rows if str(row.get("sample_id", "")) in sample_ids]
+    if not scoped:
+        return {"sample_count": 0.0, "provider_exact_rate": 0.0, "local_exact_rate": 0.0}
+    provider_exact = sum(
+        1
+        for row in scoped
+        if " ".join(str(row.get("provider_prediction", "")).strip().lower().split())
+        == " ".join(str(row.get("expected_answer", "")).strip().lower().split())
+    )
+    local_exact = sum(
+        1
+        for row in scoped
+        if " ".join(str(row.get("memory_answer_local", "")).strip().lower().split())
+        == " ".join(str(row.get("expected_answer", "")).strip().lower().split())
+    )
+    total = len(scoped)
+    return {
+        "sample_count": float(total),
+        "provider_exact_rate": provider_exact / total,
+        "local_exact_rate": local_exact / total,
+    }
+
+
+def _publish_canary_alias(
+    *,
+    root: Path,
+    summary_path: Path,
+    latest_name: str,
+    artifact_type: str,
+) -> dict[str, Any]:
+    payload = _read_json(summary_path)
+    if payload is None:
+        raise FileNotFoundError(summary_path)
+    alias_payload = {
+        **payload,
+        "artifact_type": artifact_type,
+        "commit_hash": _current_head(root),
+        "aliased_from_summary_path": str(summary_path),
+        "aliased_from_commit_hash": payload.get("commit_hash"),
+        "aliased_at": datetime.now(timezone.utc).isoformat(),
+        "provider_exact_rate": _rate(payload, key="provider_exact_match"),
+        "local_exact_rate": _rate(payload, key="local_exact_match"),
+    }
+    alias_payload["artifact_paths"] = _write_latest_and_stamped(root, latest_name, alias_payload)
+    return alias_payload
+
+
+def publish_v31_full_holdout_artifacts(
+    *,
+    root: Path,
+    longmemeval_summary_path: Path,
+    personamem_summary_path: Path,
+) -> dict[str, Any]:
+    current_head = _current_head(root)
+    retained_v30_holdout = _artifact_json(root, "latest_stage2_v30_full_holdout_baseline.json") or {}
+    retained_v30_long = _artifact_json(root, "latest_longmemeval_stage2_v30_full.json") or {}
+    retained_v30_persona = _artifact_json(root, "latest_personamem_stage2_v30_full.json") or {}
+
+    longmemeval_payload = _publish_canary_alias(
+        root=root,
+        summary_path=longmemeval_summary_path,
+        latest_name="latest_longmemeval_stage2_v31_full.json",
+        artifact_type="stage2_v31_longmemeval_full",
+    )
+    personamem_payload = _publish_canary_alias(
+        root=root,
+        summary_path=personamem_summary_path,
+        latest_name="latest_personamem_stage2_v31_full.json",
+        artifact_type="stage2_v31_personamem_full",
+    )
+
+    longmemeval_gain_confirmed = (
+        _int_metric(longmemeval_payload, "provider_exact_match") > _int_metric(retained_v30_long, "provider_exact_match")
+        or _int_metric(longmemeval_payload, "local_exact_match") > _int_metric(retained_v30_long, "local_exact_match")
+    )
+    retained_overlap_manifest = retained_v30_persona.get("canary_manifest")
+    overlap_sample_ids: set[str] = set()
+    if retained_overlap_manifest:
+        retained_manifest_payload = _read_json(Path(str(retained_overlap_manifest))) or {}
+        overlap_sample_ids = {str(sample_id) for sample_id in retained_manifest_payload.get("sample_ids", [])}
+    personamem_overlap_metrics = _subset_exact_metrics(personamem_payload, overlap_sample_ids)
+    if personamem_overlap_metrics["sample_count"] > 0:
+        personamem_nonregression = (
+            personamem_overlap_metrics["provider_exact_rate"]
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_provider_exact_rate")
+            and personamem_overlap_metrics["local_exact_rate"]
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_local_exact_rate")
+        )
+    else:
+        personamem_nonregression = (
+            _float_metric(personamem_payload, "provider_exact_rate")
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_provider_exact_rate")
+            and _float_metric(personamem_payload, "local_exact_rate")
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_local_exact_rate")
+        )
+
+    holdout_payload = {
+        "artifact_type": "stage2_v31_full_holdout_compare",
+        "commit_hash": current_head,
+        "holdout_only": True,
+        "benchmark_runs_executed": 2,
+        "longmemeval_summary_path": str(longmemeval_summary_path),
+        "personamem_summary_path": str(personamem_summary_path),
+        "longmemeval_sample_count": _int_metric(longmemeval_payload, "sample_count"),
+        "personamem_sample_count": _int_metric(personamem_payload, "sample_count"),
+        "memory_mode": longmemeval_payload.get("memory_mode") or personamem_payload.get("memory_mode"),
+        "slot_assignment_mode": longmemeval_payload.get("slot_assignment_mode") or personamem_payload.get("slot_assignment_mode"),
+        "longmemeval_gain_confirmed": longmemeval_gain_confirmed,
+        "personamem_nonregression_guard": personamem_nonregression,
+        "personamem_overlap_sample_count": int(personamem_overlap_metrics["sample_count"]),
+        "personamem_overlap_provider_exact_rate": personamem_overlap_metrics["provider_exact_rate"],
+        "personamem_overlap_local_exact_rate": personamem_overlap_metrics["local_exact_rate"],
+        "v30_longmemeval_provider_exact_match": _int_metric(retained_v30_long, "provider_exact_match"),
+        "v30_longmemeval_local_exact_match": _int_metric(retained_v30_long, "local_exact_match"),
+        "v30_personamem_provider_exact_rate": _float_metric(retained_v30_persona, "provider_exact_rate"),
+        "v30_personamem_local_exact_rate": _float_metric(retained_v30_persona, "local_exact_rate"),
+        "note": "V31 full benchmark remains holdout-only and compares current-head learned artifacts against retained v30 full-holdout baselines.",
+    }
+    holdout_payload["artifact_paths"] = _write_latest_and_stamped(root, "latest_stage2_v31_full_holdout_compare.json", holdout_payload)
+    return {
+        "longmemeval_full": longmemeval_payload,
+        "personamem_full": personamem_payload,
+        "full_holdout_compare": holdout_payload,
+    }
 
 
 def compute_v31_longrun(root: Path) -> dict[str, Any]:
@@ -215,11 +399,31 @@ def compute_v31_longrun(root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--publish-full-holdout-artifacts", action="store_true")
+    parser.add_argument("--longmemeval-summary", type=Path)
+    parser.add_argument("--personamem-summary", type=Path)
     parser.add_argument("--score-only", action="store_true")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--repo-root", default=str(REPO_ROOT))
     args = parser.parse_args()
 
-    payload = compute_v31_longrun(REPO_ROOT)
+    if args.publish_full_holdout_artifacts:
+        if not args.longmemeval_summary or not args.personamem_summary:
+            raise SystemExit("--publish-full-holdout-artifacts requires both --longmemeval-summary and --personamem-summary")
+        if args.score_only:
+            raise SystemExit("--score-only cannot be combined with --publish-full-holdout-artifacts")
+        payload = publish_v31_full_holdout_artifacts(
+            root=Path(args.repo_root),
+            longmemeval_summary_path=args.longmemeval_summary,
+            personamem_summary_path=args.personamem_summary,
+        )
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print("published_v31_full_holdout_artifacts")
+        return 0
+
+    payload = compute_v31_longrun(Path(args.repo_root))
     if args.score_only:
         print(payload["score"])
         return 0

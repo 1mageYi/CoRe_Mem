@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v31_longrun import compute_v31_longrun
+from scripts.verify_stage2_v31_longrun import compute_v31_longrun, publish_v31_full_holdout_artifacts
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -96,3 +96,65 @@ def test_v31_longrun_verifier_passes_with_full_latent_belief_write_and_holdout_a
 
     payload = compute_v31_longrun(repo_root)
     assert payload["score"] == payload["total"] == 32
+
+
+def test_v31_publish_full_holdout_artifacts_writes_aliases_and_compare(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    run_root = repo_root / "outputs_v2" / "runs"
+    artifact_root.mkdir(parents=True)
+    run_root.mkdir(parents=True)
+
+    for name, payload in {
+        "latest_stage2_v30_full_holdout_baseline.json": {
+            "holdout_only": True,
+            "longmemeval_sample_count": 500,
+            "personamem_overlap_provider_exact_rate": 0.35,
+            "personamem_overlap_local_exact_rate": 0.18,
+        },
+        "latest_longmemeval_stage2_v30_full.json": {"provider_exact_match": 19, "local_exact_match": 14},
+        "latest_personamem_stage2_v30_full.json": {"provider_exact_rate": 0.35, "local_exact_rate": 0.18},
+    }.items():
+        _write_json(artifact_root / name, payload)
+
+    long_summary = run_root / "long_summary.json"
+    persona_summary = run_root / "persona_summary.json"
+    _write_json(
+        long_summary,
+        {
+            "sample_count": 500,
+            "provider_exact_match": 21,
+            "local_exact_match": 16,
+            "provider_configured": True,
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "symbolic",
+            "predictions_path": str(run_root / "long_predictions.jsonl"),
+        },
+    )
+    _write_json(
+        persona_summary,
+        {
+            "sample_count": 512,
+            "provider_exact_match": 190,
+            "local_exact_match": 100,
+            "provider_configured": True,
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "symbolic",
+            "predictions_path": str(run_root / "persona_predictions.jsonl"),
+        },
+    )
+
+    payload = publish_v31_full_holdout_artifacts(
+        root=repo_root,
+        longmemeval_summary_path=long_summary,
+        personamem_summary_path=persona_summary,
+    )
+
+    holdout_compare = payload["full_holdout_compare"]
+    assert payload["longmemeval_full"]["provider_exact_rate"] == 21 / 500
+    assert payload["personamem_full"]["provider_exact_rate"] == 190 / 512
+    assert holdout_compare["longmemeval_gain_confirmed"] is True
+    assert holdout_compare["personamem_nonregression_guard"] is True
+    assert (artifact_root / "latest_longmemeval_stage2_v31_full.json").exists()
+    assert (artifact_root / "latest_personamem_stage2_v31_full.json").exists()
+    assert (artifact_root / "latest_stage2_v31_full_holdout_compare.json").exists()
