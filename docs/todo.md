@@ -2,21 +2,8 @@
 
 ## Doing
 
-- `TD-040` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 从 `128` 扩到 `512`。
-  - 当前锚点：`24k train / 4k val / 4k test`
-  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
-  - 当前重点：
-    - 让 `write` 出现真实正增益
-    - 让 `latent` 出现真实正增益
-    - 让 `belief` 出现真实正增益
-    - 扩大 `LongMemEval-S 512 / PersonaMem 512` holdout
-  - 当前训练要求：优先使用 `gpu2`，并记录 wall-clock / throughput / memory
-  - Truth boundary：当前不直接进入 full benchmark training，也不把 benchmark 回流成训练 supervision
-  - 当前起点：
-    - `v2.6` retained gain line 已成立：`write` 与 `belief` 为正，`LongMemEval-S 128 = 11/11`，`PersonaMem 128 = 44/33`
-    - `v2.7` retained 32k baseline 已成立：split / train / eval / timing / holdout 可复验
-    - `v2.8` retained blocker 已成立：teacher suite 完整，但 matched compare 仍为负，current-head `scripts/verify_stage2_v28_longrun.py --score-only = 32/34`
-  - 当前 blocker：不是框架本身，而是主链里 `write / latent / belief` 还没有被 current-head 的 learned module 明显拉开；`v2.9` 的任务就是把这一点做成正结果
+- 当前无新的 active 主线。
+  - Runtime truth: `TD-040 / WS-026` 已在 current retained state 达到 `stage2_v29_longrun_score = 39/39`；下一条 stage-2 主线等待用户决定
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`
@@ -59,6 +46,10 @@
   - 说明：当前机械 stop condition 已达到 `19/19`；此项 closeout 已完成，但不再是当前主线。
 
 ## Done
+
+- `TD-040` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
+  - 当前结果：`scripts/verify_stage2_v29_longrun.py --score-only = 39`
+  - 关键证据：`latest_stage2_v29_{write,latent,belief}_gain.json` 三段全为正，`latest_stage2_v29_holdout_summary.json` 已记录 `LongMemEval-S 500 / PersonaMem 512`，`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `3 keep`
 
 
 - `TD-001` 初始化项目文档系统与根契约文件。

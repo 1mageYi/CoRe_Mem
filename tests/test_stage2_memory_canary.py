@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -17,6 +18,8 @@ from core_mem.v2.system import StructuredMemorySystem
 from core_mem.benchmarks.longmemeval import LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
+    _build_personamem_row,
+    _iter_provider_predictions,
     _observe_personamem_context,
     _project_personamem_local_answer,
     _resolve_shared_predictors,
@@ -29,11 +32,14 @@ from run_stage2_memory_canary import (
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    env = dict(os.environ)
+    env["GPT_AGENT_API_KEY"] = ""
     return subprocess.run(
         [sys.executable, *args],
         cwd=REPO_ROOT,
         check=False,
         capture_output=True,
+        env=env,
         text=True,
     )
 
@@ -58,6 +64,59 @@ def test_stage2_memory_canary_writes_honest_blocked_artifact_without_provider(tm
     assert Path(payload["run_dir"]).exists()
     assert payload["model"] == "MiniMax-M2.7"
     assert payload["status"] in {"completed", "blocked_provider_not_configured"}
+
+
+def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
+    class FakeProvider:
+        def chat(self, prompt: str, *, temperature: float = 0.0, max_tokens: int | None = None):
+            return SimpleNamespace(content=f"echo::{prompt}")
+
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: FakeProvider())
+    llm = SimpleNamespace(temperature=0.0, max_tokens=32)
+    results = _iter_provider_predictions(llm, [(0, "a"), (1, "b"), (2, "c")], workers=3)
+    assert sorted(results) == [
+        (0, "echo::a", "echo::a"),
+        (1, "echo::b", "echo::b"),
+        (2, "echo::c", "echo::c"),
+    ]
+
+
+def test_build_personamem_row_can_complete_provider_prediction(monkeypatch):
+    class FakeAdapter:
+        def render_context_for_question(self, question, contexts):
+            assert contexts == {"ctx": "system: User persona summary.\nuser: User: I like matcha latte."}
+            return contexts[question.shared_context_id]
+
+    monkeypatch.setattr("run_stage2_memory_canary._provider_chat_request", lambda llm, prompt: ("(b)", f"raw::{prompt}"))
+    row = _build_personamem_row(
+        PersonaMemQuestion(
+            persona_id="p",
+            question_id="q",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="Which option matches the user?",
+            correct_answer="(b)",
+            all_options=["(a) Tea", "(b) Matcha latte"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        ),
+        adapter=FakeAdapter(),
+        contexts={"ctx": "system: User persona summary.\nuser: User: I like matcha latte."},
+        memory_mode="symbolic",
+        slot_assignment_mode="symbolic",
+        learned_memory_checkpoint_dir=None,
+        learned_memory_train_config_path=None,
+        learned_memory_device="cpu",
+        learned_slot_assignment_checkpoint_dir=None,
+        learned_slot_assignment_train_config_path=None,
+        learned_slot_assignment_device="cpu",
+        provider_configured=True,
+        llm=SimpleNamespace(temperature=0.0, max_tokens=32),
+    )
+    assert row["provider_status"] == "completed"
+    assert row["provider_prediction"] == "(b)"
+    assert row["provider_raw_prediction"].startswith("raw::")
+    assert row["memory_answer_local"] == "(b)"
 
 
 def test_stage2_memory_canary_writes_learned_alias_artifact(tmp_path: Path):

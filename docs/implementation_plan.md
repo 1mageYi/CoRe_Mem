@@ -116,7 +116,7 @@
 - 保持 `core / residual` 双银行结构不变
 - 继续以 `32k` source-level split 为锚点，而不是直接进入 full-data
 - 优先让 `write -> latent composition -> belief` 三段出现真实正增益
-- expanded holdout 从 `128` 扩到 `512`
+- expanded holdout 从 `128` 扩到 `LongMemEval-S 500 / PersonaMem 512`
 - benchmark 继续保持 holdout-only，不回流成训练 supervision
 - 训练优先使用 `gpu2`
 
@@ -125,7 +125,7 @@
 - `write` gain
 - `latent` gain
 - `belief` gain
-- expanded holdout `LongMemEval-S 512 / PersonaMem 512`
+- expanded holdout `LongMemEval-S 500 / PersonaMem 512`
 
 当前 runtime truth 已更新为：
 
@@ -148,6 +148,11 @@
 - 暂时把 teacher 从默认主线降级为可选探索线
 - 用现有 retained 32k / gain baseline 继续推进真正的 learned `write / latent / belief`
 - 只有出现真实正增益后，才允许再扩大到更大 holdout 或 full holdout
+- 当前 fresh managed run 的补充 runtime truth：
+  - `scripts/verify_stage2_v29_longrun.py --score-only` 已从 baseline `25` 提升到 current retained `39`
+  - current-head `latest_stage2_v29_{write,latent,belief}_gain.json`、`latest_stage2_v29_training_timing.json`、`latest_stage2_v29_holdout_summary.json` 与 `latest_*_stage2_v29_canary.json` 已刷新到 retained keep
+  - 当前 `v29` gain 不再是 partial：`write / latent / belief` 均已转为 `positive_gain = true`
+  - expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`；当前 stop condition 已达成，后续若继续推进，应以这条 retained line 为 baseline
 
 ### 当前 `v2.7` 执行锚点
 

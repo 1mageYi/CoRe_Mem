@@ -2,24 +2,8 @@
 
 ## Doing
 
-- `TD-040` `[doing]` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 从 `128` 扩到 `512`。
-  - Runtime truth: `TD-039 / WS-025` 已把 teacher suite、matched subset 与 negative internal delta 的 blocker truth 跑清楚；当前主线不再继续刷新 teacher coverage，而是把 teacher 降级为可选探索线
-  - Current focus:
-    - 保持 retained `v2.6` gain line、`v2.7` 32k baseline、`v2.8` blocked truth 可复验
-    - 让 `write` gain 转正
-    - 让 `latent` gain 转正
-    - 让 `belief` gain 转正
-    - 扩大 `LongMemEval-S 512 / PersonaMem 512` holdout
-  - Hard constraints:
-    - no fallback
-    - no shortcut
-    - no benchmark-specific heuristic
-    - no benchmark leakage
-    - full benchmark 只作 holdout evaluation
-  - Truth boundary:
-    - 当前不把 teacher 当作默认主线 supervision
-    - 当前不进入 full benchmark training
-    - `v2.9` 的 stop condition 不是 artifact completeness，而是 `write / latent / belief` 都出现真实正增益
+- 当前无新的 active 主线。
+  - Runtime truth: `TD-040 / WS-026` 已在 current retained state 达到 `stage2_v29_longrun_score = 39/39`；下一条 stage-2 主线等待用户决定
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
@@ -120,6 +104,17 @@
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
 
 ## Done
+
+- `TD-040` `[done]` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
+  - Reason: 当前 retained state 已达到 `scripts/verify_stage2_v29_longrun.py --score-only = 39`；`write / latent / belief` 三段 gain 全部转正，expanded holdout 已真实完成，launch guard 通过
+  - Evidence target:
+    - `outputs_v2/artifacts/latest_stage2_v29_write_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_latent_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_belief_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_holdout_summary.json`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_v29_canary.json`
+    - `outputs_v2/artifacts/latest_personamem_stage2_v29_canary.json`
+    - `research-results.tsv` iteration `3 keep`
 
 - `TD-037` `[done]` 以 `v2.6 gain-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，要求 `write / retrieve / belief` 至少一段出现真实正增益，并要求 `LongMemEval-S 128` 明确超过 `v2.5` retained baseline。
   - Reason: 该条线已在 current HEAD `cfbdc08` 上机械达成 `stage2_v26_longrun_score = 26/26`

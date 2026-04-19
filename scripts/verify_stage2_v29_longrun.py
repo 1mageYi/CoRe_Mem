@@ -312,8 +312,8 @@ def compute_v29_longrun(root: Path) -> dict[str, Any]:
     )
     add(
         "implementation_plan_mentions_v29_axes",
-        _contains_all(implementation_plan, ["`TD-040`", "`v2.9`", "write", "latent", "belief", "512"]),
-        "implementation_plan should mention v2.9 write/latent/belief and expanded 512 holdout",
+        _contains_all(implementation_plan, ["`TD-040`", "`v2.9`", "write", "latent", "belief", "500", "512"]),
+        "implementation_plan should mention v2.9 write/latent/belief and expanded 500/512 holdout",
     )
     add(
         "project_index_tracks_ws026",
@@ -338,7 +338,7 @@ def compute_v29_longrun(root: Path) -> dict[str, Any]:
     )
     add(
         "v29_plan_mentions_32k_and_expanded_holdout",
-        _contains_all(v29_plan, ["24k train", "4k val", "4k test", "LongMemEval-S 128 -> 512", "PersonaMem 128 -> 512"]),
+        _contains_all(v29_plan, ["24k train", "4k val", "4k test", "LongMemEval-S 128 -> 500", "PersonaMem 128 -> 512"]),
         "v29 plan should anchor on 32k and expanded 512 holdout",
     )
 
@@ -421,8 +421,8 @@ def compute_v29_longrun(root: Path) -> dict[str, Any]:
     )
     add(
         "v29_holdout_summary_expanded",
-        int(v29_holdout.get("longmemeval_sample_count", 0)) >= 512 and int(v29_holdout.get("personamem_sample_count", 0)) >= 512,
-        "v29 holdout summary should include expanded 512-sample LongMemEval-S and PersonaMem runs",
+        int(v29_holdout.get("longmemeval_sample_count", 0)) >= 500 and int(v29_holdout.get("personamem_sample_count", 0)) >= 512,
+        "v29 holdout summary should include expanded 500-sample LongMemEval-S and 512-sample PersonaMem runs",
     )
     add(
         "v29_longmemeval_breaks_v26_baseline",

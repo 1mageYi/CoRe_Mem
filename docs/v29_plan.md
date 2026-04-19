@@ -37,7 +37,7 @@
 
 这轮 benchmark evaluation 从历史的 `128` 级 canary 往上扩：
 
-- `LongMemEval-S 128 -> 512`
+- `LongMemEval-S 128 -> 500 (dataset max)`
 - `PersonaMem 128 -> 512`
 
 必要时再进入更大切片或 full holdout，但不在本轮起点就强制 full benchmark。
@@ -114,7 +114,7 @@
 
 ### M5. expanded holdout
 
-- current-head `LongMemEval-S 512` holdout summary 落地
+- current-head `LongMemEval-S 500` holdout summary 落地
 - current-head `PersonaMem 512` holdout summary 落地
 - `LongMemEval-S` 明确高于当前 retained `11/128` 基线趋势
 - `PersonaMem` 不明显退化

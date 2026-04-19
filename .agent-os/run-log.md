@@ -1,5 +1,52 @@
 # Run Log
 
+## 2026-04-19 Session 062
+
+- Worked on: 继续受控恢复 `TD-040 / WS-026`，修掉 `run_stage2_memory_canary.py` 在大 holdout 上“长时间 0 落盘”的问题，并把 `v2.9` 从 `33/39 partial` 推到 stop condition `39/39`
+- State changed:
+  - `scripts/run_stage2_memory_canary.py` 已新增 `symbolic/symbolic + provider_workers>1` 的 sample-level 并行快路径；当前大 holdout 不再卡在串行预处理，而会增量写 `predictions.jsonl`
+  - `tests/test_stage2_memory_canary.py` 已补 row-builder/provider 路径回归，并把 subprocess 固定到 `GPT_AGENT_API_KEY=''`，避免测试误打真实 provider
+  - fresh current-head holdout 已真实完成：`outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json` 为 `LongMemEval-S 500`，`outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json` 为 `PersonaMem 512`
+  - `scripts/verify_stage2_v29_longrun.py --publish-artifacts` 已刷新 `latest_stage2_v29_{write,latent,belief}_gain.json`、`latest_stage2_v29_holdout_summary.json` 与 `latest_*_stage2_v29_canary.json`；三段 gain 当前均为 `positive_gain = true`
+  - `scripts/verify_stage2_v29_longrun.py --score-only` 当前为 `39`，launch guard 通过；helper 已把这轮记为 iteration `3 keep`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/todo.md` 已同步到 `39/39 keep` 的 runtime truth
+- Evidence / artifacts:
+  - `outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_write_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_latent_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_belief_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_holdout_summary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 当前 stop condition 已达成；除非用户明确要求继续 post-`v2.9` 质量/泛化探索，否则保持现有 retained line 与文档状态即可
+
+## 2026-04-18 Session 061
+
+- Worked on: 以 fresh background managed run 启动 `TD-040 / WS-026` 的 `v2.9 learned-core-path long-run`，先补 `v29` publish 链并把 runtime truth 推进到可机械复验的 partial state
+- State changed:
+  - baseline 已用 `scripts/verify_stage2_v29_longrun.py --score-only` 量到 `25`，guard 通过后已初始化 fresh `research-results.tsv` 与 `autoresearch-state.json`
+  - commit `374c78e` 已为 `scripts/verify_stage2_v29_longrun.py` 新增 `--publish-artifacts`，并在 `tests/test_stage2_v29_longrun.py` 补齐 publish 回归
+  - current-head `latest_stage2_v29_{write,latent,belief}_gain.json`、`latest_stage2_v29_training_timing.json`、`latest_stage2_v29_holdout_summary.json`、`latest_longmemeval_stage2_v29_canary.json` 与 `latest_personamem_stage2_v29_canary.json` 已落地，使 `scripts/verify_stage2_v29_longrun.py --score-only` 从 `25` 提升到 retained `33`
+  - helper 已把上述发布链记为 iteration `1 keep`；随后又把“当前 session `GPT_AGENT_API_KEY=UNSET`、provider-side holdout checks blocked”记为 iteration `2 blocked`
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/todo.md` 已同步到 `33/39 partial + provider env blocker` 的 runtime truth
+- Evidence / artifacts:
+  - commit `374c78e`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_write_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_latent_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_belief_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_training_timing.json`
+  - `outputs_v2/artifacts/latest_stage2_v29_holdout_summary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v29_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v29_canary.json`
+  - `outputs_v2/evals_benchmark/20260418T204434Z_stage2_memory_canary.json`
+  - `outputs_v2/evals_benchmark/20260418T205829Z_stage2_memory_canary.json`
+- Next likely action:
+  - 在当前 session 或下一次恢复中先恢复 `GPT_AGENT_API_KEY`，再重跑 current-head `LongMemEval-S 512` / `PersonaMem 512` 并只在 `write / latent / belief` 任一段出现真实正增益时刷新 retained `v29` gain artifacts
+
 ## 2026-04-18 Session 060
 
 - Worked on: 把当前主线从 `v2.8 teacher-quality blocker` 前推到 `v2.9 learned-core-path long-run`，把下一阶段目标从“继续扩 teacher”收紧为“在 32k 锚点上让 write / latent / belief 出现真实正增益，并扩大 holdout benchmark”

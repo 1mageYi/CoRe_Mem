@@ -3,8 +3,8 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-040 / WS-026` 现为当前主线；下一步不再继续扩大 teacher 覆盖，而是以 `32k` 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并用 expanded holdout 验证真实 gain
-- Active workstreams: `WS-026`
+- Top next action: `TD-040 / WS-026` 已在 current retained state 达到 stop condition `39/39`；当前唯一收尾动作是保持 `v2.9` closeout 可复验，并等待用户决定是否在此基础上继续新的 stage-2 假设
+- Active workstreams: `WS-026 (closeout)`
 - Active workstream label: `TD-040 / WS-026`
 - Active workstream version: `v2.9`
 - Active blockers: `BL-004`, `BL-009`
@@ -182,10 +182,11 @@
 
 ## Top Next Action
 
-- 启动 `TD-039 / WS-025` 的 `v2.8 teacher-quality` 长跑
-  - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`stage2_v27_longrun_score = 26/26`
-  - Current retained baseline: 当前 worktree 已具备 `32k` split、`gpu2` tiny pilot 与真实 `MiniMax-M2.7` teacher pilot artifacts
-  - Next focus: 当前 run 已把 `lifecycle` 和 `belief` 两条高覆盖 teacher 信号都证伪；若未来要继续 `TD-039 / WS-025`，必须先更换 teacher 生成策略或标签定义，而不是再重复当前 label suite 的 refresh / weighting
+- 保持 `TD-040 / WS-026` 的 `v2.9 learned-core-path long-run` closeout 可复验
+  - Runtime truth: 当前 fresh managed run 已完整记录 baseline `25`、iteration `1 keep -> 33`、iteration `2 blocked -> 33` 与 iteration `3 keep -> 39`
+  - Current retained progress: current-head `scripts/verify_stage2_v29_longrun.py --score-only = 39`；`latest_stage2_v29_{write,latent,belief}_gain.json` 已全部转为 `positive_gain=true`，expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
+  - Guard status: `pytest -q tests/test_stage2_v29_longrun.py tests/test_stage2_v28_longrun.py tests/test_stage2_teacher_labels.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py` 已通过
+  - Next focus: 不再自动继续放大 provider 消耗；若后续继续 stage-2，应以当前 `39/39` retained line 为基线，围绕 post-`v2.9` 的质量/泛化假设展开
 
 ## Active Blockers
 
@@ -194,6 +195,8 @@
 - `BL-009`: `TD-039 / WS-025` 当前已进入 true blocker。current-head 已完成 `256 / 128 / 128` teacher suite，并已用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，确保训练/评测真正消费 teacher 改动；但 all-changed compare 明显变差，`delta_internal_token_f1 = -0.05357191517996174`、`delta_internal_field_f1 = -0.08173076923076938`、`delta_internal_exact_match = -0.1826923076923077`，主退化项是 `lifecycle_prediction`。随后 selective integration 继续把 `lifecycle_prediction` 留在 silver、只应用 `observation + belief` teacher，结果仍为负，`delta_internal_token_f1 = -0.03262529332240871`、`delta_internal_field_f1 = -0.02564102564102566`、`delta_internal_exact_match = -0.10576923076923073`。剩余 observation-only raw-teacher 改动只覆盖 matched subset 的 `train=1 / val=0 / test=3`，不足以支撑有意义的 same-budget compare。因此 `scripts/verify_stage2_v28_longrun.py --score-only` 仍停在 `32 / 34`，当前 launch 只能停在 blocked。
 ## Recent Important Changes
 
+- 2026-04-19: current session 已把 `TD-040 / WS-026` 从 `33/39 partial + provider blocker` 推到 retained keep `39/39`。新增真实证据包括 `outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json`（`LongMemEval-S 500`）、`outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json`（`PersonaMem 512`）、以及刷新后的 `latest_stage2_v29_{write,latent,belief}_gain.json` / `latest_stage2_v29_holdout_summary.json` / `latest_*_stage2_v29_canary.json`。helper 已把这轮记为 iteration `3 keep`
+- 2026-04-18: current session 已把 `TD-040 / WS-026` 的 fresh managed run 初始化并推进到 partial retained state：baseline `25` 经 commit `374c78e` 的 `v29` publisher 变更提升到 `33`，对应 guard 通过，`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `1 keep`。同一 session 随后确认 `GPT_AGENT_API_KEY=UNSET`，两个 1-sample canary probe 均返回 `provider_configured=false`，helper 已把 iteration `2` 记为 `blocked`
 - 2026-04-18: current session 又完成了第二轮 selective integration 验证：`scripts/prepare_stage2_data.py` 现支持把 `matched_kinds` 与 `teacher_apply_kinds` 解耦，并支持独立 manifest namespace；fresh `observation+belief` selective compare 已验证去掉 `lifecycle` teacher 后，`belief` teacher 仍带来负增益。helper 已把这轮记为 iteration `2 discard`，随后又把 “observation-only 信号过稀、当前 launch 进入 true blocker” 记为 iteration `3 blocked`
 - 2026-04-18: current session 已把 `TD-039 / WS-025` 的关键旧假设跑实并证伪：`scripts/prepare_stage2_data.py` 现在用 changed `raw-observation / slot-assignment / belief` sample_ids 构建 matched teacher-vs-silver manifests，并新增 `configs/stage2_train_v28_matched.yaml` 让 compare 真正消费 teacher edits。fresh matched compare 在 val/test 上都明显退化，尤其 `lifecycle_prediction` 下滑最重；helper 已把 fresh background run 记为 iteration `1 discard`，`research-results.tsv` / `autoresearch-state.json` 当前 retained metric 仍是 `32`
 - 2026-04-16: `TD-035 / WS-021` 的 `24/24` closeout 已被正式整理进 state docs；当前主线已继续前推到 `TD-036 / WS-022`，目标是 `v2.5 learned core-path long-run`

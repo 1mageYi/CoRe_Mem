@@ -18,11 +18,11 @@ def test_v29_longrun_verifier_scores_baseline_when_docs_and_retained_artifacts_e
     (repo_root / "outputs_v2" / "artifacts").mkdir(parents=True)
 
     (repo_root / "docs" / "current_status.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n32k\n", encoding="utf-8")
-    (repo_root / "docs" / "implementation_plan.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n512\n", encoding="utf-8")
+    (repo_root / "docs" / "implementation_plan.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n500\n512\n", encoding="utf-8")
     (repo_root / ".agent-os" / "project-index.md").write_text("`TD-040 / WS-026`\n`v2.9`\n", encoding="utf-8")
     (repo_root / ".agent-os" / "todo.md").write_text("`TD-040` `[doing]`\nwrite\nlatent\nbelief\n", encoding="utf-8")
     (repo_root / "docs" / "v29_plan.md").write_text(
-        "不做任何 `fallback`\n不做任何 `shortcut`\n不改 `core / residual`\n双银行结构\n24k train\n4k val\n4k test\nLongMemEval-S 128 -> 512\nPersonaMem 128 -> 512\n",
+        "不做任何 `fallback`\n不做任何 `shortcut`\n不改 `core / residual`\n双银行结构\n24k train\n4k val\n4k test\nLongMemEval-S 128 -> 500\nPersonaMem 128 -> 512\n",
         encoding="utf-8",
     )
 
@@ -54,11 +54,11 @@ def test_v29_longrun_verifier_passes_with_full_gain_and_holdout_artifacts(tmp_pa
     (repo_root / "outputs_v2" / "artifacts").mkdir(parents=True)
 
     (repo_root / "docs" / "current_status.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n32k\n", encoding="utf-8")
-    (repo_root / "docs" / "implementation_plan.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n512\n", encoding="utf-8")
+    (repo_root / "docs" / "implementation_plan.md").write_text("`TD-040`\n`v2.9`\nwrite\nlatent\nbelief\n500\n512\n", encoding="utf-8")
     (repo_root / ".agent-os" / "project-index.md").write_text("`TD-040 / WS-026`\n`v2.9`\n", encoding="utf-8")
     (repo_root / ".agent-os" / "todo.md").write_text("`TD-040` `[doing]`\nwrite\nlatent\nbelief\n", encoding="utf-8")
     (repo_root / "docs" / "v29_plan.md").write_text(
-        "不做任何 `fallback`\n不做任何 `shortcut`\n不改 `core / residual`\n双银行结构\n24k train\n4k val\n4k test\nLongMemEval-S 128 -> 512\nPersonaMem 128 -> 512\n",
+        "不做任何 `fallback`\n不做任何 `shortcut`\n不改 `core / residual`\n双银行结构\n24k train\n4k val\n4k test\nLongMemEval-S 128 -> 500\nPersonaMem 128 -> 512\n",
         encoding="utf-8",
     )
 
@@ -79,7 +79,7 @@ def test_v29_longrun_verifier_passes_with_full_gain_and_holdout_artifacts(tmp_pa
         "latest_stage2_v29_latent_gain.json": {"positive_gain": True},
         "latest_stage2_v29_belief_gain.json": {"positive_gain": True},
         "latest_stage2_v29_training_timing.json": {"device": "cuda", "cuda_visible_devices": "2"},
-        "latest_stage2_v29_holdout_summary.json": {"longmemeval_sample_count": 512, "personamem_sample_count": 512},
+        "latest_stage2_v29_holdout_summary.json": {"longmemeval_sample_count": 500, "personamem_sample_count": 512},
         "latest_longmemeval_stage2_v29_canary.json": {"provider_exact_match": 12, "local_exact_match": 12},
         "latest_personamem_stage2_v29_canary.json": {"provider_exact_match": 44, "local_exact_match": 33},
     }.items():
@@ -170,7 +170,7 @@ def test_publish_v29_artifacts_emits_gain_timing_and_holdout_aliases(tmp_path: P
             "provider_configured": False,
             "memory_mode": "learned_memory",
             "slot_assignment_mode": "learned",
-            "sample_count": 512,
+            "sample_count": 500,
             "provider_exact_match": 0,
             "local_exact_match": 20,
         },
@@ -200,7 +200,7 @@ def test_publish_v29_artifacts_emits_gain_timing_and_holdout_aliases(tmp_path: P
     )
 
     assert published["training_timing"]["cuda_visible_devices"] == "2"
-    assert published["holdout_summary"]["longmemeval_sample_count"] == 512
+    assert published["holdout_summary"]["longmemeval_sample_count"] == 500
     assert published["write_gain"]["positive_gain"] is True
     assert published["latent_gain"]["positive_gain"] is True
     assert published["belief_gain"]["positive_gain"] is True

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -151,6 +152,45 @@ def _provider_from_llm(llm: LLMConfig) -> OpenAICompatibleProvider:
             max_retry_delay_seconds=llm.max_retry_delay_seconds,
         )
     )
+
+
+def _provider_chat_request(
+    llm: LLMConfig,
+    prompt: str,
+) -> tuple[str, str | None]:
+    provider = _provider_from_llm(llm)
+    response = provider.chat(
+        prompt,
+        temperature=llm.temperature,
+        max_tokens=llm.max_tokens,
+    )
+    return response.content, getattr(response, "content", None)
+
+
+def _iter_provider_predictions(
+    llm: LLMConfig,
+    prompts: list[tuple[int, str]],
+    *,
+    workers: int,
+) -> list[tuple[int, str, str | None]]:
+    if workers <= 1:
+        results: list[tuple[int, str, str | None]] = []
+        for index, prompt in prompts:
+            prediction, raw_prediction = _provider_chat_request(llm, prompt)
+            results.append((index, prediction, raw_prediction))
+        return results
+
+    results = []
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        future_map = {
+            executor.submit(_provider_chat_request, llm, prompt): index
+            for index, prompt in prompts
+        }
+        for future in as_completed(future_map):
+            index = future_map[future]
+            prediction, raw_prediction = future.result()
+            results.append((index, prediction, raw_prediction))
+    return results
 
 
 def _normalize_answer(text: str | None) -> str:
@@ -503,6 +543,147 @@ def _maybe_write_v24_canary_alias(output_root: Path, benchmark: str, summary: di
     _write_json(output_root / "artifacts" / alias_name, summary)
 
 
+def _should_use_symbolic_parallel_fast_path(
+    *,
+    provider_configured: bool,
+    memory_mode: str,
+    slot_assignment_mode: str,
+    provider_workers: int,
+) -> bool:
+    return (
+        provider_configured
+        and memory_mode == "symbolic"
+        and slot_assignment_mode == "symbolic"
+        and max(int(provider_workers), 1) > 1
+    )
+
+
+def _build_personamem_row(
+    question: PersonaMemQuestion,
+    *,
+    adapter: PersonaMemAdapter,
+    contexts: dict[str, str],
+    memory_mode: str,
+    slot_assignment_mode: str,
+    learned_memory_checkpoint_dir: str | None,
+    learned_memory_train_config_path: str | None,
+    learned_memory_device: str,
+    learned_slot_assignment_checkpoint_dir: str | None,
+    learned_slot_assignment_train_config_path: str | None,
+    learned_slot_assignment_device: str,
+    provider_configured: bool,
+    llm: LLMConfig | None = None,
+    learned_belief_predictor: Any | None = None,
+    learned_slot_assignment_predictor: Any | None = None,
+) -> dict[str, Any]:
+    system = _build_memory_system(
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
+        learned_belief_predictor=learned_belief_predictor,
+        learned_slot_assignment_predictor=learned_slot_assignment_predictor,
+    )
+    observed_turns = _observe_personamem_context(
+        system,
+        adapter.render_context_for_question(question, contexts),
+        sample_id=question.question_id,
+    )
+    memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
+    local_projection = _project_personamem_local_answer(memory_payload, question)
+    prompt = _render_personamem_prompt(question, memory_payload)
+    row = {
+        "sample_id": question.question_id,
+        "benchmark": "personamem",
+        "question_type": question.question_type,
+        "topic": question.topic,
+        "expected_answer": question.correct_answer,
+        "memory_answer_local": local_projection,
+        "provider_prediction": None,
+        "provider_raw_prediction": None,
+        "provider_status": "provider_not_configured",
+        "provider_configured": provider_configured,
+        "observed_turns": observed_turns,
+        "belief_source": memory_payload["belief_source"],
+        "selected_slot_ids": memory_payload["selected_slot_ids"],
+        "belief_state": memory_payload["belief_state"],
+        "evidence_block": memory_payload["evidence_block"],
+        "prompt": prompt,
+        "prompt_version": "stage2_memory_canary_v2",
+    }
+    if provider_configured:
+        if llm is None:
+            raise ValueError("llm is required when provider_configured is True.")
+        provider_prediction, raw_provider_prediction = _provider_chat_request(llm, prompt)
+        row["provider_prediction"] = provider_prediction
+        row["provider_raw_prediction"] = raw_provider_prediction
+        row["provider_status"] = "completed"
+    return row
+
+
+def _build_longmemeval_row(
+    question: LongMemEvalQuestion,
+    *,
+    memory_mode: str,
+    slot_assignment_mode: str,
+    learned_memory_checkpoint_dir: str | None,
+    learned_memory_train_config_path: str | None,
+    learned_memory_device: str,
+    learned_slot_assignment_checkpoint_dir: str | None,
+    learned_slot_assignment_train_config_path: str | None,
+    learned_slot_assignment_device: str,
+    provider_configured: bool,
+    llm: LLMConfig | None = None,
+    learned_belief_predictor: Any | None = None,
+    learned_slot_assignment_predictor: Any | None = None,
+) -> dict[str, Any]:
+    system = _build_memory_system(
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+        learned_memory_train_config_path=learned_memory_train_config_path,
+        learned_memory_device=learned_memory_device,
+        learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+        learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+        learned_slot_assignment_device=learned_slot_assignment_device,
+        learned_belief_predictor=learned_belief_predictor,
+        learned_slot_assignment_predictor=learned_slot_assignment_predictor,
+    )
+    observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
+    memory_payload = _memory_payload(system, question.question_id, question.question)
+    prompt = _render_longmemeval_prompt(question, memory_payload)
+    row = {
+        "sample_id": question.question_id,
+        "benchmark": "longmemeval_s",
+        "question_type": question.question_type,
+        "expected_answer": question.answer,
+        "memory_answer_local": memory_payload["answer_text"],
+        "provider_prediction": None,
+        "provider_raw_prediction": None,
+        "provider_status": "provider_not_configured",
+        "provider_configured": provider_configured,
+        "observed_turns": observed_turns,
+        "belief_source": memory_payload["belief_source"],
+        "selected_slot_ids": memory_payload["selected_slot_ids"],
+        "belief_state": memory_payload["belief_state"],
+        "evidence_block": memory_payload["evidence_block"],
+        "prompt": prompt,
+        "prompt_version": "stage2_memory_canary_v2",
+    }
+    if provider_configured:
+        if llm is None:
+            raise ValueError("llm is required when provider_configured is True.")
+        provider_prediction, raw_provider_prediction = _provider_chat_request(llm, prompt)
+        row["provider_prediction"] = provider_prediction
+        row["provider_raw_prediction"] = raw_provider_prediction
+        row["provider_status"] = "completed"
+    return row
+
+
 def run_personamem_canary(
     *,
     output_root: Path,
@@ -516,6 +697,7 @@ def run_personamem_canary(
     learned_slot_assignment_checkpoint_dir: str | None = None,
     learned_slot_assignment_train_config_path: str | None = None,
     learned_slot_assignment_device: str = "cpu",
+    provider_workers: int = 1,
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -557,6 +739,7 @@ def run_personamem_canary(
         "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
+        "provider_workers": max(int(provider_workers), 1),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "personamem")),
         "predictions_path": str(predictions_path),
     }
@@ -571,62 +754,81 @@ def run_personamem_canary(
         learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
         learned_slot_assignment_device=learned_slot_assignment_device,
     )
-    for question in questions:
-        if question.question_id in completed_ids:
-            continue
-        system = _build_memory_system(
-            memory_mode=memory_mode,
-            slot_assignment_mode=slot_assignment_mode,
-            learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
-            learned_memory_train_config_path=learned_memory_train_config_path,
-            learned_memory_device=learned_memory_device,
-            learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
-            learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
-            learned_slot_assignment_device=learned_slot_assignment_device,
-            learned_belief_predictor=shared_belief_predictor,
-            learned_slot_assignment_predictor=shared_slot_assignment_predictor,
-        )
-        observed_turns = _observe_personamem_context(
-            system,
-            adapter.render_context_for_question(question, contexts),
-            sample_id=question.question_id,
-        )
-        memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
-        local_projection = _project_personamem_local_answer(memory_payload, question)
-        prompt = _render_personamem_prompt(question, memory_payload)
-        provider_prediction = None
-        raw_provider_prediction = None
-        status = "provider_not_configured"
-        if provider.is_configured():
-            raw_provider_prediction = provider.chat(
-                prompt,
-                temperature=config.llm.temperature,
-                max_tokens=config.llm.max_tokens,
-            ).content
-            provider_prediction = raw_provider_prediction
-            status = "completed"
-            live_completed += 1
-        rows.append(
-            row := {
-                "sample_id": question.question_id,
-                "benchmark": "personamem",
-                "question_type": question.question_type,
-                "topic": question.topic,
-                "expected_answer": question.correct_answer,
-                "memory_answer_local": local_projection,
-                "provider_prediction": provider_prediction,
-                "provider_raw_prediction": raw_provider_prediction,
-                "provider_status": status,
-                "provider_configured": provider.is_configured(),
-                "observed_turns": observed_turns,
-                "belief_source": memory_payload["belief_source"],
-                "selected_slot_ids": memory_payload["selected_slot_ids"],
-                "belief_state": memory_payload["belief_state"],
-                "evidence_block": memory_payload["evidence_block"],
-                "prompt": prompt,
-                "prompt_version": "stage2_memory_canary_v2",
+    pending_questions = [question for question in questions if question.question_id not in completed_ids]
+    pending_rows: list[dict[str, Any]] = []
+    if _should_use_symbolic_parallel_fast_path(
+        provider_configured=provider.is_configured(),
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        provider_workers=provider_workers,
+    ):
+        with ThreadPoolExecutor(max_workers=max(int(provider_workers), 1)) as executor:
+            future_map = {
+                executor.submit(
+                    _build_personamem_row,
+                    question,
+                    adapter=adapter,
+                    contexts=contexts,
+                    memory_mode=memory_mode,
+                    slot_assignment_mode=slot_assignment_mode,
+                    learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+                    learned_memory_train_config_path=learned_memory_train_config_path,
+                    learned_memory_device=learned_memory_device,
+                    learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+                    learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+                    learned_slot_assignment_device=learned_slot_assignment_device,
+                    provider_configured=provider.is_configured(),
+                    llm=config.llm,
+                    learned_belief_predictor=shared_belief_predictor,
+                    learned_slot_assignment_predictor=shared_slot_assignment_predictor,
+                ): question.question_id
+                for question in pending_questions
             }
-        )
+            for future in as_completed(future_map):
+                row = future.result()
+                if row["provider_status"] == "completed":
+                    live_completed += 1
+                rows.append(row)
+                _append_jsonl_row(predictions_path, row)
+                metadata["live_predictions_completed"] = live_completed
+                metadata["completed_predictions"] = len(rows)
+                _write_json(run_dir / "run_metadata.json", metadata)
+    else:
+        for question in pending_questions:
+            pending_rows.append(
+                _build_personamem_row(
+                    question,
+                    adapter=adapter,
+                    contexts=contexts,
+                    memory_mode=memory_mode,
+                    slot_assignment_mode=slot_assignment_mode,
+                    learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+                    learned_memory_train_config_path=learned_memory_train_config_path,
+                    learned_memory_device=learned_memory_device,
+                    learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+                    learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+                    learned_slot_assignment_device=learned_slot_assignment_device,
+                    provider_configured=False,
+                    learned_belief_predictor=shared_belief_predictor,
+                    learned_slot_assignment_predictor=shared_slot_assignment_predictor,
+                )
+            )
+
+        if provider.is_configured():
+            provider_results = _iter_provider_predictions(
+                config.llm,
+                [(index, row["prompt"]) for index, row in enumerate(pending_rows)],
+                workers=max(int(provider_workers), 1),
+            )
+            for index, provider_prediction, raw_provider_prediction in provider_results:
+                row = pending_rows[index]
+                row["provider_prediction"] = provider_prediction
+                row["provider_raw_prediction"] = raw_provider_prediction
+                row["provider_status"] = "completed"
+    for row in pending_rows:
+        if row["provider_status"] == "completed":
+            live_completed += 1
+        rows.append(row)
         _append_jsonl_row(predictions_path, row)
         metadata["live_predictions_completed"] = live_completed
         metadata["completed_predictions"] = len(rows)
@@ -664,6 +866,7 @@ def run_longmemeval_canary(
     learned_slot_assignment_checkpoint_dir: str | None = None,
     learned_slot_assignment_train_config_path: str | None = None,
     learned_slot_assignment_device: str = "cpu",
+    provider_workers: int = 1,
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
@@ -704,6 +907,7 @@ def run_longmemeval_canary(
         "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
+        "provider_workers": max(int(provider_workers), 1),
         "canary_manifest": str(_ensure_canary_manifest(output_root, "longmemeval")),
         "predictions_path": str(predictions_path),
     }
@@ -718,53 +922,77 @@ def run_longmemeval_canary(
         learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
         learned_slot_assignment_device=learned_slot_assignment_device,
     )
-    for question in questions:
-        if question.question_id in completed_ids:
-            continue
-        system = _build_memory_system(
-            memory_mode=memory_mode,
-            slot_assignment_mode=slot_assignment_mode,
-            learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
-            learned_memory_train_config_path=learned_memory_train_config_path,
-            learned_memory_device=learned_memory_device,
-            learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
-            learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
-            learned_slot_assignment_device=learned_slot_assignment_device,
-            learned_belief_predictor=shared_belief_predictor,
-            learned_slot_assignment_predictor=shared_slot_assignment_predictor,
-        )
-        observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
-        memory_payload = _memory_payload(system, question.question_id, question.question)
-        prompt = _render_longmemeval_prompt(question, memory_payload)
-        provider_prediction = None
-        status = "provider_not_configured"
-        if provider.is_configured():
-            provider_prediction = provider.chat(
-                prompt,
-                temperature=config.llm.temperature,
-                max_tokens=config.llm.max_tokens,
-            ).content
-            status = "completed"
-            live_completed += 1
-        rows.append(
-            row := {
-                "sample_id": question.question_id,
-                "benchmark": "longmemeval_s",
-                "question_type": question.question_type,
-                "expected_answer": question.answer,
-                "memory_answer_local": memory_payload["answer_text"],
-                "provider_prediction": provider_prediction,
-                "provider_status": status,
-                "provider_configured": provider.is_configured(),
-                "observed_turns": observed_turns,
-                "belief_source": memory_payload["belief_source"],
-                "selected_slot_ids": memory_payload["selected_slot_ids"],
-                "belief_state": memory_payload["belief_state"],
-                "evidence_block": memory_payload["evidence_block"],
-                "prompt": prompt,
-                "prompt_version": "stage2_memory_canary_v2",
+    pending_questions = [question for question in questions if question.question_id not in completed_ids]
+    pending_rows: list[dict[str, Any]] = []
+    if _should_use_symbolic_parallel_fast_path(
+        provider_configured=provider.is_configured(),
+        memory_mode=memory_mode,
+        slot_assignment_mode=slot_assignment_mode,
+        provider_workers=provider_workers,
+    ):
+        with ThreadPoolExecutor(max_workers=max(int(provider_workers), 1)) as executor:
+            future_map = {
+                executor.submit(
+                    _build_longmemeval_row,
+                    question,
+                    memory_mode=memory_mode,
+                    slot_assignment_mode=slot_assignment_mode,
+                    learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+                    learned_memory_train_config_path=learned_memory_train_config_path,
+                    learned_memory_device=learned_memory_device,
+                    learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+                    learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+                    learned_slot_assignment_device=learned_slot_assignment_device,
+                    provider_configured=provider.is_configured(),
+                    llm=config.llm,
+                    learned_belief_predictor=shared_belief_predictor,
+                    learned_slot_assignment_predictor=shared_slot_assignment_predictor,
+                ): question.question_id
+                for question in pending_questions
             }
-        )
+            for future in as_completed(future_map):
+                row = future.result()
+                if row["provider_status"] == "completed":
+                    live_completed += 1
+                rows.append(row)
+                _append_jsonl_row(predictions_path, row)
+                metadata["live_predictions_completed"] = live_completed
+                metadata["completed_predictions"] = len(rows)
+                _write_json(run_dir / "run_metadata.json", metadata)
+    else:
+        for question in pending_questions:
+            pending_rows.append(
+                _build_longmemeval_row(
+                    question,
+                    memory_mode=memory_mode,
+                    slot_assignment_mode=slot_assignment_mode,
+                    learned_memory_checkpoint_dir=learned_memory_checkpoint_dir,
+                    learned_memory_train_config_path=learned_memory_train_config_path,
+                    learned_memory_device=learned_memory_device,
+                    learned_slot_assignment_checkpoint_dir=learned_slot_assignment_checkpoint_dir,
+                    learned_slot_assignment_train_config_path=learned_slot_assignment_train_config_path,
+                    learned_slot_assignment_device=learned_slot_assignment_device,
+                    provider_configured=False,
+                    learned_belief_predictor=shared_belief_predictor,
+                    learned_slot_assignment_predictor=shared_slot_assignment_predictor,
+                )
+            )
+
+        if provider.is_configured():
+            provider_results = _iter_provider_predictions(
+                config.llm,
+                [(index, row["prompt"]) for index, row in enumerate(pending_rows)],
+                workers=max(int(provider_workers), 1),
+            )
+            for index, provider_prediction, raw_provider_prediction in provider_results:
+                row = pending_rows[index]
+                row["provider_prediction"] = provider_prediction
+                row["provider_raw_prediction"] = raw_provider_prediction
+                row["provider_status"] = "completed"
+    for row in pending_rows:
+        if row["provider_status"] == "completed":
+            live_completed += 1
+        rows.append(row)
         _append_jsonl_row(predictions_path, row)
         metadata["live_predictions_completed"] = live_completed
         metadata["completed_predictions"] = len(rows)
@@ -803,6 +1031,7 @@ def main() -> int:
     parser.add_argument("--learned-slot-assignment-checkpoint-dir")
     parser.add_argument("--learned-slot-assignment-train-config")
     parser.add_argument("--learned-slot-assignment-device", default="cpu")
+    parser.add_argument("--provider-workers", type=int, default=1)
     parser.add_argument("--run-dir")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -821,6 +1050,7 @@ def main() -> int:
             learned_slot_assignment_checkpoint_dir=args.learned_slot_assignment_checkpoint_dir,
             learned_slot_assignment_train_config_path=args.learned_slot_assignment_train_config,
             learned_slot_assignment_device=args.learned_slot_assignment_device,
+            provider_workers=args.provider_workers,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )
@@ -837,6 +1067,7 @@ def main() -> int:
             learned_slot_assignment_checkpoint_dir=args.learned_slot_assignment_checkpoint_dir,
             learned_slot_assignment_train_config_path=args.learned_slot_assignment_train_config,
             learned_slot_assignment_device=args.learned_slot_assignment_device,
+            provider_workers=args.provider_workers,
             requested_run_dir=args.run_dir,
             resume=args.resume,
         )

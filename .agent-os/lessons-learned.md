@@ -49,3 +49,8 @@
   - `v2.8` 这条线里，“teacher 改动没有被训练/评测真正消费” 和 “teacher supervision 本身有害” 是两件不同的事；必须先用 changed-sample matched subset 把前者排除掉，才能诚实断定后者。
   - 在当前 `256 / 128 / 128` teacher suite 下，能覆盖 enough samples 的 teacher supervision 只有 `slot_assignment` 和 `belief`；如果这两条线都在 matched internal compare 上显式退化，而 observation-only raw-teacher 改动又只剩 `train=1 / val=0 / test=3`，那就应把 run 判成 true blocker，而不是继续靠更窄的 refresh 刷随机噪声。
   - `train_stage2.py` 与 `eval_stage2_local.py` 当前都用秒级 UTC 时间戳生成 artifact 路径；并行启动时会直接撞到同一个 `run_dir` / `result_path`。后续若还要做并行 compare，必须先加更细粒度时间戳或显式 run namespace，否则结果不可审计。
+  - `v2.9` 这条线里，先补 authoritative publisher 再跑长实验是值得的：如果 verifier 只认 `latest_stage2_v29_*` artifacts，而 repo 里还没有 publish path，那么就算 current-head 已经产出了 train/eval/canary 原始结果，metric 也只会停在 baseline。
+  - launch manifest ready 并不等于当前 session 带着 live provider env；在任何 `512` holdout 之前，先用 `echo ${GPT_AGENT_API_KEY:+SET}` 或 `run_stage2_memory_canary.py --limit 1` 机械确认 `provider_configured=true`，能避免把 run 浪费在注定只能得到 `blocked_provider_not_configured` 的 probe 上。
+- 2026-04-19:
+  - 如果 `run_stage2_memory_canary.py` 只把 provider 调用并行化、却把 memory build / prompt precompute 保持串行，那么大 holdout 会长时间停在 `completed_predictions=0`；对 `memory_mode=symbolic` 且 `slot_assignment_mode=symbolic` 的路径，应该直接做 sample-level 并行并增量写 `predictions.jsonl`
+  - `LongMemEval-S` 当前官方 cleaned 数据集实际上只有 `500` 条；`v2.9` 的 expanded holdout 目标和 verifier 不应再写成 `512`
