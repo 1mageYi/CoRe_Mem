@@ -230,18 +230,24 @@ class StructuredMemorySystem:
         ]
         if latent_scores:
             if any(lexical_overlap > 0.0 for _, _, lexical_overlap in scored_slots):
-                ranked = [
-                    slot
-                    for slot, _, _ in sorted(
-                        scored_slots,
-                        key=lambda item: (
-                            item[2] > 0.0,
-                            float(latent_scores.get(item[0].slot_id, float("-inf"))) if item[2] > 0.0 else float("-inf"),
-                            item[1],
-                        ),
-                        reverse=True,
-                    )
-                ]
+                positive = [item for item in scored_slots if item[2] > 0.0]
+                negative = [item for item in scored_slots if item[2] <= 0.0]
+                positive.sort(
+                    key=lambda item: (
+                        item[1],
+                        float(latent_scores.get(item[0].slot_id, float("-inf"))),
+                        item[2],
+                    ),
+                    reverse=True,
+                )
+                negative.sort(
+                    key=lambda item: (
+                        float(latent_scores.get(item[0].slot_id, float("-inf"))),
+                        item[1],
+                    ),
+                    reverse=True,
+                )
+                ranked = [slot for slot, _, _ in [*positive, *negative]]
             else:
                 ranked = [
                     slot
