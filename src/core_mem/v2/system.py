@@ -29,6 +29,8 @@ _DATE_VALUE_RE = re.compile(
     re.IGNORECASE,
 )
 _NUMBER_VALUE_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
+_RAW_VALUE_STRIP_RE = re.compile(r'^[\s\[\]\{\}",:]+|[\s\[\]\{\}",:]+$')
+_STRUCTURAL_VALUE_NOISE_RE = re.compile(r'[\{\}\[\]]|":|",|"{2,}|"{3,}|,\s*"')
 _QUERY_STOPWORDS = {
     "a",
     "an",
@@ -357,7 +359,12 @@ class StructuredMemorySystem:
 
         try:
             payload = predictor(query_id, query_text, selected)
-            learned_belief = self._coerce_learned_belief(payload, query_id=query_id, fallback_slots=selected)
+            learned_belief = self._coerce_learned_belief(
+                payload,
+                query_id=query_id,
+                query_text=query_text,
+                fallback_slots=selected,
+            )
         except Exception:
             return self._empty_learned_belief(query_id), "learned_memory_error"
         if not learned_belief.belief_items:
@@ -539,8 +546,26 @@ class StructuredMemorySystem:
         candidates: list[SlotRecord],
         symbolic_decision: LifecycleDecision,
     ) -> LifecycleDecision:
+        from core_mem.v2.training import (
+            _repair_lifecycle_payload_from_input_context,
+            compact_observation_payload,
+            compact_slot_list,
+        )
+
+        input_text = self._render_slot_assignment_example(
+            observation,
+            slots,
+            compact_observation_payload,
+            compact_slot_list,
+        )
+        raw_text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False, sort_keys=True)
         if isinstance(payload, str):
             payload = coerce_task_payload("slot_assignment", payload)
+        payload = _repair_lifecycle_payload_from_input_context(
+            input_text,
+            raw_text,
+            payload if isinstance(payload, dict) else None,
+        )
         if not isinstance(payload, dict):
             return LifecycleDecision(action="ignore")
 
@@ -722,16 +747,49 @@ class StructuredMemorySystem:
         payload: Any,
         *,
         query_id: str,
+        query_text: str,
         fallback_slots: list[SlotRecord],
     ) -> BeliefState:
+        from core_mem.v2.training import _repair_belief_payload_from_input_context, compact_slot_list
+
         if isinstance(payload, BeliefState):
             return payload
+        input_text = StructuredMemorySystem._render_learned_belief_example(
+            query_text,
+            fallback_slots,
+            compact_slot_list,
+        )
+        raw_text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False, sort_keys=True)
         if isinstance(payload, str):
             payload = coerce_task_payload("composition_to_belief", payload)
+        payload = _repair_belief_payload_from_input_context(
+            input_text,
+            raw_text,
+            payload if isinstance(payload, dict) else None,
+        )
+        if not isinstance(payload, dict):
+            payload = StructuredMemorySystem._fallback_belief_payload_from_raw_text(
+                raw_text,
+                query_id=query_id,
+                query_text=query_text,
+                fallback_slots=fallback_slots,
+            )
         if not isinstance(payload, dict):
             raise TypeError("Learned belief payload must be a JSON object, string, or BeliefState.")
 
         raw_items = payload.get("belief_items", [])
+        fallback_payload = StructuredMemorySystem._fallback_belief_payload_from_raw_text(
+            raw_text,
+            query_id=query_id,
+            query_text=query_text,
+            fallback_slots=fallback_slots,
+        )
+        fallback_item = None
+        if isinstance(fallback_payload, dict):
+            candidate_items = fallback_payload.get("belief_items", [])
+            if isinstance(candidate_items, list) and candidate_items and isinstance(candidate_items[0], dict):
+                fallback_item = candidate_items[0]
+        available_relations = {slot.relation for slot in fallback_slots}
         belief_items: list[dict[str, Any]] = []
         for index, item in enumerate(raw_items):
             if not isinstance(item, dict):
@@ -739,12 +797,32 @@ class StructuredMemorySystem:
             relation = str(item.get("relation", fallback_slots[index].relation if index < len(fallback_slots) else "other_fact"))
             value = str(item.get("value", ""))
             support_slot_ids = item.get("support_slot_ids")
+            if relation not in available_relations and isinstance(fallback_item, dict):
+                relation = str(fallback_item.get("relation", relation))
+                fallback_support_ids = fallback_item.get("support_slot_ids")
+                if fallback_support_ids:
+                    support_slot_ids = fallback_support_ids
+                if not value:
+                    value = str(fallback_item.get("value", ""))
             if not support_slot_ids:
                 support_slot_ids = StructuredMemorySystem._infer_support_slot_ids(
                     fallback_slots,
                     relation=relation,
                     value=value,
                 )
+            support_slot = StructuredMemorySystem._select_belief_support_slot(
+                fallback_slots,
+                relation=relation,
+                support_slot_ids=[str(slot_id) for slot_id in support_slot_ids],
+            )
+            if StructuredMemorySystem._should_backfill_belief_value(
+                value,
+                relation=relation,
+                support_slot=support_slot,
+            ):
+                value = StructuredMemorySystem._canonical_slot_value(support_slot)
+            else:
+                value = StructuredMemorySystem._sanitize_belief_value(value, relation=relation)
             belief_items.append(
                 {
                     "relation": relation,
@@ -788,3 +866,137 @@ class StructuredMemorySystem:
             if normalized_value and normalized_value in slot.canonical_gloss.lower():
                 return [slot.slot_id]
         return [slots[0].slot_id] if slots else []
+
+    @staticmethod
+    def _canonical_slot_value(slot: SlotRecord | None) -> str:
+        if slot is None:
+            return ""
+        canonical_gloss = slot.canonical_gloss.strip()
+        if "=" in canonical_gloss:
+            return canonical_gloss.split("=", 1)[1].strip()
+        return canonical_gloss
+
+    @classmethod
+    def _select_belief_support_slot(
+        cls,
+        slots: list[SlotRecord],
+        *,
+        relation: str,
+        support_slot_ids: list[str],
+    ) -> SlotRecord | None:
+        for slot_id in support_slot_ids:
+            slot = cls._find_slot(slots, slot_id)
+            if slot is not None:
+                return slot
+        for slot in slots:
+            if slot.relation == relation:
+                return slot
+        return slots[0] if slots else None
+
+    @classmethod
+    def _sanitize_belief_value(cls, value: str, *, relation: str) -> str:
+        cleaned = _RAW_VALUE_STRIP_RE.sub("", str(value or "")).strip()
+        if not cleaned:
+            return ""
+        if "=" not in cleaned:
+            return cleaned
+        prefix, remainder = cleaned.split("=", 1)
+        if prefix.strip().lower() == relation.strip().lower():
+            normalized = _RAW_VALUE_STRIP_RE.sub("", remainder).strip()
+            return normalized or cleaned
+        return cleaned
+
+    @classmethod
+    def _should_backfill_belief_value(
+        cls,
+        value: str,
+        *,
+        relation: str,
+        support_slot: SlotRecord | None,
+    ) -> bool:
+        cleaned = cls._sanitize_belief_value(value, relation=relation)
+        if not cleaned:
+            return True
+        if _STRUCTURAL_VALUE_NOISE_RE.search(cleaned):
+            return True
+        if "=" in cleaned:
+            prefix = cleaned.split("=", 1)[0].strip().lower()
+            if prefix and prefix != relation.strip().lower():
+                return True
+        if support_slot is None:
+            return False
+        canonical_value = cls._canonical_slot_value(support_slot)
+        if not canonical_value:
+            return False
+        if cleaned.lower() == canonical_value.lower():
+            return False
+        return cleaned.lower() not in support_slot.canonical_gloss.lower()
+
+    @classmethod
+    def _fallback_slot_rank(
+        cls,
+        slot: SlotRecord,
+        *,
+        query_text: str,
+        raw_value: str,
+        index: int,
+    ) -> tuple[float, float, float, float, float, float]:
+        query_terms = cls._query_terms(query_text)
+        slot_terms = cls._slot_terms(slot)
+        query_overlap = float(len(query_terms & slot_terms))
+        raw_match = float(bool(raw_value) and raw_value.lower() in slot.canonical_gloss.lower())
+        preference_bonus = float(slot.relation.endswith("_preference") or slot.relation in {"hobby", "goal"})
+        non_other_fact = float(slot.relation != "other_fact")
+        return (
+            raw_match,
+            query_overlap,
+            preference_bonus,
+            non_other_fact,
+            float(slot.active_flag),
+            float(slot.confidence) - (index * 0.001),
+        )
+
+    @staticmethod
+    def _fallback_belief_payload_from_raw_text(
+        raw_text: str,
+        *,
+        query_id: str,
+        query_text: str,
+        fallback_slots: list[SlotRecord],
+    ) -> dict[str, Any] | None:
+        cleaned = _RAW_VALUE_STRIP_RE.sub("", str(raw_text or "")).strip()
+        if not fallback_slots:
+            return None
+        ranked_slots = sorted(
+            enumerate(fallback_slots),
+            key=lambda item: StructuredMemorySystem._fallback_slot_rank(
+                item[1],
+                query_text=query_text,
+                raw_value=cleaned,
+                index=item[0],
+            ),
+            reverse=True,
+        )
+        if not ranked_slots:
+            return None
+        _, best_slot = ranked_slots[0]
+        canonical_value = StructuredMemorySystem._canonical_slot_value(best_slot)
+        if cleaned and cleaned.lower() in best_slot.canonical_gloss.lower():
+            value = cleaned
+        else:
+            value = canonical_value or cleaned
+        if not value:
+            return None
+        return {
+            "query_id": query_id,
+            "entity": "user",
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": best_slot.relation,
+                    "value": value,
+                    "support_slot_ids": [best_slot.slot_id],
+                }
+            ],
+            "global_consistency": "medium",
+        }

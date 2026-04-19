@@ -355,6 +355,197 @@ def test_structured_memory_system_does_not_fallback_to_symbolic_in_learned_mode(
     assert result.answer_text == "unknown"
 
 
+def test_structured_memory_system_repairs_learned_belief_from_context():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: '"food_preference" is the current preference of the user.',
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-food",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "food_preference",
+                "value": "burgers",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 1.0,
+                "evidence_text": "I currently prefer burgers.",
+                "canonical_gloss": "food_preference=burgers",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned-repaired", "What food does the user currently prefer?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "food_preference"
+    assert result.belief_state.belief_items[0].value == "burgers"
+    assert result.answer_text == "burgers"
+
+
+def test_structured_memory_system_falls_back_from_raw_value_fragment_in_learned_belief():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: 'modern beats with Pacific sounds"]',
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-music",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "producing music with software",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 1.0,
+                "evidence_text": "I like producing music with software.",
+                "canonical_gloss": "music_preference=producing music with software",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned-fragment", "I recently attended an event where there was a unique blend of modern beats with Pacific sounds.")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "music_preference"
+    assert result.belief_state.belief_items[0].value == "producing music with software"
+
+
+def test_structured_memory_system_uses_query_aligned_slot_for_raw_belief_fallback():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: '"context_to_belief": "context_to_belief"',
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-recipes",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "hobby",
+                "value": "experimenting with different recipes",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.75,
+                "evidence_text": "I enjoy experimenting with different recipes.",
+                "canonical_gloss": "hobby=experimenting with different recipes",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-comments",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "more descriptive comments that highlight the purpose of code blocks",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 0.95,
+                "evidence_text": "I prefer more descriptive comments that highlight the purpose of code blocks.",
+                "canonical_gloss": "other_fact=more descriptive comments that highlight the purpose of code blocks",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query("query-learned-cooking", "Can you suggest some new cooking techniques or recipes I might enjoy exploring?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "hobby"
+    assert result.belief_state.belief_items[0].value == "experimenting with different recipes"
+
+
+def test_structured_memory_system_backfills_malformed_learned_belief_value_from_support_slot():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: 'other_fact=on a journey to redefine how i approach group collaborations, aiming for a more structured", "confidence": 0.82, "',
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-music-pref",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.9,
+                "evidence_text": "I want to enjoy music in its truest form.",
+                "canonical_gloss": "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-other-fact",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "on a journey to redefine how i approach group collaborations, aiming for a more structured approach",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 0.82,
+                "evidence_text": "I am rethinking how I approach group collaborations.",
+                "canonical_gloss": "other_fact=on a journey to redefine how i approach group collaborations, aiming for a more structured approach",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query("query-learned-music-support", "How can I find a more fulfilling way to express my love for music?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "music_preference"
+    assert result.belief_state.belief_items[0].value == "music in its truest form, without rigid guidelines dictating how i should dissect it"
+
+
 def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     calls = {"count": 0}
 
@@ -439,6 +630,64 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
 
     assert calls["count"] == 1
     assert len(system.state.active_slots()) == 2
+
+
+def test_structured_memory_system_repairs_learned_slot_assignment_from_context():
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=lambda *_args, **_kwargs: 'temporal_fact=half past 7 in the evening"',
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-1",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "temporal_fact",
+                "value": "half past 7 in the evening",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "Dinner is at half past 7 in the evening.",
+                "canonical_gloss": "temporal_fact=half past 7 in the evening",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-2",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "temporal_fact",
+                "value": "7:30 pm",
+                "value_type": "other",
+                "time_scope": "recent_change",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 1.0,
+                "evidence_text": "Actually, make it 7:30 pm.",
+                "canonical_gloss": "temporal_fact=7:30 pm",
+            }
+        ),
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    active_slots = system.state.active_slots()
+    assert len(active_slots) == 1
+    assert active_slots[0].canonical_gloss == "temporal_fact=7:30 pm"
 
 
 def test_structured_memory_system_short_circuits_single_candidate_overwrite():
