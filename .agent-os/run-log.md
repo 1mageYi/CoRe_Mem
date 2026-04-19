@@ -1,5 +1,23 @@
 # Run Log
 
+## 2026-04-19 Session 071
+
+- Worked on: 以 fresh managed `v31` run 为上下文，先修 baseline guard，再把独立 `latent_retriever.pt` checkpoint 接进 online canary，给下一轮 `LongMemEval-S 500 + PersonaMem 512` 稳定 holdout measurement 清掉实现级 blocker
+- State changed:
+  - baseline 已机械量到 `scripts/verify_stage2_v31_longrun.py --score-only = 24`，同时当前 HEAD baseline guard 初始为红：`tests/test_stage2_model_skeleton.py` 有 4 条 learned belief / projection 回归
+  - helper 已把 iteration `1` 记为 `refine`：commit `864dfa2` 收紧 `src/core_mem/v2/system.py` 的 belief-value backfill 条件，保留结构干净的 same-relation learned value，并在 invalid-relation fallback 时继续回到 query-aligned support value；对应 full guard 已恢复通过，但 retained metric 保持 `24`
+  - helper 已把 iteration `2` 记为 `refine`：commit `84d2435` 为 `StructuredMemorySystem` 新增 optional latent slot ranker / latent checkpoint loader，并把 `scripts/run_stage2_memory_canary.py` 扩展为可同时接收 `learned belief checkpoint + latent checkpoint`
+  - fresh `PersonaMem 1` live smoke `outputs_v2/evals_benchmark/20260419T160230Z_stage2_memory_canary.json` 已机械完成，artifact 显式记录 `latent_retriever_checkpoint_dir = outputs_v2/checkpoints/20260419T070526Z_stage2_v31_latent_exec`；这证明 current-head online canary 已经能消费独立 `v31` latent checkpoint
+  - 当前 retained truth 仍未变化：`scripts/verify_stage2_v31_longrun.py --score-only = 24/32`；full holdout compare / ablation 仍未发布，不能误写成 keep 或 gain
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260419T160230Z_stage2_memory_canary.json`
+  - commits `864dfa2`, `84d2435`
+- Next likely action:
+  - 直接沿 current HEAD 的 `learned belief checkpoint + v31 latent checkpoint` 在线路径，跑 `LongMemEval-S 500 + PersonaMem 512` 稳定 holdout measurement
+  - 在 full holdout summary 到位后，再补 `latest_stage2_v31_full_holdout_compare.json` 与 `latest_stage2_v31_ablation_summary.json`
+
 ## 2026-04-19 Session 070
 
 - Worked on: 继续 `TD-042 / WS-028 / v31` 的 full-holdout quick-smoke line，在 retained `24/32` 基线上依次尝试 online learned belief fallback、blank-output 修补、learned slot-assignment pivot、provider-stability repeat 与最小 constrained-decoding
