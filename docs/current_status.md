@@ -20,6 +20,7 @@
 - 第一阶段 formal benchmark 执行状态：**待用户显式触发**；在用户要求 AI 去跑之前，不主动继续消耗 API 推 formal benchmark
 - 第二阶段设计状态：`V2.0` 方法主线、结构化 JSON、数据集到训练任务映射、指标到模块映射、默认 backbone、默认超参数与输出目录均已在真源文档中锁定
 - 第二阶段 `v2.9` 当前 retained 状态：fresh managed run 已把 `scripts/verify_stage2_v29_longrun.py --score-only` 从 baseline `25` 推到 stop condition `39/39`；当前 `write / latent / belief` gain 全部为正，expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
+- 第二阶段当前模型真相：当前主训练仍是 **单一共享 `google/flan-t5-base + LoRA` Seq2Seq**，统一处理 `retrieval_alignment / lifecycle_prediction / composition_to_belief` 三类任务；`parser` 仍 rule-first，`lifecycle` 仍 rule-heavy，`encoder / resampler` 仍以 parameterized but fixed projection 为主，`belief decoder` 仍以 heuristic/semantic-first 为主，因此下一阶段真正的突破点已明确收敛到 **shared backbone + task-specific adapters、trainable latent、direct latent objectives、learned belief decoder**
 - 第二阶段实现状态：`src/core_mem/v2/` 已同时具备 Observation / Slot / Belief schema、rule-first parser、dataset registry，以及 slot encoder、lifecycle、consolidation、core/residual memory system、light resampler、belief decoder、answer projection 和 `training.py` 训练模块；其中 `encoder/resampler/decoder/system` 已从 hash/mean skeleton 升级为 parameterized lexical projection + cross-attention composition + latent-conditioned belief decode 主链；`scripts/normalize_stage2_public_data.py` 已把真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` 规范化为 `normalized.jsonl`；`prepare_stage2_data.py` 已支持 source-config + strict mode + `--max-rows-per-dataset`；`scripts/train_stage2.py` 现已支持 preset experiment variant、checkpoint-aware local eval 与 experiment registry 自动登记；当前 `outputs_v2/artifacts/stage2_experiment_index.json` 已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13`
 - 第二阶段 latent readiness 状态：`scripts/verify_stage2_latent_status.py --score-only` 当前已达 `9/9`；其中实现项包括 `query/slot encoder` 不再是 hash-only、`resampler` 不再是 mean-only、`decoder` 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链
 - 第二阶段 benchmark canary 状态：`scripts/run_stage2_memory_canary.py` 已在 `MiniMax-M2.7` 上完成真实 live PersonaMem canary。当前已存在：
@@ -211,12 +212,15 @@
 ## 当前最重要的下一步
 
 - `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
-- 当前 active 主线正式切到 **`TD-040` / `WS-026` / `v2.9 learned-core-path long-run`**
-- `v2.9` 的目标不再是继续修 teacher 本身，而是：
+- 当前 active 主线正式切到 **`TD-041` / `WS-027` / `v3.0 / v30 architecture-first long-run`**
+- `v30` 的目标不再是继续扩 teacher 或补 publisher，而是：
   - 保持 `core / residual` 双银行结构不变
   - 继续以 `32k` split 为训练锚点
-  - 依次推进 `write -> latent composition -> belief` 三段 learned 主链
-  - 把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`
+  - 把当前 “单一共享 `flan-t5-base + LoRA` Seq2Seq” 推进到 **shared backbone + task-specific adapters**
+  - 把 `encoder / resampler` 推进到 **真正 trainable 的 latent module**
+  - 给 latent 加入 **direct latent objectives**
+  - 把 belief 从 heuristic decoder 推向 **learned belief decoder**
+  - 用 **full benchmark holdout** 作为正式 external baseline：`LongMemEval-S 500 / PersonaMem 589`
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`
   - matched `teacher-vs-silver` compare 已真实消费 teacher 改动
@@ -249,6 +253,11 @@
   - `write / latent / belief` gain 当前均显式记录 `positive_gain = true`
   - expanded holdout 当前已真实完成：`outputs_v2/evals_benchmark/20260419T000721Z_stage2_memory_canary.json` 为 `LongMemEval-S 500`，`outputs_v2/evals_benchmark/20260419T000717Z_stage2_memory_canary.json` 为 `PersonaMem 512`
   - 当前 retained 状态可以诚实标为 `39/39 keep`；不能把这写成“full benchmark training 已做完”，也不能把 stage-1 formal benchmark 写成已恢复
+- `v30` 当前的新的 truth boundary 是：
+  - full benchmark 可以作为正式 external baseline，但它仍然是 **holdout**
+  - benchmark 不回流训练 supervision
+  - 不接受任何 `fallback / shortcut / benchmark-specific optimization`
+  - 下一阶段的 retained gain 必须主要来自 **可训练主链能力本身的增强**
 - `TD-039 / WS-025` 的当前代码进展：`scripts/prepare_stage2_data.py` 现已补上 observation teacher coercion failure 的 single-sample retry / failure 落盘，并新增 `publish_v28_teacher_suite`，可在不覆盖 retained `v2.7` latest artifacts 的前提下发布 `v2.8` teacher artifacts、teacher quality audit 与 teacher-enhanced manifests；`scripts/verify_stage2_v28_longrun.py` 现已补上 `silver baseline / teacher train-eval / compare / internal gate` 发布路径，对应 targeted tests 已通过
 - 当前 `TD-039` 的 runtime truth 已前进到更强但仍未达标的状态：
   - `latest_stage2_v28_teacher_observation.json`、`latest_stage2_v28_teacher_slot_assignment.json`、`latest_stage2_v28_teacher_belief.json`、`latest_stage2_v28_teacher_quality_audit.json` 已落地

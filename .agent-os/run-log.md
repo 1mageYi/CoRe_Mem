@@ -1,5 +1,22 @@
 # Run Log
 
+## 2026-04-19 Session 063
+
+- Worked on: 把 next stage 从 `v2.9` closeout 前推到 `v3.0 / v30 architecture-first long-run`，明确下一条主线不再围绕 teacher，而是直接围绕可训练主链升级：shared backbone + task-specific adapters、trainable latent、direct latent objectives、learned belief decoder，以及 full benchmark holdout baseline
+- State changed:
+  - 新增 [docs/v30_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v30_plan.md)，把当前起点、冻结边界、32k 训练锚点、full benchmark holdout（`LongMemEval-S 500 / PersonaMem 589`）、以及四条 architecture milestones 固化为真源计划
+  - 新增 [scripts/verify_stage2_v30_longrun.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v30_longrun.py)，把 `v30` 的 mechanical target 锁成 42 项，既保留 `v2.9` retained line，又要求 future run 真正产出 shared-backbone modular train、trainable latent、direct latent objective、learned belief decoder 与 full benchmark holdout artifacts
+  - 新增 [tests/test_stage2_v30_longrun.py](/media/storage/mingjing/workspace/CoRe_Mem/tests/test_stage2_v30_longrun.py)，提供 baseline / full-pass 两组回归
+  - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md` 已同步切到 `TD-041 / WS-027 / v30`
+- Evidence / artifacts:
+  - `docs/v30_plan.md`
+  - `scripts/verify_stage2_v30_longrun.py`
+  - `tests/test_stage2_v30_longrun.py`
+- Next likely action:
+  - 在当前 repo 上跑 `scripts/verify_stage2_v30_longrun.py --score-only` 量基线
+  - 提交 baseline commit
+  - fresh-start 启动 `v30` 后台 autoresearch
+
 ## 2026-04-19 Session 062
 
 - Worked on: 继续受控恢复 `TD-040 / WS-026`，修掉 `run_stage2_memory_canary.py` 在大 holdout 上“长时间 0 落盘”的问题，并把 `v2.9` 从 `33/39 partial` 推到 stop condition `39/39`

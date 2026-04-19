@@ -154,6 +154,29 @@
   - 当前 `v29` gain 不再是 partial：`write / latent / belief` 均已转为 `positive_gain = true`
   - expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`；当前 stop condition 已达成，后续若继续推进，应以这条 retained line 为 baseline
 
+### 当前 post-v2.9 训练与架构判断
+
+- 当前训练主线仍是 **共享 `google/flan-t5-base + LoRA` Seq2Seq**
+- 当前统一训练任务为：
+  - `retrieval_alignment`
+  - `lifecycle_prediction`
+  - `composition_to_belief`
+- 当前最明显的上限约束不是 data plumbing，而是：
+  - `parser` 仍 rule-first
+  - `lifecycle` 仍 rule-heavy
+  - `encoder / resampler` 仍主要是 fixed projection
+  - `belief decoder` 仍主要是 heuristic/semantic-first
+
+### 下一阶段（v30）主线
+
+- shared backbone + task-specific adapters
+- trainable encoder / resampler
+- direct latent objectives
+- learned belief decoder
+- full benchmark holdout baseline：
+  - `LongMemEval-S 500`
+  - `PersonaMem 589`
+
 ### 当前 `v2.7` 执行锚点
 
 当前 active 主线已经前推到 **`TD-038` / `WS-024` / `v2.7 32k teacher-first`**，核心约束是：

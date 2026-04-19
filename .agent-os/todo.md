@@ -2,8 +2,24 @@
 
 ## Doing
 
-- 当前无新的 active 主线。
-  - Runtime truth: `TD-040 / WS-026` 已在 current retained state 达到 `stage2_v29_longrun_score = 39/39`；下一条 stage-2 主线等待用户决定
+- `TD-041` `[doing]` 以 `v3.0 / v30 architecture-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，把当前共享 `flan-t5-base + LoRA` 训练线推进到更真正的 learned system。
+  - Current focus:
+    - shared backbone + task-specific adapters
+    - trainable encoder / resampler
+    - direct latent objectives
+    - learned belief decoder
+    - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - benchmark remains holdout-only
+  - Runtime truth:
+    - 当前 retained `v2.9` 已到 `39/39`
+    - 当前 shared training backbone 仍是 `google/flan-t5-base + LoRA`
+    - 当前 `encoder / resampler` 还没有真正 trainable
+    - 当前 `belief decoder` 还没有真正 learned 化
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`
@@ -104,6 +120,17 @@
   - Current evidence: runner 已具备增量落盘与续跑能力；Gemini 路径已把 PersonaMem formal run 推进到 `22/589`、把 LongMemEval formal run 推进到 `19/500`，但超保守单样本检查仍连续触发 `HTTP 429`，说明当前 key/provider 组合已构成真实外部 blocker。
 
 ## Done
+
+- `TD-040` `[done]` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
+  - Reason: 当前 retained state 已达到 `scripts/verify_stage2_v29_longrun.py --score-only = 39`
+  - Evidence target:
+    - `outputs_v2/artifacts/latest_stage2_v29_write_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_latent_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_belief_gain.json`
+    - `outputs_v2/artifacts/latest_stage2_v29_holdout_summary.json`
+    - `outputs_v2/artifacts/latest_longmemeval_stage2_v29_canary.json`
+    - `outputs_v2/artifacts/latest_personamem_stage2_v29_canary.json`
+    - `research-results.tsv` iteration `3 keep`
 
 - `TD-040` `[done]` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
   - Reason: 当前 retained state 已达到 `scripts/verify_stage2_v29_longrun.py --score-only = 39`；`write / latent / belief` 三段 gain 全部转正，expanded holdout 已真实完成，launch guard 通过

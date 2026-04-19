@@ -2,8 +2,18 @@
 
 ## Doing
 
-- 当前无新的 active 主线。
-  - Runtime truth: `TD-040 / WS-026` 已在 current retained state 达到 `stage2_v29_longrun_score = 39/39`；下一条 stage-2 主线等待用户决定
+- `TD-041` 以 `v3.0 / v30 architecture-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，把当前共享 `flan-t5-base + LoRA` 主训练线推进到更真正的 learned system。
+  - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
+  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
+  - 当前重点：
+    - shared backbone + task-specific adapters
+    - trainable encoder / resampler
+    - direct latent objectives
+    - learned belief decoder
+    - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
+  - Truth boundary：
+    - full benchmark 只作 holdout，不回流训练
+    - 下一阶段的 retained 增益必须主要来自可训练部分能力本身，而不是 benchmark-facing trick
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`
@@ -46,6 +56,10 @@
   - 说明：当前机械 stop condition 已达到 `19/19`；此项 closeout 已完成，但不再是当前主线。
 
 ## Done
+
+- `TD-040` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
+  - 当前结果：`scripts/verify_stage2_v29_longrun.py --score-only = 39`
+  - 关键证据：`latest_stage2_v29_{write,latent,belief}_gain.json` 三段全为正，`latest_stage2_v29_holdout_summary.json` 已记录 `LongMemEval-S 500 / PersonaMem 512`，`research-results.tsv` / `autoresearch-state.json` 已记录 iteration `3 keep`
 
 - `TD-040` 以 `v2.9 learned-core-path long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，依次推进 `write -> latent composition -> belief` 三段 learned 主链，并把 holdout benchmark 扩到 `LongMemEval-S 500 / PersonaMem 512`。
   - 当前结果：`scripts/verify_stage2_v29_longrun.py --score-only = 39`

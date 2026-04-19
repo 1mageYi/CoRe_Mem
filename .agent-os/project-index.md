@@ -3,10 +3,10 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-040 / WS-026` 已在 current retained state 达到 stop condition `39/39`；当前唯一收尾动作是保持 `v2.9` closeout 可复验，并等待用户决定是否在此基础上继续新的 stage-2 假设
-- Active workstreams: `WS-026 (closeout)`
-- Active workstream label: `TD-040 / WS-026`
-- Active workstream version: `v2.9`
+- Top next action: `TD-041 / WS-027` 已成为当前主线；目标是在 `v2.9` retained line 上继续推进 shared backbone + task-specific adapters、trainable latent、direct latent objectives、learned belief decoder，并用 full benchmark holdout 做正式 external baseline
+- Active workstreams: `WS-027`
+- Active workstream label: `TD-041 / WS-027`
+- Active workstream version: `v30`
 - Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-040 / WS-026`
 
@@ -182,11 +182,15 @@
 
 ## Top Next Action
 
-- 保持 `TD-040 / WS-026` 的 `v2.9 learned-core-path long-run` closeout 可复验
-  - Runtime truth: 当前 fresh managed run 已完整记录 baseline `25`、iteration `1 keep -> 33`、iteration `2 blocked -> 33` 与 iteration `3 keep -> 39`
-  - Current retained progress: current-head `scripts/verify_stage2_v29_longrun.py --score-only = 39`；`latest_stage2_v29_{write,latent,belief}_gain.json` 已全部转为 `positive_gain=true`，expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
-  - Guard status: `pytest -q tests/test_stage2_v29_longrun.py tests/test_stage2_v28_longrun.py tests/test_stage2_teacher_labels.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py` 已通过
-  - Next focus: 不再自动继续放大 provider 消耗；若后续继续 stage-2，应以当前 `39/39` retained line 为基线，围绕 post-`v2.9` 的质量/泛化假设展开
+- 启动 `TD-041 / WS-027` 的 `v3.0 / v30 architecture-first long-run`
+  - Runtime truth: 当前 retained `v2.9` 已确认 `39/39`，并且 expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
+  - Current retained baseline: 当前训练主线仍是共享 `google/flan-t5-base + LoRA` Seq2Seq；`parser` 仍 rule-first，`lifecycle` 仍 rule-heavy，`encoder / resampler` 仍以 fixed projection 为主，`belief decoder` 仍以 heuristic/semantic-first 为主
+  - Next focus:
+    - shared backbone + task-specific adapters
+    - trainable encoder / resampler
+    - direct latent objectives
+    - learned belief decoder
+    - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
 
 ## Active Blockers
 
