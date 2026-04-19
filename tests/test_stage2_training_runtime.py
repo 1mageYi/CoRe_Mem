@@ -306,3 +306,56 @@ def test_train_stage2_can_publish_v30_latent_objective_artifacts(tmp_path: Path)
     assert Path(payload["v30_latent_module_train_artifact"]).exists()
     assert Path(payload["v30_latent_objective_eval_artifact"]).exists()
     assert Path(payload["v30_latent_gain_artifact"]).exists()
+
+
+def test_train_stage2_can_publish_v31_latent_mainline_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+    baseline_artifact = output_root / "artifacts" / "latest_stage2_v30_latent_objective_eval.json"
+    baseline_artifact.parent.mkdir(parents=True, exist_ok=True)
+    baseline_artifact.write_text(
+        json.dumps(
+            {
+                "current_top1_accuracy": 0.5,
+                "current_mrr": 0.5,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v31_latent.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--eval-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-v31-latent-mainline",
+        "--v31-latent-baseline-artifact",
+        str(baseline_artifact),
+        "--device",
+        "cpu",
+        "--max-steps",
+        "16",
+        "--max-train-examples",
+        "1",
+        "--max-eval-examples",
+        "1",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["positive_gain"] is True
+    assert Path(payload["checkpoint_dir"]).exists()
+    assert Path(payload["v31_latent_mainline_train_artifact"]).exists()
+    compare_artifact = Path(payload["v31_latent_holdout_compare_artifact"])
+    assert compare_artifact.exists()
+    compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
+    assert compare_payload["positive_gain"] is True

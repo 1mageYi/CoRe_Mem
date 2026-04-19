@@ -258,6 +258,57 @@ def _publish_v30_latent_gain_artifact(
     return str(artifact_path)
 
 
+def _publish_v31_latent_mainline_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    train_manifest_path: Path,
+    eval_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_v31_latent_mainline_train.json"
+    payload = {
+        "artifact_type": "stage2_v31_latent_mainline_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "train_manifest": str(train_manifest_path),
+        "heldout_manifest": str(eval_manifest_path),
+        "trainable_latent": True,
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
+def _publish_v31_latent_holdout_compare_artifact(
+    *,
+    output_root: Path,
+    baseline_eval_path: Path,
+    eval_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    baseline_payload = _load_json(baseline_eval_path)
+    baseline_score = float(baseline_payload.get("current_top1_accuracy", 0.0)) + float(
+        baseline_payload.get("current_mrr", 0.0)
+    )
+    current_score = float(summary.get("current_top1_accuracy", 0.0)) + float(summary.get("current_mrr", 0.0))
+    artifact_path = output_root / "artifacts" / "latest_stage2_v31_latent_holdout_compare.json"
+    payload = {
+        "artifact_type": "stage2_v31_latent_holdout_compare",
+        "commit_hash": _current_commit_hash(),
+        "baseline_eval_path": str(baseline_eval_path),
+        "heldout_manifest": str(eval_manifest_path),
+        "baseline_top1_accuracy": float(baseline_payload.get("current_top1_accuracy", 0.0)),
+        "baseline_mrr": float(baseline_payload.get("current_mrr", 0.0)),
+        "current_top1_accuracy": float(summary.get("current_top1_accuracy", 0.0)),
+        "current_mrr": float(summary.get("current_mrr", 0.0)),
+        "delta_score": current_score - baseline_score,
+        "positive_gain": current_score > baseline_score,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
 def stage2_train_plan(config_path: Path, prepared_manifest_path: Path, output_root: Path, *, execute_smoke: bool) -> dict[str, Any]:
     config = _load_yaml(config_path)
     manifest = _load_json(prepared_manifest_path)
@@ -489,6 +540,82 @@ def run_v30_latent_objective_experiment(
     }
 
 
+def run_v31_latent_mainline_experiment(
+    config_path: Path,
+    train_manifest_path: Path,
+    eval_manifest_path: Path,
+    output_root: Path,
+    *,
+    baseline_eval_path: Path,
+    max_steps: int | None,
+    max_train_examples: int | None,
+    max_eval_examples: int | None,
+    device: str,
+) -> dict[str, Any]:
+    config = _load_yaml(config_path)
+    latent_cfg = ((config.get("model", {}) or {}).get("latent_objective", {}) or {})
+    training_cfg = ((config.get("training", {}) or {}).get("latent_objective", {}) or {})
+    train_examples = build_latent_objective_examples(train_manifest_path, max_examples=max_train_examples)
+    eval_examples = build_latent_objective_examples(eval_manifest_path, max_examples=max_eval_examples)
+
+    run_dir = output_root / "runs" / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_stage2_v31_latent_exec"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    _write_yaml(run_dir / "config_snapshot.yaml", config)
+    model, train_summary = train_latent_retriever(
+        train_examples,
+        device=device,
+        batch_size=int(training_cfg.get("batch_size", 64)),
+        lr=float(training_cfg.get("lr", 1e-3)),
+        num_epochs=int(training_cfg.get("num_train_epochs", 5)),
+        max_steps=max_steps,
+        hidden_dim=int(latent_cfg.get("hidden_dim", 32)),
+        latent_dim=int(latent_cfg.get("latent_dim", 16)),
+        latent_queries=int(latent_cfg.get("latent_queries", 4)),
+    )
+    current_metrics = evaluate_latent_retriever(model, eval_examples, device=device)
+
+    checkpoints_dir = output_root / "checkpoints"
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir = checkpoints_dir / run_dir.name
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), checkpoint_dir / "latent_retriever.pt")
+
+    train_payload = {
+        "run_dir": str(run_dir),
+        "checkpoint_dir": str(checkpoint_dir),
+        "device": device,
+        "train_examples": len(train_examples),
+        "heldout_examples": len(eval_examples),
+        **train_summary,
+    }
+    compare_summary = {
+        "current_top1_accuracy": current_metrics["top1_accuracy"],
+        "current_mrr": current_metrics["mrr"],
+    }
+    (run_dir / "latent_train_summary.json").write_text(json.dumps(train_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (run_dir / "latent_holdout_summary.json").write_text(json.dumps(compare_summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    train_artifact = _publish_v31_latent_mainline_train_artifact(
+        output_root=output_root,
+        config_path=config_path,
+        train_manifest_path=train_manifest_path,
+        eval_manifest_path=eval_manifest_path,
+        summary=train_payload,
+    )
+    compare_artifact = _publish_v31_latent_holdout_compare_artifact(
+        output_root=output_root,
+        baseline_eval_path=baseline_eval_path,
+        eval_manifest_path=eval_manifest_path,
+        summary=compare_summary,
+    )
+    compare_payload = _load_json(Path(compare_artifact))
+    return {
+        **train_payload,
+        **(compare_payload or {}),
+        "v31_latent_mainline_train_artifact": train_artifact,
+        "v31_latent_holdout_compare_artifact": compare_artifact,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/stage2_train.yaml")
@@ -498,6 +625,7 @@ def main() -> int:
     parser.add_argument("--execute-smoke", action="store_true")
     parser.add_argument("--execute-train", action="store_true")
     parser.add_argument("--execute-v30-latent-objective", action="store_true")
+    parser.add_argument("--execute-v31-latent-mainline", action="store_true")
     parser.add_argument("--experiment-id")
     parser.add_argument("--register-experiment", action="store_true")
     parser.add_argument("--resampler-type", choices=["light", "mean_pooling"])
@@ -521,6 +649,7 @@ def main() -> int:
     parser.add_argument("--publish-v30-shared-backbone-train", action="store_true")
     parser.add_argument("--publish-v30-task-adapter-compare", action="store_true")
     parser.add_argument("--v30-shared-baseline-eval")
+    parser.add_argument("--v31-latent-baseline-artifact")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -551,6 +680,20 @@ def main() -> int:
             Path(args.prepared_manifest),
             Path(args.eval_manifest) if args.eval_manifest else Path(args.prepared_manifest),
             Path(args.output_root),
+            max_steps=args.max_steps,
+            max_train_examples=args.max_train_examples,
+            max_eval_examples=args.max_eval_examples,
+            device=args.device,
+        )
+    elif args.execute_v31_latent_mainline:
+        if not args.v31_latent_baseline_artifact:
+            raise ValueError("--execute-v31-latent-mainline requires --v31-latent-baseline-artifact")
+        payload = run_v31_latent_mainline_experiment(
+            Path(args.config),
+            Path(args.prepared_manifest),
+            Path(args.eval_manifest) if args.eval_manifest else Path(args.prepared_manifest),
+            Path(args.output_root),
+            baseline_eval_path=Path(args.v31_latent_baseline_artifact),
             max_steps=args.max_steps,
             max_train_examples=args.max_train_examples,
             max_eval_examples=args.max_eval_examples,

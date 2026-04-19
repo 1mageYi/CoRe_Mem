@@ -1,0 +1,15 @@
+project:
+  name: core_mem_v31_latent
+  stage: stage2
+
+model:
+  latent_objective:
+    hidden_dim: 64
+    latent_dim: 32
+    latent_queries: 8
+
+training:
+  latent_objective:
+    batch_size: 128
+    lr: 0.0008
+    num_train_epochs: 12
