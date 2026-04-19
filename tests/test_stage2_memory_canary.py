@@ -546,9 +546,10 @@ def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tm
 
 
 def test_stage2_memory_canary_resolves_shared_predictors_once(monkeypatch):
-    calls = {"build": 0, "belief": 0, "slot": 0}
+    calls = {"build": 0, "belief": 0, "slot": 0, "latent": 0}
     shared_belief = object()
     shared_slot = object()
+    shared_latent = object()
 
     class _TemplateSystem:
         def _resolve_learned_belief_predictor(self):
@@ -559,13 +560,17 @@ def test_stage2_memory_canary_resolves_shared_predictors_once(monkeypatch):
             calls["slot"] += 1
             return shared_slot
 
+        def _resolve_latent_slot_ranker(self):
+            calls["latent"] += 1
+            return shared_latent
+
     def _fake_build_memory_system(**_kwargs):
         calls["build"] += 1
         return _TemplateSystem()
 
     monkeypatch.setattr("run_stage2_memory_canary._build_memory_system", _fake_build_memory_system)
 
-    belief_predictor, slot_predictor = _resolve_shared_predictors(
+    belief_predictor, slot_predictor, latent_ranker = _resolve_shared_predictors(
         memory_mode="learned_memory",
         slot_assignment_mode="learned",
         learned_memory_checkpoint_dir="checkpoint",
@@ -580,4 +585,5 @@ def test_stage2_memory_canary_resolves_shared_predictors_once(monkeypatch):
 
     assert belief_predictor is shared_belief
     assert slot_predictor is shared_slot
-    assert calls == {"build": 1, "belief": 1, "slot": 1}
+    assert latent_ranker is shared_latent
+    assert calls == {"build": 1, "belief": 1, "slot": 1, "latent": 1}
