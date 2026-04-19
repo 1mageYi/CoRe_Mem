@@ -3,11 +3,11 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-041 / WS-027` 当前 managed run 已在 current HEAD `a52f59f` 上达到 stop condition `41/41 keep`；当前应先保留这条 retained `v30` baseline、停止本轮 autoresearch，再等待下一条明确 stage-2 方向
+- Top next action: `TD-041 / WS-027` 当前 managed run 已在 current HEAD `75c70bc` 上达到 stop condition `41/41 keep`；当前应先保留这条 retained `v30` baseline，再等待下一条明确 stage-2 方向
 - Active workstreams: `WS-027`
 - Active workstream label: `TD-041 / WS-027`
 - Active workstream version: `v30`
-- Current retained progress: current HEAD `a52f59f` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 stop condition `41`；`latest_stage2_v30_shared_backbone_train.json`、`latest_stage2_v30_task_adapter_compare.json`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json`、`latest_stage2_v30_latent_gain.json`、`latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json`、`latest_stage2_v30_belief_gain.json`、`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已落地；其中 belief decoder 当前 `delta_token_f1 = 0.3122825952686847`、write 当前 `delta_token_f1 = 0.8571428571428572`，full holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`
+- Current retained progress: current HEAD `75c70bc` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 stop condition `41`；`latest_stage2_v30_shared_backbone_train.json`、`latest_stage2_v30_task_adapter_compare.json`、`latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json`、`latest_stage2_v30_latent_gain.json`、`latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json`、`latest_stage2_v30_belief_gain.json`、`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已落地；其中 belief decoder 当前 `delta_token_f1 = 0.3122825952686847`、write 当前 `delta_token_f1 = 0.8571428571428572`，full holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`
 - Active blockers: `BL-004`, `BL-009`
 - Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024` 与 `TD-039 / WS-025` 的历史完成态仍保留在文档与 artifact 中，分别供 `v2.4` closeout、`v2.5` baseline/package closeout、`v2.6` gain-first closeout、`v2.7` teacher-pilot closeout 与 `v2.8` teacher-quality blocker truth 复验；当前 active 主线已经前推到 `TD-041 / WS-027`
 

@@ -23,7 +23,7 @@
     - direct latent objective 当前已给出正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
     - current HEAD `e9be6f3` 已补齐 `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`
     - learned belief decoder / write / belief 当前都已给出正增益：belief `delta_token_f1 = 0.3122825952686847`、write `delta_token_f1 = 0.8571428571428572`
-    - current HEAD `a52f59f` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
+    - current HEAD `75c70bc` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
     - 当前 full holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`；其中 `LongMemEval-S` 与 retained `v2.9` full counts 持平，`PersonaMem` 则通过 retained `512` overlap subset 机械确认 provider 提升、local 持平
   - 当前边界：
     - 当前 `41/41` 代表 shared-backbone modular line、trainable latent line、learned belief/write line 与 full holdout baseline 已共同形成 retained keep

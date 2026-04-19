@@ -5,7 +5,7 @@
 - Worked on: 收口 `TD-041 / WS-027` 的第四轮 `v30` experiment，把 full benchmark holdout baseline、shared-subset non-regression guard 与 closeout 文档同步补齐到 stop condition
 - State changed:
   - `scripts/verify_stage2_v30_longrun.py` 当前已把 `PersonaMem` non-regression guard 从“直接比较 `589` 全量 rate”修正为“基于 retained `v2.9` `512` sample_ids overlap subset 的 apples-to-apples exact-rate 比较”；对应回归已写入 `tests/test_stage2_v30_longrun.py`
-  - current HEAD `a52f59f` 上，`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已基于真实 summary 发布
+  - current HEAD `75c70bc` 上，`latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已基于真实 summary 发布
   - 当前 full holdout 明确保持 `holdout_only = true`；`LongMemEval-S 500` 与 retained `v2.9` full counts 持平，`PersonaMem 589` 则通过 retained `512` overlap subset 机械确认 `provider_exact_rate = 0.3515625 > 0.333984375`、`local_exact_rate = 0.2109375 = 0.2109375`
   - `docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md` 与 `.agent-os/todo.md` 已同步到 `41/41 keep` truth
   - 当前 `scripts/verify_stage2_v30_longrun.py --score-only` 已达到 `41`；full guard 通过；本轮已满足 stop condition，下一步应由 helper 正式记账并停止 run
@@ -17,10 +17,10 @@
   - `outputs_v2/artifacts/latest_personamem_stage2_v30_full.json`
   - `research-results.tsv`
   - `autoresearch-state.json`
-  - commit `a52f59f`
+  - commit `75c70bc`
 - Next likely action:
-  - 用 helper 把这轮 `41/41 keep` 正式记为 iteration `4 keep`
-  - 结束当前 managed autoresearch run，并把 `v30` 作为新的 retained baseline 保留
+  - 保留当前 `41/41 keep` 作为新的 `v30` retained baseline
+  - 下一条 stage-2 方向应直接从这条 retained line 往前推
 
 ## 2026-04-19 Session 066
 

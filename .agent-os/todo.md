@@ -27,7 +27,7 @@
     - 当前 `encoder / latent query path` 已进入真正 trainable 状态；artifact 显式记录 `trainable_encoder_resampler = true`
     - current HEAD `e9be6f3` 已补齐 `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`
     - 当前 learned belief decoder / write / belief 当前都已给出正增益：belief `delta_token_f1 = 0.3122825952686847`、write `delta_token_f1 = 0.8571428571428572`
-    - current HEAD `a52f59f` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
+    - current HEAD `75c70bc` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
     - 当前 full benchmark holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`，并已机械确认 non-regression：`LongMemEval-S` counts 持平 retained `v2.9`，`PersonaMem` 则通过 retained `512` overlap subset 达到 provider 提升、local 持平
     - 当前 run 已达到 stop condition；下一步不是继续开新实验，而是先保留这条 retained `v30` baseline 并停止本轮 autoresearch
 

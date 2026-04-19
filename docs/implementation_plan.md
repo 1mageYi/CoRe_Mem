@@ -188,7 +188,7 @@
 - `latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json` 已记录 direct latent objective 正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
 - current HEAD `e9be6f3` 已继续把 retained score 提升到 `33`
 - `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json` 已记录 current-head learned belief decoder / write / belief 正增益
-- current HEAD `a52f59f` 已把 retained score 进一步推进到 `41`
+- current HEAD `75c70bc` 已把 retained score 进一步推进到 `41`
 - `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已记录 current-head full benchmark holdout baseline
 - 当前 full benchmark holdout 仍明确是 holdout-only：
   - `LongMemEval-S 500` symbolic full run 当前与 retained `v2.9` counts 持平，non-regression guard 为真

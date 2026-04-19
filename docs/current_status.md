@@ -21,7 +21,7 @@
 - 第二阶段设计状态：`V2.0` 方法主线、结构化 JSON、数据集到训练任务映射、指标到模块映射、默认 backbone、默认超参数与输出目录均已在真源文档中锁定
 - 第二阶段 `v2.9` 当前 retained 状态：fresh managed run 已把 `scripts/verify_stage2_v29_longrun.py --score-only` 从 baseline `25` 推到 stop condition `39/39`；当前 `write / latent / belief` gain 全部为正，expanded holdout 已真实完成 `LongMemEval-S 500 / PersonaMem 512`
 - 第二阶段 `v3.0 / v30` 当前 retained 状态：fresh managed run 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 current retained `33/41 keep`；当前已真实落地 **shared backbone + task-specific adapters**、**trainable latent + direct latent objective**、以及 **learned belief decoder / write / belief gain** 三条可训练增量线。对应证据包括 `outputs_v2/runs/20260419T012526Z_stage2_train_exec/execution_summary.json`、`outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/` 与 `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json`
-- 当前 `TD-041` / `v3.0` / `v30` 最新 retained truth：current HEAD `a52f59f` 已把 `shared backbone`、trainable `latent`、learned `belief` 与 full benchmark holdout 一起推到 `41/41 keep`。新增 current-head holdout artifact 为 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`，并保持 holdout-only、no fallback、no shortcut、no leakage。
+- 当前 `TD-041` / `v3.0` / `v30` 最新 retained truth：current HEAD `75c70bc` 已把 `shared backbone`、trainable `latent`、learned `belief` 与 full benchmark holdout 一起推到 `41/41 keep`。新增 current-head holdout artifact 为 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`，并保持 holdout-only、no fallback、no shortcut、no leakage。
 - 第二阶段当前模型真相：retained `v2.9` baseline 仍是 **单一共享 `google/flan-t5-base + LoRA` Seq2Seq**；但 current-head `v30` line 已经 landed **shared backbone + task-specific adapters**，并让 latent 主链与 checkpoint-backed belief decode 都进入真正可训练路径。当前 `latest_stage2_v30_latent_module_train.json` 已显式记录 `trainable_encoder_resampler = true`，`latest_stage2_v30_belief_decoder_eval.json` / `latest_stage2_v30_write_gain.json` / `latest_stage2_v30_belief_gain.json` 已全部记录 `positive_gain = true`。`latest_stage2_v30_full_holdout_baseline.json` 当前已机械确认 full holdout baseline 成立，`LongMemEval-S 500` 对 retained `v2.9` breakout 保持 non-regression，`PersonaMem 589` 则通过 retained `512` shared-subset overlap guard 机械确认 provider 改善、local tie，不再属于未完成缺口
 - 第二阶段实现状态：`src/core_mem/v2/` 已同时具备 Observation / Slot / Belief schema、rule-first parser、dataset registry，以及 slot encoder、lifecycle、consolidation、core/residual memory system、light resampler、belief decoder、answer projection 和 `training.py` 训练模块；其中 `encoder/resampler/decoder/system` 已从 hash/mean skeleton 升级为 parameterized lexical projection + cross-attention composition + latent-conditioned belief decode 主链；`scripts/normalize_stage2_public_data.py` 已把真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` 规范化为 `normalized.jsonl`；`prepare_stage2_data.py` 已支持 source-config + strict mode + `--max-rows-per-dataset`；`scripts/train_stage2.py` 现已支持 preset experiment variant、checkpoint-aware local eval 与 experiment registry 自动登记；当前 `outputs_v2/artifacts/stage2_experiment_index.json` 已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13`
 - 第二阶段 latent readiness 状态：`scripts/verify_stage2_latent_status.py --score-only` 当前已达 `9/9`；其中实现项包括 `query/slot encoder` 不再是 hash-only、`resampler` 不再是 mean-only、`decoder` 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链
@@ -215,7 +215,7 @@
 
 - `TD-037 / WS-023` 已在 current HEAD `cfbdc08` 上机械完成；`scripts/verify_stage2_v26_longrun.py --score-only = 26`
 - 当前 active 主线正式切到 **`TD-041` / `WS-027` / `v3.0 / v30 architecture-first long-run`**
-- `v30` 的本轮 managed run 已在 current HEAD `a52f59f` 上达到 stop condition：
+- `v30` 的本轮 managed run 已在 current HEAD `75c70bc` 上达到 stop condition：
   - `scripts/verify_stage2_v30_longrun.py --score-only = 41/41`
   - `latest_stage2_v30_shared_backbone_train.json` 已确认 current-head modular train 使用 `gpu2`，且 `task_adapters_enabled = true`
   - `latest_stage2_v30_task_adapter_compare.json` 已确认相对 retained shared-only baseline 的 first positive compare：`delta_score = 1.2487474884772993`
@@ -223,9 +223,9 @@
   - `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json` 已确认 current-head learned belief decoder、write 与 belief 增益均为正
   - `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json` 已确认 full holdout baseline 与 non-regression guard 成立，覆盖 `LongMemEval-S 500 / PersonaMem 589`
 - 当前最重要的下一步不再是继续开新 `v30` experiment，而是：
-  - 先把本轮 `41/41 keep` 用 helper 正式记账
-  - 停止当前 autoresearch run
-  - 保留 `v30` 为新的 retained stage-2 baseline，等待用户给出下一条明确方向
+  - 保留 `v30` 为新的 retained stage-2 baseline
+  - 等待用户给出下一条明确方向
+  - 后续新的 stage-2 长跑直接从这条 retained line 往前推
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`
   - matched `teacher-vs-silver` compare 已真实消费 teacher 改动
