@@ -1,5 +1,21 @@
 # Run Log
 
+## 2026-04-19 Session 068
+
+- Worked on: 把 stage-2 主线从 `v30 architecture-first closeout` 前推到 `v31 latent-first quality run`，明确下一轮不再以基础设施为主，而是以 full holdout 上 learned `write -> latent -> belief` 的真实增益与 ablation truth 为目标
+- State changed:
+  - 新增 [docs/v31_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v31_plan.md)，把 `v31` 主线收紧为 latent strengthening、belief strengthening、write strengthening、full holdout 与 ablation truth
+  - 新增 [scripts/verify_stage2_v31_longrun.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v31_longrun.py)，把 `v31` 的 mechanical target 锁为 32 项，要求 future run 在 retained `v30` baseline 之上拿到 latent / belief / write 正增益、full holdout 改善与 ablation 归因
+  - 新增 [tests/test_stage2_v31_longrun.py](/media/storage/mingjing/workspace/CoRe_Mem/tests/test_stage2_v31_longrun.py)，提供 baseline / full-pass 两组回归
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/current_status.md`、`docs/implementation_plan.md` 与 `docs/todo.md` 已同步切到 `TD-042 / WS-028 / v31`
+- Evidence / artifacts:
+  - `docs/v31_plan.md`
+  - `scripts/verify_stage2_v31_longrun.py`
+  - `tests/test_stage2_v31_longrun.py`
+- Next likely action:
+  - 提交 `v31` baseline commit
+  - fresh-start 启动 `v31` 后台 autoresearch
+
 ## 2026-04-19 Session 067
 
 - Worked on: 收口 `TD-041 / WS-027` 的第四轮 `v30` experiment，把 full benchmark holdout baseline、shared-subset non-regression guard 与 closeout 文档同步补齐到 stop condition

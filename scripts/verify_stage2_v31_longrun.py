@@ -1,0 +1,221 @@
+"""Mechanical verifier for the v3.1 / v31 latent-first quality long run."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _read_text(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def _contains_all(path: Path, patterns: list[str]) -> bool:
+    text = _read_text(path)
+    return bool(text) and all(pattern in text for pattern in patterns)
+
+
+def _read_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
+    return _read_json(root / "outputs_v2" / "artifacts" / name)
+
+
+def _artifact_exists(root: Path, name: str) -> bool:
+    return (root / "outputs_v2" / "artifacts" / name).exists()
+
+
+def _float_metric(payload: dict[str, Any] | None, key: str) -> float:
+    if not payload:
+        return 0.0
+    value = payload.get(key, 0.0)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _int_metric(payload: dict[str, Any] | None, key: str) -> int:
+    if not payload:
+        return 0
+    value = payload.get(key, 0)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def compute_v31_longrun(root: Path) -> dict[str, Any]:
+    docs = root / "docs"
+    agent_os = root / ".agent-os"
+    current_status = docs / "current_status.md"
+    implementation_plan = docs / "implementation_plan.md"
+    todo = docs / "todo.md"
+    project_index = agent_os / "project-index.md"
+    agent_todo = agent_os / "todo.md"
+    v31_plan = docs / "v31_plan.md"
+
+    retained_v30_adapter = _artifact_json(root, "latest_stage2_v30_task_adapter_compare.json") or {}
+    retained_v30_latent = _artifact_json(root, "latest_stage2_v30_latent_gain.json") or {}
+    retained_v30_belief = _artifact_json(root, "latest_stage2_v30_belief_gain.json") or {}
+    retained_v30_write = _artifact_json(root, "latest_stage2_v30_write_gain.json") or {}
+    retained_v30_holdout = _artifact_json(root, "latest_stage2_v30_full_holdout_baseline.json") or {}
+    retained_v30_long = _artifact_json(root, "latest_longmemeval_stage2_v30_full.json") or {}
+    retained_v30_persona = _artifact_json(root, "latest_personamem_stage2_v30_full.json") or {}
+
+    v31_latent_train = _artifact_json(root, "latest_stage2_v31_latent_mainline_train.json") or {}
+    v31_latent_compare = _artifact_json(root, "latest_stage2_v31_latent_holdout_compare.json") or {}
+    v31_belief_eval = _artifact_json(root, "latest_stage2_v31_belief_mainline_eval.json") or {}
+    v31_belief_compare = _artifact_json(root, "latest_stage2_v31_belief_holdout_compare.json") or {}
+    v31_write_eval = _artifact_json(root, "latest_stage2_v31_write_mainline_eval.json") or {}
+    v31_write_compare = _artifact_json(root, "latest_stage2_v31_write_holdout_compare.json") or {}
+    v31_ablation = _artifact_json(root, "latest_stage2_v31_ablation_summary.json") or {}
+    v31_holdout = _artifact_json(root, "latest_stage2_v31_full_holdout_compare.json") or {}
+    v31_long = _artifact_json(root, "latest_longmemeval_stage2_v31_full.json") or {}
+    v31_persona = _artifact_json(root, "latest_personamem_stage2_v31_full.json") or {}
+
+    checks: list[dict[str, Any]] = []
+
+    def add(slug: str, passed: bool, detail: str) -> None:
+        checks.append({"slug": slug, "passed": bool(passed), "detail": detail})
+
+    add(
+        "current_status_tracks_td042",
+        _contains_all(current_status, ["`TD-042`", "`v31`", "latent", "belief", "write", "500", "589"]),
+        "current_status should track TD-042 / v31 latent-first quality run",
+    )
+    add(
+        "implementation_plan_mentions_v31_axes",
+        _contains_all(implementation_plan, ["`TD-042`", "`v31`", "latent", "belief", "write", "ablation", "500", "589"]),
+        "implementation_plan should mention latent-first, belief, write, ablation, and full holdout",
+    )
+    add(
+        "project_index_tracks_ws028",
+        _contains_all(project_index, ["`TD-042 / WS-028`", "`v31`"]),
+        "project-index should track TD-042 / WS-028 / v31",
+    )
+    add(
+        "todo_tracks_td042_doing",
+        _contains_all(agent_todo, ["`TD-042`", "[doing]"]) or _contains_all(todo, ["`TD-042`"]),
+        "todo should track TD-042 as active work",
+    )
+    add("v31_plan_exists", v31_plan.exists(), "docs/v31_plan.md should exist")
+    add(
+        "v31_plan_mentions_no_fallback",
+        _contains_all(v31_plan, ["fallback", "shortcut", "benchmark leakage"]),
+        "v31 plan should preserve no-fallback / no-shortcut / no-leakage constraints",
+    )
+    add(
+        "v31_plan_mentions_core_residual_frozen",
+        _contains_all(v31_plan, ["core / residual", "不改 `core / residual`"]),
+        "v31 plan should explicitly freeze core / residual",
+    )
+    add(
+        "v31_plan_mentions_latent_priority",
+        _contains_all(v31_plan, ["主线 A：Latent", "主线 B：Belief", "主线 C：Write"]),
+        "v31 plan should explicitly prioritize latent, then belief, then write",
+    )
+    add(
+        "v31_plan_mentions_ablation_truth",
+        _contains_all(v31_plan, ["Ablation", "主要增益来源"]),
+        "v31 plan should require ablation-based truth",
+    )
+    add(
+        "v31_plan_mentions_full_holdout",
+        _contains_all(v31_plan, ["LongMemEval-S 500", "PersonaMem 589", "holdout"]),
+        "v31 plan should keep full benchmark as holdout baseline",
+    )
+
+    add("retained_v30_adapter_positive", bool(retained_v30_adapter.get("task_specific_positive_gain", False)), "retained v30 task adapters should stay positive")
+    add("retained_v30_latent_positive", bool(retained_v30_latent.get("positive_gain", False)), "retained v30 latent gain should stay positive")
+    add("retained_v30_belief_positive", bool(retained_v30_belief.get("positive_gain", False)), "retained v30 belief gain should stay positive")
+    add("retained_v30_write_positive", bool(retained_v30_write.get("positive_gain", False)), "retained v30 write gain should stay positive")
+    add(
+        "retained_v30_holdout_full",
+        bool(retained_v30_holdout.get("holdout_only", False))
+        and _int_metric(retained_v30_holdout, "longmemeval_sample_count") >= 500
+        and _int_metric(retained_v30_holdout, "personamem_sample_count") >= 589,
+        "retained v30 full holdout should stay available",
+    )
+
+    add("v31_latent_train_exists", _artifact_exists(root, "latest_stage2_v31_latent_mainline_train.json"), "v31 latent mainline train artifact should exist")
+    add("v31_latent_compare_exists", _artifact_exists(root, "latest_stage2_v31_latent_holdout_compare.json"), "v31 latent holdout compare artifact should exist")
+    add("v31_belief_eval_exists", _artifact_exists(root, "latest_stage2_v31_belief_mainline_eval.json"), "v31 belief mainline eval should exist")
+    add("v31_belief_compare_exists", _artifact_exists(root, "latest_stage2_v31_belief_holdout_compare.json"), "v31 belief holdout compare should exist")
+    add("v31_write_eval_exists", _artifact_exists(root, "latest_stage2_v31_write_mainline_eval.json"), "v31 write mainline eval should exist")
+    add("v31_write_compare_exists", _artifact_exists(root, "latest_stage2_v31_write_holdout_compare.json"), "v31 write holdout compare should exist")
+    add("v31_ablation_summary_exists", _artifact_exists(root, "latest_stage2_v31_ablation_summary.json"), "v31 ablation summary should exist")
+    add("v31_holdout_compare_exists", _artifact_exists(root, "latest_stage2_v31_full_holdout_compare.json"), "v31 full holdout compare should exist")
+    add("v31_long_full_exists", _artifact_exists(root, "latest_longmemeval_stage2_v31_full.json"), "v31 LongMemEval full artifact should exist")
+    add("v31_persona_full_exists", _artifact_exists(root, "latest_personamem_stage2_v31_full.json"), "v31 PersonaMem full artifact should exist")
+
+    add("v31_latent_positive", bool(v31_latent_compare.get("positive_gain", False)), "v31 latent compare must be positive")
+    add("v31_belief_positive", bool(v31_belief_compare.get("positive_gain", False)), "v31 belief compare must be positive")
+    add("v31_write_positive", bool(v31_write_compare.get("positive_gain", False)), "v31 write compare must be positive")
+    add(
+        "v31_longmemeval_beats_v30",
+        _int_metric(v31_long, "provider_exact_match") > _int_metric(retained_v30_long, "provider_exact_match")
+        or _int_metric(v31_long, "local_exact_match") > _int_metric(retained_v30_long, "local_exact_match"),
+        "v31 LongMemEval should beat retained v30 on at least one exact metric",
+    )
+    add(
+        "v31_personamem_nonregression",
+        _float_metric(v31_persona, "provider_exact_rate") >= _float_metric(retained_v30_persona, "provider_exact_rate")
+        and _float_metric(v31_persona, "local_exact_rate") >= _float_metric(retained_v30_persona, "local_exact_rate"),
+        "v31 PersonaMem should not regress against retained v30",
+    )
+    add(
+        "v31_ablation_confirms_latent_mainline",
+        bool(v31_ablation.get("latent_is_primary_driver", False)) and bool(v31_ablation.get("belief_contributes", False)),
+        "v31 ablation should confirm latent as the primary driver and belief as a contributor",
+    )
+    add(
+        "v31_holdout_guard",
+        bool(v31_holdout.get("holdout_only", False))
+        and bool(v31_holdout.get("longmemeval_gain_confirmed", False))
+        and bool(v31_holdout.get("personamem_nonregression_guard", False)),
+        "v31 holdout compare should confirm holdout-only benchmark use and gains/guards",
+    )
+
+    score = sum(1 for item in checks if item["passed"])
+    total = len(checks)
+    return {
+        "score": score,
+        "total": total,
+        "checks": checks,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--score-only", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    payload = compute_v31_longrun(REPO_ROOT)
+    if args.score_only:
+        print(payload["score"])
+        return 0
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+    print(f"stage2_v31_longrun_score={payload['score']}/{payload['total']}")
+    for check in payload["checks"]:
+        status = "PASS" if check["passed"] else "FAIL"
+        print(f"[{status}] {check['slug']}: {check['detail']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

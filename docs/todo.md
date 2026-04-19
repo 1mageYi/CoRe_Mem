@@ -2,33 +2,22 @@
 
 ## Doing
 
-- `TD-041` 以 `v3.0 / v30 architecture-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，把当前共享 `flan-t5-base + LoRA` 主训练线推进到更真正的 learned system。
+- `TD-042` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
   - 当前重点：
-    - shared backbone + task-specific adapters
-    - trainable encoder / resampler
-    - direct latent objectives
-    - learned belief decoder
-    - full benchmark holdout baseline：`LongMemEval-S 500 / PersonaMem 589`
+    - latent strengthening
+    - belief strengthening
+    - write strengthening
+    - ablation truth
+    - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 589`
   - Truth boundary：
     - full benchmark 只作 holdout，不回流训练
-    - 下一阶段的 retained 增益必须主要来自可训练部分能力本身，而不是 benchmark-facing trick
-  - 最新进展：
-    - fresh managed run 已把 `stage2_v30_longrun_score` 从 baseline `17` 提升到 current retained `41/41 keep`
-    - current HEAD `13bb0fa` 已 landed `shared backbone + task-specific adapters`
-    - `latest_stage2_v30_shared_backbone_train.json` 已记录 first modular train：`gpu2`、`4096` examples、`128` steps、`42.88473560567945s`
-    - `latest_stage2_v30_task_adapter_compare.json` 已记录 first positive compare：`task_specific_positive_gain = true`、`delta_score = 1.2487474884772993`
-    - current HEAD `f0e3203` 已补齐 `latest_stage2_v30_latent_module_train.json`、`latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json`
-    - direct latent objective 当前已给出正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
-    - current HEAD `e9be6f3` 已补齐 `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`
-    - learned belief decoder / write / belief 当前都已给出正增益：belief `delta_token_f1 = 0.3122825952686847`、write `delta_token_f1 = 0.8571428571428572`
-    - current HEAD `75c70bc` 已补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
-    - 当前 full holdout 已覆盖 `LongMemEval-S 500 / PersonaMem 589`；其中 `LongMemEval-S` 与 retained `v2.9` full counts 持平，`PersonaMem` 则通过 retained `512` overlap subset 机械确认 provider 提升、local 持平
-  - 当前边界：
-    - 当前 `41/41` 代表 shared-backbone modular line、trainable latent line、learned belief/write line 与 full holdout baseline 已共同形成 retained keep
-    - full benchmark 仍严格只作 holdout；当前 `PersonaMem 589` non-regression guard 使用 retained `512` shared-subset overlap，不得误写成 “589 全量 local rate 全面高于 v2.9”
-    - 当前 run 已达到 stop condition；在用户给出新的 stage-2 方向前，不再主动继续消耗 benchmark/API
+    - retained 增益必须主要来自 learned 主链本身，而不是 benchmark-facing trick
+  - 最新真相：
+    - retained `v30` 已到 `41/41 keep`
+    - `v31` 当前是 quality push，不是 infrastructure push
+    - 下一阶段必须证明 latent 是主要增益来源，而不是只做 internal 指标改善
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

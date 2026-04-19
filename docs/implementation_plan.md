@@ -178,6 +178,25 @@
   - `LongMemEval-S 500`
   - `PersonaMem 589`
 
+### 下一阶段（v31）主线
+
+- latent strengthening
+- belief strengthening
+- write strengthening
+- ablation truth
+- full benchmark holdout remains:
+  - `LongMemEval-S 500`
+  - `PersonaMem 589`
+
+### v31 成功标准
+
+- latent mainline 为正
+- belief mainline 为正
+- write mainline 为正
+- `LongMemEval-S 500` 明确高于 retained `v30`
+- `PersonaMem 589` 不明显退化
+- ablation 明确表明增益主要来自 learned 主链，而不是 benchmark-facing 改动
+
 当前 `v30` 的 retained progress 已前进到：
 
 - current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 提升到 `21`
