@@ -1,5 +1,26 @@
 # Run Log
 
+## 2026-04-19 Session 066
+
+- Worked on: 继续 `TD-041 / WS-027` 的第三轮 `v30` experiment，把 current-head modular checkpoint 的 learned belief decoder / write / belief 增益证据链正式发布成 verifier 可读 artifact，并完成 keep 记账
+- State changed:
+  - `scripts/eval_stage2_local.py` 已新增 `v30` publisher：当前可基于 checkpoint-aware local eval 发布 `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json`
+  - current HEAD `e9be6f3` 上，fresh eval `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json` 已真实完成；当前 `trained_eval` 仍为 `token_f1 = 0.6562995718106327`、`field_f1 = 0.5924479166666667`
+  - 相对 `latest_stage2_v27_eval.json` 的 baseline `0`，当前 belief decoder artifact 记录 `delta_token_f1 = 0.3122825952686847`、`delta_field_f1 = 0.11111111111111109`、`positive_gain = true`
+  - 当前 write artifact 记录 `delta_token_f1 = 0.8571428571428572`、`delta_field_f1 = 0.821705426356589`、`positive_gain = true`
+  - `scripts/verify_stage2_v30_longrun.py --score-only` 已从 retained `27` 提升到 `33`；launch guard 通过；helper 已把这轮记为 iteration `3 keep`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_belief_decoder_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_write_gain.json`
+  - `outputs_v2/artifacts/latest_stage2_v30_belief_gain.json`
+  - commit `e9be6f3`
+- Next likely action:
+  - 把下一轮假设集中到 full benchmark holdout baseline：补齐 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`
+  - 基于 retained `v2.9` expanded holdout 做 non-regression 判定，不把 benchmark 回流训练
+
 ## 2026-04-19 Session 065
 
 - Worked on: 继续 `TD-041 / WS-027` 的第二轮真实 `v30` experiment，把 modular shared-backbone 线推进到 trainable latent + direct latent objective，并完成 keep/discard 判定与受管结果记账

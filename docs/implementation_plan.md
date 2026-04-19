@@ -185,7 +185,9 @@
 - current HEAD `f0e3203` 已继续把 retained score 提升到 `27`
 - `latest_stage2_v30_latent_module_train.json` 已记录 trainable latent module train，artifact 显式标记 `trainable_encoder_resampler = true`
 - `latest_stage2_v30_latent_objective_eval.json` 与 `latest_stage2_v30_latent_gain.json` 已记录 direct latent objective 正增益：`current_top1_accuracy = 0.96484375`、`current_mrr = 0.982421875`、`positive_gain = true`
-- 当前仍未完成的主轴是：`learned belief decoder / belief gain / write gain / full benchmark holdout baseline`
+- current HEAD `e9be6f3` 已继续把 retained score 提升到 `33`
+- `latest_stage2_v30_belief_decoder_eval.json`、`latest_stage2_v30_write_gain.json` 与 `latest_stage2_v30_belief_gain.json` 已记录 current-head learned belief decoder / write / belief 正增益
+- 当前仍未完成的主轴是：`full benchmark holdout baseline / LongMemEval-S 500 + PersonaMem 589 full artifact / non-regression guard`
 
 ### 当前 `v2.7` 执行锚点
 
