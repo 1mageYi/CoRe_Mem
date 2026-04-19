@@ -403,7 +403,7 @@ def _render_personamem_prompt(
 
 def _render_longmemeval_prompt(question: LongMemEvalQuestion, memory_payload: dict[str, Any]) -> str:
     lowered_question = question.question.strip().lower()
-    instruction = "Return only the shortest exact answer phrase supported by the belief state."
+    instruction = "Return only the shortest exact answer phrase supported by the belief state. Do not add trailing punctuation."
     if lowered_question.startswith("where "):
         instruction += " Omit any leading preposition such as 'at', 'in', 'on', or 'from'."
         if any(token in lowered_question for token in (" buy ", " bought ", " purchase ", " purchased ", " got ")):

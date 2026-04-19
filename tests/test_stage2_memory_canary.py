@@ -351,6 +351,7 @@ def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
         },
     )
     assert "Return only the shortest exact answer phrase supported by the belief state." in prompt
+    assert "Do not add trailing punctuation." in prompt
     assert "Omit any leading preposition" in prompt
     assert "rewrite it as 'the ...'" in prompt
 
