@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import re
 from typing import Any
 
 import torch
@@ -27,6 +28,7 @@ DEFAULT_TASK_ADAPTER_NAMES = {
     "composition_to_belief": "belief_adapter",
     "slot_autoencoding": "autoencoding_adapter",
 }
+_RELATION_HINT_RE = re.compile(r'"(?P<relation>[A-Za-z][A-Za-z0-9_]+)"')
 
 
 def task_adapter_settings(
@@ -272,6 +274,106 @@ def _join_sections(task_name: str, payload: dict[str, Any]) -> str:
     for key, value in payload.items():
         sections.append(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
     return "\n".join(sections)
+
+
+def _context_section(input_text: str, key: str) -> Any | None:
+    prefix = f"{key}: "
+    for line in input_text.splitlines():
+        if line.startswith(prefix):
+            try:
+                return json.loads(line[len(prefix) :])
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def _belief_relation_hints(prediction: str) -> list[str]:
+    seen: list[str] = []
+    for match in _RELATION_HINT_RE.finditer(prediction):
+        relation = match.group("relation").strip()
+        if "_" not in relation and relation not in {"constraint", "goal", "temporal_fact", "other_fact"}:
+            continue
+        if relation not in seen:
+            seen.append(relation)
+    return seen
+
+
+def _repair_belief_payload_from_input_context(
+    input_text: str,
+    prediction: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    memory_slots = _context_section(input_text, "memory_slots")
+    query = _context_section(input_text, "query")
+    if not isinstance(memory_slots, list) or not memory_slots:
+        return payload
+
+    items: list[dict[str, Any]]
+    if isinstance(payload, dict) and isinstance(payload.get("belief_items"), list):
+        items = [dict(item) for item in payload.get("belief_items", []) if isinstance(item, dict)]
+    else:
+        items = []
+
+    if not items:
+        items = [{"relation": relation, "value": "", "support_slot_ids": []} for relation in _belief_relation_hints(prediction)]
+    if not items:
+        return payload
+
+    current_query = str(query or "").lower()
+
+    def _slot_rank(slot: dict[str, Any], relation: str) -> tuple[float, float, float, float]:
+        active_flag = 1.0 if bool(slot.get("active_flag", False)) else 0.0
+        bank_score = 1.0 if str(slot.get("bank", "")) == "core" else 0.0
+        confidence = float(slot.get("confidence", 0.0) or 0.0)
+        relation_score = 1.0 if str(slot.get("relation", "")) == relation else 0.0
+        if "current" in current_query or "currently" in current_query:
+            return (relation_score, active_flag, bank_score, confidence)
+        return (relation_score, bank_score, active_flag, confidence)
+
+    repaired_items: list[dict[str, Any]] = []
+    for item in items:
+        relation = str(item.get("relation", "")).strip()
+        value = str(item.get("value", "")).strip()
+        support_slot_ids = [str(slot_id) for slot_id in item.get("support_slot_ids", []) if str(slot_id)]
+        candidates = [slot for slot in memory_slots if isinstance(slot, dict)]
+        if relation:
+            relation_candidates = [slot for slot in candidates if str(slot.get("relation", "")) == relation]
+            if relation_candidates:
+                candidates = relation_candidates
+        if not candidates:
+            repaired_items.append(
+                {
+                    "relation": relation,
+                    "value": value,
+                    "support_slot_ids": support_slot_ids,
+                }
+            )
+            continue
+        best_slot = sorted(candidates, key=lambda slot: _slot_rank(slot, relation), reverse=True)[0]
+        if not relation:
+            relation = str(best_slot.get("relation", "")).strip()
+        if not support_slot_ids and str(best_slot.get("slot_id", "")).strip():
+            support_slot_ids = [str(best_slot.get("slot_id", "")).strip()]
+        if not value:
+            canonical_gloss = str(best_slot.get("canonical_gloss", "")).strip()
+            if "=" in canonical_gloss:
+                value = canonical_gloss.split("=", 1)[1].strip()
+        repaired_items.append(
+            {
+                "relation": relation,
+                "value": value,
+                "support_slot_ids": support_slot_ids,
+            }
+        )
+
+    if not repaired_items:
+        return payload
+    repaired_payload: dict[str, Any] = {"belief_items": repaired_items}
+    if isinstance(payload, dict):
+        for key in ("query_id", "entity", "query_type", "global_consistency"):
+            if key in payload:
+                repaired_payload[key] = payload[key]
+    return repaired_payload
 
 
 def slot_assignment_metrics_from_eval_payload(trained_eval: dict[str, Any] | None) -> dict[str, Any]:
@@ -684,6 +786,12 @@ def evaluate_stage2_checkpoint(
         semantic_task_name = "slot_assignment" if example.task_name == SLOT_ASSIGNMENT_TASK_NAME else example.task_name
         prediction_payload = coerce_task_payload(semantic_task_name, prediction)
         target_payload = coerce_task_payload(semantic_task_name, target)
+        if semantic_task_name == "composition_to_belief":
+            prediction_payload = _repair_belief_payload_from_input_context(
+                example.input_text,
+                prediction,
+                prediction_payload if isinstance(prediction_payload, dict) else None,
+            )
         prediction_text = render_task_payload(semantic_task_name, prediction_payload) if prediction_payload is not None else prediction
         target_text = render_task_payload(semantic_task_name, target_payload) if target_payload is not None else target
         exact = float(_normalize_text(prediction_text) == _normalize_text(target_text))

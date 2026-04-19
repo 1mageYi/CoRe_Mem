@@ -25,7 +25,7 @@ def _dedupe_preserve_order(values: list[str]) -> list[str]:
 
 def _valid_slot_id_values(values: list[str]) -> list[str]:
     return _dedupe_preserve_order(
-        [value for value in values if value and value != "slot_ids" and _SLOT_ID_RE.fullmatch(value)]
+        [value for value in values if value and value not in {"slot_ids", "slot_id"} and _SLOT_ID_RE.fullmatch(value)]
     )
 
 
