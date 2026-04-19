@@ -270,3 +270,39 @@ def test_train_stage2_can_publish_v30_task_adapter_artifacts(tmp_path: Path):
     assert compare_artifact.exists()
     compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
     assert compare_payload["task_specific_positive_gain"] is True
+
+
+def test_train_stage2_can_publish_v30_latent_objective_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v30_latent.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--eval-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-v30-latent-objective",
+        "--device",
+        "cpu",
+        "--max-steps",
+        "16",
+        "--max-train-examples",
+        "1",
+        "--max-eval-examples",
+        "1",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "positive_gain" in payload
+    assert Path(payload["checkpoint_dir"]).exists()
+    assert Path(payload["v30_latent_module_train_artifact"]).exists()
+    assert Path(payload["v30_latent_objective_eval_artifact"]).exists()
+    assert Path(payload["v30_latent_gain_artifact"]).exists()
