@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 from typing import Any, Callable
 
+import torch
+
 from core_mem.v2.consolidation import ConsolidationManager
 from core_mem.v2.decoder import BeliefDecoder
 from core_mem.v2.encoder import QueryEncoder, SlotEncoder
@@ -125,12 +127,20 @@ class StructuredMemorySystem:
     learned_memory_train_config_path: str | None = None
     learned_memory_device: str = "cpu"
     learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = None
+    latent_retriever_checkpoint_dir: str | None = None
+    latent_retriever_device: str = "cpu"
+    latent_slot_ranker: Callable[[str, list[SlotRecord]], dict[str, float]] | None = None
     learned_slot_assignment_checkpoint_dir: str | None = None
     learned_slot_assignment_train_config_path: str | None = None
     learned_slot_assignment_device: str = "cpu"
     learned_slot_assignment_predictor: Callable[[Observation, list[SlotRecord]], Any] | None = None
     state: StructuredMemoryState = field(default_factory=StructuredMemoryState)
     _cached_learned_belief_predictor: Callable[[str, str, list[SlotRecord]], Any] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _cached_latent_slot_ranker: Callable[[str, list[SlotRecord]], dict[str, float]] | None = field(
         default=None,
         init=False,
         repr=False,
@@ -208,11 +218,23 @@ class StructuredMemorySystem:
     def query(self, query_id: str, query_text: str) -> QueryResult:
         query_vector = self.query_encoder.encode(query_text)
         query_terms = self._query_terms(query_text)
-        ranked = sorted(
-            self.state.active_slots(),
-            key=lambda slot: self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
-            reverse=True,
-        )
+        active_slots = self.state.active_slots()
+        latent_scores = self._latent_slot_scores(query_text, active_slots)
+        if latent_scores:
+            ranked = sorted(
+                active_slots,
+                key=lambda slot: (
+                    float(latent_scores.get(slot.slot_id, float("-inf"))),
+                    self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
+                ),
+                reverse=True,
+            )
+        else:
+            ranked = sorted(
+                active_slots,
+                key=lambda slot: self._ranking_score(query_vector, query_terms, slot, query_text=query_text),
+                reverse=True,
+            )
         selected = ranked[: self.top_k]
         composed = self.resampler.compose(query_vector, selected)
         belief, belief_source = self._decode_belief(query_id, query_text, selected, composed)
@@ -373,6 +395,18 @@ class StructuredMemorySystem:
 
     def _slot_assignment_enabled(self) -> bool:
         return self.use_learned_slot_assignment or self.slot_assignment_mode == "learned"
+
+    def _latent_slot_scores(self, query_text: str, slots: list[SlotRecord]) -> dict[str, float]:
+        if not slots:
+            return {}
+        ranker = self._resolve_latent_slot_ranker()
+        if ranker is None:
+            return {}
+        try:
+            payload = ranker(query_text, slots)
+        except Exception:
+            return {}
+        return {str(slot_id): float(score) for slot_id, score in payload.items()}
 
     def _decide_slot_assignment(
         self,
@@ -638,6 +672,69 @@ class StructuredMemorySystem:
 
         self._cached_learned_belief_predictor = _predict
         return _predict
+
+    def _resolve_latent_slot_ranker(self) -> Callable[[str, list[SlotRecord]], dict[str, float]] | None:
+        if self.latent_slot_ranker is not None:
+            return self.latent_slot_ranker
+        if self._cached_latent_slot_ranker is not None:
+            return self._cached_latent_slot_ranker
+        checkpoint_dir = self.latent_retriever_checkpoint_dir
+        if not checkpoint_dir:
+            return None
+        checkpoint_path = Path(checkpoint_dir) / "latent_retriever.pt"
+        if not checkpoint_path.exists():
+            return None
+
+        from core_mem.v2.encoder import _lexical_features
+        from core_mem.v2.latent_training import TrainableLatentRetriever, _slot_features
+
+        state_dict = torch.load(checkpoint_path, map_location=self.latent_retriever_device, weights_only=True)
+        hidden_dim, feature_dim = state_dict["query_encoder.0.weight"].shape
+        latent_dim, _ = state_dict["query_encoder.2.weight"].shape
+        latent_queries = state_dict["latent_query_bank"].shape[0]
+        model = TrainableLatentRetriever(
+            feature_dim=feature_dim,
+            hidden_dim=hidden_dim,
+            latent_dim=latent_dim,
+            latent_queries=latent_queries,
+        ).to(self.latent_retriever_device)
+        model.load_state_dict(state_dict)
+        model.eval()
+
+        def _rank(query_text: str, slots: list[SlotRecord]) -> dict[str, float]:
+            if not slots:
+                return {}
+            query_features = torch.tensor(
+                [_lexical_features(query_text)],
+                dtype=torch.float32,
+                device=self.latent_retriever_device,
+            )
+            candidate_features = torch.tensor(
+                [
+                    [
+                        _slot_features(
+                            {
+                                "relation": slot.relation,
+                                "canonical_gloss": slot.canonical_gloss,
+                                "bank": slot.bank,
+                                "entity": slot.entity,
+                            }
+                        )
+                        for slot in slots
+                    ]
+                ],
+                dtype=torch.float32,
+                device=self.latent_retriever_device,
+            )
+            with torch.no_grad():
+                logits = model(
+                    query_features=query_features,
+                    candidate_features=candidate_features,
+                )[0].detach().cpu().tolist()
+            return {slot.slot_id: float(logit) for slot, logit in zip(slots, logits)}
+
+        self._cached_latent_slot_ranker = _rank
+        return _rank
 
     def _resolve_slot_assignment_predictor(self) -> Callable[[Observation, list[SlotRecord]], Any] | None:
         if self.learned_slot_assignment_predictor is not None:

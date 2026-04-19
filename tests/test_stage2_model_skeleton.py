@@ -164,6 +164,65 @@ def test_structured_memory_system_prefers_query_lexical_overlap_for_other_facts(
     assert result.answer_text == "serenity yoga"
 
 
+def test_structured_memory_system_can_prioritize_slots_with_latent_ranker():
+    def _latent_ranker(_query_text: str, slots):
+        return {
+            slot.slot_id: (10.0 if "other_fact=more descriptive comments" in slot.canonical_gloss else 0.0)
+            for slot in slots
+        }
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-latent-ranker-recipes",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "hobby",
+                "value": "experimenting with different recipes",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.75,
+                "evidence_text": "I enjoy experimenting with different recipes.",
+                "canonical_gloss": "hobby=experimenting with different recipes",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-latent-ranker-comments",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "more descriptive comments that highlight the purpose of code blocks",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 0.95,
+                "evidence_text": "I prefer more descriptive comments that highlight the purpose of code blocks.",
+                "canonical_gloss": "other_fact=more descriptive comments that highlight the purpose of code blocks",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query("query-latent-ranker", "What should I remember?")
+    assert result.selected_slots[0].canonical_gloss == "other_fact=more descriptive comments that highlight the purpose of code blocks"
+
+
 def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemption():
     system = StructuredMemorySystem()
     system.observe_turn(
