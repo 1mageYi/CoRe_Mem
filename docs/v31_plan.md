@@ -56,12 +56,18 @@ source-level split 不变。
 
 ### full benchmark holdout
 
-这轮继续保持：
+这轮继续保持 external holdout，但把 **稳定 keep gate** 明确成：
 
 - `LongMemEval-S 500`
-- `PersonaMem 589`
+- `PersonaMem 512`
 
-它们是 external holdout，不是训练集。
+其中：
+
+- `LongMemEval-S 500` 直接使用 full subset
+- `PersonaMem 512` 使用固定 paired subset 作为稳定 gate
+- `PersonaMem 589` 仍可继续生成 full report artifact，但不再作为 keep/discard 的首要判定口径
+
+这些 benchmark 都是 external holdout，不是训练集。
 
 ## 主线优先级
 
@@ -131,7 +137,7 @@ source-level split 不变。
 - compare 只对 `v30`
 - current holdout baseline 固定：
   - `LongMemEval-S 500`
-  - `PersonaMem 589`
+  - `PersonaMem 512`
 
 ### M2. Latent Mainline Positive
 
@@ -154,7 +160,7 @@ source-level split 不变。
 ### M5. Full Holdout Improvement
 
 - `LongMemEval-S 500` 至少一项关键质量指标高于 `v30`
-- `PersonaMem 589` 不明显退化
+- `PersonaMem 512` 不明显退化
 
 ### M6. Ablation Truth
 
@@ -176,7 +182,7 @@ source-level split 不变。
 - belief strengthening 为正
 - write strengthening 为正
 - `LongMemEval-S 500` 明确高于 retained `v30`
-- `PersonaMem 589` 不明显退化
+- `PersonaMem 512` 不明显退化
 - ablation 明确表明增益主要来自 learned 主链，而不是 benchmark-facing 改动
 - 全过程无 `fallback / shortcut / benchmark leakage`
 
@@ -187,4 +193,3 @@ source-level split 不变。
 这轮要验证的是：
 
 **CoRe_Mem 的真正增益，能不能开始主要来自更强的 learned latent 主链。**
-

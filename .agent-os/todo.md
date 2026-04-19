@@ -8,7 +8,7 @@
     - belief strengthening
     - write strengthening
     - ablation truth
-    - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 589`
+    - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 512`
   - Hard constraints:
     - no fallback
     - no shortcut
@@ -26,7 +26,7 @@
     - `2026-04-19` 当前 quick-smoke holdout line 已到 soft blocker：learned-symbolic / learned+learned / blank-output fallback / constrained-decoding / stability repeat 全部未能把 retained `24/32` 推成新的 keep
     - 当前最小 smoke 最好结果仍是 Persona subset `5/4`、LongMemEval subset `1/1` tie；同一 `acd742...` prompt 已跨 run 发生 provider 翻转，说明当前 `8`-sample micro-tune gate 已不足以稳定地区分方法信号与 provider 噪声
   - Next unblock:
-    - 若继续 `TD-042`，需要切到更大样本的 holdout measurement，或直接推进更宽 scope 的 decoder / answer-selection redesign；不要再在当前 `8`-sample quick-smoke 上做同类 belief/runtime 微调
+    - 若继续 `TD-042`，优先切到 `LongMemEval-S 500 + PersonaMem 512` 的稳定 holdout measurement；`8`-sample quick-smoke 只保留为 sanity/crash gate。若大样本 measurement 仍无增益，再推进更宽 scope 的 decoder / answer-selection redesign
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`

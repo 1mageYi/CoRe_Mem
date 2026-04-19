@@ -27,7 +27,7 @@
   - `outputs_v2/runs/20260419T090917Z_stage2_memory_canary_longmemeval/`
   - commits `c82a56c`, `40e006c`, `a17d085`, `e1b2a8b`, `a99a62c`, `ee1e613`
 - Next likely action:
-  - 若继续 `TD-042 / WS-028 / v31`，优先放弃当前 `8`-sample quick-smoke 作为唯一 gate，改做更大样本的 holdout measurement 或更宽 scope 的 learned decoder / answer-selection 重构
+  - 若继续 `TD-042 / WS-028 / v31`，优先放弃当前 `8`-sample quick-smoke 作为唯一 gate，改做 `LongMemEval-S 500 + PersonaMem 512` 的稳定 holdout measurement；`8`-sample 只保留为 sanity/crash gate
   - 在新的更稳定 measurement 出现前，不要把当前 quick-smoke line 写成“只差一个简单 patch 就能 keep”
 
 ## 2026-04-19 Session 069

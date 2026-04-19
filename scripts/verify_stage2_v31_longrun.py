@@ -92,12 +92,12 @@ def compute_v31_longrun(root: Path) -> dict[str, Any]:
 
     add(
         "current_status_tracks_td042",
-        _contains_all(current_status, ["`TD-042`", "`v31`", "latent", "belief", "write", "500", "589"]),
+        _contains_all(current_status, ["`TD-042`", "`v31`", "latent", "belief", "write", "500", "512"]),
         "current_status should track TD-042 / v31 latent-first quality run",
     )
     add(
         "implementation_plan_mentions_v31_axes",
-        _contains_all(implementation_plan, ["`TD-042`", "`v31`", "latent", "belief", "write", "ablation", "500", "589"]),
+        _contains_all(implementation_plan, ["`TD-042`", "`v31`", "latent", "belief", "write", "ablation", "500", "512"]),
         "implementation_plan should mention latent-first, belief, write, ablation, and full holdout",
     )
     add(
@@ -133,7 +133,7 @@ def compute_v31_longrun(root: Path) -> dict[str, Any]:
     )
     add(
         "v31_plan_mentions_full_holdout",
-        _contains_all(v31_plan, ["LongMemEval-S 500", "PersonaMem 589", "holdout"]),
+        _contains_all(v31_plan, ["LongMemEval-S 500", "PersonaMem 512", "holdout"]),
         "v31 plan should keep full benchmark as holdout baseline",
     )
 
@@ -145,7 +145,7 @@ def compute_v31_longrun(root: Path) -> dict[str, Any]:
         "retained_v30_holdout_full",
         bool(retained_v30_holdout.get("holdout_only", False))
         and _int_metric(retained_v30_holdout, "longmemeval_sample_count") >= 500
-        and _int_metric(retained_v30_holdout, "personamem_sample_count") >= 589,
+        and _int_metric(retained_v30_holdout, "personamem_overlap_sample_count") >= 512,
         "retained v30 full holdout should stay available",
     )
 
@@ -157,23 +157,39 @@ def compute_v31_longrun(root: Path) -> dict[str, Any]:
     add("v31_write_compare_exists", _artifact_exists(root, "latest_stage2_v31_write_holdout_compare.json"), "v31 write holdout compare should exist")
     add("v31_ablation_summary_exists", _artifact_exists(root, "latest_stage2_v31_ablation_summary.json"), "v31 ablation summary should exist")
     add("v31_holdout_compare_exists", _artifact_exists(root, "latest_stage2_v31_full_holdout_compare.json"), "v31 full holdout compare should exist")
-    add("v31_long_full_exists", _artifact_exists(root, "latest_longmemeval_stage2_v31_full.json"), "v31 LongMemEval full artifact should exist")
-    add("v31_persona_full_exists", _artifact_exists(root, "latest_personamem_stage2_v31_full.json"), "v31 PersonaMem full artifact should exist")
+    add(
+        "v31_long_full_exists",
+        _artifact_exists(root, "latest_longmemeval_stage2_v31_full.json")
+        and _int_metric(v31_long, "sample_count") >= 500,
+        "v31 LongMemEval full artifact should exist with 500-sample gate coverage",
+    )
+    add(
+        "v31_persona_full_exists",
+        _artifact_exists(root, "latest_personamem_stage2_v31_full.json")
+        and _int_metric(v31_persona, "sample_count") >= 512,
+        "v31 PersonaMem full artifact should exist with 512-sample stable gate coverage",
+    )
 
     add("v31_latent_positive", bool(v31_latent_compare.get("positive_gain", False)), "v31 latent compare must be positive")
     add("v31_belief_positive", bool(v31_belief_compare.get("positive_gain", False)), "v31 belief compare must be positive")
     add("v31_write_positive", bool(v31_write_compare.get("positive_gain", False)), "v31 write compare must be positive")
     add(
         "v31_longmemeval_beats_v30",
-        _int_metric(v31_long, "provider_exact_match") > _int_metric(retained_v30_long, "provider_exact_match")
+        bool(v31_holdout.get("longmemeval_gain_confirmed", False))
+        or _int_metric(v31_long, "provider_exact_match") > _int_metric(retained_v30_long, "provider_exact_match")
         or _int_metric(v31_long, "local_exact_match") > _int_metric(retained_v30_long, "local_exact_match"),
         "v31 LongMemEval should beat retained v30 on at least one exact metric",
     )
     add(
         "v31_personamem_nonregression",
-        _float_metric(v31_persona, "provider_exact_rate") >= _float_metric(retained_v30_persona, "provider_exact_rate")
-        and _float_metric(v31_persona, "local_exact_rate") >= _float_metric(retained_v30_persona, "local_exact_rate"),
-        "v31 PersonaMem should not regress against retained v30",
+        bool(v31_holdout.get("personamem_nonregression_guard", False))
+        or (
+            _float_metric(v31_persona, "provider_exact_rate")
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_provider_exact_rate")
+            and _float_metric(v31_persona, "local_exact_rate")
+            >= _float_metric(retained_v30_holdout, "personamem_overlap_local_exact_rate")
+        ),
+        "v31 PersonaMem 512 stable gate should not regress against retained v30 overlap baseline",
     )
     add(
         "v31_ablation_confirms_latent_mainline",

@@ -187,7 +187,7 @@
 - ablation truth
 - full benchmark holdout remains:
   - `LongMemEval-S 500`
-  - `PersonaMem 589`
+  - `PersonaMem 512`
 - 当前 retained progress：
   - `scripts/verify_stage2_v31_longrun.py --score-only = 24/32`
   - `latest_stage2_v31_latent_holdout_compare.json` 已记录 aligned `32k val` latent positive keep
@@ -202,7 +202,7 @@
 - belief mainline 为正
 - write mainline 为正
 - `LongMemEval-S 500` 明确高于 retained `v30`
-- `PersonaMem 589` 不明显退化
+- `PersonaMem 512` 不明显退化
 - ablation 明确表明增益主要来自 learned 主链，而不是 benchmark-facing 改动
 
 当前 `v30` 的 retained progress 已前进到：
