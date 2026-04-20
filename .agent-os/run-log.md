@@ -11,6 +11,8 @@
   - `scripts/verify_stage2_v32_longrun.py --score-only` 已从 baseline `19/44` 提升到 current retained `38/44`
   - 后续 full holdout probe 又补齐了三条 runtime truth：其一，`run_stage2_memory_canary.py` 默认会复用 `evals_benchmark/` 下最新 manifest，因此做 full holdout 前必须先显式生成 `500 / 512` manifests；其二，runner 的 `--limit` 默认是 `1`，不显式传 `--limit 500/512` 就不会跑 full holdout；其三，large symbolic holdout 上旧的 parallel fast path 会拖垮吞吐，commit `4aa02dc` 已把 fast path 收紧到 `<=64` canary
   - 在 commit `514fdad` 把 `configs/minimax_m27.yaml` 的 `max_retries` 提高到 `5`、`retry_backoff_seconds` 提高到 `4.0` 之后，`PersonaMem 512` full run `outputs_v2/runs/v32_full_personamem_512/` 已能从 `13` 稳定推进到 `37/512`；但 current session 仍未把 full holdout 跑完，因此 retained metric 继续保持 `38`
+  - 随后 current HEAD `34943df` 又为 canary runner 补齐两层 runtime 防护：provider transient failure 现在会先提交成功样本、把失败样本留给后续 `--resume`；同一 `run_dir` 也会加 `.active.lock`，拒绝新的并发 writer
+  - 这轮恢复还暴露出一个新的 runtime truth：旧的 `outputs_v2/runs/v32_full_personamem_512/` 曾被 pre-lock wrappers 并发污染，因此其 metadata 不再适合作为 authoritative progress。fresh clean run `outputs_v2/runs/v32_full_personamem_512_clean/` 已在 lock 保护下重新起跑，并真实推进到 `14/512`
   - 当前 remaining gaps 仍只在 `LongMemEval-S 500 / PersonaMem 512` full holdout compare；在这类 artifact 发布前，不能误写成 external gain keep
 - Evidence / artifacts:
   - `research-results.tsv`
@@ -26,9 +28,12 @@
   - `outputs_v2/artifacts/latest_stage2_v32_option_scoring_compare.json`
   - `outputs_v2/artifacts/latest_stage2_v32_ablation_summary.json`
   - `outputs_v2/runs/v32_full_personamem_512/`
+  - `outputs_v2/runs/v32_full_personamem_512_clean/`
   - commits `05d1134`, `e50c478`, `4aa02dc`, `514fdad`
+  - commit `34943df`
 - Next likely action:
-  - 继续沿 current HEAD `514fdad` 的显式 full-manifest + explicit `--limit` + large-holdout throttled path，跑完 `PersonaMem 512` 与 `LongMemEval-S 500`
+  - 继续沿 current HEAD `34943df` 的 explicit full-manifest + explicit `--limit` + resumable provider commit + run-dir lock path，优先从 clean run `v32_full_personamem_512_clean` 继续推进 `PersonaMem 512`
+  - 再用同样的 clean-run discipline 启动 `LongMemEval-S 500`
   - 如果 provider 仍持续以 `503` 打断 full holdout，就把当前真实约束诚实写成“external provider throughput bound”，而不是继续误判成代码逻辑 blocker
   - 仅在 gain / overlap guard 为真时刷新 `latest_stage2_v32_full_holdout_compare.json`
 
