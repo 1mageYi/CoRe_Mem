@@ -366,6 +366,37 @@ def test_personamem_local_projection_uses_evidence_overlap_when_answer_text_is_e
     assert projected == "(a)"
 
 
+def test_personamem_local_projection_penalizes_unsupported_long_option_details():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="suggest_new_ideas",
+        topic="music",
+        user_question_or_message="How can I find a more fulfilling way to express my love for music?",
+        correct_answer="(b)",
+        all_options=[
+            "(a) Consider getting involved in music criticism by writing album reviews after attending workshops and articulating detailed contexts and intentions behind albums.",
+            "(b) You might consider exploring different avenues like writing about your musical journey or experimenting with performing live in settings that inspire you.",
+            "(c) Collaborating with others who share your musical interests can also be a rewarding path, mixing traditional and electronic elements to expand your creative horizons.",
+            "(d) Exploring sound engineering might offer a fulfilling way to express your love for music through digital remixes and chance meetings with audio engineers.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "on a journey to redefine how i approach group collaborations, aiming for a more structured",
+            "belief_state": {"belief_items": [{"relation": "other_fact", "value": "on a journey to redefine how i approach group collaborations, aiming for a more structured"}]},
+            "evidence_block": "- other_fact: on a journey to redefine how i approach group collaborations, aiming for a more structured",
+            "selected_slot_glosses": [
+                "other_fact=on a journey to redefine how i approach group collaborations, aiming for a more structured"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
 def test_personamem_prompt_has_no_candidate_injection():
     question = PersonaMemQuestion(
         persona_id="p",

@@ -7,6 +7,50 @@ import re
 
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
+_LOW_INFO_OPTION_TOKENS = {
+    "about",
+    "after",
+    "also",
+    "and",
+    "any",
+    "are",
+    "but",
+    "can",
+    "consider",
+    "considered",
+    "could",
+    "find",
+    "for",
+    "from",
+    "have",
+    "how",
+    "into",
+    "its",
+    "many",
+    "more",
+    "much",
+    "not",
+    "or",
+    "should",
+    "some",
+    "than",
+    "that",
+    "the",
+    "their",
+    "these",
+    "this",
+    "those",
+    "through",
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "with",
+    "would",
+    "you",
+    "your",
+}
 
 
 def normalize_answer(text: str | None) -> str:
@@ -61,6 +105,16 @@ class OptionScoringHead:
     """Rank answer options from latent/belief evidence without benchmark-specific shortcuts."""
 
     min_token_len: int = 3
+    unsupported_detail_penalty: float = 0.5
+    support_density_bonus: float = 4.0
+    option_length_penalty: float = 0.3
+
+    def _content_token_set(self, text: str) -> set[str]:
+        return {
+            token
+            for token in _token_set(text)
+            if len(token) >= self.min_token_len and token not in _LOW_INFO_OPTION_TOKENS
+        }
 
     def select_option(
         self,
@@ -80,29 +134,18 @@ class OptionScoringHead:
         if direct != answer_text:
             return direct
 
-        query_terms = {token for token in _token_set(query_text) if len(token) >= self.min_token_len}
-        answer_terms = {token for token in _token_set(answer_text) if len(token) >= self.min_token_len}
-        belief_terms = {
-            token
-            for token in _token_set(" ".join(belief_values or []))
-            if len(token) >= self.min_token_len
-        }
-        evidence_terms = {
-            token
-            for token in _token_set(evidence_text)
-            if len(token) >= self.min_token_len
-        }
-        gloss_terms = {
-            token
-            for token in _token_set(" ".join(selected_slot_glosses or []))
-            if len(token) >= self.min_token_len
-        }
+        query_terms = self._content_token_set(query_text)
+        answer_terms = self._content_token_set(answer_text)
+        belief_terms = self._content_token_set(" ".join(belief_values or []))
+        evidence_terms = self._content_token_set(evidence_text)
+        gloss_terms = self._content_token_set(" ".join(selected_slot_glosses or []))
+        support_terms = query_terms | answer_terms | belief_terms | evidence_terms | gloss_terms
         best_option = answer_text
         best_score = float("-inf")
         label_mode = options_use_labels(options)
         for option in options:
             body = option_body(option)
-            option_terms = {token for token in _token_set(body) if len(token) >= self.min_token_len}
+            option_terms = self._content_token_set(body)
             score = 0.0
             if answer_terms:
                 overlap = len(answer_terms & option_terms)
@@ -120,6 +163,12 @@ class OptionScoringHead:
             if normalized_answer and normalized_body:
                 if normalized_answer in normalized_body or normalized_body in normalized_answer:
                     score += 6.0
+            if option_terms and support_terms:
+                supported = len(option_terms & support_terms)
+                unsupported = len(option_terms - support_terms)
+                score += self.support_density_bonus * (supported / len(option_terms))
+                score -= self.unsupported_detail_penalty * unsupported
+                score -= self.option_length_penalty * len(option_terms)
             if score > best_score:
                 best_score = score
                 best_option = option_label(option) if label_mode else option
