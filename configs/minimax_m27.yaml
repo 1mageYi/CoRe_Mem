@@ -9,8 +9,8 @@ llm:
   temperature: 0.0
   max_tokens: 512
   timeout_seconds: 120
-  max_retries: 1
-  retry_backoff_seconds: 2.0
+  max_retries: 5
+  retry_backoff_seconds: 4.0
   min_request_interval_seconds: 0.0
   max_retry_delay_seconds: 60.0
 embedding:
