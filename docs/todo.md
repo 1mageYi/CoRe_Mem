@@ -2,30 +2,24 @@
 
 ## Doing
 
-- `TD-043` 以 `v3.2 / v32 latent-first modular redesign` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 与 `v31` soft-blocked truth，继续推进真正更强的 learned latent system。
+- `TD-044` 以 `v3.3 / v33 learned-authoritative latent run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v32` baseline，继续推进真正更强的 learned latent system。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
   - 当前重点：
-    - shared backbone + modular heads
-    - trainable latent reader
-    - direct latent objective
-    - structured belief head
-    - answer / option-scoring head
-    - write head strengthening
+    - learned authoritative runtime
+    - competition-based learned write
+    - temporal-semantic latent reader
+    - belief graph head
+    - answer / option head
     - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 512`
   - 最新真相：
-    - retained `v30` 已到 `41/41 keep`
-    - `v31` internal `latent / belief / write` line 为正，但最终 soft-blocked
-    - `v31` 在 `LongMemEval-S 500` 上只追平 retained `v30`
-    - `v31` 在 `PersonaMem 512` 上 provider exact 仍低于 required overlap guard
-    - prompt-only、relation/support serialization、structured MCQ 三类 Persona pivots 均未产生 keep
-    - fresh managed `v32` run 已完成 baseline-first 初始化、clean full holdout 与 authoritative publish：`scripts/verify_stage2_v32_longrun.py --score-only` 已从 `19/44` 提升到 retained `44/44 keep`
-    - `shared backbone + write / latent / belief / answer` 五条 internal 证据链均已落地，当前 `latest_stage2_v32_*` 已覆盖 modular train、write eval、latent train/objective/holdout compare、belief eval/holdout compare、answer eval 与 option-scoring compare
-    - `latest_stage2_v32_ablation_summary.json` 已落地，并机械确认 latent 是主驱动，belief 与 answer head 都有独立贡献
-    - `latest_longmemeval_stage2_v32_full.json`、`latest_personamem_stage2_v32_full.json` 与 `latest_stage2_v32_full_holdout_compare.json` 已发布；当前这轮 managed run 的 stop condition 已达到
+    - retained `v32` 已到 `44/44 keep`
+    - `v32` 已证明 modular latent / belief / answer 设计可以带来 full-holdout gain
+    - 但 `v32` authoritative full benchmark path 仍是 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`
+    - `v33` 的目标不是继续扩大 symbolic baseline，而是让 learned path 接管 authoritative runtime
   - Truth boundary：
-    - 当前主矛盾已不再是 `v31` wiring 或吞吐；这轮已机械证明更激进的 modular redesign 可以带来真实 full-holdout gain
-    - 除非用户给出新的 stage-2 方向，否则不应继续在同一 run 上重复消耗 provider
+    - 当前主矛盾已不再是 v32 能否涨分，而是 learned path 能否接管 authoritative full-holdout runtime
+    - 这轮不允许在 symbolic authoritative path 上收口
 
 - `TD-042` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
