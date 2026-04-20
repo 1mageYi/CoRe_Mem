@@ -83,6 +83,21 @@ def test_stage2_parser_extracts_music_technology_preference_from_software_contex
     assert observations[0].value == "producing music with software"
 
 
+def test_stage2_parser_does_not_treat_from_phrase_inside_music_clause_as_location():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "Every aspect of this process has been fascinating, from selecting the right software to getting the nuances of mixing different sounds to create something unique.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations
+    assert any(item.relation == "music_preference" for item in observations)
+    assert all(item.relation != "location" for item in observations)
+
+
 def test_stage2_parser_extracts_store_location_from_shopping_turn():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(

@@ -118,7 +118,7 @@ def _infer_relation(text: str, value: str) -> tuple[str, str]:
         return "occupation", "occupation"
     if "shop at" in lowered_text or "app from" in lowered_text:
         return "location", "location"
-    if "live in" in lowered_text or "from " in lowered_text:
+    if "live in" in lowered_text or re.search(r"\b(?:i'm from|i am from|originally from)\b", lowered_text):
         return "location", "location"
     if "want to" in lowered_text or "plan to" in lowered_text:
         return "goal", "goal"
