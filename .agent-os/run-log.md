@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-20 Session 087
+
+- Worked on: 验证 `software-centric music facet` 能否以 generic parser/write 修复的形式真正回流到 `v33` Persona local gate
+- State changed:
+  - current HEAD `65c2612` 现把 software/digital/MIDI music clauses 规范成稳定 `music_preference` facet，并在 symbolic=`new` 的 `*_preference` relation 上直接 short-circuit learned slot-assignment，避免 learned arbitration 吞掉 distinct preference facets
+  - `tests/test_stage2_parser.py` 与 `tests/test_stage2_model_skeleton.py` 已补齐对应回归；configured guard 全绿，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - 用与 retained `v33_option_penalty_targeted_clean` 相同的 `4` 个 Persona hard samples 做 clean local-only replay 后，targeted gate 已从 retained `1/4` 提到 `2/4`，而 lexical baseline 仍是 `0/4`
+  - 样本级变化是：`5370...` 从旧的错答翻到正确 `(b)`；`acd742...` 仍停在 `(b)`；`a40d5...` 仍停在 `(c)`；`c8a763...` 维持正确 `(b)`
+  - 这证明 parser/write inventory 不是伪问题，software-centric music facet 的缺失确实在压 Persona local ceiling；但由于 official verifier 仍是 `36`，helper 只能把这轮记为 iteration `21 refine`，不能记 keep
+- Evidence / artifacts:
+  - commit `65c2612`
+  - `outputs_v2/v33_music_software_facet_local/artifacts/20260420T231900Z_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 “parser/write inventory 已经不是问题” 当作前提；它已经贡献了真实 targeted gain
+  - 下一轮集中打 `selected-slot ranking / belief relation stability`，优先解释为什么 `acd742...` 仍被 original-music slot 压住，以及为什么 `5370...` 的 correct option 仍伴随 `location` relation drift
+
 # 2026-04-20 Session 086
 
 - Worked on: 试探 `preference-facet fast-path` 能否通过减少 learned slot-assignment 的 over-merge 直接改善 `v33` Persona local ceiling
