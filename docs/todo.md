@@ -29,11 +29,12 @@
     - current HEAD `3234a4b` 已把 option scorer 收紧成 generic “support-density / unsupported-detail” ranking；clean targeted Persona `4`-sample gate `outputs_v2/v33_option_penalty_targeted_clean/` 已从 `0/4` 提到 `1/4`
     - 本轮新证伪的 write-path 假设是：即使对 `*_preference` 这类多 facet relation 在 symbolic=`new` 时直接 short-circuit learned slot-assignment，保住多条 active `music_preference` 槽位，targeted Persona `4`-sample gate 也仍是 `1/4`，没有超过 retained option-scoring 分支
     - current HEAD `65c2612` 又把 software-centric music clauses 规范成稳定 `music_preference` facet，并保留 symbolic=`new` 的 preference-facet fast-path；对应 clean targeted Persona `4`-sample gate `outputs_v2/v33_music_software_facet_local/artifacts/20260420T231900Z_compare.json` 已从 retained `1/4` 提到 `2/4`，其中 `5370...` 从错答翻正，但 `acd742...` / `a40d5...` 仍未解决
+    - current HEAD `2b54785` 又把 parser 里过宽的 `from`-location 规则收紧；单样本 probe `outputs_v2/v33_music_software_facet_local/artifacts/20260420T233200Z_5370_relation_probe.json` 显示 `5370...` 在保持正确 `(b)` 的同时，belief relation 已从错误的 `location` 修回 `music_preference`
   - Truth boundary：
     - 当前主矛盾已不再是 v32 能否涨分，而是 learned path 能否接管 authoritative full-holdout runtime
     - 这轮不允许在 symbolic authoritative path 上收口
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample 不再决定方向，retain 直接看 `LongMemEval-S 500 / PersonaMem 512`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已继续收紧到 selected-slot ranking / belief relation stability，answer option head 与 parser/write preservation 都已有小幅正增益，而 query-stopword / support-slot / same-relation value hygiene 已被降为次级
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已继续收紧到 selected-slot ranking，answer option head、parser/write preservation 与 relation-drift bugfix 都已有局部正增益，而 query-stopword / support-slot / same-relation value hygiene 已被降为次级
 
 - `TD-042` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）

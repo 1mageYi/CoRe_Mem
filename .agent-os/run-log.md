@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-20 Session 088
+
+- Worked on: 收紧 `v33` Persona relation-drift 里的 parser bug，验证 software/music clause 不再被错误写成 `location`
+- State changed:
+  - current HEAD `2b54785` 把 `src/core_mem/v2/parser.py` 里过宽的 `from` location 规则收紧为显式 self-location phrase，避免 “from selecting the right software” 这类句子被误判成 `location`
+  - `tests/test_stage2_parser.py` 已补齐对应回归；configured guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - 单样本 replay `5370...` 现保持正确 `(b)`，同时 learned belief relation 已从错误的 `location` 修回 `music_preference`
+  - 因为这轮只修 semantic drift、没有推动 official verifier，helper 已把它记为 iteration `22 refine`
+- Evidence / artifacts:
+  - commit `2b54785`
+  - `outputs_v2/v33_music_software_facet_local/artifacts/20260420T233200Z_5370_relation_probe.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 parser 的过宽 `from` rule 当当前 relation drift 的残余主因
+  - 下一轮继续集中打 `acd742...` / `a40d5...` 的 selected-slot ranking
+
 # 2026-04-20 Session 087
 
 - Worked on: 验证 `software-centric music facet` 能否以 generic parser/write 修复的形式真正回流到 `v33` Persona local gate
