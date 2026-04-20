@@ -1,5 +1,31 @@
 # Run Log
 
+## 2026-04-20 Session 075
+
+- Worked on: 收口 `TD-043 / WS-029 / v32` 的 clean full holdout compare，发布 authoritative `v32` full artifacts，并把 managed run 推到 stop condition
+- State changed:
+  - helper 已先把 completed `LongMemEval-S 500` clean run 记为 iteration `12 refine`：`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 最终固定为 `provider/local = 21/14`，相对 retained `v30` 的 `19/14` 至少 provider 侧为正
+  - 随后基于 clean `timeout45` runs 重建了 benchmark-specific full summary JSON：`outputs_v2/evals_benchmark/20260420T075028Z_longmemeval_v32_full_summary.json` 与 `outputs_v2/evals_benchmark/20260420T075028Z_personamem_v32_full_summary.json`
+  - `scripts/verify_stage2_v32_longrun.py --publish-full-holdout-artifacts` 已基于上述 summaries 发布 `latest_longmemeval_stage2_v32_full.json`、`latest_personamem_stage2_v32_full.json` 与 `latest_stage2_v32_full_holdout_compare.json`
+  - 当前 published full-holdout truth 已固定为：`LongMemEval-S 500 = provider/local 21/14`、`PersonaMem 512 = provider/local 183/175`，且 `longmemeval_gain_confirmed = true`、`personamem_gain_confirmed = true`
+  - `scripts/verify_stage2_v32_longrun.py --score-only` 已达到 `44/44`；`conda run -n core_mem pytest -q tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py` 通过
+  - helper 已把 authoritative publish 记为 iteration `13 keep`，current retained metric 现在是 `44`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/evals_benchmark/20260420T075028Z_longmemeval_v32_full_summary.json`
+  - `outputs_v2/evals_benchmark/20260420T075028Z_personamem_v32_full_summary.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v32_full.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v32_full.json`
+  - `outputs_v2/artifacts/latest_stage2_v32_full_holdout_compare.json`
+  - `outputs_v2/runs/v32_full_longmemeval_500_timeout45/`
+  - `outputs_v2/runs/v32_full_personamem_512_timeout45/`
+  - commit `7377c29`
+- Next likely action:
+  - 保留当前 `v32` retained line 作为新的 stage-2 baseline
+  - 不再继续同一条 managed run 消耗 provider
+  - 等待用户给出下一条 stage-2 hypothesis、比较目标或新的验收要求
+
 ## 2026-04-20 Session 074
 
 - Worked on: 初始化 fresh managed `TD-043 / WS-029 / v32` run，并把第一轮 redesign 证据从 baseline-first 启动推进到 internal retained keep
