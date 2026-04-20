@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-20 Session 086
+
+- Worked on: 试探 `preference-facet fast-path` 能否通过减少 learned slot-assignment 的 over-merge 直接改善 `v33` Persona local ceiling
+- State changed:
+  - 针对 `*_preference` relation 新做了一轮 write-path 假设验证：当 symbolic slot assignment 已给出 `new` 时，直接 short-circuit learned arbitration，避免 learned head 把语义不同的 preference facet 强行 merge 到同一 active slot
+  - synthetic replay 证明该改动确实能保住多条 active `music_preference` 槽位，因此 “learned merge 会吞掉 distinct preference facets” 这条内部问题本身成立
+  - 但 fresh clean targeted Persona `4`-sample gate `outputs_v2/v33_preference_facet_targeted/` 与 retained `outputs_v2/v33_option_penalty_targeted_clean/` 完全持平：`base_exact = 1/4`、`new_exact = 1/4`、`improved = 0`、`degraded = 0`
+  - 因此这条 write-path fast-path 没有形成任何 external gain，helper 已把它记为 iteration `20 discard`，当前 retained `v33` 仍是 `36`
+- Evidence / artifacts:
+  - `outputs_v2/v33_preference_facet_targeted/evals_benchmark/20260420T223943Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_preference_facet_targeted/evals_benchmark/20260420T224000Z_personamem_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续把 write-path facet-preservation 当作 `v33` Persona 主修复线
+  - 下一轮直接围绕 `selected-slot ranking` 做 focused change，优先解释为什么真实 benchmark context 下仍选不到 `producing music with software` 这类应答关键槽位
+
 ## 2026-04-20 Session 085
 
 - Worked on: 针对 `v33` Persona local ceiling，试探 generic option-scorer 收紧是否能把 wrong-long-option bias 压下来
