@@ -74,7 +74,8 @@ def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
 
     monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: FakeProvider())
     llm = SimpleNamespace(temperature=0.0, max_tokens=32)
-    results = _iter_provider_predictions(llm, [(0, "a"), (1, "b"), (2, "c")], workers=3)
+    results, failed = _iter_provider_predictions(llm, [(0, "a"), (1, "b"), (2, "c")], workers=3)
+    assert failed == []
     assert sorted(results) == [
         (0, "echo::a", "echo::a"),
         (1, "echo::b", "echo::b"),
@@ -640,6 +641,107 @@ def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tm
     assert metadata["resumed_prediction_count"] == 1
     assert metadata["completed_predictions"] == 2
     assert metadata["live_predictions_completed"] == 2
+
+
+def test_stage2_memory_canary_partial_provider_error_commits_successes_and_resume_recovers(monkeypatch, tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    run_dir = output_root / "runs" / "partial_personamem"
+    questions = [
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q1",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        ),
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q2",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        ),
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sample_ids": ["q1", "q2"]}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "run_stage2_memory_canary.load_project_config",
+        lambda path: SimpleNamespace(
+            llm=SimpleNamespace(
+                api_key_env="GPT_AGENT_API_KEY",
+                base_url="https://example.com/v1",
+                model="fake-model",
+                temperature=0.0,
+                max_tokens=16,
+                timeout_seconds=1,
+                max_retries=0,
+                retry_backoff_seconds=0.0,
+                min_request_interval_seconds=0.0,
+                max_retry_delay_seconds=0.0,
+            ),
+            benchmarks=SimpleNamespace(personamem=SimpleNamespace(data_root="unused")),
+        ),
+    )
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: _FakeProvider())
+    monkeypatch.setattr("run_stage2_memory_canary._ensure_canary_manifest", lambda output_root, benchmark: manifest_path)
+
+    class _FakeAdapter:
+        def load_shared_contexts(self):
+            return {"ctx": "user: I like sushi."}
+
+        def load_questions(self):
+            return questions
+
+        def render_context_for_question(self, question, contexts):
+            return contexts[question.shared_context_id]
+
+    monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+
+    call_count = {"value": 0}
+
+    def _flaky_provider_chat_request(llm, prompt):
+        call_count["value"] += 1
+        if call_count["value"] >= 2:
+            raise RuntimeError("transient provider failure")
+        return "(a)", "raw"
+
+    monkeypatch.setattr("run_stage2_memory_canary._provider_chat_request", _flaky_provider_chat_request)
+
+    first = run_personamem_canary(
+        output_root=output_root,
+        config_path=REPO_ROOT / "configs" / "minimax_m27.yaml",
+        limit=2,
+        requested_run_dir=str(run_dir),
+        resume=True,
+    )
+
+    assert first["status"] == "partial_provider_error"
+    assert first["completed_predictions"] == 1
+    assert first["failed_predictions_pending"] == 1
+    predictions_path = run_dir / "predictions.jsonl"
+    assert len(predictions_path.read_text(encoding="utf-8").strip().splitlines()) == 1
+
+    monkeypatch.setattr("run_stage2_memory_canary._provider_chat_request", lambda llm, prompt: ("(a)", "raw"))
+    second = run_personamem_canary(
+        output_root=output_root,
+        config_path=REPO_ROOT / "configs" / "minimax_m27.yaml",
+        limit=2,
+        requested_run_dir=str(run_dir),
+        resume=True,
+    )
+
+    assert second["status"] == "completed"
+    assert second["completed_predictions"] == 2
+    assert second["failed_predictions_pending"] == 0
 
 
 def test_stage2_memory_canary_resolves_shared_predictors_once(monkeypatch):

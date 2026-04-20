@@ -187,15 +187,21 @@ def _iter_provider_predictions(
     prompts: list[tuple[int, str]],
     *,
     workers: int,
-) -> list[tuple[int, str, str | None]]:
+) -> tuple[list[tuple[int, str, str | None]], list[int]]:
     if workers <= 1:
         results: list[tuple[int, str, str | None]] = []
+        failed_indices: list[int] = []
         for index, prompt in prompts:
-            prediction, raw_prediction = _provider_chat_request(llm, prompt)
+            try:
+                prediction, raw_prediction = _provider_chat_request(llm, prompt)
+            except Exception:
+                failed_indices.append(index)
+                continue
             results.append((index, prediction, raw_prediction))
-        return results
+        return results, failed_indices
 
-    results = []
+    results: list[tuple[int, str, str | None]] = []
+    failed_indices: list[int] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_map = {
             executor.submit(_provider_chat_request, llm, prompt): index
@@ -203,9 +209,13 @@ def _iter_provider_predictions(
         }
         for future in as_completed(future_map):
             index = future_map[future]
-            prediction, raw_prediction = future.result()
+            try:
+                prediction, raw_prediction = future.result()
+            except Exception:
+                failed_indices.append(index)
+                continue
             results.append((index, prediction, raw_prediction))
-    return results
+    return results, failed_indices
 
 
 def _observe_personamem_context(system: StructuredMemorySystem, context_text: str, *, sample_id: str) -> int:
@@ -496,21 +506,25 @@ def _drain_pending_rows(
     metadata: dict[str, Any],
     run_dir: Path,
     live_completed: int,
-) -> int:
+) -> tuple[int, int]:
     if not pending_rows:
-        return live_completed
+        return live_completed, 0
+    failed_indexes: set[int] = set()
     if llm is not None:
-        provider_results = _iter_provider_predictions(
+        provider_results, failed_indices = _iter_provider_predictions(
             llm,
             [(index, row["prompt"]) for index, row in enumerate(pending_rows)],
             workers=max(int(provider_workers), 1),
         )
+        failed_indexes = set(failed_indices)
         for index, provider_prediction, raw_provider_prediction in provider_results:
             row = pending_rows[index]
             row["provider_prediction"] = provider_prediction
             row["provider_raw_prediction"] = raw_provider_prediction
             row["provider_status"] = "completed"
-    for row in pending_rows:
+    failed_rows = [row for index, row in enumerate(pending_rows) if index in failed_indexes]
+    rows_to_commit = [row for index, row in enumerate(pending_rows) if index not in failed_indexes]
+    for row in rows_to_commit:
         if row["provider_status"] == "completed":
             live_completed += 1
         rows.append(row)
@@ -518,8 +532,11 @@ def _drain_pending_rows(
         metadata["live_predictions_completed"] = live_completed
         metadata["completed_predictions"] = len(rows)
         _write_json(run_dir / "run_metadata.json", metadata)
-    pending_rows.clear()
-    return live_completed
+    pending_rows[:] = failed_rows
+    metadata["live_predictions_completed"] = live_completed
+    metadata["completed_predictions"] = len(rows)
+    _write_json(run_dir / "run_metadata.json", metadata)
+    return live_completed, len(failed_rows)
 
 
 def _maybe_write_semantic_alias(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
@@ -903,7 +920,7 @@ def run_personamem_canary(
             )
             batch_size = max(int(provider_workers), 1)
             if len(pending_rows) >= batch_size:
-                live_completed = _drain_pending_rows(
+                live_completed, _ = _drain_pending_rows(
                     pending_rows=pending_rows,
                     llm=config.llm if provider.is_configured() else None,
                     provider_workers=provider_workers,
@@ -913,7 +930,7 @@ def run_personamem_canary(
                     run_dir=run_dir,
                     live_completed=live_completed,
                 )
-        live_completed = _drain_pending_rows(
+        live_completed, remaining_failures = _drain_pending_rows(
             pending_rows=pending_rows,
             llm=config.llm if provider.is_configured() else None,
             provider_workers=provider_workers,
@@ -923,15 +940,20 @@ def run_personamem_canary(
             run_dir=run_dir,
             live_completed=live_completed,
         )
+    remaining_failures = len(pending_rows) if provider.is_configured() else 0
 
     metadata["live_predictions_completed"] = live_completed
     metadata["completed_predictions"] = len(rows)
     _write_json(run_dir / "run_metadata.json", metadata)
 
     summary_path = output_root / "evals_benchmark" / f"{stamp}_stage2_memory_canary.json"
+    summary_status = "blocked_provider_not_configured"
+    if provider.is_configured():
+        summary_status = "completed" if len(rows) == len(questions) and remaining_failures == 0 else "partial_provider_error"
     summary = {
         **metadata,
-        "status": "completed" if provider.is_configured() else "blocked_provider_not_configured",
+        "status": summary_status,
+        "failed_predictions_pending": remaining_failures,
         "run_dir": str(run_dir),
         "summary_path": str(summary_path),
         **_prediction_metrics(rows),
@@ -1083,7 +1105,7 @@ def run_longmemeval_canary(
             )
             batch_size = max(int(provider_workers), 1)
             if len(pending_rows) >= batch_size:
-                live_completed = _drain_pending_rows(
+                live_completed, _ = _drain_pending_rows(
                     pending_rows=pending_rows,
                     llm=config.llm if provider.is_configured() else None,
                     provider_workers=provider_workers,
@@ -1093,7 +1115,7 @@ def run_longmemeval_canary(
                     run_dir=run_dir,
                     live_completed=live_completed,
                 )
-        live_completed = _drain_pending_rows(
+        live_completed, remaining_failures = _drain_pending_rows(
             pending_rows=pending_rows,
             llm=config.llm if provider.is_configured() else None,
             provider_workers=provider_workers,
@@ -1103,15 +1125,20 @@ def run_longmemeval_canary(
             run_dir=run_dir,
             live_completed=live_completed,
         )
+    remaining_failures = len(pending_rows) if provider.is_configured() else 0
 
     metadata["live_predictions_completed"] = live_completed
     metadata["completed_predictions"] = len(rows)
     _write_json(run_dir / "run_metadata.json", metadata)
 
     summary_path = output_root / "evals_benchmark" / f"{stamp}_stage2_memory_canary.json"
+    summary_status = "blocked_provider_not_configured"
+    if provider.is_configured():
+        summary_status = "completed" if len(rows) == len(questions) and remaining_failures == 0 else "partial_provider_error"
     summary = {
         **metadata,
-        "status": "completed" if provider.is_configured() else "blocked_provider_not_configured",
+        "status": summary_status,
+        "failed_predictions_pending": remaining_failures,
         "run_dir": str(run_dir),
         "summary_path": str(summary_path),
         **_prediction_metrics(rows),
