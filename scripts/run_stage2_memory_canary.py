@@ -368,7 +368,11 @@ def _render_personamem_options(options: list[str]) -> str:
 
 def _personamem_answer_instruction(options: list[str]) -> str:
     if _options_use_labels(options):
-        return "Return only the best option label, for example (a)."
+        return (
+            "Return exactly one option label on the first line, for example (a). "
+            "Never return an empty answer, explanation, or option text. "
+            "If the belief relation name is generic, ground your choice in the concrete evidence value and still pick one label."
+        )
     return "Return only the best option text."
 
 

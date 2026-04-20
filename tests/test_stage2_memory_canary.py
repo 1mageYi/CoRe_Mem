@@ -235,7 +235,9 @@ def test_personamem_prompt_keeps_label_space():
     assert "(a) Wrong" in prompt
     assert "(b) Right" in prompt
     assert "Latent matcher candidate" not in prompt
-    assert "Return only the best option label" in prompt
+    assert "Return exactly one option label on the first line" in prompt
+    assert "Never return an empty answer" in prompt
+    assert "ground your choice in the concrete evidence value" in prompt
 
 
 def test_personamem_local_projection_maps_belief_text_to_option_label():
