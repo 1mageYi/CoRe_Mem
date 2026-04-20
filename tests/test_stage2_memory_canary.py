@@ -19,6 +19,7 @@ from core_mem.benchmarks.longmemeval import LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
     _build_personamem_row,
+    _coerce_personamem_provider_prediction,
     _iter_provider_predictions,
     _observe_personamem_context,
     _project_personamem_local_answer,
@@ -235,7 +236,8 @@ def test_personamem_prompt_keeps_label_space():
     assert "(a) Wrong" in prompt
     assert "(b) Right" in prompt
     assert "Latent matcher candidate" not in prompt
-    assert "Return only the best option label" in prompt
+    assert 'Return JSON only with the schema {"best_option":"(a)","scores":{"(a)": 0, "(b)": 0}}.' in prompt
+    assert 'Choose "best_option" from {(a), (b)}' in prompt
 
 
 def test_personamem_local_projection_maps_belief_text_to_option_label():
@@ -331,6 +333,12 @@ def test_personamem_prompt_has_no_candidate_injection():
         },
     )
     assert "Latent matcher candidate" not in prompt
+
+
+def test_personamem_provider_prediction_prefers_best_option_json():
+    prediction = '{"best_option":"(b)","scores":{"(a)":1,"(b)":3}}'
+    resolved = _coerce_personamem_provider_prediction(prediction, ["(a) Wrong", "(b) Right"])
+    assert resolved == "(b)"
 
 
 def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
