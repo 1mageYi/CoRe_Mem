@@ -333,6 +333,37 @@ def test_personamem_prompt_has_no_candidate_injection():
     assert "Latent matcher candidate" not in prompt
 
 
+def test_personamem_prompt_renders_support_facts_from_selected_slots():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="provide_preference_aligned_recommendations",
+        topic="music",
+        user_question_or_message="What fits best?",
+        correct_answer="(a)",
+        all_options=["(a) Software music", "(b) Oil painting"],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    prompt = _render_personamem_prompt(
+        question,
+        {
+            "belief_state": {"belief_items": [{"relation": "other_fact", "value": "creative tools"}]},
+            "selected_slot_glosses": [
+                "music_preference=producing music with software",
+                "music_preference=producing music with software",
+                "hobby=remixing electronic tracks",
+            ],
+            "evidence_block": "- other_fact: creative tools",
+        },
+    )
+    assert "Support Facts:" in prompt
+    assert "- music_preference: producing music with software" in prompt
+    assert prompt.count("- music_preference: producing music with software") == 1
+    assert "- hobby: remixing electronic tracks" in prompt
+    assert "belief state, support facts, and evidence" in prompt
+
+
 def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
     question = LongMemEvalQuestion(
         question_id="q",
