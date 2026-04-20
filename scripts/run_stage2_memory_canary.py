@@ -21,6 +21,14 @@ if str(SRC_DIR) not in sys.path:
 from core_mem.benchmarks.longmemeval import LongMemEvalAdapter, LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemAdapter, PersonaMemQuestion
 from core_mem.config import LLMConfig, load_project_config
+from core_mem.v2.answer_head import (
+    OptionScoringHead,
+    lexical_option_projection,
+    normalize_answer,
+    option_body,
+    option_label,
+    options_use_labels,
+)
 from core_mem.providers.openai_compatible import OpenAICompatibleConfig, OpenAICompatibleProvider
 from core_mem.v2.system import StructuredMemorySystem
 from run_stage2_canary import build_canary_manifests
@@ -61,17 +69,17 @@ def _append_jsonl_row(path: Path, row: dict[str, Any]) -> None:
 
 
 def _exact_match(expected: str, prediction: str | None) -> bool:
-    return _normalize_answer(expected) == _normalize_answer(prediction)
+    return normalize_answer(expected) == normalize_answer(prediction)
 
 
 def _label_prefix_match(expected: str, prediction: str | None) -> bool:
-    normalized_expected = _normalize_answer(expected)
-    normalized_prediction = _normalize_answer(prediction)
+    normalized_expected = normalize_answer(expected)
+    normalized_prediction = normalize_answer(prediction)
     return bool(normalized_expected and normalized_prediction.startswith(normalized_expected))
 
 
 def _prediction_metrics(rows: list[dict[str, Any]]) -> dict[str, int]:
-    return {
+    metrics = {
         "provider_exact_match": sum(
             1 for row in rows if _exact_match(str(row.get("expected_answer", "")), row.get("provider_prediction"))
         ),
@@ -82,6 +90,13 @@ def _prediction_metrics(rows: list[dict[str, Any]]) -> dict[str, int]:
             1 for row in rows if _exact_match(str(row.get("expected_answer", "")), row.get("memory_answer_local"))
         ),
     }
+    if any("memory_answer_local_baseline" in row for row in rows):
+        metrics["local_baseline_exact_match"] = sum(
+            1
+            for row in rows
+            if _exact_match(str(row.get("expected_answer", "")), row.get("memory_answer_local_baseline"))
+        )
+    return metrics
 
 
 def _copy_config_snapshot(config_path: Path, run_dir: Path) -> Path:
@@ -193,26 +208,6 @@ def _iter_provider_predictions(
     return results
 
 
-def _normalize_answer(text: str | None) -> str:
-    if text is None:
-        return ""
-    return " ".join(text.strip().lower().split())
-
-
-def _options_use_labels(options: list[str]) -> bool:
-    return bool(options) and all(option.startswith("(") and ")" in option[:4] for option in options)
-
-
-def _option_label(option: str) -> str:
-    closing = option.find(")")
-    return option[: closing + 1].strip() if option.startswith("(") and closing > 0 else option.strip()
-
-
-def _option_body(option: str) -> str:
-    label = _option_label(option)
-    remainder = option[len(label) :].strip()
-    return remainder or option.strip()
-
 def _observe_personamem_context(system: StructuredMemorySystem, context_text: str, *, sample_id: str) -> int:
     observed = 0
     for turn_idx, line in enumerate(context_text.splitlines(), start=1):
@@ -312,43 +307,24 @@ def _observe_longmemeval_context(system: StructuredMemorySystem, sessions: list[
 
 
 def _resolve_personamem_prediction(local_answer: str, options: list[str]) -> str:
-    normalized_local = _normalize_answer(local_answer)
-    if not options:
-        return local_answer
-    if _options_use_labels(options):
-        for option in options:
-            label = _option_label(option)
-            if normalized_local == _normalize_answer(label):
-                return label
-    for option in options:
-        normalized_option = _normalize_answer(option)
-        normalized_body = _normalize_answer(_option_body(option))
-        if normalized_local and (
-            normalized_local in normalized_option
-            or normalized_local in normalized_body
-            or normalized_option in normalized_local
-            or normalized_body in normalized_local
-        ):
-            return _option_label(option) if _options_use_labels(options) else option
-    query_terms = {token for token in normalized_local.split() if len(token) >= 4}
-    if query_terms:
-        best_option = ""
-        best_overlap = 0
-        for option in options:
-            body_terms = set(_normalize_answer(_option_body(option)).split())
-            overlap = len(query_terms & body_terms)
-            if overlap > best_overlap:
-                best_overlap = overlap
-                best_option = option
-        if best_overlap > 0:
-            return _option_label(best_option) if _options_use_labels(options) else best_option
-    return local_answer
+    return lexical_option_projection(local_answer, options)
 
 
 def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
-    projected = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
+    projected = OptionScoringHead().select_option(
+        query_text=question.user_question_or_message,
+        answer_text=str(memory_payload.get("answer_text", "")),
+        options=question.all_options,
+        belief_values=[
+            str(item.get("value", ""))
+            for item in memory_payload["belief_state"].get("belief_items", [])
+            if isinstance(item, dict)
+        ],
+        evidence_text=str(memory_payload.get("evidence_block", "")),
+        selected_slot_glosses=[str(item) for item in memory_payload.get("selected_slot_glosses", [])],
+    )
     if projected in question.all_options:
-        return _option_label(projected) if _options_use_labels(question.all_options) else projected
+        return option_label(projected) if options_use_labels(question.all_options) else projected
     if projected != memory_payload["answer_text"]:
         return projected
     belief_text = " ".join(
@@ -361,13 +337,13 @@ def _project_personamem_local_answer(memory_payload: dict[str, Any], question: P
 
 
 def _render_personamem_options(options: list[str]) -> str:
-    if _options_use_labels(options):
+    if options_use_labels(options):
         return "\n".join(options)
     return "\n".join(f"{idx + 1}. {option}" for idx, option in enumerate(options))
 
 
 def _personamem_answer_instruction(options: list[str]) -> str:
-    if _options_use_labels(options):
+    if options_use_labels(options):
         return "Return only the best option label, for example (a)."
     return "Return only the best option text."
 
@@ -591,6 +567,41 @@ def _maybe_write_v24_canary_alias(output_root: Path, benchmark: str, summary: di
     _write_json(output_root / "artifacts" / alias_name, summary)
 
 
+def _maybe_write_v32_answer_head_aliases(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if benchmark != "personamem":
+        return
+    local_exact_match = int(summary.get("local_exact_match", 0))
+    baseline_exact_match = int(summary.get("local_baseline_exact_match", 0))
+    sample_count = max(int(summary.get("sample_count", 0)), 1)
+    answer_payload = {
+        "artifact_type": "stage2_v32_answer_head_eval",
+        "commit_hash": summary.get("commit_hash", _current_commit_hash()),
+        "benchmark": benchmark,
+        "summary_path": summary.get("summary_path"),
+        "sample_count": sample_count,
+        "local_exact_match": local_exact_match,
+        "local_exact_rate": local_exact_match / sample_count,
+        "baseline_local_exact_match": baseline_exact_match,
+        "baseline_local_exact_rate": baseline_exact_match / sample_count,
+        "positive_gain": local_exact_match > 0,
+    }
+    compare_payload = {
+        "artifact_type": "stage2_v32_option_scoring_compare",
+        "commit_hash": summary.get("commit_hash", _current_commit_hash()),
+        "benchmark": benchmark,
+        "summary_path": summary.get("summary_path"),
+        "sample_count": sample_count,
+        "baseline_local_exact_match": baseline_exact_match,
+        "option_scoring_local_exact_match": local_exact_match,
+        "delta_local_exact_match": local_exact_match - baseline_exact_match,
+        "delta_local_exact_rate": (local_exact_match - baseline_exact_match) / sample_count,
+        "positive_gain": local_exact_match > baseline_exact_match,
+        "note": "Compares generic option scoring against lexical answer-text projection on the same PersonaMem slice.",
+    }
+    _write_json(output_root / "artifacts" / "latest_stage2_v32_answer_head_eval.json", answer_payload)
+    _write_json(output_root / "artifacts" / "latest_stage2_v32_option_scoring_compare.json", compare_payload)
+
+
 def _should_use_symbolic_parallel_fast_path(
     *,
     provider_configured: bool,
@@ -648,6 +659,7 @@ def _build_personamem_row(
         sample_id=question.question_id,
     )
     memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
+    baseline_projection = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
     local_projection = _project_personamem_local_answer(memory_payload, question)
     prompt = _render_personamem_prompt(question, memory_payload)
     row = {
@@ -657,6 +669,7 @@ def _build_personamem_row(
         "topic": question.topic,
         "expected_answer": question.correct_answer,
         "memory_answer_local": local_projection,
+        "memory_answer_local_baseline": baseline_projection,
         "provider_prediction": None,
         "provider_raw_prediction": None,
         "provider_status": "provider_not_configured",
@@ -924,6 +937,7 @@ def run_personamem_canary(
     _maybe_write_learned_alias(output_root, "personamem", summary)
     _maybe_write_slot_assignment_alias(output_root, "personamem", summary)
     _maybe_write_v24_canary_alias(output_root, "personamem", summary)
+    _maybe_write_v32_answer_head_aliases(output_root, "personamem", summary)
     return summary
 
 

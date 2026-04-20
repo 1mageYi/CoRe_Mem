@@ -437,6 +437,84 @@ def test_stage2_memory_canary_writes_semantic_alias_for_completed_learned_run(mo
     assert alias_payload["summary_path"] == payload["summary_path"]
 
 
+def test_stage2_memory_canary_writes_v32_answer_head_aliases(monkeypatch, tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    run_dir = output_root / "runs" / "v32_answer_personamem"
+    questions = [
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q1",
+            question_type="recalling_facts_mentioned_by_the_user",
+            topic="travel",
+            user_question_or_message="What kind of trips fit me best?",
+            correct_answer="(a)",
+            all_options=[
+                "(a) Quiet hiking trips through mountain trails.",
+                "(b) Loud nightclub tours in busy cities.",
+            ],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        )
+    ]
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sample_ids": ["q1"]}), encoding="utf-8")
+
+    class _NoProvider:
+        def is_configured(self) -> bool:
+            return False
+
+    monkeypatch.setattr(
+        "run_stage2_memory_canary.load_project_config",
+        lambda path: SimpleNamespace(
+            llm=SimpleNamespace(
+                api_key_env="GPT_AGENT_API_KEY",
+                base_url="https://example.com/v1",
+                model="fake-model",
+                temperature=0.0,
+                max_tokens=16,
+                timeout_seconds=1,
+                max_retries=0,
+                retry_backoff_seconds=0.0,
+                min_request_interval_seconds=0.0,
+                max_retry_delay_seconds=0.0,
+            ),
+            benchmarks=SimpleNamespace(personamem=SimpleNamespace(data_root="unused")),
+        ),
+    )
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: _NoProvider())
+    monkeypatch.setattr("run_stage2_memory_canary._ensure_canary_manifest", lambda output_root, benchmark: manifest_path)
+
+    class _FakeAdapter:
+        def load_shared_contexts(self):
+            return {"ctx": "user: I like hiking mountain trails."}
+
+        def load_questions(self):
+            return questions
+
+        def render_context_for_question(self, question, contexts):
+            return contexts[question.shared_context_id]
+
+    monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+
+    payload = run_personamem_canary(
+        output_root=output_root,
+        config_path=REPO_ROOT / "configs" / "minimax_m27.yaml",
+        limit=1,
+        requested_run_dir=str(run_dir),
+    )
+
+    assert payload["status"] == "blocked_provider_not_configured"
+    assert payload["local_exact_match"] == 1
+    assert payload["local_baseline_exact_match"] == 0
+    answer_eval = output_root / "artifacts" / "latest_stage2_v32_answer_head_eval.json"
+    compare = output_root / "artifacts" / "latest_stage2_v32_option_scoring_compare.json"
+    assert answer_eval.exists()
+    assert compare.exists()
+    compare_payload = json.loads(compare.read_text(encoding="utf-8"))
+    assert compare_payload["positive_gain"] is True
+    assert compare_payload["delta_local_exact_match"] == 1
+
+
 def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tmp_path: Path):
     output_root = tmp_path / "outputs_v2"
     run_dir = output_root / "runs" / "resume_personamem"

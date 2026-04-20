@@ -1,0 +1,24 @@
+project:
+  name: core_mem_v32_latent
+  stage: stage2
+
+model:
+  modular_heads:
+    write:
+      type: task_adapter
+    latent:
+      type: trainable_latent_reader
+    belief:
+      type: task_adapter
+    answer:
+      type: option_scoring
+  latent_objective:
+    hidden_dim: 64
+    latent_dim: 32
+    latent_queries: 8
+
+training:
+  latent_objective:
+    batch_size: 96
+    lr: 0.0006
+    num_train_epochs: 10

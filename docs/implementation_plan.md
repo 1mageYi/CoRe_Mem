@@ -241,6 +241,25 @@
 - `PersonaMem 512` 高于 retained overlap guard
 - ablation 明确表明 latent 是 primary driver，answer head 对 finite-option holdout 有真实贡献
 
+当前 retained 进展：
+
+- fresh managed `v32` run 已按 launch manifest 初始化，baseline 先量到 `scripts/verify_stage2_v32_longrun.py --score-only = 19/44`
+- current retained `v32` 已推进到 `36/44`
+- 当前已落地的 current-head artifact 包括：
+  - `latest_stage2_v32_modular_backbone_train.json`
+  - `latest_stage2_v32_write_head_eval.json`
+  - `latest_stage2_v32_latent_module_train.json`
+  - `latest_stage2_v32_latent_objective_eval.json`
+  - `latest_stage2_v32_latent_holdout_compare.json`
+  - `latest_stage2_v32_belief_decoder_eval.json`
+  - `latest_stage2_v32_belief_holdout_compare.json`
+  - `latest_stage2_v32_answer_head_eval.json`
+  - `latest_stage2_v32_option_scoring_compare.json`
+- 当前 truth 边界：
+  - modular / write / latent / belief / answer 的 internal positive evidence 已成立
+  - `LongMemEval-S 500 / PersonaMem 512` 的 full holdout compare 仍未发布
+  - `v32` ablation summary 仍未发布，因此还不能把 current-head 写成“真实 gains 已由 latent-first modular learner 在 external benchmark 上成立”
+
 当前 `v30` 的 retained progress 已前进到：
 
 - current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 提升到 `21`

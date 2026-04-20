@@ -65,3 +65,6 @@
   - `v31` 的 full-holdout learned-memory gate 不能因为 `PersonaMem 1 / LongMemEval-S 1` cuda smoke 成功就默认视为可扩到 `500 + 512`。如果 CPU-backed 和 cuda-backed stable holdout 都长时间停在 `completed_predictions = 0`、且没有生成第一条 `predictions.jsonl`，就应诚实把它判成 true throughput blocker，而不是继续重复同一路径。
   - `v31` learned full-holdout 的 zero-progress stall 不一定来自 belief checkpoint 本身；如果每条样本都重复解析 `latent_retriever.pt` 并且只在所有 pending rows 都拿到 provider 结果后才第一次落盘，run 会看起来像“完全卡死”。把 `latent_slot_ranker` 升级成 run-level shared predictor，并按 provider batch drain `pending_rows` 后，即使 full `500 + 512` gate 也能恢复成稳定增量推进。
   - `PersonaMem 512` learned full-holdout 在共享繁忙 GPU 上可能会在 shared belief predictor 初始化阶段 OOM；这不等于 learned path 本身坏掉。优先把 `CUDA_VISIBLE_DEVICES` 切到空闲卡，再复用相同 checkpoint / config，更符合“先排设备竞争、再判断代码是否退化”的顺序。
+- 2026-04-20:
+  - `v30` / `v31` 的 publish 入口当前仍会刷新各自的 `latest_stage2_v30_*` / `latest_stage2_v31_*` aliases；如果直接在 repo `outputs_v2/` 上运行某些 `v32` 中间 publisher，旧 retained aliases 会被连带覆盖。更稳的做法是先把这类 `v32` 中间 run 放到隔离的 `--output-root`，只在结果确认后把新的 `latest_stage2_v32_*` artifact 拷回主 `outputs_v2/artifacts/`。
+  - `v32` answer / option-scoring 路线最好把 label normalization、candidate body 解析与 lexical projection 抽成通用模块，而不是继续把 Persona-specific 选项逻辑散落在 canary runner 里；这样后续做 full holdout compare 与 ablation 时，answer head 证据才是模块级，而不是 benchmark-side patch。

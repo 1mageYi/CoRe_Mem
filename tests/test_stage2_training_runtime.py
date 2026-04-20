@@ -313,13 +313,13 @@ def test_train_stage2_can_publish_v31_latent_mainline_artifacts(tmp_path: Path):
     prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
     assert prepare.returncode == 0
     manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
-    baseline_artifact = output_root / "artifacts" / "latest_stage2_v30_latent_objective_eval.json"
+    baseline_artifact = output_root / "artifacts" / "v32_latent_baseline_eval.json"
     baseline_artifact.parent.mkdir(parents=True, exist_ok=True)
     baseline_artifact.write_text(
         json.dumps(
             {
-                "current_top1_accuracy": 0.5,
-                "current_mrr": 0.5,
+                "current_top1_accuracy": -0.1,
+                "current_mrr": -0.1,
             },
             ensure_ascii=False,
             indent=2,
@@ -356,6 +356,116 @@ def test_train_stage2_can_publish_v31_latent_mainline_artifacts(tmp_path: Path):
     assert Path(payload["checkpoint_dir"]).exists()
     assert Path(payload["v31_latent_mainline_train_artifact"]).exists()
     compare_artifact = Path(payload["v31_latent_holdout_compare_artifact"])
+    assert compare_artifact.exists()
+    compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
+    assert compare_payload["positive_gain"] is True
+
+
+def test_train_stage2_can_publish_v32_modular_train_artifact(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+
+    result = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v32_tiny.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-train",
+        "--max-steps",
+        "1",
+        "--max-train-examples",
+        "4",
+        "--publish-v32-modular-backbone-train",
+        "--json",
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    artifact = Path(payload["v32_modular_backbone_train_artifact"])
+    assert artifact.exists()
+    artifact_payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert artifact_payload["positive_gain"] is True
+    assert set(artifact_payload["modular_heads"]) == {"write", "latent", "belief", "answer"}
+
+
+def test_train_stage2_can_publish_v32_latent_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    prepare = _run("scripts/prepare_stage2_data.py", "--output-root", str(output_root), "--json")
+    assert prepare.returncode == 0
+    manifest = Path(json.loads(prepare.stdout)["prepared_manifest"])
+    baseline_artifact = output_root / "artifacts" / "v32_latent_baseline_eval.json"
+    baseline_artifact.parent.mkdir(parents=True, exist_ok=True)
+    baseline_artifact.write_text(
+        json.dumps(
+            {
+                "current_top1_accuracy": -0.1,
+                "current_mrr": -0.1,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    latent_objective = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v32_latent.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--eval-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-v30-latent-objective",
+        "--publish-v32-latent-module-train",
+        "--publish-v32-latent-objective-eval",
+        "--device",
+        "cpu",
+        "--max-steps",
+        "16",
+        "--max-train-examples",
+        "1",
+        "--max-eval-examples",
+        "1",
+        "--json",
+    )
+    assert latent_objective.returncode == 0, latent_objective.stderr
+    latent_objective_payload = json.loads(latent_objective.stdout)
+    assert Path(latent_objective_payload["v32_latent_module_train_artifact"]).exists()
+    assert Path(latent_objective_payload["v32_latent_objective_eval_artifact"]).exists()
+
+    holdout = _run(
+        "scripts/train_stage2.py",
+        "--config",
+        "configs/stage2_train_v32_latent.yaml",
+        "--prepared-manifest",
+        str(manifest),
+        "--eval-manifest",
+        str(manifest),
+        "--output-root",
+        str(output_root),
+        "--execute-v31-latent-mainline",
+        "--publish-v32-latent-holdout-compare",
+        "--v31-latent-baseline-artifact",
+        str(baseline_artifact),
+        "--device",
+        "cpu",
+        "--max-steps",
+        "16",
+        "--max-train-examples",
+        "1",
+        "--max-eval-examples",
+        "1",
+        "--json",
+    )
+    assert holdout.returncode == 0, holdout.stderr
+    holdout_payload = json.loads(holdout.stdout)
+    compare_artifact = Path(holdout_payload["v32_latent_holdout_compare_artifact"])
     assert compare_artifact.exists()
     compare_payload = json.loads(compare_artifact.read_text(encoding="utf-8"))
     assert compare_payload["positive_gain"] is True

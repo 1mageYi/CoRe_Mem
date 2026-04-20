@@ -1,0 +1,126 @@
+"""Generic finite-option answer scoring utilities for stage-2."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import re
+
+
+_TOKEN_RE = re.compile(r"[a-z0-9']+")
+
+
+def normalize_answer(text: str | None) -> str:
+    if text is None:
+        return ""
+    return " ".join(text.strip().lower().split())
+
+
+def options_use_labels(options: list[str]) -> bool:
+    return bool(options) and all(option.startswith("(") and ")" in option[:4] for option in options)
+
+
+def option_label(option: str) -> str:
+    closing = option.find(")")
+    return option[: closing + 1].strip() if option.startswith("(") and closing > 0 else option.strip()
+
+
+def option_body(option: str) -> str:
+    label = option_label(option)
+    remainder = option[len(label) :].strip()
+    return remainder or option.strip()
+
+
+def lexical_option_projection(answer_text: str, options: list[str]) -> str:
+    normalized_answer = normalize_answer(answer_text)
+    if not options:
+        return answer_text
+    if options_use_labels(options):
+        for option in options:
+            label = option_label(option)
+            if normalized_answer == normalize_answer(label):
+                return label
+    for option in options:
+        normalized_option = normalize_answer(option)
+        normalized_body = normalize_answer(option_body(option))
+        if normalized_answer and (
+            normalized_answer in normalized_option
+            or normalized_answer in normalized_body
+            or normalized_option in normalized_answer
+            or normalized_body in normalized_answer
+        ):
+            return option_label(option) if options_use_labels(options) else option
+    return answer_text
+
+
+def _token_set(text: str) -> set[str]:
+    return set(_TOKEN_RE.findall(normalize_answer(text)))
+
+
+@dataclass(frozen=True)
+class OptionScoringHead:
+    """Rank answer options from latent/belief evidence without benchmark-specific shortcuts."""
+
+    min_token_len: int = 3
+
+    def select_option(
+        self,
+        *,
+        query_text: str,
+        answer_text: str,
+        options: list[str],
+        belief_values: list[str] | None = None,
+        evidence_text: str = "",
+        selected_slot_glosses: list[str] | None = None,
+    ) -> str:
+        if not options:
+            return answer_text
+        direct = lexical_option_projection(answer_text, options)
+        if direct in options:
+            return option_label(direct) if options_use_labels(options) else direct
+        if direct != answer_text:
+            return direct
+
+        query_terms = {token for token in _token_set(query_text) if len(token) >= self.min_token_len}
+        answer_terms = {token for token in _token_set(answer_text) if len(token) >= self.min_token_len}
+        belief_terms = {
+            token
+            for token in _token_set(" ".join(belief_values or []))
+            if len(token) >= self.min_token_len
+        }
+        evidence_terms = {
+            token
+            for token in _token_set(evidence_text)
+            if len(token) >= self.min_token_len
+        }
+        gloss_terms = {
+            token
+            for token in _token_set(" ".join(selected_slot_glosses or []))
+            if len(token) >= self.min_token_len
+        }
+        best_option = answer_text
+        best_score = float("-inf")
+        label_mode = options_use_labels(options)
+        for option in options:
+            body = option_body(option)
+            option_terms = {token for token in _token_set(body) if len(token) >= self.min_token_len}
+            score = 0.0
+            if answer_terms:
+                overlap = len(answer_terms & option_terms)
+                score += 4.0 * overlap
+            if belief_terms:
+                score += 3.0 * len(belief_terms & option_terms)
+            if evidence_terms:
+                score += 2.0 * len(evidence_terms & option_terms)
+            if gloss_terms:
+                score += 1.5 * len(gloss_terms & option_terms)
+            if query_terms:
+                score += 0.5 * len(query_terms & option_terms)
+            normalized_body = normalize_answer(body)
+            normalized_answer = normalize_answer(answer_text)
+            if normalized_answer and normalized_body:
+                if normalized_answer in normalized_body or normalized_body in normalized_answer:
+                    score += 6.0
+            if score > best_score:
+                best_score = score
+                best_option = option_label(option) if label_mode else option
+        return best_option

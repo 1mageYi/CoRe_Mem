@@ -372,6 +372,102 @@ def _publish_v31_write_holdout_compare_artifact(
     return str(artifact_path)
 
 
+def _publish_v32_write_head_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    trained_eval = _trained_eval_payload(payload)
+    current_task = _task_metrics(trained_eval, "lifecycle_prediction")
+    if not current_task:
+        lifecycle_module = payload.get("modules", {}).get("lifecycle", {}) if isinstance(payload.get("modules"), dict) else {}
+        current_task = {
+            "token_f1": float(lifecycle_module.get("update_action_accuracy", 0.0)),
+            "field_f1": float(lifecycle_module.get("update_flag_accuracy", 0.0)),
+            "exact_match": float(lifecycle_module.get("update_success", 0.0)),
+        }
+    artifact_path = output_root / "artifacts" / "latest_stage2_v32_write_head_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v32_write_head_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "current_eval_path": payload.get("result_path"),
+        "current_lifecycle_prediction": current_task,
+        "positive_gain": float(current_task.get("token_f1", 0.0)) > 0.0 or float(current_task.get("field_f1", 0.0)) > 0.0,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
+def _publish_v32_belief_decoder_eval_artifact(
+    *,
+    prepared_manifest_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    trained_eval = _trained_eval_payload(payload)
+    current_task = _task_metrics(trained_eval, "composition_to_belief")
+    if not current_task:
+        belief_module = payload.get("modules", {}).get("belief_decoder", {}) if isinstance(payload.get("modules"), dict) else {}
+        current_task = {
+            "token_f1": float(belief_module.get("slot_value_f1", 0.0)),
+            "field_f1": float(belief_module.get("joint_belief_accuracy", 0.0)),
+            "exact_match": float(belief_module.get("joint_belief_accuracy", 0.0)),
+        }
+    artifact_path = output_root / "artifacts" / "latest_stage2_v32_belief_decoder_eval.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v32_belief_decoder_eval",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "current_eval_path": payload.get("result_path"),
+        "current_composition_to_belief": current_task,
+        "positive_gain": float(current_task.get("token_f1", 0.0)) > 0.0 or float(current_task.get("field_f1", 0.0)) > 0.0,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
+def _publish_v32_belief_holdout_compare_artifact(
+    *,
+    prepared_manifest_path: Path,
+    baseline_eval_path: Path,
+    output_root: Path,
+    payload: dict[str, object],
+) -> str:
+    baseline_payload = _load_eval_payload(baseline_eval_path)
+    baseline_task = baseline_payload.get("current_composition_to_belief", baseline_payload)
+    if not isinstance(baseline_task, dict):
+        baseline_task = {}
+    trained_eval = _trained_eval_payload(payload)
+    current_task = _task_metrics(trained_eval, "composition_to_belief")
+    if not current_task:
+        belief_module = payload.get("modules", {}).get("belief_decoder", {}) if isinstance(payload.get("modules"), dict) else {}
+        current_task = {
+            "token_f1": float(belief_module.get("slot_value_f1", 0.0)),
+            "field_f1": float(belief_module.get("joint_belief_accuracy", 0.0)),
+            "exact_match": float(belief_module.get("joint_belief_accuracy", 0.0)),
+        }
+    baseline_score = float(baseline_task.get("token_f1", 0.0)) + float(baseline_task.get("field_f1", 0.0))
+    current_score = float(current_task.get("token_f1", 0.0)) + float(current_task.get("field_f1", 0.0))
+    artifact_path = output_root / "artifacts" / "latest_stage2_v32_belief_holdout_compare.json"
+    artifact_payload = {
+        "artifact_type": "stage2_v32_belief_holdout_compare",
+        "commit_hash": _current_commit_hash(),
+        "prepared_manifest": str(prepared_manifest_path),
+        "baseline_eval_path": str(baseline_eval_path),
+        "current_eval_path": payload.get("result_path"),
+        "baseline_composition_to_belief": baseline_task,
+        "current_composition_to_belief": current_task,
+        "delta_token_f1": float(current_task.get("token_f1", 0.0)) - float(baseline_task.get("token_f1", 0.0)),
+        "delta_field_f1": float(current_task.get("field_f1", 0.0)) - float(baseline_task.get("field_f1", 0.0)),
+        "delta_exact_match": float(current_task.get("exact_match", 0.0)) - float(baseline_task.get("exact_match", 0.0)),
+        "positive_gain": current_score > baseline_score,
+    }
+    _write_json(artifact_path, artifact_payload)
+    return str(artifact_path)
+
+
 def run_local_eval(
     prepared_manifest_path: Path,
     output_root: Path,
@@ -461,9 +557,13 @@ def main() -> int:
     parser.add_argument("--publish-v31-belief-holdout-compare", action="store_true")
     parser.add_argument("--publish-v31-write-mainline-eval", action="store_true")
     parser.add_argument("--publish-v31-write-holdout-compare", action="store_true")
+    parser.add_argument("--publish-v32-write-head-eval", action="store_true")
+    parser.add_argument("--publish-v32-belief-decoder-eval", action="store_true")
+    parser.add_argument("--publish-v32-belief-holdout-compare", action="store_true")
     parser.add_argument("--v30-baseline-eval")
     parser.add_argument("--v31-belief-baseline-eval")
     parser.add_argument("--v31-write-baseline-eval")
+    parser.add_argument("--v32-belief-baseline-eval")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -512,6 +612,8 @@ def main() -> int:
         raise ValueError("v31 belief holdout compare requires --v31-belief-baseline-eval")
     if args.publish_v31_write_holdout_compare and not args.v31_write_baseline_eval:
         raise ValueError("v31 write holdout compare requires --v31-write-baseline-eval")
+    if args.publish_v32_belief_holdout_compare and not args.v32_belief_baseline_eval:
+        raise ValueError("v32 belief holdout compare requires --v32-belief-baseline-eval")
     if args.publish_v30_belief_decoder_eval:
         payload["v30_belief_decoder_eval_artifact"] = _publish_v30_belief_decoder_eval_artifact(
             prepared_manifest_path=prepared_manifest_path,
@@ -556,6 +658,25 @@ def main() -> int:
         payload["v31_write_holdout_compare_artifact"] = _publish_v31_write_holdout_compare_artifact(
             prepared_manifest_path=prepared_manifest_path,
             baseline_eval_path=Path(args.v31_write_baseline_eval),
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v32_write_head_eval:
+        payload["v32_write_head_eval_artifact"] = _publish_v32_write_head_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v32_belief_decoder_eval:
+        payload["v32_belief_decoder_eval_artifact"] = _publish_v32_belief_decoder_eval_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            output_root=output_root,
+            payload=payload,
+        )
+    if args.publish_v32_belief_holdout_compare:
+        payload["v32_belief_holdout_compare_artifact"] = _publish_v32_belief_holdout_compare_artifact(
+            prepared_manifest_path=prepared_manifest_path,
+            baseline_eval_path=Path(args.v32_belief_baseline_eval),
             output_root=output_root,
             payload=payload,
         )
