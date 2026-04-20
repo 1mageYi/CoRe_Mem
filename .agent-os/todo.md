@@ -30,11 +30,12 @@
     - current HEAD `2d3e59c` 已把 provider raw-output repair 接进 runner / resume path；现有 partial Persona learned-authoritative full-holdout run `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/` 已从旧 summary 的 `provider exact = 5/66` 回收到当前 `15/77`，且未引入任何 benchmark-specific normalization
     - 同一 run 继续扩到 `99/512` 后，provider/local 为 `18/99`、`42/99`；对应 layered analysis 已确认当前剩余 Persona failures 中 `projection = 54`、`provider = 27`，并且 `other_fact` 主导 `70` 个失败 relation
     - current HEAD 本轮又试探了 grounded same-relation belief backfill，但 isolated Persona partial probe `outputs_v2/v33_grounded_projection_local/` 前 `4` 条样本对 retained `v33_semantic64_persona` 仍是 `changed = 0`
+    - 本轮随后又试探了 generic query-stopword 扩展与 relation-consistent support-slot reassignment：前者对代表性 failures replay 完全无效，后者虽能把 `acd742...` / `5370...` 的 belief/support 清成 relation-consistent `music_preference`，但 targeted Persona `4`-sample gate `outputs_v2/v33_support_consistency_targeted/` 仍是 `local_exact = 0/4`
   - Truth boundary:
     - 当前主问题已不再是 gain evidence 是否成立，而是 learned path 能否接管 authoritative runtime
     - 这轮不允许在 symbolic authoritative path 上 closeout
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample quick-smoke 不再决定方向，retain 直接看 `PersonaMem 512 / LongMemEval-S 500`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；同 relation value backfill 不是当前主 driver，下一条 hypothesis 应继续前推到 support-slot / latent retrieval
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已继续收紧到 selected-slot ranking / answer option head，而不是 query-stopword / support-slot / same-relation value hygiene
 
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:

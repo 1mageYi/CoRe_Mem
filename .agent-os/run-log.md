@@ -1,5 +1,22 @@
 # Run Log
 
+## 2026-04-20 Session 084
+
+- Worked on: 继续把 `v33` Persona failure hypothesis 从 belief hygiene 收紧到 retrieval / answer-selection 主问题
+- State changed:
+  - 先试了一轮 generic query-stopword 扩展，但对代表性 failures `acd742...` / `5370...` 的 replay 完全无效：top-8 selected slots 与 answer text 都没变；该 patch 已完整回滚，helper 已记为 iteration `17 discard`
+  - 随后又做了 relation-consistent support-slot reassignment：当 learned belief relation 已是 `music_preference`、但 `support_slot_ids` 指向 `other_fact` 时，coercion 会优先拉回同 relation slot。这个 patch 的确把 `acd742...` / `5370...` 的 belief/support 从抽象 `other_fact` 清成 relation-consistent `music_preference`
+  - 但 fresh targeted Persona `4`-sample local-only gate `outputs_v2/v33_support_consistency_targeted/` 最终仍是 `local_exact = 0/4`，与 old exact 完全一致；说明 support cleanup 不是当前 external gain driver。该 patch 已完整回滚，helper 已记为 iteration `18 discard`
+  - 当前最关键的新 runtime truth 是：代表性 Persona failures 的 top-1 selected slot 本身就是长抽象 `other_fact`，而 support/value cleanup 最多只能把 belief 文本变干净，不能单独带来 label flip
+- Evidence / artifacts:
+  - `outputs_v2/v33_support_consistency_targeted/evals_benchmark/20260420T221734Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_support_consistency_targeted/runs/20260420T221734Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续 query-stopword / support-slot cleanup 这类 hygiene 线
+  - 下一轮优先打 selected-slot ranking 或 answer option head，因为当前 Persona local ceiling 已更像“wrong abstract slot selected + cleaned belief still maps to wrong option”
+
 ## 2026-04-20 Session 083
 
 - Worked on: 试探 `same-relation grounded belief backfill` 是否能直接改善 `v33` Persona local projection / belief quality
