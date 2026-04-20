@@ -751,6 +751,55 @@ def test_structured_memory_system_backfills_malformed_learned_belief_value_from_
     assert result.belief_state.belief_items[0].value == "music in its truest form, without rigid guidelines dictating how i should dissect it"
 
 
+def test_structured_memory_system_backfills_same_relation_belief_value_when_ungrounded():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "music_preference",
+                    "value": "able to create a unique sound that pays homage to my roots while also pushing the boundaries of what is traditionally expected",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=_predict,
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-grounded-music-pref",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "producing music with software",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.95,
+                "evidence_text": "I like producing music with software.",
+                "canonical_gloss": "music_preference=producing music with software",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-grounded-music-support", "How can I find a more fulfilling way to express my love for music?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "music_preference"
+    assert result.belief_state.belief_items[0].value == "producing music with software"
+
+
 def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     calls = {"count": 0}
 

@@ -1041,6 +1041,59 @@ class StructuredMemorySystem:
         return cleaned
 
     @classmethod
+    def _belief_value_terms(cls, value: str) -> set[str]:
+        return {
+            cls._normalize_term(token)
+            for token in _TOKEN_RE.findall(str(value or "").lower())
+            if len(token) >= 3
+        }
+
+    @classmethod
+    def _belief_value_grounded_in_support_slot(
+        cls,
+        value: str,
+        *,
+        support_slot: SlotRecord | None,
+    ) -> bool:
+        if support_slot is None:
+            return False
+        cleaned = cls._normalize_whitespace(value).lower()
+        canonical_value = cls._normalize_whitespace(cls._canonical_slot_value(support_slot)).lower()
+        canonical_gloss = cls._normalize_whitespace(support_slot.canonical_gloss).lower()
+        if not cleaned:
+            return False
+        if cleaned == canonical_value:
+            return True
+        if cleaned in canonical_value or cleaned in canonical_gloss:
+            return True
+        if canonical_value and canonical_value in cleaned:
+            return True
+        cleaned_terms = cls._belief_value_terms(cleaned)
+        canonical_terms = cls._belief_value_terms(canonical_value)
+        if not cleaned_terms or not canonical_terms:
+            return False
+        overlap = cleaned_terms & canonical_terms
+        if len(overlap) >= 3:
+            return True
+        return (len(overlap) / len(cleaned_terms)) >= 0.5
+
+    @staticmethod
+    def _belief_value_looks_abstractive(value: str) -> bool:
+        cleaned = " ".join(str(value or "").split())
+        if not cleaned:
+            return False
+        token_count = len(_TOKEN_RE.findall(cleaned.lower()))
+        if token_count <= 1:
+            return True
+        if token_count >= 8:
+            return True
+        return any(marker in cleaned for marker in (",", ";", "."))
+
+    @staticmethod
+    def _normalize_whitespace(text: str) -> str:
+        return " ".join(str(text or "").split())
+
+    @classmethod
     def _should_backfill_belief_value(
         cls,
         value: str,
@@ -1066,14 +1119,17 @@ class StructuredMemorySystem:
             return False
         if cleaned.lower() == canonical_value.lower():
             return False
+        grounded = cls._belief_value_grounded_in_support_slot(cleaned, support_slot=support_slot)
+        same_relation = support_slot.relation.strip().lower() == relation.strip().lower()
         # Learned belief values can legitimately be a normalized or query-shaped
-        # projection of the same-relation slot content (for example extracting
-        # "johnson" from an `other_fact` clause). Only force a backfill when the
-        # inferred support slot points at a different relation and the value no
-        # longer looks grounded in that slot.
-        if support_slot.relation.strip().lower() == relation.strip().lower():
-            return False
-        return cleaned.lower() not in support_slot.canonical_gloss.lower()
+        # projection of the support slot content (for example extracting
+        # "johnson" from an `other_fact` clause), and some same-relation heads
+        # can emit concise normalized values that do not literally occur in the
+        # support slot. Only force a same-relation backfill when the decoded
+        # text both loses grounding and looks like an abstractive/noisy clause.
+        if same_relation:
+            return (not grounded) and cls._belief_value_looks_abstractive(cleaned)
+        return not grounded
 
     @classmethod
     def _fallback_slot_rank(
