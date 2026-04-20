@@ -366,24 +366,6 @@ def _render_personamem_options(options: list[str]) -> str:
     return "\n".join(f"{idx + 1}. {option}" for idx, option in enumerate(options))
 
 
-def _render_support_facts(selected_slot_glosses: list[str] | None) -> str:
-    if not selected_slot_glosses:
-        return ""
-    lines: list[str] = []
-    seen: set[str] = set()
-    for gloss in selected_slot_glosses:
-        cleaned = str(gloss or "").strip()
-        if not cleaned or cleaned in seen:
-            continue
-        seen.add(cleaned)
-        if "=" in cleaned:
-            relation, value = cleaned.split("=", 1)
-            lines.append(f"- {relation.strip()}: {value.strip()}")
-        else:
-            lines.append(f"- {cleaned}")
-    return "\n".join(lines)
-
-
 def _personamem_answer_instruction(options: list[str]) -> str:
     if _options_use_labels(options):
         return "Return only the best option label, for example (a)."
@@ -408,17 +390,14 @@ def _render_personamem_prompt(
     memory_payload: dict[str, Any],
 ) -> str:
     options_block = _render_personamem_options(question.all_options)
-    support_facts_block = _render_support_facts(memory_payload.get("selected_slot_glosses"))
-    support_facts_section = f"Support Facts:\n{support_facts_block}\n\n" if support_facts_block else ""
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
         f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
-        f"{support_facts_section}"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
         f"Options:\n{options_block}\n\n"
-        f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state, support facts, and evidence."
+        f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
 
 
