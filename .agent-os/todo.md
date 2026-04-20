@@ -18,6 +18,9 @@
     - benchmark remains holdout-only
   - Runtime truth:
     - retained `v32` 已到 `44/44 keep`
+    - current retained `v33` 已到 `36/47 keep`
+    - `latest_stage2_v33_modular_authoritative_train.json`、`latest_stage2_v33_learned_write_eval.json`、`latest_stage2_v33_latent_reader_train.json`、`latest_stage2_v33_temporal_slot_eval.json`、`latest_stage2_v33_latent_objective_eval.json`、`latest_stage2_v33_belief_graph_eval.json`、`latest_stage2_v33_answer_option_eval.json` 与 `latest_stage2_v33_ablation_summary.json` 已落地
+    - 当前 verifier 剩余缺口只在 learned-authoritative runtime 与 `LongMemEval-S 500 / PersonaMem 512` full holdout publish
     - `v32` 已在 modular backbone / write / latent / belief / answer / ablation / full holdout 上全线转正
     - 但 `v32` 的 authoritative full benchmark path 仍是 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`
     - `v33` 的目标是把 authoritative full benchmark path 改成 `learned_memory + learned slot assignment`

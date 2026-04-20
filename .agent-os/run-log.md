@@ -1,5 +1,53 @@
 # Run Log
 
+## 2026-04-20 Session 077
+
+- Worked on: 让 `v33` answer-head 候选真正进入 authoritative runtime prompt，并用两组 learned-authoritative `8`-sample probes 筛选更强 checkpoint 组合
+- State changed:
+  - `scripts/run_stage2_memory_canary.py` 现已把 generic `Answer-head candidate` 注入 `PersonaMem / LongMemEval-S` provider prompt；对应 `tests/test_stage2_memory_canary.py` 回归已补齐并通过
+  - 文档与 `.agent-os` 已同步到 current retained `v33 = 36/47` truth；`docs/current_status.md`、`docs/implementation_plan.md`、`docs/todo.md`、`.agent-os/project-index.md`、`.agent-os/todo.md`、`.agent-os/run-log.md` 与 `.agent-os/lessons-learned.md` 均已刷新
+  - 第一组 learned-authoritative Persona probe 使用 `v30` modular checkpoint `outputs_v2/checkpoints/20260419T012526Z_stage2_train_exec` + `v31` latent ranker `outputs_v2/checkpoints/20260419T070526Z_stage2_v31_latent_exec`，结果仅为 `provider/local = 1/5`，不适合作为 full holdout 候选
+  - 第二组 Persona probe 切到 semantic full checkpoint `outputs_v2/checkpoints/20260416T003548Z_stage2_train_exec` 后，当前 `8` 样本结果提升到 `provider/local = 5/6`
+  - 同一 semantic full checkpoint 组合在 `LongMemEval-S 8` 上仍只有 `provider/local = 1/1`；因此当前最诚实结论是：这次改动把 learned-authoritative Persona runtime 候选显著变强，但还不能支撑直接发起 `LongMemEval-S 500 + PersonaMem 512` full holdout
+  - `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`；configured guard 继续通过
+- Evidence / artifacts:
+  - `outputs_v2/v33_prompt_probe/evals_benchmark/20260420T195548Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_ckpt_probe_semantic_local/evals_benchmark/20260420T195721Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_ckpt_probe_semantic_provider/evals_benchmark/20260420T195808Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_ckpt_probe_semantic_provider_long/evals_benchmark/20260420T195948Z_stage2_memory_canary.json`
+  - commit pending for runtime prompt / docs sync change
+- Next likely action:
+  - 保留 semantic full checkpoint 作为当前 Persona 侧 learned-authoritative runtime 候选
+  - 下一轮必须集中修 `LongMemEval-S` learned runtime 质量，而不是直接烧 full holdout
+  - 若后续继续 `v33`，应先找到不会把 `LongMemEval-S 8` 卡在 `1/8` 的 learned runtime 组合，再启动 authoritative full holdout
+
+## 2026-04-20 Session 076
+
+- Worked on: 初始化 fresh managed `TD-044 / WS-030 / v33` run，完成 baseline-first helper 初始化，落地 `v33` train/local/canary artifact publisher，并把 retained verifier 从 baseline `17` 推到 `36/47`
+- State changed:
+  - `autoresearch_resume_check.py` 已确认当前 launch 为 `fresh_start`；随后先量 baseline：`scripts/verify_stage2_v33_longrun.py --score-only = 17`
+  - helper 已用 `autoresearch_init_run.py --session-mode background` 初始化 fresh `research-results.tsv` / `autoresearch-state.json`
+  - current HEAD `819c44e` 已为 `scripts/train_stage2.py`、`scripts/eval_stage2_local.py` 与 `scripts/run_stage2_memory_canary.py` 补齐 `v33` modular-authoritative / learned-write / latent-reader / temporal-slot / belief-graph / answer-option artifact publish 链，并新增 `configs/stage2_train_v33_tiny.yaml` 与 `configs/stage2_train_v33_latent.yaml`
+  - `latest_stage2_v33_modular_authoritative_train.json`、`latest_stage2_v33_learned_write_eval.json`、`latest_stage2_v33_latent_reader_train.json`、`latest_stage2_v33_temporal_slot_eval.json`、`latest_stage2_v33_latent_objective_eval.json`、`latest_stage2_v33_belief_graph_eval.json`、`latest_stage2_v33_answer_option_eval.json` 与 `latest_stage2_v33_ablation_summary.json` 已全部落地
+  - `scripts/verify_stage2_v33_longrun.py --score-only` 已提升到 `36/47`；configured guard `pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py` 通过
+  - helper 已把本轮记为 iteration `1 keep`；current retained metric 为 `36`
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_modular_authoritative_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_learned_write_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_latent_reader_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_temporal_slot_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_latent_objective_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_belief_graph_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_answer_option_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_ablation_summary.json`
+  - commit `819c44e`
+- Next likely action:
+  - 让 `PersonaMem 512 / LongMemEval-S 500` authoritative runtime 真正消费 `learned_memory + learned slot assignment`
+  - 发布 `latest_stage2_v33_learned_authoritative_runtime.json`、`latest_stage2_v33_full_holdout_compare.json`、`latest_longmemeval_stage2_v33_full.json` 与 `latest_personamem_stage2_v33_full.json`
+  - 只有在 full holdout 明确超过 retained `v32` 后，才允许把 `v33` 收口成 keep
+
 ## 2026-04-20 Session 075
 
 - Worked on: 收口 `TD-043 / WS-029 / v32` 的 clean full holdout compare，发布 authoritative `v32` full artifacts，并把 managed run 推到 stop condition

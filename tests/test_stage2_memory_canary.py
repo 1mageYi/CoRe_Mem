@@ -166,6 +166,8 @@ def test_build_personamem_row_can_complete_provider_prediction(monkeypatch):
     assert row["provider_prediction"] == "(b)"
     assert row["provider_raw_prediction"].startswith("raw::")
     assert row["memory_answer_local"] == "(b)"
+    assert "Answer-head candidate:" in row["prompt"]
+    assert "(b)" in row["prompt"]
 
 
 def test_stage2_memory_canary_writes_learned_alias_artifact(tmp_path: Path):
@@ -277,11 +279,12 @@ def test_personamem_prompt_keeps_label_space():
         {
             "belief_state": {"belief_items": [{"relation": "music_preference", "value": "digital music"}]},
             "evidence_block": "- music_preference: digital music",
+            "answer_head_candidate": "(b)",
         },
     )
     assert "(a) Wrong" in prompt
     assert "(b) Right" in prompt
-    assert "Latent matcher candidate" not in prompt
+    assert "Answer-head candidate:" in prompt
     assert "Return only the best option label" in prompt
 
 
@@ -375,9 +378,11 @@ def test_personamem_prompt_has_no_candidate_injection():
         {
             "belief_state": {"belief_items": [{"relation": "hobby", "value": "hiking mountain trails"}]},
             "evidence_block": "- hobby: hiking mountain trails",
+            "answer_head_candidate": "(a)",
         },
     )
     assert "Latent matcher candidate" not in prompt
+    assert "Answer-head candidate:" in prompt
 
 
 def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
@@ -395,10 +400,12 @@ def test_longmemeval_prompt_adds_query_specific_exact_answer_instruction():
         {
             "belief_state": {"belief_items": [{"relation": "location", "value": "really happy with my new tennis racket, which i got from a sports store downtown"}]},
             "evidence_block": "- location: really happy with my new tennis racket, which i got from a sports store downtown",
+            "answer_head_candidate": "the sports store downtown",
         },
     )
     assert "Return only the shortest exact answer phrase supported by the belief state." in prompt
     assert "Do not add trailing punctuation." in prompt
+    assert "Answer-head candidate:" in prompt
     assert "Omit any leading preposition" in prompt
     assert "rewrite it as 'the ...'" in prompt
 

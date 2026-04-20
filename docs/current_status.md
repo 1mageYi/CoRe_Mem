@@ -24,6 +24,8 @@
 - 当前 `TD-041` / `v3.0` / `v30` 最新 retained truth：current HEAD `75c70bc` 已把 `shared backbone`、trainable `latent`、learned `belief` 与 full benchmark holdout 一起推到 `41/41 keep`。新增 current-head holdout artifact 为 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`，并保持 holdout-only、no fallback、no shortcut、no leakage。
 - 当前 `TD-043 / WS-029 / v32` 已作为 retained baseline 收口：`scripts/verify_stage2_v32_longrun.py --score-only = 44/44`。当前已真实保留 `latest_stage2_v32_modular_backbone_train.json`、`latest_stage2_v32_write_head_eval.json`、`latest_stage2_v32_latent_module_train.json`、`latest_stage2_v32_latent_objective_eval.json`、`latest_stage2_v32_latent_holdout_compare.json`、`latest_stage2_v32_belief_decoder_eval.json`、`latest_stage2_v32_belief_holdout_compare.json`、`latest_stage2_v32_answer_head_eval.json`、`latest_stage2_v32_option_scoring_compare.json`、`latest_stage2_v32_ablation_summary.json`、`latest_longmemeval_stage2_v32_full.json`、`latest_personamem_stage2_v32_full.json` 与 `latest_stage2_v32_full_holdout_compare.json`；当前 truth 已机械确认 modular architecture、write、latent、belief、answer / option-scoring、ablation 与双 benchmark full holdout gain 全部成立。
 - 当前 active 主线已前推到 `TD-044 / WS-030`；当前任务编号记为 `TD-044`，当前独立执行版本记为 `v33`，即 `v33 learned-authoritative latent run`：目标不再满足于 “learned 有辅助增益但 authoritative full benchmark 仍是 symbolic”。这轮要求 current-head authoritative full holdout 必须以 `memory_mode = learned_memory`、`slot_assignment_mode = learned` 跑通，并让 temporal-semantic latent reader、competition-based learned write、belief graph head 与 answer / option head 共同在 `LongMemEval-S 500 / PersonaMem 512` 上形成真实 gain。
+- `2026-04-20` 当前 `v33` managed run 已 fresh 初始化并完成第一轮 retained keep：baseline 先量到 `scripts/verify_stage2_v33_longrun.py --score-only = 17`，随后 `latest_stage2_v33_modular_authoritative_train.json`、`latest_stage2_v33_learned_write_eval.json`、`latest_stage2_v33_latent_reader_train.json`、`latest_stage2_v33_temporal_slot_eval.json`、`latest_stage2_v33_latent_objective_eval.json`、`latest_stage2_v33_belief_graph_eval.json`、`latest_stage2_v33_answer_option_eval.json` 与 `latest_stage2_v33_ablation_summary.json` 已全部落地，当前 retained verifier 已到 `36/47`
+- 当前 `v33` 的 truth boundary 已更明确：internal modular / write / latent / belief / answer 证据已经齐，但 `latest_stage2_v33_learned_authoritative_runtime.json`、`latest_stage2_v33_full_holdout_compare.json`、`latest_longmemeval_stage2_v33_full.json` 与 `latest_personamem_stage2_v33_full.json` 仍不存在；因此当前不能声称 learned authoritative runtime 已成立，也不能声称 full holdout 已超过 retained `v32`
 - 当前 additional runtime truth 是：`v32` full holdout 已不再卡在旧的 large symbolic fast path。commit `4aa02dc` 把 fast path 限制回 `<=64` canary 后，current-head `PersonaMem 512` full run 已能稳定增量落盘；commit `514fdad` 进一步把 `MiniMax-M2.7` 的 `max_retries` 提高到 `5`、`retry_backoff_seconds` 提高到 `4.0` 后，同一 run `outputs_v2/runs/v32_full_personamem_512/` 已从 `13` 推进到 `37/512`。这说明当前剩余约束已经主要是 external provider `503` / throughput，而不再是 repo 内逻辑 stall。
 - 当前最新的恢复真相又补了一层：commit `34943df` 让 canary runner 支持 `partial provider success -> commit successes -> resume failed samples`，并为同一 `run_dir` 增加 `.active.lock`；随后 `7377c29` 把 `MiniMax-M2.7` timeout 调到 `45s`，最终把 clean `PersonaMem 512` 与 clean `LongMemEval-S 500` authoritative runs 都跑完。当前两条 full runs 分别固定在 `outputs_v2/runs/v32_full_personamem_512_timeout45/` 与 `outputs_v2/runs/v32_full_longmemeval_500_timeout45/`，对应 exact 为 `183/175` 与 `21/14`，并已支撑 retained `44/44 keep`。
 - `2026-04-19` 同一 managed run 曾用 `8`-sample holdout quick smoke 探测 online learned gain，但这条线已诚实停在 soft-blocker handoff：learned-symbolic 最好只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；learned+learned、blank-output fallback 组合、json-start constrained decoding 都没有把 retained `24/32` 推成新的 keep
@@ -237,24 +239,17 @@
 
 ## 当前最重要的下一步
 
-- 当前 active 主线正式切到 **`TD-043` / `WS-029` / `v32`**
-- 当前新的 baseline 继续固定为 retained `v30` full line：
-  - retained compare baseline 继续使用 `latest_stage2_v30_*` 与 `latest_*_stage2_v30_full.json`
-- `v31` 的 soft-blocked 结论会作为新主线的直接输入：
-  - `LongMemEval-S 500` parity with retained `v30`
-  - `PersonaMem 512` provider exact guard 未过
-  - 三类 Persona micro-tune / serialization / structured-MCQ pivots 全部无 keep
-- 当前 `v32` 的首要目标不是继续 Persona 局部修补，而是按优先级推进：
-  - latent-first modular redesign
-  - trainable latent reader
-  - structured belief head
-  - answer / option-scoring head
-  - write head strengthening
-  - full holdout compare：`LongMemEval-S 500 / PersonaMem 512`
+- 当前 active 主线正式切到 **`TD-044` / `WS-030` / `v33`**
+- 当前唯一 external compare baseline 固定为 retained `v32` full line：
+  - `latest_stage2_v32_*`
+  - `latest_longmemeval_stage2_v32_full.json`
+  - `latest_personamem_stage2_v32_full.json`
+  - `latest_stage2_v32_full_holdout_compare.json`
 - 当前最重要的下一步是：
-  - 保留当前 `44/44 keep` 的 `v32` retained line，不再继续同一路径消耗 provider
-  - 将 `TD-043 / WS-029` 作为新的 stage-2 retained baseline 保存，并保持 `v30 / v31 / v32` artifact truth 不被后续 publish 污染
-  - 等待用户给出下一条 stage-2 hypothesis、比较目标或新的验收要求
+  - 保留当前 `36/47 keep` 的 `v33` internal artifact suite
+  - 让 `PersonaMem 512 / LongMemEval-S 500` authoritative runtime 真正消费 `learned_memory + learned slot assignment`
+  - 发布 `latest_stage2_v33_learned_authoritative_runtime.json`、`latest_stage2_v33_full_holdout_compare.json`、`latest_longmemeval_stage2_v33_full.json` 与 `latest_personamem_stage2_v33_full.json`
+  - 只有在 full holdout 明确超过 retained `v32` 后，才允许把 `v33` 写成 keep closeout
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`
   - matched `teacher-vs-silver` compare 已真实消费 teacher 改动

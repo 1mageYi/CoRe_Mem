@@ -400,6 +400,17 @@ def _personamem_answer_instruction(options: list[str]) -> str:
     return "Return only the best option text."
 
 
+def _render_answer_head_candidate_block(memory_payload: dict[str, Any]) -> str:
+    candidate = str(memory_payload.get("answer_head_candidate", "")).strip()
+    if not candidate:
+        return ""
+    return (
+        f"Answer-head candidate:\n{candidate}\n\n"
+        "Treat the answer-head candidate as a compact final-answer proposal. "
+        "Follow it only if it is supported by the belief state and evidence.\n\n"
+    )
+
+
 def _render_personamem_query_type_hint(question: PersonaMemQuestion) -> str:
     mapping = {
         "recall_user_shared_facts": "Identify the single user fact that best matches the query.",
@@ -418,12 +429,14 @@ def _render_personamem_prompt(
     memory_payload: dict[str, Any],
 ) -> str:
     options_block = _render_personamem_options(question.all_options)
+    candidate_block = _render_answer_head_candidate_block(memory_payload)
     return (
         "You are answering a PersonaMem question using only the structured memory state below.\n\n"
         f"Question:\n{question.user_question_or_message}\n\n"
         f"Question type hint:\n{_render_personamem_query_type_hint(question)}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
+        f"{candidate_block}"
         f"Options:\n{options_block}\n\n"
         f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
@@ -442,12 +455,14 @@ def _render_longmemeval_prompt(question: LongMemEvalQuestion, memory_payload: di
         instruction += " Return only the exact amount phrase, including any needed currency or percent symbol, with no explanation."
     elif lowered_question.startswith("how often") or "how frequently" in lowered_question:
         instruction += " Return only the frequency phrase."
+    candidate_block = _render_answer_head_candidate_block(memory_payload)
     return (
         "You are answering a LongMemEval question using only the structured memory state below.\n\n"
         f"Question date: {question.question_date}\n"
         f"Question:\n{question.question}\n\n"
         f"Belief JSON:\n{json.dumps(memory_payload['belief_state'], ensure_ascii=False, indent=2)}\n\n"
         f"Evidence:\n{memory_payload['evidence_block']}\n\n"
+        f"{candidate_block}"
         f"{instruction}"
     )
 
@@ -748,7 +763,13 @@ def _build_personamem_row(
     memory_payload = _memory_payload(system, question.question_id, question.user_question_or_message)
     baseline_projection = _resolve_personamem_prediction(memory_payload["answer_text"], question.all_options)
     local_projection = _project_personamem_local_answer(memory_payload, question)
-    prompt = _render_personamem_prompt(question, memory_payload)
+    prompt = _render_personamem_prompt(
+        question,
+        {
+            **memory_payload,
+            "answer_head_candidate": local_projection,
+        },
+    )
     row = {
         "sample_id": question.question_id,
         "benchmark": "personamem",
@@ -815,7 +836,13 @@ def _build_longmemeval_row(
     )
     observed_turns = _observe_longmemeval_context(system, question.haystack_sessions, sample_id=question.question_id)
     memory_payload = _memory_payload(system, question.question_id, question.question)
-    prompt = _render_longmemeval_prompt(question, memory_payload)
+    prompt = _render_longmemeval_prompt(
+        question,
+        {
+            **memory_payload,
+            "answer_head_candidate": str(memory_payload.get("answer_text", "")),
+        },
+    )
     row = {
         "sample_id": question.question_id,
         "benchmark": "longmemeval_s",

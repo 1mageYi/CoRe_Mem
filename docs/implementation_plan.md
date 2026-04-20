@@ -237,29 +237,30 @@
 - latent positive
 - structured belief positive
 - answer / option-scoring positive
-- `LongMemEval-S 500` 高于 retained `v30`
-- `PersonaMem 512` 高于 retained overlap guard
+- learned-authoritative runtime artifact 落地，并显式记录：
+  - `memory_mode = learned_memory`
+  - `slot_assignment_mode = learned`
+- `LongMemEval-S 500` 高于 retained `v32`
+- `PersonaMem 512` 高于 retained `v32`
 - ablation 明确表明 latent 是 primary driver，answer head 对 finite-option holdout 有真实贡献
 
 当前 retained 进展：
 
-- fresh managed `v32` run 已按 launch manifest 初始化，baseline 先量到 `scripts/verify_stage2_v32_longrun.py --score-only = 19/44`
-- current retained `v32` 已推进到 `38/44`
+- fresh managed `v33` run 已按 launch manifest 初始化，baseline 先量到 `scripts/verify_stage2_v33_longrun.py --score-only = 17/47`
+- current retained `v33` 已推进到 `36/47`
 - 当前已落地的 current-head artifact 包括：
-  - `latest_stage2_v32_modular_backbone_train.json`
-  - `latest_stage2_v32_write_head_eval.json`
-  - `latest_stage2_v32_latent_module_train.json`
-  - `latest_stage2_v32_latent_objective_eval.json`
-  - `latest_stage2_v32_latent_holdout_compare.json`
-  - `latest_stage2_v32_belief_decoder_eval.json`
-  - `latest_stage2_v32_belief_holdout_compare.json`
-  - `latest_stage2_v32_answer_head_eval.json`
-  - `latest_stage2_v32_option_scoring_compare.json`
-  - `latest_stage2_v32_ablation_summary.json`
+  - `latest_stage2_v33_modular_authoritative_train.json`
+  - `latest_stage2_v33_learned_write_eval.json`
+  - `latest_stage2_v33_latent_reader_train.json`
+  - `latest_stage2_v33_temporal_slot_eval.json`
+  - `latest_stage2_v33_latent_objective_eval.json`
+  - `latest_stage2_v33_belief_graph_eval.json`
+  - `latest_stage2_v33_answer_option_eval.json`
+  - `latest_stage2_v33_ablation_summary.json`
 - 当前 truth 边界：
   - modular / write / latent / belief / answer 的 internal positive evidence 已成立，且 ablation 已机械确认 latent 是 primary driver
-  - `LongMemEval-S 500 / PersonaMem 512` 的 full holdout compare 仍未发布
-  - 因此还不能把 current-head 写成“真实 gains 已由 latent-first modular learner 在 external benchmark 上成立”
+  - learned-authoritative runtime 与 `LongMemEval-S 500 / PersonaMem 512` 的 full holdout compare 仍未发布
+  - 因此还不能把 current-head 写成“真实 gains 已由 learned-authoritative latent system 在 external benchmark 上成立”
 
 当前 `v30` 的 retained progress 已前进到：
 
