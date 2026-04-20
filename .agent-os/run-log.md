@@ -1,5 +1,23 @@
 # Run Log
 
+## 2026-04-20 Session 083
+
+- Worked on: 试探 `same-relation grounded belief backfill` 是否能直接改善 `v33` Persona local projection / belief quality
+- State changed:
+  - current HEAD 在 `src/core_mem/v2/system.py` 新增 support-slot grounding 检查；当前仅当 same-relation learned belief value 明显表现为 abstractive/noisy drift 时才回填 canonical slot value，避免误杀 `oolong tea` 这类合法 concise value 预测
+  - `tests/test_stage2_model_skeleton.py` 已新增 same-relation ungrounded backfill 回归；`tests/test_stage2_memory_canary.py tests/test_stage2_model_skeleton.py` 与 configured guard 均已通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`
+  - 随后用与 retained `v33_semantic64_persona` 相同的 semantic-full checkpoint + `v31` latent ranker 组合，启动了 provider-disabled local-only probe `outputs_v2/v33_grounded_projection_local/`
+  - 该 probe 在前 `4` 条 Persona samples 上与 retained `v33_semantic64_persona` 完全一致：`changed = 0`、`improved = 0`、`degraded = 0`
+  - 因此本轮结论是：grounded same-relation belief backfill 只能算 hygiene，不是当前 Persona learned-authoritative local ceiling 的主 driver；下一条 hypothesis 应继续前推到 support-slot 选偏 / latent retrieval，而不是继续停留在 belief value coercion
+- Evidence / artifacts:
+  - `outputs_v2/v33_grounded_projection_local/artifacts/20260420T215205Z_partial_probe_compare.json`
+  - `outputs_v2/v33_grounded_projection_local/runs/20260420T215205Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 same-relation belief value backfill 当作 `v33` Persona 主修复线
+  - 下一轮优先定位 selected support slot / latent retrieval 为什么会先选到抽象 `music_preference` / `other_fact` 槽位
+
 ## 2026-04-20 Session 082
 
 - Worked on: 继续 `v33` Persona learned-authoritative full holdout，并把当前 partial measurement 的 failure mode 从“provider contract blocker”细化到 local projection / belief quality
