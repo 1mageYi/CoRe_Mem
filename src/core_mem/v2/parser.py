@@ -10,7 +10,48 @@ from core_mem.v2.schemas import Observation
 
 _DRINK_KEYWORDS = {"coffee", "tea", "matcha", "latte", "espresso", "juice", "water"}
 _FOOD_KEYWORDS = {"pizza", "pasta", "sushi", "salad", "burger", "ramen", "taco"}
-_MUSIC_KEYWORDS = {"jazz", "rock", "pop", "classical", "hip hop", "lofi", "music"}
+_MUSIC_KEYWORDS = {
+    "jazz",
+    "rock",
+    "pop",
+    "classical",
+    "hip hop",
+    "lofi",
+    "music",
+    "musical",
+    "remix",
+    "remixes",
+    "track",
+    "tracks",
+    "beat",
+    "beats",
+    "sound",
+    "sounds",
+    "melody",
+    "melodies",
+    "midi",
+}
+_MUSIC_TECH_CONTEXT_TERMS = {
+    "music",
+    "musical",
+    "remix",
+    "remixes",
+    "track",
+    "tracks",
+    "beat",
+    "beats",
+    "sound",
+    "sounds",
+    "melody",
+    "melodies",
+    "instrument",
+    "instruments",
+}
+_MUSIC_TECH_SOFTWARE_TERMS = {"software", "midi", "digital"}
+_MUSIC_TECH_NEGATION_PATTERNS = (
+    re.compile(r"\b(?:didn't|did not|don't|do not|no longer)\s+(?:enjoy|like|love|prefer|want)\b", re.IGNORECASE),
+    re.compile(r"\bdidn't resonate\b|\bdid not resonate\b", re.IGNORECASE),
+)
 _STORE_CONTEXT_PATTERNS = (
     re.compile(
         r"\b(?:cartwheel app from|app from|shop(?:ping)? at|redeem(?:ed)? [^,.!?]* at)\s+"
@@ -43,6 +84,17 @@ def _strip_role_prefix(text: str) -> str:
         if updated == cleaned:
             return cleaned
         cleaned = updated.strip()
+
+
+def _extract_music_technology_value(clause: str) -> tuple[str, str, float] | None:
+    lowered = clause.lower()
+    if any(pattern.search(lowered) for pattern in _MUSIC_TECH_NEGATION_PATTERNS):
+        return None
+    if not any(term in lowered for term in _MUSIC_TECH_SOFTWARE_TERMS):
+        return None
+    if not any(term in lowered for term in _MUSIC_TECH_CONTEXT_TERMS):
+        return None
+    return "producing music with software", "positive", 0.78
 
 
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
@@ -218,6 +270,10 @@ class Stage2ObservationParser:
                     if store and f" at {store}" not in value and f" from {store}" not in value:
                         value = f"{value} at {store}"
                 return value, polarity, confidence
+
+        music_tech = _extract_music_technology_value(cleaned)
+        if music_tech is not None:
+            return music_tech
 
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),

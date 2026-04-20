@@ -33,6 +33,7 @@ _DATE_VALUE_RE = re.compile(
 _NUMBER_VALUE_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
 _RAW_VALUE_STRIP_RE = re.compile(r'^[\s\[\]\{\}",:]+|[\s\[\]\{\}",:]+$')
 _STRUCTURAL_VALUE_NOISE_RE = re.compile(r'[\{\}\[\]]|":|",|"{2,}|"{3,}|,\s*"')
+_MULTI_FACET_RELATIONS = {"other_fact", "hobby"}
 _QUERY_STOPWORDS = {
     "a",
     "an",
@@ -455,7 +456,7 @@ class StructuredMemorySystem:
         # `other_fact` is intentionally multi-valued and open-world; for these
         # symbolic `new` writes, learned arbitration adds cost without creating
         # a legal merge target.
-        if observation.relation == "other_fact" and symbolic_decision.action == "new":
+        if self._relation_supports_distinct_facets(observation.relation) and symbolic_decision.action == "new":
             return symbolic_decision
         # If the symbolic writer already resolved a unique merge/overwrite
         # target, there is no candidate-ranking ambiguity left for the learned
@@ -493,6 +494,11 @@ class StructuredMemorySystem:
 
     def _learned_memory_enabled(self) -> bool:
         return self.use_learned_memory or self.memory_mode == "learned_memory"
+
+    @staticmethod
+    def _relation_supports_distinct_facets(relation: str) -> bool:
+        normalized = str(relation or "").strip().lower()
+        return normalized.endswith("_preference") or normalized in _MULTI_FACET_RELATIONS
 
     @staticmethod
     def _slot_assignment_candidates(observation: Observation, slots: list[SlotRecord]) -> list[SlotRecord]:

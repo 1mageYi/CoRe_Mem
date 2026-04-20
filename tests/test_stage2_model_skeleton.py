@@ -886,6 +886,44 @@ def test_structured_memory_system_can_switch_to_learned_slot_assignment():
     assert len(system.state.active_slots()) == 2
 
 
+def test_structured_memory_system_preserves_distinct_preference_facets_under_learned_slot_assignment():
+    calls = {"count": 0}
+
+    def _predict(_observation, _slots):
+        calls["count"] += 1
+        return {"target_action": "merge", "target_flags": {"promote": False, "stale_old": False}}
+
+    system = StructuredMemorySystem(
+        slot_assignment_mode="learned",
+        use_learned_slot_assignment=True,
+        learned_slot_assignment_predictor=_predict,
+    )
+    system.observe_turn(
+        "I like producing music with software.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_turn(
+        "I prefer unique blends of electronic Pacific music.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-2",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    active_music_slots = [
+        slot
+        for slot in [*system.state.core_slots, *system.state.residual_slots]
+        if slot.active_flag and slot.relation == "music_preference"
+    ]
+    assert len(active_music_slots) >= 2
+    assert calls["count"] == 0
+
+
 def test_structured_memory_system_repairs_learned_slot_assignment_from_context():
     system = StructuredMemorySystem(
         slot_assignment_mode="learned",

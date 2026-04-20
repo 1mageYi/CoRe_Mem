@@ -63,7 +63,24 @@ def test_stage2_parser_does_not_treat_create_as_food_signal():
         session_id="sess",
     )
     assert observations
+    assert observations[0].relation == "music_preference"
+    assert observations[0].value == "producing music with software"
     assert all(item.relation != "food_preference" for item in observations)
+
+
+def test_stage2_parser_extracts_music_technology_preference_from_software_context():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I started creating digital music remixes with new software tools.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "music_preference"
+    assert observations[0].value == "producing music with software"
 
 
 def test_stage2_parser_extracts_store_location_from_shopping_turn():
