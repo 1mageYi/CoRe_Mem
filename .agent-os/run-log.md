@@ -1,5 +1,21 @@
 # Run Log
 
+## 2026-04-20 Session 078
+
+- Worked on: 诊断 `LongMemEval-S` learned-authoritative 弱点，并尝试一轮 query-aligned fallback belief ranking 修复
+- State changed:
+  - 已确认 `LongMemEval-S` 当前弱信号并非新 regression：semantic full checkpoint `outputs_v2/checkpoints/20260416T003548Z_stage2_train_exec` 在当前前 `8` 个 sample_ids 上历史 learned run 与 current run 一样都只有 `local = 1/8`
+  - 当前更强的 Persona learned-authoritative 候选仍是 semantic full checkpoint；但 `LongMemEval-S` 仍弱，因此不能直接发起 full holdout
+  - 曾试验把 `StructuredMemorySystem._fallback_slot_rank()` 改成更偏 query-aligned / numeric / temporal 的排序，并补了两条新单测；对应 local `LongMemEval-S 8` probe 仍是 `1/8`，没有形成可保留提升
+  - 该 fallback-ranking patch 已在本地回滚，工作树当前只保留上一轮 committed 的 runtime prompt / docs sync 变更
+- Evidence / artifacts:
+  - `outputs_v2/v33_long_no_latent_local/evals_benchmark/20260420T200435Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_long_no_latent_local_v2/evals_benchmark/20260420T200757Z_stage2_memory_canary.json`
+  - `outputs_v2/runs/20260416T095034Z_stage2_memory_canary_longmemeval/predictions.jsonl`
+- Next likely action:
+  - 不再继续微调 fallback slot ranking
+  - 下一轮应直接针对 learned belief item / support attribution 的 `other_fact` 坍塌做更强修复，再看 `LongMemEval-S 8` 是否能脱离 `1/8`
+
 ## 2026-04-20 Session 077
 
 - Worked on: 让 `v33` answer-head 候选真正进入 authoritative runtime prompt，并用两组 learned-authoritative `8`-sample probes 筛选更强 checkpoint 组合

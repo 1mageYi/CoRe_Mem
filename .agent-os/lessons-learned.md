@@ -66,6 +66,7 @@
   - `v31` learned full-holdout 的 zero-progress stall 不一定来自 belief checkpoint 本身；如果每条样本都重复解析 `latent_retriever.pt` 并且只在所有 pending rows 都拿到 provider 结果后才第一次落盘，run 会看起来像“完全卡死”。把 `latent_slot_ranker` 升级成 run-level shared predictor，并按 provider batch drain `pending_rows` 后，即使 full `500 + 512` gate 也能恢复成稳定增量推进。
   - `PersonaMem 512` learned full-holdout 在共享繁忙 GPU 上可能会在 shared belief predictor 初始化阶段 OOM；这不等于 learned path 本身坏掉。优先把 `CUDA_VISIBLE_DEVICES` 切到空闲卡，再复用相同 checkpoint / config，更符合“先排设备竞争、再判断代码是否退化”的顺序。
 - 2026-04-20:
+  - 对当前 `LongMemEval-S` learned-authoritative 弱点，单独把 fallback belief slot ranking 改成更偏 query-aligned / numeric / temporal 的排序，并不能把 local `8`-sample 从 `1/8` 拉起来；这说明主问题不在 fallback slot ranking，而更可能在 learned belief item / support attribution 本身。
   - `v33` learned-authoritative probe 的 checkpoint 选择影响远大于 prompt 小修补：`v30` modular checkpoint + `v31` latent ranker 在 `PersonaMem 8` 上只有 `provider/local = 1/5`，而 semantic full checkpoint `outputs_v2/checkpoints/20260416T003548Z_stage2_train_exec` + 同一 latent ranker 可提升到 `5/6`。因此后续 Persona 侧 full holdout 不应再默认沿用 `v30` modular checkpoint。
   - 但同一 semantic full checkpoint 组合在 `LongMemEval-S 8` 上仍只有 `provider/local = 1/1`，说明当前 learned-authoritative runtime 还没有跨 benchmark 一致转强。只凭 Persona 侧转正不能直接触发 `LongMemEval-S 500 + PersonaMem 512` full holdout。
   - `v33` local publisher 如果直接吃 fresh tiny temporary manifests，retrieval / belief 指标可能退成 `0`；当前 repo 已验证更稳的做法是直接复用 `outputs_v2/artifacts/stage2_prepared_samples_manifest.json` 生成 `v33` local artifact suite，再决定是否值得扩大到更重的 compare。
