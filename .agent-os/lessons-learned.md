@@ -68,3 +68,7 @@
 - 2026-04-20:
   - `v30` / `v31` 的 publish 入口当前仍会刷新各自的 `latest_stage2_v30_*` / `latest_stage2_v31_*` aliases；如果直接在 repo `outputs_v2/` 上运行某些 `v32` 中间 publisher，旧 retained aliases 会被连带覆盖。更稳的做法是先把这类 `v32` 中间 run 放到隔离的 `--output-root`，只在结果确认后把新的 `latest_stage2_v32_*` artifact 拷回主 `outputs_v2/artifacts/`。
   - `v32` answer / option-scoring 路线最好把 label normalization、candidate body 解析与 lexical projection 抽成通用模块，而不是继续把 Persona-specific 选项逻辑散落在 canary runner 里；这样后续做 full holdout compare 与 ablation 时，answer head 证据才是模块级，而不是 benchmark-side patch。
+  - `run_stage2_memory_canary.py` 当前会无条件复用 `outputs_v2/evals_benchmark/` 下最新的 `*_canary.json` manifest；如果仓库里已经有旧的 `12`-sample 或 `64`-sample manifest，而这轮目标其实是 `500 / 512` full holdout，就必须先显式生成新的 full manifests。否则即使你把 run dir 命名成 `full_*`，实际 sample_count 也可能完全不对。
+  - 同一个 runner 的 `--limit` 默认值是 `1`，所以“manifest 已经是 full size”并不等于 run 会自动吃满；做 full holdout 时必须把 `--limit 500` 或 `--limit 512` 显式写进命令，否则只会得到一个误导性的 `1/1 completed`。
+  - symbolic + provider-configured + `provider_workers > 1` 的旧 fast path 会把“memory build”与“provider request”一起扔进并行 worker；在 `500 / 512` 这种 large holdout 上，这条 fast path 比顺序 build + batched provider 更容易表现成长时间不落盘。把 fast path 限制回 `<=64` canary 后，大 holdout 才重新恢复到增量推进。
+  - 对当前 `MiniMax-M2.7` provider 来说，large holdout 的主要外部约束不是单次请求完全不可用，而是会周期性返回 `HTTP 503`。提高 `max_retries` / `retry_backoff_seconds` 不能直接消灭这个问题，但可以显著提升一次 resumed run 的有效推进长度；在 current session 里，它已经把 `PersonaMem 512` partial progress 从 `13` 提到 `37`。

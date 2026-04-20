@@ -9,7 +9,9 @@
   - fresh current-head `v32` internal artifact 已全部落地：`latest_stage2_v32_modular_backbone_train.json`、`latest_stage2_v32_write_head_eval.json`、`latest_stage2_v32_latent_module_train.json`、`latest_stage2_v32_latent_objective_eval.json`、`latest_stage2_v32_latent_holdout_compare.json`、`latest_stage2_v32_belief_decoder_eval.json`、`latest_stage2_v32_belief_holdout_compare.json`、`latest_stage2_v32_answer_head_eval.json` 与 `latest_stage2_v32_option_scoring_compare.json`
   - 随后 current HEAD 又为 `scripts/verify_stage2_v32_longrun.py` 补齐 authoritative `--publish-ablation-summary` 入口，并新增对应单测；`latest_stage2_v32_ablation_summary.json` 已机械确认 `latent_is_primary_driver = true`、`belief_contributes = true`、`answer_head_contributes = true`
   - `scripts/verify_stage2_v32_longrun.py --score-only` 已从 baseline `19/44` 提升到 current retained `38/44`
-  - 当前 remaining gaps 已收敛到 `LongMemEval-S 500 / PersonaMem 512` full holdout compare；在这类 artifact 发布前，不能误写成 external gain keep
+  - 后续 full holdout probe 又补齐了三条 runtime truth：其一，`run_stage2_memory_canary.py` 默认会复用 `evals_benchmark/` 下最新 manifest，因此做 full holdout 前必须先显式生成 `500 / 512` manifests；其二，runner 的 `--limit` 默认是 `1`，不显式传 `--limit 500/512` 就不会跑 full holdout；其三，large symbolic holdout 上旧的 parallel fast path 会拖垮吞吐，commit `4aa02dc` 已把 fast path 收紧到 `<=64` canary
+  - 在 commit `514fdad` 把 `configs/minimax_m27.yaml` 的 `max_retries` 提高到 `5`、`retry_backoff_seconds` 提高到 `4.0` 之后，`PersonaMem 512` full run `outputs_v2/runs/v32_full_personamem_512/` 已能从 `13` 稳定推进到 `37/512`；但 current session 仍未把 full holdout 跑完，因此 retained metric 继续保持 `38`
+  - 当前 remaining gaps 仍只在 `LongMemEval-S 500 / PersonaMem 512` full holdout compare；在这类 artifact 发布前，不能误写成 external gain keep
 - Evidence / artifacts:
   - `research-results.tsv`
   - `autoresearch-state.json`
@@ -23,9 +25,11 @@
   - `outputs_v2/artifacts/latest_stage2_v32_answer_head_eval.json`
   - `outputs_v2/artifacts/latest_stage2_v32_option_scoring_compare.json`
   - `outputs_v2/artifacts/latest_stage2_v32_ablation_summary.json`
+  - `outputs_v2/runs/v32_full_personamem_512/`
+  - commits `05d1134`, `e50c478`, `4aa02dc`, `514fdad`
 - Next likely action:
-  - 先把当前 worktree 的 `v32 ablation publisher` keep commit 落盘，并用 helper 记一条 `metric = 38` 的 keep
-  - 随后跑 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
+  - 继续沿 current HEAD `514fdad` 的显式 full-manifest + explicit `--limit` + large-holdout throttled path，跑完 `PersonaMem 512` 与 `LongMemEval-S 500`
+  - 如果 provider 仍持续以 `503` 打断 full holdout，就把当前真实约束诚实写成“external provider throughput bound”，而不是继续误判成代码逻辑 blocker
   - 仅在 gain / overlap guard 为真时刷新 `latest_stage2_v32_full_holdout_compare.json`
 
 ## 2026-04-19 Session 073
