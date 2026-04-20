@@ -23,7 +23,7 @@
 - 第二阶段 `v3.0 / v30` 当前 retained 状态：fresh managed run 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 推到 stop condition `41/41 keep`；当前已真实落地 **shared backbone + task-specific adapters**、**trainable latent + direct latent objective**、以及 **learned belief decoder / write / belief gain** 三条可训练增量线。对应证据包括 `outputs_v2/runs/20260419T012526Z_stage2_train_exec/execution_summary.json`、`outputs_v2/runs/20260419T014522Z_stage2_v30_latent_exec/` 与 `outputs_v2/evals_local/20260419T015956Z_stage2_local_eval.json`
 - 当前 `TD-041` / `v3.0` / `v30` 最新 retained truth：current HEAD `75c70bc` 已把 `shared backbone`、trainable `latent`、learned `belief` 与 full benchmark holdout 一起推到 `41/41 keep`。新增 current-head holdout artifact 为 `latest_stage2_v30_full_holdout_baseline.json`、`latest_longmemeval_stage2_v30_full.json` 与 `latest_personamem_stage2_v30_full.json`；当前明确覆盖 `PersonaMem 589` 与 `LongMemEval-S 500`，并保持 holdout-only、no fallback、no shortcut、no leakage。
 - 当前 active 主线已前推到 `TD-043 / WS-029`，当前执行版本为独立的 `v32 latent-first modular redesign`：目标不再是把 `v31` latent-first quality run 强行 closeout，而是基于 retained `v30` baseline 与 `v31` soft-blocked truth，直接把 CoRe_Mem 重构成 **shared backbone + write / latent / belief / answer heads** 的 latent-first modular learner，并要求更强的 trainable latent reader、direct latent objectives、structured belief 与 option-scoring answer inference 在 full benchmark holdout 上给出真实增益。
-- 当前 `v32` fresh managed run 已完成 baseline-first 初始化，并把 `scripts/verify_stage2_v32_longrun.py --score-only` 从 baseline `19/44` 推到 current retained `36/44`。当前已新增 `latest_stage2_v32_modular_backbone_train.json`、`latest_stage2_v32_write_head_eval.json`、`latest_stage2_v32_latent_module_train.json`、`latest_stage2_v32_latent_objective_eval.json`、`latest_stage2_v32_latent_holdout_compare.json`、`latest_stage2_v32_belief_decoder_eval.json`、`latest_stage2_v32_belief_holdout_compare.json`、`latest_stage2_v32_answer_head_eval.json` 与 `latest_stage2_v32_option_scoring_compare.json`；当前 truth 已机械确认 modular architecture、write、latent、belief 与 answer / option-scoring 五条 internal compare 都为正，但 full holdout compare 与 ablation summary 仍未发布，因此还不能把这轮写成 external benchmark gain 已成立。
+- 当前 `v32` fresh managed run 已完成 baseline-first 初始化，并把 `scripts/verify_stage2_v32_longrun.py --score-only` 从 baseline `19/44` 推到 current retained `38/44`。当前已新增 `latest_stage2_v32_modular_backbone_train.json`、`latest_stage2_v32_write_head_eval.json`、`latest_stage2_v32_latent_module_train.json`、`latest_stage2_v32_latent_objective_eval.json`、`latest_stage2_v32_latent_holdout_compare.json`、`latest_stage2_v32_belief_decoder_eval.json`、`latest_stage2_v32_belief_holdout_compare.json`、`latest_stage2_v32_answer_head_eval.json`、`latest_stage2_v32_option_scoring_compare.json` 与 `latest_stage2_v32_ablation_summary.json`；当前 truth 已机械确认 modular architecture、write、latent、belief、answer / option-scoring 与 ablation 六条内部证据都已为正，但 full holdout compare 仍未发布，因此还不能把这轮写成 external benchmark gain 已成立。
 - `2026-04-19` 同一 managed run 曾用 `8`-sample holdout quick smoke 探测 online learned gain，但这条线已诚实停在 soft-blocker handoff：learned-symbolic 最好只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；learned+learned、blank-output fallback 组合、json-start constrained decoding 都没有把 retained `24/32` 推成新的 keep
 - 当前额外确认的噪声事实是：`acd74206-37dc-4756-94a8-b99a395d9a21` 在相同 prompt 与 evidence block 下，provider 结果跨 run 出现 `(c)` 与 `(b)` 翻转。因此 `8`-sample quick-smoke 现在只适合作为 sanity/crash gate，不再适合作为 retained keep 的主要判定依据
 - 因而当前 `v31` 的 runtime truth 已更新为：retained 仍是 `24/32`；external gate 改成更大样本的稳定 measurement，优先使用 `LongMemEval-S 500 + PersonaMem 512`；不要再继续在当前 `8`-sample quick-smoke 上重复 belief/runtime 微调
@@ -43,8 +43,8 @@
   - structured belief head
   - 通用 option-scoring / answer head
   - full benchmark 继续只作 holdout：`LongMemEval-S 500 / PersonaMem 512`
-  - 当前 internal retained 进展：fresh run baseline `19/44 -> 36/44`
-  - 当前未完成缺口：`latest_stage2_v32_ablation_summary.json`、`latest_stage2_v32_full_holdout_compare.json`、`latest_longmemeval_stage2_v32_full.json`、`latest_personamem_stage2_v32_full.json`
+  - 当前 internal retained 进展：fresh run baseline `19/44 -> 38/44`
+  - 当前未完成缺口：`latest_stage2_v32_full_holdout_compare.json`、`latest_longmemeval_stage2_v32_full.json`、`latest_personamem_stage2_v32_full.json`
 - 第二阶段实现状态：`src/core_mem/v2/` 已同时具备 Observation / Slot / Belief schema、rule-first parser、dataset registry，以及 slot encoder、lifecycle、consolidation、core/residual memory system、light resampler、belief decoder、answer projection 和 `training.py` 训练模块；其中 `encoder/resampler/decoder/system` 已从 hash/mean skeleton 升级为 parameterized lexical projection + cross-attention composition + latent-conditioned belief decode 主链；`scripts/normalize_stage2_public_data.py` 已把真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` 规范化为 `normalized.jsonl`；`prepare_stage2_data.py` 已支持 source-config + strict mode + `--max-rows-per-dataset`；`scripts/train_stage2.py` 现已支持 preset experiment variant、checkpoint-aware local eval 与 experiment registry 自动登记；当前 `outputs_v2/artifacts/stage2_experiment_index.json` 已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13`
 - 第二阶段 latent readiness 状态：`scripts/verify_stage2_latent_status.py --score-only` 当前已达 `9/9`；其中实现项包括 `query/slot encoder` 不再是 hash-only、`resampler` 不再是 mean-only、`decoder` 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链
 - 第二阶段 benchmark canary 状态：`scripts/run_stage2_memory_canary.py` 已在 `MiniMax-M2.7` 上完成真实 live PersonaMem canary。当前已存在：
@@ -250,9 +250,9 @@
   - write head strengthening
   - full holdout compare：`LongMemEval-S 500 / PersonaMem 512`
 - 当前最重要的下一步是：
-  - 保持当前 `36/44` retained line，不让 `v30` / `v31` retained aliases 被新的 `v32` publish 路径污染
-  - 补齐 `v32 ablation summary`，机械确认 latent 是 primary driver，belief 与 answer head 都有独立贡献
-  - 跑 `LongMemEval-S 500 / PersonaMem 512` full holdout compare，并只在 gain / overlap guard 真正成立后再刷新 `latest_*_stage2_v32_full.json`
+  - 保持当前 `38/44` retained line，不让 `v30` / `v31` retained aliases 被新的 `v32` publish 路径污染
+  - 在 current-head 上跑 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
+  - 只在 gain / overlap guard 真正成立后再刷新 `latest_*_stage2_v32_full.json`
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`
   - matched `teacher-vs-silver` compare 已真实消费 teacher 改动

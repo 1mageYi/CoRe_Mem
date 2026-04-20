@@ -23,9 +23,10 @@
     - 但 `v31` 在 `LongMemEval-S 500` 上只追平 retained `v30`
     - `v31` 在 `PersonaMem 512` 上 provider exact guard fail
     - 三类 Persona pivots 均未产生 keep，因此 `v31` 已进入 soft blocker
-    - fresh managed `v32` run 已完成 baseline-first 初始化：`scripts/verify_stage2_v32_longrun.py --score-only` 从 `19/44` 提升到 current retained `36/44`
+    - fresh managed `v32` run 已完成 baseline-first 初始化：`scripts/verify_stage2_v32_longrun.py --score-only` 从 `19/44` 提升到 current retained `38/44`
     - `modular backbone / write / latent / belief / answer` 五条 internal 证据链均已落地为正，当前 artifact 已覆盖 `latest_stage2_v32_{modular_backbone_train,write_head_eval,latent_module_train,latent_objective_eval,latent_holdout_compare,belief_decoder_eval,belief_holdout_compare,answer_head_eval,option_scoring_compare}.json`
-    - 当前剩余 verifier 缺口只在 `v32 ablation summary` 与 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
+    - `latest_stage2_v32_ablation_summary.json` 已落地，并机械确认 `latent_is_primary_driver = true`、`belief_contributes = true`、`answer_head_contributes = true`
+    - 当前剩余 verifier 缺口只在 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
   - Truth boundary:
     - 当前主问题已不再是 Persona prompt 微调，而是需要 architecture-level redesign
     - `v32` 的目标是让 latent / belief / answer 以更模块化的方式真正主导 external holdout gain

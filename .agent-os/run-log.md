@@ -7,8 +7,9 @@
   - `autoresearch_resume_check.py` 已确认当前 launch 为 `fresh_start`；随后使用 `autoresearch_init_run.py --session-mode background` 以 baseline `19` 初始化新的 `research-results.tsv` / `autoresearch-state.json`
   - current-head 已补齐 `src/core_mem/v2/answer_head.py`，并让 `scripts/train_stage2.py`、`scripts/eval_stage2_local.py`、`scripts/run_stage2_memory_canary.py` 具备 `v32 modular / latent / belief / answer` artifact 发布链
   - fresh current-head `v32` internal artifact 已全部落地：`latest_stage2_v32_modular_backbone_train.json`、`latest_stage2_v32_write_head_eval.json`、`latest_stage2_v32_latent_module_train.json`、`latest_stage2_v32_latent_objective_eval.json`、`latest_stage2_v32_latent_holdout_compare.json`、`latest_stage2_v32_belief_decoder_eval.json`、`latest_stage2_v32_belief_holdout_compare.json`、`latest_stage2_v32_answer_head_eval.json` 与 `latest_stage2_v32_option_scoring_compare.json`
-  - `scripts/verify_stage2_v32_longrun.py --score-only` 已从 baseline `19/44` 提升到 current retained `36/44`
-  - 当前 remaining gaps 已收敛到 `v32 ablation summary` 与 `LongMemEval-S 500 / PersonaMem 512` full holdout compare；在这两类 artifact 发布前，不能误写成 external gain keep
+  - 随后 current HEAD 又为 `scripts/verify_stage2_v32_longrun.py` 补齐 authoritative `--publish-ablation-summary` 入口，并新增对应单测；`latest_stage2_v32_ablation_summary.json` 已机械确认 `latent_is_primary_driver = true`、`belief_contributes = true`、`answer_head_contributes = true`
+  - `scripts/verify_stage2_v32_longrun.py --score-only` 已从 baseline `19/44` 提升到 current retained `38/44`
+  - 当前 remaining gaps 已收敛到 `LongMemEval-S 500 / PersonaMem 512` full holdout compare；在这类 artifact 发布前，不能误写成 external gain keep
 - Evidence / artifacts:
   - `research-results.tsv`
   - `autoresearch-state.json`
@@ -21,10 +22,11 @@
   - `outputs_v2/artifacts/latest_stage2_v32_belief_holdout_compare.json`
   - `outputs_v2/artifacts/latest_stage2_v32_answer_head_eval.json`
   - `outputs_v2/artifacts/latest_stage2_v32_option_scoring_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v32_ablation_summary.json`
 - Next likely action:
-  - 先把当前 worktree 的 code/doc keep commit 落盘，并用 helper 记一条 `metric = 36` 的 keep
-  - 随后补 `latest_stage2_v32_ablation_summary.json`
-  - 最后跑 `LongMemEval-S 500 / PersonaMem 512` full holdout compare，并仅在 gain / overlap guard 为真时刷新 `latest_stage2_v32_full_holdout_compare.json`
+  - 先把当前 worktree 的 `v32 ablation publisher` keep commit 落盘，并用 helper 记一条 `metric = 38` 的 keep
+  - 随后跑 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
+  - 仅在 gain / overlap guard 为真时刷新 `latest_stage2_v32_full_holdout_compare.json`
 
 ## 2026-04-19 Session 073
 

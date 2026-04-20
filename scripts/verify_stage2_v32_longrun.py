@@ -240,6 +240,55 @@ def publish_v32_full_holdout_artifacts(
     }
 
 
+def publish_v32_ablation_summary(*, root: Path) -> dict[str, Any]:
+    current_head = _current_head(root)
+    modular_payload = _artifact_json(root, "latest_stage2_v32_modular_backbone_train.json") or {}
+    latent_train = _artifact_json(root, "latest_stage2_v32_latent_module_train.json") or {}
+    latent_objective = _artifact_json(root, "latest_stage2_v32_latent_objective_eval.json") or {}
+    latent_holdout = _artifact_json(root, "latest_stage2_v32_latent_holdout_compare.json") or {}
+    belief_eval = _artifact_json(root, "latest_stage2_v32_belief_decoder_eval.json") or {}
+    belief_holdout = _artifact_json(root, "latest_stage2_v32_belief_holdout_compare.json") or {}
+    answer_eval = _artifact_json(root, "latest_stage2_v32_answer_head_eval.json") or {}
+    option_compare = _artifact_json(root, "latest_stage2_v32_option_scoring_compare.json") or {}
+
+    latent_is_primary_driver = (
+        bool(modular_payload.get("positive_gain", False))
+        and (bool(latent_train.get("trainable_latent", False)) or bool(latent_train.get("positive_gain", False)))
+        and bool(latent_objective.get("positive_gain", False))
+        and bool(latent_holdout.get("positive_gain", False))
+    )
+    belief_contributes = bool(belief_eval.get("positive_gain", False)) and bool(belief_holdout.get("positive_gain", False))
+    answer_head_contributes = bool(answer_eval.get("positive_gain", False)) and bool(option_compare.get("positive_gain", False))
+
+    payload = {
+        "artifact_type": "stage2_v32_ablation_summary",
+        "commit_hash": current_head,
+        "latent_is_primary_driver": latent_is_primary_driver,
+        "belief_contributes": belief_contributes,
+        "answer_head_contributes": answer_head_contributes,
+        "modular_backbone_positive": bool(modular_payload.get("positive_gain", False)),
+        "latent_module_trainable": bool(latent_train.get("trainable_latent", False)) or bool(latent_train.get("positive_gain", False)),
+        "latent_objective_positive": bool(latent_objective.get("positive_gain", False)),
+        "latent_holdout_positive": bool(latent_holdout.get("positive_gain", False)),
+        "belief_eval_positive": bool(belief_eval.get("positive_gain", False)),
+        "belief_holdout_positive": bool(belief_holdout.get("positive_gain", False)),
+        "answer_eval_positive": bool(answer_eval.get("positive_gain", False)),
+        "option_scoring_positive": bool(option_compare.get("positive_gain", False)),
+        "latent_delta_score": _float_metric(latent_holdout, "delta_score") or _float_metric(latent_objective, "delta_score"),
+        "belief_delta_token_f1": _float_metric(belief_holdout, "delta_token_f1"),
+        "belief_delta_field_f1": _float_metric(belief_holdout, "delta_field_f1"),
+        "answer_delta_local_exact_match": _int_metric(option_compare, "delta_local_exact_match"),
+        "answer_delta_local_exact_rate": _float_metric(option_compare, "delta_local_exact_rate"),
+        "note": (
+            "Ablation summary is derived from the current v32 modular artifact suite: latent mainline "
+            "must stay positive on both direct objective and held-out compare, while belief and answer "
+            "heads must each add independent positive evidence."
+        ),
+    }
+    payload["artifact_paths"] = _write_latest_and_stamped(root, "latest_stage2_v32_ablation_summary.json", payload)
+    return payload
+
+
 def compute_v32_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -423,6 +472,7 @@ def compute_v32_longrun(root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--publish-ablation-summary", action="store_true")
     parser.add_argument("--publish-full-holdout-artifacts", action="store_true")
     parser.add_argument("--longmemeval-summary", type=Path)
     parser.add_argument("--personamem-summary", type=Path)
@@ -430,6 +480,18 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--repo-root", default=str(REPO_ROOT))
     args = parser.parse_args()
+
+    if args.publish_ablation_summary:
+        if args.publish_full_holdout_artifacts:
+            raise SystemExit("--publish-ablation-summary cannot be combined with --publish-full-holdout-artifacts")
+        if args.score_only:
+            raise SystemExit("--score-only cannot be combined with --publish-ablation-summary")
+        payload = publish_v32_ablation_summary(root=Path(args.repo_root))
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print("published_v32_ablation_summary")
+        return 0
 
     if args.publish_full_holdout_artifacts:
         if not args.longmemeval_summary or not args.personamem_summary:

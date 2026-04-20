@@ -19,9 +19,10 @@
     - `v31` 在 `LongMemEval-S 500` 上只追平 retained `v30`
     - `v31` 在 `PersonaMem 512` 上 provider exact 仍低于 required overlap guard
     - prompt-only、relation/support serialization、structured MCQ 三类 Persona pivots 均未产生 keep
-    - fresh managed `v32` run 已完成 baseline-first 初始化：`scripts/verify_stage2_v32_longrun.py --score-only` 从 `19/44` 提升到 current retained `36/44`
+    - fresh managed `v32` run 已完成 baseline-first 初始化：`scripts/verify_stage2_v32_longrun.py --score-only` 从 `19/44` 提升到 current retained `38/44`
     - `shared backbone + write / latent / belief / answer` 五条 internal 证据链均已落地，当前 `latest_stage2_v32_*` 已覆盖 modular train、write eval、latent train/objective/holdout compare、belief eval/holdout compare、answer eval 与 option-scoring compare
-    - 当前剩余缺口只在 `v32 ablation` 与 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
+    - `latest_stage2_v32_ablation_summary.json` 已落地，并机械确认 latent 是主驱动，belief 与 answer head 都有独立贡献
+    - 当前剩余缺口只在 `LongMemEval-S 500 / PersonaMem 512` full holdout compare
   - Truth boundary：
     - 当前主矛盾已不再是 `v31` wiring 或吞吐，而是需要更激进的架构级 redesign
     - 这轮的目标不是继续 Persona 局部修补，而是让 latent / belief / answer 真正成为 external holdout 上的主增益来源

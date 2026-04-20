@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v32_longrun import compute_v32_longrun, publish_v32_full_holdout_artifacts
+from scripts.verify_stage2_v32_longrun import (
+    compute_v32_longrun,
+    publish_v32_ablation_summary,
+    publish_v32_full_holdout_artifacts,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -185,3 +189,31 @@ def test_v32_publish_full_holdout_artifacts_writes_aliases_and_compare(tmp_path:
     assert (artifact_root / "latest_longmemeval_stage2_v32_full.json").exists()
     assert (artifact_root / "latest_personamem_stage2_v32_full.json").exists()
     assert (artifact_root / "latest_stage2_v32_full_holdout_compare.json").exists()
+
+
+def test_v32_publish_ablation_summary_writes_positive_flags(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    artifact_root.mkdir(parents=True)
+
+    for name, payload in {
+        "latest_stage2_v32_modular_backbone_train.json": {"positive_gain": True},
+        "latest_stage2_v32_latent_module_train.json": {"trainable_latent": True},
+        "latest_stage2_v32_latent_objective_eval.json": {"positive_gain": True, "delta_score": 1.5},
+        "latest_stage2_v32_latent_holdout_compare.json": {"positive_gain": True, "delta_score": 0.05},
+        "latest_stage2_v32_belief_decoder_eval.json": {"positive_gain": True},
+        "latest_stage2_v32_belief_holdout_compare.json": {"positive_gain": True, "delta_token_f1": 0.6, "delta_field_f1": 0.8},
+        "latest_stage2_v32_answer_head_eval.json": {"positive_gain": True},
+        "latest_stage2_v32_option_scoring_compare.json": {
+            "positive_gain": True,
+            "delta_local_exact_match": 4,
+            "delta_local_exact_rate": 0.5,
+        },
+    }.items():
+        _write_json(artifact_root / name, payload)
+
+    payload = publish_v32_ablation_summary(root=repo_root)
+    assert payload["latent_is_primary_driver"] is True
+    assert payload["belief_contributes"] is True
+    assert payload["answer_head_contributes"] is True
+    assert (artifact_root / "latest_stage2_v32_ablation_summary.json").exists()
