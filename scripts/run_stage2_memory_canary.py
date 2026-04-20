@@ -211,6 +211,17 @@ def _provider_from_llm(llm: LLMConfig) -> OpenAICompatibleProvider:
     )
 
 
+def _strip_explicit_think_blocks(text: str | None) -> str:
+    if text is None:
+        return ""
+    cleaned = str(text)
+    cleaned = re.sub(r"<think>.*?</think>", " ", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"</?think>", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"```[\w-]*", " ", cleaned)
+    cleaned = " ".join(cleaned.split())
+    return cleaned.strip()
+
+
 def _provider_chat_request(
     llm: LLMConfig,
     prompt: str,
@@ -221,7 +232,8 @@ def _provider_chat_request(
         temperature=llm.temperature,
         max_tokens=llm.max_tokens,
     )
-    return response.content, getattr(response, "content", None)
+    raw_content = getattr(response, "content", None)
+    return _strip_explicit_think_blocks(raw_content), raw_content
 
 
 def _iter_provider_predictions(

@@ -30,6 +30,7 @@ from run_stage2_memory_canary import (
     _render_personamem_options,
     _render_personamem_prompt,
     _should_use_symbolic_parallel_fast_path,
+    _strip_explicit_think_blocks,
     run_personamem_canary,
 )
 
@@ -83,6 +84,12 @@ def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
         (1, "echo::b", "echo::b"),
         (2, "echo::c", "echo::c"),
     ]
+
+
+def test_strip_explicit_think_blocks_only_removes_protocol_noise():
+    assert _strip_explicit_think_blocks("<think>reasoning</think>\n(a)") == "(a)"
+    assert _strip_explicit_think_blocks("```text\n<think>hidden</think>\n(b)\n```") == "(b)"
+    assert _strip_explicit_think_blocks("plain answer") == "plain answer"
 
 
 def test_symbolic_parallel_fast_path_only_applies_to_small_canaries():
