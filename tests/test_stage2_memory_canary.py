@@ -27,6 +27,7 @@ from run_stage2_memory_canary import (
     _render_longmemeval_prompt,
     _render_personamem_options,
     _render_personamem_prompt,
+    _should_use_symbolic_parallel_fast_path,
     run_personamem_canary,
 )
 
@@ -79,6 +80,23 @@ def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
         (1, "echo::b", "echo::b"),
         (2, "echo::c", "echo::c"),
     ]
+
+
+def test_symbolic_parallel_fast_path_only_applies_to_small_canaries():
+    assert _should_use_symbolic_parallel_fast_path(
+        provider_configured=True,
+        memory_mode="symbolic",
+        slot_assignment_mode="symbolic",
+        provider_workers=4,
+        sample_count=64,
+    )
+    assert not _should_use_symbolic_parallel_fast_path(
+        provider_configured=True,
+        memory_mode="symbolic",
+        slot_assignment_mode="symbolic",
+        provider_workers=4,
+        sample_count=512,
+    )
 
 
 def test_build_personamem_row_can_complete_provider_prediction(monkeypatch):

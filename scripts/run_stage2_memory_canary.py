@@ -608,12 +608,14 @@ def _should_use_symbolic_parallel_fast_path(
     memory_mode: str,
     slot_assignment_mode: str,
     provider_workers: int,
+    sample_count: int,
 ) -> bool:
     return (
         provider_configured
         and memory_mode == "symbolic"
         and slot_assignment_mode == "symbolic"
         and max(int(provider_workers), 1) > 1
+        and int(sample_count) <= 64
     )
 
 
@@ -840,6 +842,7 @@ def run_personamem_canary(
         memory_mode=memory_mode,
         slot_assignment_mode=slot_assignment_mode,
         provider_workers=provider_workers,
+        sample_count=len(pending_questions),
     ):
         with ThreadPoolExecutor(max_workers=max(int(provider_workers), 1)) as executor:
             future_map = {
@@ -1023,6 +1026,7 @@ def run_longmemeval_canary(
         memory_mode=memory_mode,
         slot_assignment_mode=slot_assignment_mode,
         provider_workers=provider_workers,
+        sample_count=len(pending_questions),
     ):
         with ThreadPoolExecutor(max_workers=max(int(provider_workers), 1)) as executor:
             future_map = {
