@@ -89,6 +89,7 @@ def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
 def test_strip_explicit_think_blocks_only_removes_protocol_noise():
     assert _strip_explicit_think_blocks("<think>reasoning</think>\n(a)") == "(a)"
     assert _strip_explicit_think_blocks("```text\n<think>hidden</think>\n(b)\n```") == "(b)"
+    assert _strip_explicit_think_blocks("<think>hidden</think>\n\n(c)") == "(c)"
     assert _strip_explicit_think_blocks("plain answer") == "plain answer"
 
 
@@ -664,8 +665,8 @@ def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tm
                 "topic": "food",
                 "expected_answer": "(a)",
                 "memory_answer_local": "(a)",
-                "provider_prediction": "(a)",
-                "provider_raw_prediction": "(a)",
+                "provider_prediction": "<think>draft</think>\n(a)",
+                "provider_raw_prediction": "<think>draft</think>\n(a)",
                 "provider_status": "completed",
                 "provider_configured": True,
                 "observed_turns": 1,
@@ -753,10 +754,12 @@ def test_stage2_memory_canary_resume_skips_completed_predictions(monkeypatch, tm
     assert len(lines) == 2
     rows = [json.loads(line) for line in lines]
     assert [row["sample_id"] for row in rows] == ["q1", "q2"]
+    assert rows[0]["provider_prediction"] == "(a)"
     metadata = json.loads((run_dir / "run_metadata.json").read_text(encoding="utf-8"))
     assert metadata["resumed_prediction_count"] == 1
     assert metadata["completed_predictions"] == 2
     assert metadata["live_predictions_completed"] == 2
+    assert payload["provider_exact_match"] == 2
 
 
 def test_stage2_memory_canary_partial_provider_error_commits_successes_and_resume_recovers(monkeypatch, tmp_path: Path):

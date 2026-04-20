@@ -236,6 +236,40 @@ def _provider_chat_request(
     return _strip_explicit_think_blocks(raw_content), raw_content
 
 
+def _repair_provider_prediction_row(row: dict[str, Any]) -> bool:
+    if str(row.get("provider_status", "")) != "completed":
+        return False
+    raw_prediction = row.get("provider_raw_prediction")
+    current_prediction = row.get("provider_prediction")
+    if raw_prediction is not None:
+        raw_text = str(raw_prediction)
+        if "<think" in raw_text.lower() or "```" in raw_text:
+            cleaned_raw = _strip_explicit_think_blocks(raw_text)
+            if current_prediction == cleaned_raw:
+                return False
+            row["provider_prediction"] = cleaned_raw
+            return True
+    if current_prediction is None:
+        return False
+    cleaned_prediction = _strip_explicit_think_blocks(current_prediction)
+    if current_prediction == cleaned_prediction:
+        return False
+    row["provider_prediction"] = cleaned_prediction
+    return True
+
+
+def _repair_existing_provider_predictions(
+    *,
+    rows: list[dict[str, Any]],
+    predictions_path: Path,
+) -> None:
+    repaired = False
+    for row in rows:
+        repaired = _repair_provider_prediction_row(row) or repaired
+    if repaired:
+        _write_jsonl(predictions_path, rows)
+
+
 def _iter_provider_predictions(
     llm: LLMConfig,
     prompts: list[tuple[int, str]],
@@ -591,6 +625,7 @@ def _drain_pending_rows(
             row["provider_prediction"] = provider_prediction
             row["provider_raw_prediction"] = raw_provider_prediction
             row["provider_status"] = "completed"
+            _repair_provider_prediction_row(row)
     failed_rows = [row for index, row in enumerate(pending_rows) if index in failed_indexes]
     rows_to_commit = [row for index, row in enumerate(pending_rows) if index not in failed_indexes]
     for row in rows_to_commit:
@@ -809,6 +844,7 @@ def _build_personamem_row(
         row["provider_prediction"] = provider_prediction
         row["provider_raw_prediction"] = raw_provider_prediction
         row["provider_status"] = "completed"
+        _repair_provider_prediction_row(row)
     return row
 
 
@@ -880,6 +916,7 @@ def _build_longmemeval_row(
         row["provider_prediction"] = provider_prediction
         row["provider_raw_prediction"] = raw_provider_prediction
         row["provider_status"] = "completed"
+        _repair_provider_prediction_row(row)
     return row
 
 
@@ -916,6 +953,8 @@ def run_personamem_canary(
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
     predictions_path = run_dir / "predictions.jsonl"
     existing_rows = _load_jsonl(predictions_path) if resume else []
+    if existing_rows:
+        _repair_existing_provider_predictions(rows=existing_rows, predictions_path=predictions_path)
     completed_ids = {str(row.get("sample_id", "")) for row in existing_rows}
 
     rows: list[dict[str, Any]] = list(existing_rows)
@@ -1108,6 +1147,8 @@ def run_longmemeval_canary(
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
     predictions_path = run_dir / "predictions.jsonl"
     existing_rows = _load_jsonl(predictions_path) if resume else []
+    if existing_rows:
+        _repair_existing_provider_predictions(rows=existing_rows, predictions_path=predictions_path)
     completed_ids = {str(row.get("sample_id", "")) for row in existing_rows}
 
     rows: list[dict[str, Any]] = list(existing_rows)
