@@ -1,5 +1,24 @@
 # Run Log
 
+## 2026-04-20 Session 081
+
+- Worked on: 把 `v33` 的协议层最小 `<think>` 清洗真正接进 provider resume path，并验证它对现有 Persona learned-authoritative partial full-holdout 的实际回收效果
+- State changed:
+  - current HEAD `2d3e59c` 已为 `scripts/run_stage2_memory_canary.py` 新增 provider raw-output repair：当 `provider_raw_prediction` 含 `<think>` / fenced reasoning 噪声时，runner 会在 live path 与 `--resume` 路径统一回写 cleaned `provider_prediction`
+  - `tests/test_stage2_memory_canary.py` 已补齐 `<think>` 清洗与 resumed prediction repair 回归；targeted `tests/test_stage2_memory_canary.py` 与 configured guard 均已通过
+  - `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`，因此这轮不能记为 keep
+  - 但对现有 partial Persona learned-authoritative full-holdout run `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/`，同一代理下、无 benchmark-specific normalization 的 raw-based 清洗已把 summary 从旧的 `provider exact = 5/66` 回收到当前 `15/77`，`local_exact = 31`
+  - helper 已把本轮记为 iteration `13 refine`；当前 retained metric 继续保持 `36`
+- Evidence / artifacts:
+  - commit `2d3e59c`
+  - `outputs_v2/v33_semantic_full_persona/evals_benchmark/20260420T203544Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 继续沿当前 `gpt-agent.cc/v1` 路径跑 `PersonaMem 512 / LongMemEval-S 500` learned-authoritative holdout / publish
+  - 优先把 repaired Persona run 从 partial measurement 推到可发布 compare，再判断是否足以支撑 `v33` external keep
+
 ## 2026-04-20 Session 080
 
 - Worked on: 推进 `v33` learned-authoritative full holdout，并定位当前 run 的真实 provider-contract blocker
