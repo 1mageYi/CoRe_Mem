@@ -1,5 +1,20 @@
 # Run Log
 
+## 2026-04-20 Session 079
+
+- Worked on: 尝试用 “weak-fragment-aware learned belief recovery” 改善 `LongMemEval-S` learned-authoritative local gate
+- State changed:
+  - 曾试验两项紧耦合修复：其一，`other_fact` 的 fallback raw-match 不再优先信任 `happy / good / still` 这类弱碎片；其二，answer projection 对 `25:50` 这类成绩时间做通用规范化
+  - 对应新增 unit tests 全部通过，但同口径 local `LongMemEval-S 8` probe `outputs_v2/v33_long_recovery_local/evals_benchmark/20260420T201333Z_stage2_memory_canary.json` 仍只有 `local_exact_match = 1`
+  - 因此本轮结论是：当前主问题不在 weak fragment fallback ranking，也不在 time-string projection；这条 patch 已在本地完整回滚，不保留到主线
+  - 当前 retained metric 继续保持 `36`
+- Evidence / artifacts:
+  - `outputs_v2/v33_long_recovery_local/evals_benchmark/20260420T201333Z_stage2_memory_canary.json`
+  - temporary discarded probe `outputs_v2/v33_long_recovery_local/`
+- Next likely action:
+  - 不再继续 weak-fragment fallback 这条线
+  - 下一轮应直接针对 learned belief item / support attribution 的 relation selection 与 evidence grounding 做更强修复
+
 ## 2026-04-20 Session 078
 
 - Worked on: 诊断 `LongMemEval-S` learned-authoritative 弱点，并尝试一轮 query-aligned fallback belief ranking 修复
