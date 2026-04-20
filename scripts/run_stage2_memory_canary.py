@@ -6,6 +6,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -152,6 +153,47 @@ def _resolve_run_dir(output_root: Path, benchmark: str, requested_run_dir: str |
     run_dir = output_root / "runs" / f"{stamp}_stage2_memory_canary_{benchmark}"
     run_dir.mkdir(parents=True, exist_ok=True)
     return run_dir
+
+
+def _pid_is_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _acquire_run_lock(run_dir: Path) -> Path:
+    lock_path = run_dir / ".active.lock"
+    payload = {
+        "pid": os.getpid(),
+        "acquired_at": datetime.now(timezone.utc).isoformat(),
+    }
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                existing = json.loads(lock_path.read_text(encoding="utf-8"))
+            except (FileNotFoundError, json.JSONDecodeError):
+                existing = {}
+            existing_pid = int(existing.get("pid", -1))
+            if existing_pid > 0 and _pid_is_running(existing_pid) and existing_pid != os.getpid():
+                raise RuntimeError(f"run_dir already active: {run_dir} (pid={existing_pid})")
+            lock_path.unlink(missing_ok=True)
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        return lock_path
+
+
+def _release_run_lock(lock_path: Path) -> None:
+    try:
+        existing = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        existing = {}
+    if int(existing.get("pid", -1)) == os.getpid():
+        lock_path.unlink(missing_ok=True)
 
 
 def _provider_from_llm(llm: LLMConfig) -> OpenAICompatibleProvider:
@@ -804,6 +846,7 @@ def run_personamem_canary(
     questions = [item for item in adapter.load_questions() if item.question_id in selected_ids]
 
     run_dir = _resolve_run_dir(output_root, "personamem", requested_run_dir=requested_run_dir)
+    lock_path = _acquire_run_lock(run_dir)
     stamp = run_dir.name.split("_", 1)[0]
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
     predictions_path = run_dir / "predictions.jsonl"
@@ -963,6 +1006,7 @@ def run_personamem_canary(
     _maybe_write_slot_assignment_alias(output_root, "personamem", summary)
     _maybe_write_v24_canary_alias(output_root, "personamem", summary)
     _maybe_write_v32_answer_head_aliases(output_root, "personamem", summary)
+    _release_run_lock(lock_path)
     return summary
 
 
@@ -993,6 +1037,7 @@ def run_longmemeval_canary(
     questions = [item for item in adapter.load_questions() if item.question_id in selected_ids]
 
     run_dir = _resolve_run_dir(output_root, "longmemeval", requested_run_dir=requested_run_dir)
+    lock_path = _acquire_run_lock(run_dir)
     stamp = run_dir.name.split("_", 1)[0]
     config_snapshot = _copy_config_snapshot(config_path, run_dir)
     predictions_path = run_dir / "predictions.jsonl"
@@ -1147,6 +1192,7 @@ def run_longmemeval_canary(
     _maybe_write_learned_alias(output_root, "longmemeval", summary)
     _maybe_write_slot_assignment_alias(output_root, "longmemeval", summary)
     _maybe_write_v24_canary_alias(output_root, "longmemeval", summary)
+    _release_run_lock(lock_path)
     return summary
 
 

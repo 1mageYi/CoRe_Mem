@@ -18,10 +18,12 @@ from core_mem.v2.system import StructuredMemorySystem
 from core_mem.benchmarks.longmemeval import LongMemEvalQuestion
 from core_mem.benchmarks.personamem import PersonaMemQuestion
 from run_stage2_memory_canary import (
+    _acquire_run_lock,
     _build_personamem_row,
     _iter_provider_predictions,
     _observe_personamem_context,
     _project_personamem_local_answer,
+    _release_run_lock,
     _resolve_shared_predictors,
     _rewrite_persona_summary,
     _render_longmemeval_prompt,
@@ -98,6 +100,32 @@ def test_symbolic_parallel_fast_path_only_applies_to_small_canaries():
         provider_workers=4,
         sample_count=512,
     )
+
+
+def test_run_lock_rejects_active_other_process(monkeypatch, tmp_path: Path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    lock_path = run_dir / ".active.lock"
+    lock_path.write_text(json.dumps({"pid": 999999, "acquired_at": "2026-04-20T00:00:00Z"}), encoding="utf-8")
+    monkeypatch.setattr("run_stage2_memory_canary._pid_is_running", lambda pid: pid == 999999)
+    try:
+        _acquire_run_lock(run_dir)
+    except RuntimeError as exc:
+        assert "run_dir already active" in str(exc)
+    else:
+        raise AssertionError("expected active lock to block acquisition")
+
+
+def test_run_lock_clears_stale_lock(monkeypatch, tmp_path: Path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir(parents=True)
+    lock_path = run_dir / ".active.lock"
+    lock_path.write_text(json.dumps({"pid": 999999, "acquired_at": "2026-04-20T00:00:00Z"}), encoding="utf-8")
+    monkeypatch.setattr("run_stage2_memory_canary._pid_is_running", lambda pid: False)
+    acquired = _acquire_run_lock(run_dir)
+    assert acquired.exists()
+    _release_run_lock(acquired)
+    assert not acquired.exists()
 
 
 def test_build_personamem_row_can_complete_provider_prediction(monkeypatch):
