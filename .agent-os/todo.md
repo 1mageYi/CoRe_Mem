@@ -24,9 +24,13 @@
     - `v32` 已在 modular backbone / write / latent / belief / answer / ablation / full holdout 上全线转正
     - 但 `v32` 的 authoritative full benchmark path 仍是 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`
     - `v33` 的目标是把 authoritative full benchmark path 改成 `learned_memory + learned slot assignment`
+    - semantic-full checkpoint + `v31` latent ranker 当前已证明 `LongMemEval-S 64` 可到 `provider/local = 10/10`，但 `PersonaMem 64` 最好只到 `provider/local = 21/24`，provider 仍未越过 retained `v32` rate `0.357421875`
+    - 当前实际 provider 路径 `https://gpt-agent.cc/v1` 不兑现 MiniMax 官方 OpenAI-compatible 文档中的 `reasoning_split=True` 行为；对失败 Persona prompt 的真实单样本 probe 仍返回 `<think>` 污染的 `message.content`
+    - current session 已机械证伪三条 repo 内补救线：runner-side finite-option normalization、`system` role 压制、以及更小 `max_tokens` budget 都没把 Persona provider exact 推过 retained 门槛
   - Truth boundary:
     - 当前主问题已不再是 gain evidence 是否成立，而是 learned path 能否接管 authoritative runtime
     - 这轮不允许在 symbolic authoritative path 上 closeout
+    - 在用户明确批准切换 provider/interface 前，不再继续消耗 `PersonaMem 512 / LongMemEval-S 500` full holdout API
 
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:

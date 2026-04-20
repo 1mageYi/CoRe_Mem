@@ -1,5 +1,29 @@
 # Run Log
 
+## 2026-04-20 Session 080
+
+- Worked on: 推进 `v33` learned-authoritative full holdout，并定位当前 run 的真实 provider-contract blocker
+- State changed:
+  - 已按 managed loop 先完成 semantic-full checkpoint gate：`LongMemEval-S 64` 达到 `provider/local = 10/10`，`PersonaMem 64` 达到 `provider/local = 21/24`；说明 semantic-full checkpoint + `v31` latent ranker 是当前最强 learned-authoritative runtime 候选
+  - 随后尝试显式生成 `500 / 512` manifests 并启动 clean full holdout；partial evidence 证明 `LongMemEval-S` provider rate 远高于 retained 门槛，但 `PersonaMem` provider-side 明显落后于 local，主要失败模式是 `<think>` 污染与长文本不按 label contract 收口，因此该轮 full holdout 已提前停止，不继续烧 API
+  - 尝试过一轮 runner-side generic finite-option normalization + 更严格的 Persona label-only prompt，但 fresh `PersonaMem 64` gate 从旧的 `provider = 21/64` 退到 `16/64`；对应 patch 已完整回滚，不保留到主线
+  - 随后完成外部文档/实测交叉检查：MiniMax 官方 OpenAI-compatible 文档声称 `reasoning_split=True` 会把 thinking 拆到 `reasoning_details`，但当前 repo 实际使用的 `https://gpt-agent.cc/v1` 代理对真实 failure prompt 并未提供 `reasoning_details`，`message.content` 仍直接带 `<think>`
+  - 额外 live probe 又证伪了两条 provider-contract 内补救线：额外 `system` role 明确禁止 reasoning 不能稳定压掉 `<think>`，而把 `max_tokens` 压到 `8/16/32` 只会得到更短的 reasoning 片段，不会直接产出 option label
+  - 因此当前 `TD-044 / WS-030 / v33` 已进入新的 blocker：若要继续 honest 追 `PersonaMem 512` provider exact，必须先得到用户批准，切换当前 provider/interface；未经批准，不再继续消耗 full holdout API。current retained metric 继续保持 `36`
+- Evidence / artifacts:
+  - `outputs_v2/v33_semantic64_long/evals_benchmark/20260420T202317Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_semantic64_persona/evals_benchmark/20260420T202314Z_stage2_memory_canary.json`
+  - partial full-holdout runs:
+    - `outputs_v2/v33_semantic_full_long/runs/20260420T203547Z_stage2_memory_canary_longmemeval/`
+    - `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/`
+  - discarded provider-normalization probe:
+    - `outputs_v2/v33_persona64_provider_norm/evals_benchmark/20260420T204903Z_stage2_memory_canary.json`
+    - `outputs_v2/v33_persona64_provider_norm/runs/20260420T204903Z_stage2_memory_canary_personamem/`
+  - MiniMax official OpenAI-compatible docs: `https://platform.minimax.io/docs/api-reference/text-openai-api`
+- Next likely action:
+  - 若用户批准，优先切换离开当前 `gpt-agent.cc/v1` OpenAI-compatible 代理或改用其可分离 reasoning 的接口
+  - 若未获批准，保持 `v33 = 36/47` 的 retained truth，并停止当前 managed run，避免继续浪费 provider 配额
+
 ## 2026-04-20 Session 079
 
 - Worked on: 尝试用 “weak-fragment-aware learned belief recovery” 改善 `LongMemEval-S` learned-authoritative local gate

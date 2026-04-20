@@ -261,6 +261,10 @@
   - modular / write / latent / belief / answer 的 internal positive evidence 已成立，且 ablation 已机械确认 latent 是 primary driver
   - learned-authoritative runtime 与 `LongMemEval-S 500 / PersonaMem 512` 的 full holdout compare 仍未发布
   - 因此还不能把 current-head 写成“真实 gains 已由 learned-authoritative latent system 在 external benchmark 上成立”
+- 当前新增 blocker：
+  - semantic-full checkpoint + `v31` latent ranker 已在 `LongMemEval-S 64` 上做到 `provider/local = 10/10`，并在 `PersonaMem 64` 上做到 `provider/local = 21/24`，但 Persona provider rate 仍未越过 retained `v32`
+  - 当前实际使用的 `https://gpt-agent.cc/v1` OpenAI-compatible 代理不兑现 MiniMax 官方文档里的 `reasoning_split=True` 行为；对真实 failure prompt 的 live probe 中，`message.content` 仍直接带 `<think>`，`reasoning_details` 缺失
+  - runner-side finite-option normalization、额外 `system` role 压制与更小 `max_tokens` budget probe 全部无 keep；因此若要继续 honest 追 `v33` provider exact，必须先得到用户批准，切换 provider/interface
 
 当前 `v30` 的 retained progress 已前进到：
 
