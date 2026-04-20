@@ -1,5 +1,23 @@
 # Run Log
 
+## 2026-04-20 Session 085
+
+- Worked on: 针对 `v33` Persona local ceiling，试探 generic option-scorer 收紧是否能把 wrong-long-option bias 压下来
+- State changed:
+  - current HEAD `3234a4b` 已把 `src/core_mem/v2/answer_head.py` 收紧成更保守的 generic finite-option scorer：过滤低信息词、对 unsupported 长细节施加惩罚、并轻度惩罚过长选项；对应 `tests/test_stage2_memory_canary.py` 已新增回归并通过
+  - clean targeted Persona `4`-sample gate `outputs_v2/v33_option_penalty_targeted_clean/` 相对 retained baseline `outputs_v2/v33_semantic64_persona/` 从 `old_exact = 0/4` 提到 `new_exact = 1/4`
+  - 样本级变化是：`c8a763...` 从 `(d)` 翻正到 `(b)`；`acd742...` 仍停在 `(b)`；`a40d5...` 仍停在 `(c)`；`5370...` 从 `(c)` 换到 `(a)` 但仍未命中，因此这轮只能记为 refine，不能记为 keep
+  - configured guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`；helper 已把这轮记为 iteration `19 refine`
+- Evidence / artifacts:
+  - commit `3234a4b`
+  - `outputs_v2/v33_option_penalty_targeted_clean/evals_benchmark/20260420T222705Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_option_penalty_targeted_clean/artifacts/20260420T222705Z_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 保留 option-scorer 收紧，因为它已出现 targeted 正增益
+  - 下一轮集中打 `selected-slot ranking`，尤其是 `acd742...` 这类 recall/reason case 的 top-1 abstract `other_fact` 误选
+
 ## 2026-04-20 Session 084
 
 - Worked on: 继续把 `v33` Persona failure hypothesis 从 belief hygiene 收紧到 retrieval / answer-selection 主问题
