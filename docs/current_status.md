@@ -29,7 +29,20 @@
 - 因而当前 `v31` 的 runtime truth 已更新为：retained 仍是 `24/32`；external gate 改成更大样本的稳定 measurement，优先使用 `LongMemEval-S 500 + PersonaMem 512`；不要再继续在当前 `8`-sample quick-smoke 上重复 belief/runtime 微调
 - 当前 `v31` 已新增两条新的 runtime truth：其一，commit `489ada0` 已让 `scripts/run_stage2_memory_canary.py` 在 learned full-holdout 路径上复用 shared `latent_slot_ranker` 并按 batch 增量落盘；其二，current HEAD `838a861` 又补齐了 `scripts/verify_stage2_v31_longrun.py` 的 authoritative full-holdout publisher。二者叠加后，此前停在 `completed_predictions = 0` 的 resumed runs 已恢复推进，且 full-holdout 完成后可直接发布 `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json` 与 `latest_stage2_v31_full_holdout_compare.json`
 - 截至当前检查，`outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 已推进到 `322/500`，`outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 runtime truth 已从 true blocker 切回 active measurement；但 full holdout compare / ablation 仍未发布，`scripts/verify_stage2_v31_longrun.py --score-only` 继续是 `24/32`
+- `2026-04-20` 当前又确认：`v31` 最终 soft-blocked，不再适合作为 active 主线。真实结论是：
+  - `LongMemEval-S 500` 只能追平 retained `v30`：`provider/local/prefix = 19/14/21`
+  - `PersonaMem 512` 最终为 `provider/local/prefix = 168/131/168`
+  - `local` 明显高于 retained overlap guard，但 `provider exact` 仍低于 required `180/512`
+  - 连续三类 Persona 侧策略 pivot（prompt-only、belief relation/support serialization、structured option scoring）都没有产生 keep
+  - 因此当前主问题已经不再是 `v31` wiring，而是需要一个更激进的 latent-first modular redesign
 - 第二阶段当前模型真相：retained `v2.9` baseline 仍是 **单一共享 `google/flan-t5-base + LoRA` Seq2Seq**；但 current-head `v30` line 已经 landed **shared backbone + task-specific adapters**，并让 latent 主链与 checkpoint-backed belief decode 都进入真正可训练路径。当前 `latest_stage2_v30_latent_module_train.json` 已显式记录 `trainable_encoder_resampler = true`，`latest_stage2_v30_belief_decoder_eval.json` / `latest_stage2_v30_write_gain.json` / `latest_stage2_v30_belief_gain.json` 已全部记录 `positive_gain = true`。`latest_stage2_v30_full_holdout_baseline.json` 当前已机械确认 full holdout baseline 成立，`LongMemEval-S 500` 对 retained `v2.9` breakout 保持 non-regression，`PersonaMem 589` 则通过 retained `512` shared-subset overlap guard 机械确认 provider 改善、local tie，不再属于未完成缺口
+- 当前新的结构升级方向已锁定为 **`v32 latent-first modular redesign`**：
+  - shared backbone + `write / latent / belief / answer` modular heads
+  - 更强的 trainable latent reader
+  - direct latent objectives
+  - structured belief head
+  - 通用 option-scoring / answer head
+  - full benchmark 继续只作 holdout：`LongMemEval-S 500 / PersonaMem 512`
 - 第二阶段实现状态：`src/core_mem/v2/` 已同时具备 Observation / Slot / Belief schema、rule-first parser、dataset registry，以及 slot encoder、lifecycle、consolidation、core/residual memory system、light resampler、belief decoder、answer projection 和 `training.py` 训练模块；其中 `encoder/resampler/decoder/system` 已从 hash/mean skeleton 升级为 parameterized lexical projection + cross-attention composition + latent-conditioned belief decode 主链；`scripts/normalize_stage2_public_data.py` 已把真实 `SGD / MultiWOZ 2.4 / Persona-Chat / MQUAKE / ReCoE` 规范化为 `normalized.jsonl`；`prepare_stage2_data.py` 已支持 source-config + strict mode + `--max-rows-per-dataset`；`scripts/train_stage2.py` 现已支持 preset experiment variant、checkpoint-aware local eval 与 experiment registry 自动登记；当前 `outputs_v2/artifacts/stage2_experiment_index.json` 已登记 `mainline + 11` 个必做 ablation，`scripts/verify_stage2_experiment_status.py --score-only` 已达 `13`
 - 第二阶段 latent readiness 状态：`scripts/verify_stage2_latent_status.py --score-only` 当前已达 `9/9`；其中实现项包括 `query/slot encoder` 不再是 hash-only、`resampler` 不再是 mean-only、`decoder` 已真实消费 `composed_memory`，且 `StructuredMemorySystem.query()` 已把 composed latent 传入 belief decode 主链
 - 第二阶段 benchmark canary 状态：`scripts/run_stage2_memory_canary.py` 已在 `MiniMax-M2.7` 上完成真实 live PersonaMem canary。当前已存在：
@@ -220,26 +233,24 @@
 
 ## 当前最重要的下一步
 
-- 当前 active 主线正式切到 **`TD-042` / `WS-028` / `v31`**
-- 当前 fresh managed run 的 baseline 已固定为 retained `v30`：
-  - `scripts/verify_stage2_v31_longrun.py --score-only = 24/32`
+- 当前 active 主线正式切到 **`TD-043` / `WS-029` / `v32`**
+- 当前新的 baseline 继续固定为 retained `v30` full line：
   - retained compare baseline 继续使用 `latest_stage2_v30_*` 与 `latest_*_stage2_v30_full.json`
-- 当前已先完成 `latent + belief + write` 三条真实 internal keep：
-  - `latest_stage2_v31_latent_mainline_train.json` 已记录 `4096` train examples、`512` heldout examples、`hidden_dim = 48`、`latent_dim = 24`、`latent_queries = 6`
-  - `latest_stage2_v31_latent_holdout_compare.json` 已记录 aligned `32k val` compare 为正：`delta_score = 0.01171875`、`positive_gain = true`
-  - `latest_stage2_v31_belief_holdout_compare.json` 已记录 aligned `32k val` belief compare 为正：`delta_token_f1 = 0.513979623914423`、`delta_field_f1 = 0.638888888888889`、`positive_gain = true`
-  - `latest_stage2_v31_write_holdout_compare.json` 已记录 aligned `32k val` write compare 为正：`delta_token_f1 = 0.06976744186046513`、`delta_field_f1 = 0.06976744186046524`、`positive_gain = true`
-  - 但此前 `32k test` latent compare 曾记录负增益，且 full benchmark holdout / ablation 仍未完成，因此当前不能把这轮写成 full holdout gain
-- 当前 `v31` 的首要目标不是继续补 `v30` 基础设施，而是按优先级推进：
-  - latent strengthening
-  - belief strengthening
-  - write strengthening
-  - `ablation` truth
+- `v31` 的 soft-blocked 结论会作为新主线的直接输入：
+  - `LongMemEval-S 500` parity with retained `v30`
+  - `PersonaMem 512` provider exact guard 未过
+  - 三类 Persona micro-tune / serialization / structured-MCQ pivots 全部无 keep
+- 当前 `v32` 的首要目标不是继续 Persona 局部修补，而是按优先级推进：
+  - latent-first modular redesign
+  - trainable latent reader
+  - structured belief head
+  - answer / option-scoring head
+  - write head strengthening
   - full holdout compare：`LongMemEval-S 500 / PersonaMem 512`
 - 当前最重要的下一步是：
-  - `TD-042` 当前不是再找新的 unblock hypothesis，而是等待 current resumed `LongMemEval-S 500 + PersonaMem 512` learned full-holdout runs 完成
-  - current HEAD `838a861` 已具备 authoritative full-holdout publish 入口；一旦两条 summary 到位，就应立即发布 `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json` 与 `latest_stage2_v31_full_holdout_compare.json`
-  - holdout compare 发布后，再根据 current retained `latent / belief / write` compares 与 external gain，决定是否已有足够证据发布 `latest_stage2_v31_ablation_summary.json`
+  - 用 `v30` retained line与 `v31` blocked truth 固定新的 `v32` mechanical baseline
+  - 落地 `v32` verifier、tests 与 run-control
+  - 启动新的 background autoresearch，让后续迭代直接围绕 modular heads + latent reader + option scoring 展开
 - `v2.8` 当前作为 retained blocker baseline 保留：
   - teacher suite 已完成 `256 / 128 / 128`
   - matched `teacher-vs-silver` compare 已真实消费 teacher 改动

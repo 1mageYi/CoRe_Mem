@@ -2,6 +2,31 @@
 
 ## Doing
 
+- `TD-043` `[doing]` 以 `v3.2 / v32 latent-first modular redesign` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 与 `v31` soft-blocked truth，推进一个更激进的 learned latent system。
+  - Current focus:
+    - shared backbone + modular heads
+    - trainable latent reader
+    - direct latent objective
+    - structured belief head
+    - answer / option-scoring head
+    - write head strengthening
+    - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 512`
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - benchmark remains holdout-only
+  - Runtime truth:
+    - retained `v30` 已到 `41/41 keep`
+    - `v31` internal latent / belief / write compares 都为正
+    - 但 `v31` 在 `LongMemEval-S 500` 上只追平 retained `v30`
+    - `v31` 在 `PersonaMem 512` 上 provider exact guard fail
+    - 三类 Persona pivots 均未产生 keep，因此 `v31` 已进入 soft blocker
+  - Truth boundary:
+    - 当前主问题已不再是 Persona prompt 微调，而是需要 architecture-level redesign
+    - `v32` 的目标是让 latent / belief / answer 以更模块化的方式真正主导 external holdout gain
+
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:
     - latent strengthening
@@ -24,11 +49,8 @@
     - current HEAD `838a861` 又补齐了 `scripts/verify_stage2_v31_longrun.py` 的 authoritative full-holdout publisher；对应 targeted test 与 configured guard 已通过
     - 截至当前检查：`outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 已推进到 `322/500`，`outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`
   - Truth boundary:
-    - 当前 truth 只代表 full-holdout stable gate 已从 true blocker 恢复到 active measurement，不代表 `v31` full holdout gain 已成立
-    - `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json`、`latest_stage2_v31_full_holdout_compare.json` 与 `latest_stage2_v31_ablation_summary.json` 仍未发布，因此 `scripts/verify_stage2_v31_longrun.py --score-only` 继续是 `24`
-  - Next step:
-    - 等当前 `500 + 512` resumed runs 完成后，立即发布 `v31` full-holdout artifacts
-    - 在 holdout compare 到位后，再决定是否已有足够证据发布 `v31` ablation summary，或是否需要单独补一轮 ablation evidence
+    - 当前这条线已经 soft-blocked；不能再当 active closeout 线继续推进
+    - 当前最诚实的结论是：`LongMemEval-S 500` parity、`PersonaMem 512` provider guard fail、三类 Persona pivots 均无 keep
 
 - `TD-039` `[doing]` 以 `v2.8 teacher-quality long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，继续以 `32k` source-level split 为锚点，把 teacher-supervision 做成真正可比较、可泛化的训练资产。
   - Runtime truth: `TD-038 / WS-024` 已在 current HEAD `ac84cc1` 上完成，`scripts/verify_stage2_v27_longrun.py --score-only = 26`

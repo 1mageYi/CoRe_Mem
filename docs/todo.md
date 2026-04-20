@@ -2,6 +2,27 @@
 
 ## Doing
 
+- `TD-043` 以 `v3.2 / v32 latent-first modular redesign` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 与 `v31` soft-blocked truth，继续推进真正更强的 learned latent system。
+  - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
+  - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
+  - 当前重点：
+    - shared backbone + modular heads
+    - trainable latent reader
+    - direct latent objective
+    - structured belief head
+    - answer / option-scoring head
+    - write head strengthening
+    - full benchmark holdout：`LongMemEval-S 500 / PersonaMem 512`
+  - 最新真相：
+    - retained `v30` 已到 `41/41 keep`
+    - `v31` internal `latent / belief / write` line 为正，但最终 soft-blocked
+    - `v31` 在 `LongMemEval-S 500` 上只追平 retained `v30`
+    - `v31` 在 `PersonaMem 512` 上 provider exact 仍低于 required overlap guard
+    - prompt-only、relation/support serialization、structured MCQ 三类 Persona pivots 均未产生 keep
+  - Truth boundary：
+    - 当前主矛盾已不再是 `v31` wiring 或吞吐，而是需要更激进的架构级 redesign
+    - 这轮的目标不是继续 Persona 局部修补，而是让 latent / belief / answer 真正成为 external holdout 上的主增益来源
+
 - `TD-042` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）
   - 当前约束：不做任何 `fallback / shortcut / benchmark-specific heuristic / benchmark leakage`
@@ -19,8 +40,8 @@
     - current HEAD `838a861` 又补齐了 `v31` full-holdout publisher；对应 targeted test 与 configured guard 已通过
     - 截至当前检查：`LongMemEval-S 500` resumed run 已推进到 `322/500`，`PersonaMem 512` resumed run 已推进到 `238/512`
   - Truth boundary：
-    - 当前 truth 只代表 full-holdout stable gate 已恢复为 active measurement，不代表 `v31` full holdout gain 已成立
-    - `latest_longmemeval_stage2_v31_full.json`、`latest_personamem_stage2_v31_full.json`、`latest_stage2_v31_full_holdout_compare.json` 与 `latest_stage2_v31_ablation_summary.json` 仍未发布，因此 verifier 继续是 `24/32`
+    - 当前这条线已经 soft-blocked；不能再把它写成“等待一下就会 closeout”
+    - 当前最诚实的结论是：`LongMemEval-S 500` parity、`PersonaMem 512` provider guard fail、三类 Persona strategy pivots 均无 keep
 
 - `TD-038` 以 `v2.7 32k teacher-first long-run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，先建立 `32k` source-level split、teacher-labeled data-quality upgrade、internal generalization test 与 `gpu2` 训练耗时基线。
   - 当前锚点：`24k train / 4k val / 4k test`

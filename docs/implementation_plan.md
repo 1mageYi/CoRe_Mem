@@ -206,6 +206,41 @@
 - `PersonaMem 512` 不明显退化
 - ablation 明确表明增益主要来自 learned 主链，而不是 benchmark-facing 改动
 
+### 下一阶段（v32）主线
+
+- 当前 active 主线标签为：`TD-043`
+- 当前执行版本为：`v32`
+- 当前 active 主线将从 `TD-042 / WS-028 / v31` 前推到 `TD-043 / WS-029 / v32`
+- 这轮不再继续 Persona provider micro-tune，而是直接进入更激进的 **latent-first modular redesign**
+- retained `v30` 继续作为唯一 external compare baseline
+- `v31` 的 soft-blocked truth 作为直接输入，而不是继续强行 closeout
+
+主线要求：
+
+- shared backbone + modular heads：
+  - `write`
+  - `latent`
+  - `belief`
+  - `answer / option-scoring`
+- stronger trainable latent reader
+- direct latent objectives
+- structured belief head
+- answer / option-scoring head
+- full benchmark holdout 保持：
+  - `LongMemEval-S 500`
+  - `PersonaMem 512`
+
+成功标准：
+
+- modular architecture positive
+- write positive
+- latent positive
+- structured belief positive
+- answer / option-scoring positive
+- `LongMemEval-S 500` 高于 retained `v30`
+- `PersonaMem 512` 高于 retained overlap guard
+- ablation 明确表明 latent 是 primary driver，answer head 对 finite-option holdout 有真实贡献
+
 当前 `v30` 的 retained progress 已前进到：
 
 - current HEAD `13bb0fa` 已把 `scripts/verify_stage2_v30_longrun.py --score-only` 从 baseline `17` 提升到 `21`
