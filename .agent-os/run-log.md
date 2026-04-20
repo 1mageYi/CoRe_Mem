@@ -1,5 +1,24 @@
 # Run Log
 
+## 2026-04-20 Session 082
+
+- Worked on: 继续 `v33` Persona learned-authoritative full holdout，并把当前 partial measurement 的 failure mode 从“provider contract blocker”细化到 local projection / belief quality
+- State changed:
+  - 在 current HEAD `ee28a96` 上继续 resume `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/`，并把同一 partial holdout 扩到 `99/512`
+  - 当前该 run 的 provider/local 为 `18/99`、`42/99`，因此“只靠 minimal `<think>` cleaning + 更大样本就能自动跨过 retained `v32`”已被机械证伪；helper 已把这轮记为 iteration `14 discard`
+  - 随后又基于当前 partial summary 生成了 fresh Persona analysis artifacts：`latest_personamem_stage2_canary_analysis.json` 与 `latest_personamem_stage2_layered_analysis.json`
+  - 最新 layered breakdown 显示当前 Persona 剩余失败中 `projection = 54`、`provider = 27`，并且 `other_fact` 主导 `70` 个失败 relation，`suggest_new_ideas` 是当前最弱 question type（`local_exact = 1/12`）
+  - 这把 `TD-044 / WS-030` 的 next hypothesis 从“继续做 provider cleanup”进一步收紧成“优先打 local projection / belief quality”；helper 已把这轮分析记为 iteration `15 refine`
+- Evidence / artifacts:
+  - `outputs_v2/v33_semantic_full_persona/evals_benchmark/20260420T203544Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_canary_analysis.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_layered_analysis.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 provider cleanup 当作 `v33` Persona 主线
+  - 下一轮直接围绕 `other_fact` 主导的 local projection / belief quality 做 focused change，并用 provider-disabled local gate 先筛掉低价值 scorer/prompt tweak
+
 ## 2026-04-20 Session 081
 
 - Worked on: 把 `v33` 的协议层最小 `<think>` 清洗真正接进 provider resume path，并验证它对现有 Persona learned-authoritative partial full-holdout 的实际回收效果

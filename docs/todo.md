@@ -23,11 +23,12 @@
     - semantic-full checkpoint + `v31` latent ranker 当前是最强 learned runtime 候选：`LongMemEval-S 64` 为 `10/10`，`PersonaMem 64` 为 `21/24`
     - 但 `PersonaMem 64` provider rate 仍低于 retained `v32`；而且当前 `https://gpt-agent.cc/v1` 代理不兑现 MiniMax 官方 `reasoning_split=True` 行为，真实 failure prompt 仍直接返回 `<think>` 污染内容
     - current HEAD `2d3e59c` 已把 provider raw-output repair 接进 runner / resume path；现有 partial Persona learned-authoritative full-holdout run `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/` 已从旧 summary 的 `provider exact = 5/66` 回收到当前 `15/77`
+    - 同一 run 继续扩到 `99/512` 后，provider/local 为 `18/99`、`42/99`；对应 layered analysis 已确认当前剩余 Persona failures 中 `projection = 54`、`provider = 27`，并且 `other_fact` 主导 `70` 个失败 relation
   - Truth boundary：
     - 当前主矛盾已不再是 v32 能否涨分，而是 learned path 能否接管 authoritative full-holdout runtime
     - 这轮不允许在 symbolic authoritative path 上收口
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample 不再决定方向，retain 直接看 `LongMemEval-S 500 / PersonaMem 512`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality
 
 - `TD-042` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - 当前锚点：`32k` source-level split（`24k train / 4k val / 4k test`）

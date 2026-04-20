@@ -28,11 +28,12 @@
     - 当前实际 provider 路径 `https://gpt-agent.cc/v1` 不兑现 MiniMax 官方 OpenAI-compatible 文档中的 `reasoning_split=True` 行为；对失败 Persona prompt 的真实单样本 probe 仍返回 `<think>` 污染的 `message.content`
     - current session 已机械证伪三条 repo 内补救线：runner-side finite-option normalization、`system` role 压制、以及更小 `max_tokens` budget 都没把 Persona provider exact 推过 retained 门槛
     - current HEAD `2d3e59c` 已把 provider raw-output repair 接进 runner / resume path；现有 partial Persona learned-authoritative full-holdout run `outputs_v2/v33_semantic_full_persona/runs/20260420T203544Z_stage2_memory_canary_personamem/` 已从旧 summary 的 `provider exact = 5/66` 回收到当前 `15/77`，且未引入任何 benchmark-specific normalization
+    - 同一 run 继续扩到 `99/512` 后，provider/local 为 `18/99`、`42/99`；对应 layered analysis 已确认当前剩余 Persona failures 中 `projection = 54`、`provider = 27`，并且 `other_fact` 主导 `70` 个失败 relation
   - Truth boundary:
     - 当前主问题已不再是 gain evidence 是否成立，而是 learned path 能否接管 authoritative runtime
     - 这轮不允许在 symbolic authoritative path 上 closeout
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample quick-smoke 不再决定方向，retain 直接看 `PersonaMem 512 / LongMemEval-S 500`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality
 
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:
