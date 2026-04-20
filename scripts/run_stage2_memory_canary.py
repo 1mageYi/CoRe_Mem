@@ -368,15 +368,7 @@ def _render_personamem_options(options: list[str]) -> str:
 
 def _personamem_answer_instruction(options: list[str]) -> str:
     if _options_use_labels(options):
-        labels = [_option_label(option) for option in options]
-        labels_block = ", ".join(labels)
-        score_pairs = ", ".join(f'"{label}": 0' for label in labels)
-        return (
-            "Return JSON only with the schema "
-            f'{{"best_option":"{labels[0]}","scores":{{{score_pairs}}}}}. '
-            "Use integer support scores from 0 to 3, where 3 means directly supported and 0 means unsupported. "
-            f'Choose "best_option" from {{{labels_block}}} using the highest support score.'
-        )
+        return "Return only the best option label, for example (a)."
     return "Return only the best option text."
 
 
@@ -407,46 +399,6 @@ def _render_personamem_prompt(
         f"Options:\n{options_block}\n\n"
         f"{_personamem_answer_instruction(question.all_options)} Do not use any raw history beyond the belief state and evidence."
     )
-
-
-def _coerce_personamem_provider_prediction(prediction: str, options: list[str]) -> str:
-    valid_labels = {_option_label(option) for option in options} if _options_use_labels(options) else set()
-    candidates = [prediction]
-    if isinstance(prediction, str):
-        start = prediction.find("{")
-        end = prediction.rfind("}")
-        if start != -1 and end > start:
-            candidates.insert(0, prediction[start : end + 1])
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-        except Exception:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        best_option = str(payload.get("best_option", "")).strip()
-        if best_option in valid_labels:
-            return best_option
-        scores = payload.get("scores")
-        if isinstance(scores, dict):
-            ranked: list[tuple[float, str]] = []
-            for label, score in scores.items():
-                normalized_label = str(label).strip()
-                if normalized_label not in valid_labels:
-                    continue
-                try:
-                    ranked.append((float(score), normalized_label))
-                except (TypeError, ValueError):
-                    continue
-            if ranked:
-                ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
-                return ranked[0][1]
-    resolved = _resolve_personamem_prediction(prediction, options)
-    if resolved in options:
-        return _option_label(resolved) if _options_use_labels(options) else resolved
-    if resolved in valid_labels:
-        return resolved
-    return resolved
 
 
 def _render_longmemeval_prompt(question: LongMemEvalQuestion, memory_payload: dict[str, Any]) -> str:
@@ -721,7 +673,7 @@ def _build_personamem_row(
         if llm is None:
             raise ValueError("llm is required when provider_configured is True.")
         provider_prediction, raw_provider_prediction = _provider_chat_request(llm, prompt)
-        row["provider_prediction"] = _coerce_personamem_provider_prediction(provider_prediction, question.all_options)
+        row["provider_prediction"] = provider_prediction
         row["provider_raw_prediction"] = raw_provider_prediction
         row["provider_status"] = "completed"
     return row
