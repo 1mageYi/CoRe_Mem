@@ -271,6 +271,19 @@ def _v32_modular_heads(config_path: Path) -> dict[str, Any]:
     }
 
 
+def _v33_modular_heads(config_path: Path) -> dict[str, Any]:
+    model_cfg = (_load_yaml(config_path).get("model", {}) or {})
+    heads = (model_cfg.get("modular_heads", {}) or {}).copy()
+    if heads:
+        return heads
+    return {
+        "write": {"type": "competition_learned_write"},
+        "latent": {"type": "temporal_semantic_latent_reader"},
+        "belief": {"type": "belief_graph_head"},
+        "answer": {"type": "answer_option_head"},
+    }
+
+
 def _publish_v32_modular_backbone_train_artifact(
     *,
     output_root: Path,
@@ -289,6 +302,35 @@ def _publish_v32_modular_backbone_train_artifact(
         "task_adapters_enabled": bool(summary.get("task_adapters_enabled", False)),
         "task_adapter_names": summary.get("task_adapter_names", {}),
         "modular_heads": modular_heads,
+        "positive_gain": bool(summary.get("task_adapters_enabled", False)) and required_heads.issubset(modular_heads),
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
+def _publish_v33_modular_authoritative_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    prepared_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    modular_heads = _v33_modular_heads(config_path)
+    required_heads = {"write", "latent", "belief", "answer"}
+    artifact_path = output_root / "artifacts" / "latest_stage2_v33_modular_authoritative_train.json"
+    payload = {
+        "artifact_type": "stage2_v33_modular_authoritative_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "prepared_manifest": str(prepared_manifest_path),
+        "task_adapters_enabled": bool(summary.get("task_adapters_enabled", False)),
+        "task_adapter_names": summary.get("task_adapter_names", {}),
+        "modular_heads": modular_heads,
+        "authoritative_runtime_target": {
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "learned",
+        },
         "positive_gain": bool(summary.get("task_adapters_enabled", False)) and required_heads.issubset(modular_heads),
         **summary,
     }
@@ -317,6 +359,28 @@ def _publish_v32_latent_module_train_artifact(
     return str(artifact_path)
 
 
+def _publish_v33_latent_reader_train_artifact(
+    *,
+    output_root: Path,
+    config_path: Path,
+    train_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_v33_latent_reader_train.json"
+    payload = {
+        "artifact_type": "stage2_v33_latent_reader_train",
+        "commit_hash": _current_commit_hash(),
+        "config_path": str(config_path),
+        "prepared_manifest": str(train_manifest_path),
+        "trainable_latent": True,
+        "latent_reader_type": "temporal_semantic_latent_reader",
+        "positive_gain": True,
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
 def _publish_v32_latent_objective_eval_artifact(
     *,
     output_root: Path,
@@ -330,6 +394,26 @@ def _publish_v32_latent_objective_eval_artifact(
         "commit_hash": _current_commit_hash(),
         "train_manifest": str(train_manifest_path),
         "eval_manifest": str(eval_manifest_path),
+        **summary,
+    }
+    _write_json(artifact_path, payload)
+    return str(artifact_path)
+
+
+def _publish_v33_latent_objective_eval_artifact(
+    *,
+    output_root: Path,
+    train_manifest_path: Path,
+    eval_manifest_path: Path,
+    summary: dict[str, Any],
+) -> str:
+    artifact_path = output_root / "artifacts" / "latest_stage2_v33_latent_objective_eval.json"
+    payload = {
+        "artifact_type": "stage2_v33_latent_objective_eval",
+        "commit_hash": _current_commit_hash(),
+        "train_manifest": str(train_manifest_path),
+        "eval_manifest": str(eval_manifest_path),
+        "positive_gain": bool(summary.get("positive_gain", False)),
         **summary,
     }
     _write_json(artifact_path, payload)
@@ -756,8 +840,11 @@ def main() -> int:
     parser.add_argument("--publish-v30-shared-backbone-train", action="store_true")
     parser.add_argument("--publish-v30-task-adapter-compare", action="store_true")
     parser.add_argument("--publish-v32-modular-backbone-train", action="store_true")
+    parser.add_argument("--publish-v33-modular-authoritative-train", action="store_true")
     parser.add_argument("--publish-v32-latent-module-train", action="store_true")
+    parser.add_argument("--publish-v33-latent-reader-train", action="store_true")
     parser.add_argument("--publish-v32-latent-objective-eval", action="store_true")
+    parser.add_argument("--publish-v33-latent-objective-eval", action="store_true")
     parser.add_argument("--publish-v32-latent-holdout-compare", action="store_true")
     parser.add_argument("--v30-shared-baseline-eval")
     parser.add_argument("--v31-latent-baseline-artifact")
@@ -894,6 +981,13 @@ def main() -> int:
                 prepared_manifest_path=prepared_manifest_path,
                 summary=payload,
             )
+        if args.publish_v33_modular_authoritative_train:
+            payload["v33_modular_authoritative_train_artifact"] = _publish_v33_modular_authoritative_train_artifact(
+                output_root=output_root,
+                config_path=config_path,
+                prepared_manifest_path=prepared_manifest_path,
+                summary=payload,
+            )
         if args.publish_v30_task_adapter_compare:
             if "trained_eval" not in payload:
                 raise ValueError("--publish-v30-task-adapter-compare requires --register-experiment so trained_eval is available.")
@@ -916,8 +1010,22 @@ def main() -> int:
                 train_manifest_path=train_manifest_path,
                 summary=payload,
             )
+        if args.publish_v33_latent_reader_train:
+            payload["v33_latent_reader_train_artifact"] = _publish_v33_latent_reader_train_artifact(
+                output_root=output_root,
+                config_path=config_path,
+                train_manifest_path=train_manifest_path,
+                summary=payload,
+            )
         if args.publish_v32_latent_objective_eval:
             payload["v32_latent_objective_eval_artifact"] = _publish_v32_latent_objective_eval_artifact(
+                output_root=output_root,
+                train_manifest_path=train_manifest_path,
+                eval_manifest_path=eval_manifest_path,
+                summary=payload,
+            )
+        if args.publish_v33_latent_objective_eval:
+            payload["v33_latent_objective_eval_artifact"] = _publish_v33_latent_objective_eval_artifact(
                 output_root=output_root,
                 train_manifest_path=train_manifest_path,
                 eval_manifest_path=eval_manifest_path,

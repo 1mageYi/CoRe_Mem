@@ -661,6 +661,32 @@ def _maybe_write_v32_answer_head_aliases(output_root: Path, benchmark: str, summ
     _write_json(output_root / "artifacts" / "latest_stage2_v32_option_scoring_compare.json", compare_payload)
 
 
+def _maybe_write_v33_answer_option_aliases(output_root: Path, benchmark: str, summary: dict[str, Any]) -> None:
+    if benchmark != "personamem":
+        return
+    if summary.get("memory_mode") != "learned_memory" or summary.get("slot_assignment_mode") != "learned":
+        return
+    local_exact_match = int(summary.get("local_exact_match", 0))
+    baseline_exact_match = int(summary.get("local_baseline_exact_match", 0))
+    sample_count = max(int(summary.get("sample_count", 0)), 1)
+    answer_payload = {
+        "artifact_type": "stage2_v33_answer_option_eval",
+        "commit_hash": summary.get("commit_hash", _current_commit_hash()),
+        "benchmark": benchmark,
+        "summary_path": summary.get("summary_path"),
+        "sample_count": sample_count,
+        "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
+        "local_exact_match": local_exact_match,
+        "local_exact_rate": local_exact_match / sample_count,
+        "baseline_local_exact_match": baseline_exact_match,
+        "baseline_local_exact_rate": baseline_exact_match / sample_count,
+        "positive_gain": local_exact_match > baseline_exact_match,
+        "answer_head_type": "answer_option_head",
+    }
+    _write_json(output_root / "artifacts" / "latest_stage2_v33_answer_option_eval.json", answer_payload)
+
+
 def _should_use_symbolic_parallel_fast_path(
     *,
     provider_configured: bool,
@@ -1006,6 +1032,7 @@ def run_personamem_canary(
     _maybe_write_slot_assignment_alias(output_root, "personamem", summary)
     _maybe_write_v24_canary_alias(output_root, "personamem", summary)
     _maybe_write_v32_answer_head_aliases(output_root, "personamem", summary)
+    _maybe_write_v33_answer_option_aliases(output_root, "personamem", summary)
     _release_run_lock(lock_path)
     return summary
 

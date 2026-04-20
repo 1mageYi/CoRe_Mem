@@ -6,10 +6,18 @@ import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
+SCRIPTS_DIR = REPO_ROOT / "scripts"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 from core_mem.v2.eval_local import evaluate_local, module_inventory_payload
+from eval_stage2_local import (
+    _publish_v33_belief_graph_eval_artifact,
+    _publish_v33_learned_write_eval_artifact,
+    _publish_v33_temporal_slot_eval_artifact,
+)
 from core_mem.v2.training import _repair_belief_payload_from_input_context, _repair_lifecycle_payload_from_input_context
 
 
@@ -274,6 +282,73 @@ def test_eval_script_can_publish_slot_assignment_eval_artifact(tmp_path: Path):
     assert artifact_payload["artifact_type"] == "stage2_slot_assignment_eval"
     assert artifact_payload["slot_assignment_task"] == "lifecycle_prediction"
     assert artifact_payload["slot_assignment_count"] >= 0
+
+
+def test_eval_script_can_publish_v33_eval_artifacts(tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    manifest = output_root / "artifacts" / "stage2_prepared_samples_manifest.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps({"prepared": True}), encoding="utf-8")
+    payload = {
+        "result_path": str(output_root / "evals_local" / "fake_eval.json"),
+        "modules": {
+            "lifecycle": {
+                "update_action_accuracy": 1.0,
+                "update_flag_accuracy": 1.0,
+                "update_success": 1.0,
+            },
+            "retrieval_key_head": {
+                "recall_at_k": 1.0,
+                "ndcg_at_k": 0.75,
+                "support_slot_recall": 1.0,
+            },
+            "belief_decoder": {
+                "joint_belief_accuracy": 1.0,
+                "slot_value_f1": 1.0,
+                "propagation_accuracy": 1.0,
+            },
+        },
+        "families": {
+            "retrieval_family": {
+                "recall_at_k": 1.0,
+                "ndcg_at_k": 0.75,
+                "support_slot_recall": 1.0,
+            }
+        },
+    }
+    write_artifact = Path(
+        _publish_v33_learned_write_eval_artifact(
+            prepared_manifest_path=manifest,
+            output_root=output_root,
+            payload=payload,
+        )
+    )
+    temporal_artifact = Path(
+        _publish_v33_temporal_slot_eval_artifact(
+            prepared_manifest_path=manifest,
+            output_root=output_root,
+            payload=payload,
+        )
+    )
+    belief_artifact = Path(
+        _publish_v33_belief_graph_eval_artifact(
+            prepared_manifest_path=manifest,
+            output_root=output_root,
+            payload=payload,
+        )
+    )
+    assert write_artifact.exists()
+    assert temporal_artifact.exists()
+    assert belief_artifact.exists()
+
+    write_payload = json.loads(write_artifact.read_text(encoding="utf-8"))
+    temporal_payload = json.loads(temporal_artifact.read_text(encoding="utf-8"))
+    belief_payload = json.loads(belief_artifact.read_text(encoding="utf-8"))
+    assert write_payload["positive_gain"] is True
+    assert temporal_payload["positive_gain"] is True
+    assert belief_payload["positive_gain"] is True
+    assert temporal_payload["latent_reader_type"] == "temporal_semantic_latent_reader"
+    assert belief_payload["belief_head_type"] == "belief_graph_head"
 
 
 def test_eval_script_can_publish_v24_eval_artifact(tmp_path: Path):
