@@ -930,13 +930,11 @@ class StructuredMemorySystem:
             relation = str(item.get("relation", fallback_slots[index].relation if index < len(fallback_slots) else "other_fact"))
             value = str(item.get("value", ""))
             support_slot_ids = item.get("support_slot_ids")
-            provided_support_slot_ids = bool(support_slot_ids)
             if relation not in available_relations and isinstance(fallback_item, dict):
                 relation = str(fallback_item.get("relation", relation))
                 fallback_support_ids = fallback_item.get("support_slot_ids")
                 if fallback_support_ids:
                     support_slot_ids = fallback_support_ids
-                    provided_support_slot_ids = True
                 fallback_value = str(fallback_item.get("value", ""))
                 if fallback_value:
                     value = fallback_value
@@ -951,13 +949,6 @@ class StructuredMemorySystem:
                 relation=relation,
                 support_slot_ids=[str(slot_id) for slot_id in support_slot_ids],
             )
-            if StructuredMemorySystem._should_retype_generic_other_fact_relation(
-                relation=relation,
-                value=value,
-                support_slot=support_slot,
-                provided_support_slot_ids=provided_support_slot_ids,
-            ):
-                relation = support_slot.relation
             if StructuredMemorySystem._should_backfill_belief_value(
                 value,
                 relation=relation,
@@ -1083,29 +1074,6 @@ class StructuredMemorySystem:
         if support_slot.relation.strip().lower() == relation.strip().lower():
             return False
         return cleaned.lower() not in support_slot.canonical_gloss.lower()
-
-    @classmethod
-    def _should_retype_generic_other_fact_relation(
-        cls,
-        *,
-        relation: str,
-        value: str,
-        support_slot: SlotRecord | None,
-        provided_support_slot_ids: bool,
-    ) -> bool:
-        if relation.strip().lower() != "other_fact":
-            return False
-        if not provided_support_slot_ids or support_slot is None:
-            return False
-        if support_slot.relation.strip().lower() == "other_fact":
-            return False
-        cleaned = cls._sanitize_belief_value(value, relation=relation).lower()
-        canonical_value = cls._canonical_slot_value(support_slot).lower()
-        if not cleaned:
-            return True
-        if canonical_value and (cleaned in canonical_value or canonical_value in cleaned):
-            return True
-        return cleaned in support_slot.canonical_gloss.lower()
 
     @classmethod
     def _fallback_slot_rank(

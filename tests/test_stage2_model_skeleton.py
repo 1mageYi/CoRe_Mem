@@ -633,52 +633,6 @@ def test_structured_memory_system_falls_back_from_raw_value_fragment_in_learned_
     assert result.belief_state.belief_items[0].value == "producing music with software"
 
 
-def test_structured_memory_system_retypes_generic_other_fact_to_support_relation():
-    system = StructuredMemorySystem(
-        memory_mode="learned_memory",
-        use_learned_memory=True,
-        learned_belief_predictor=lambda query_id, _query_text, slots, *_args, **_kwargs: {
-            "query_id": query_id,
-            "query_type": "single_fact",
-            "belief_items": [
-                {
-                    "relation": "other_fact",
-                    "value": "producing music with software",
-                    "support_slot_ids": [slots[0].slot_id],
-                }
-            ],
-        },
-    )
-    system.observe_observation(
-        Observation.from_dict(
-            {
-                "obs_id": "obs-music-pref",
-                "source_dataset": "synthetic",
-                "source_dialogue_id": "dlg-1",
-                "source_turn_id": "turn-1",
-                "session_id": "sess-1",
-                "speaker": "user",
-                "entity": "user",
-                "relation": "music_preference",
-                "value": "producing music with software",
-                "value_type": "other",
-                "time_scope": "current",
-                "status_hint": "active",
-                "polarity": "positive",
-                "confidence": 0.9,
-                "evidence_text": "I like producing music with software.",
-                "canonical_gloss": "music_preference=producing music with software",
-            }
-        ),
-        timestamp="2026-04-07T05:00:00Z",
-    )
-
-    result = system.query("query-music-specific", "What kind of music setup do I enjoy?")
-    assert result.belief_source == "learned_memory"
-    assert result.belief_state.belief_items[0].relation == "music_preference"
-    assert result.belief_state.belief_items[0].value == "producing music with software"
-
-
 def test_structured_memory_system_uses_query_aligned_slot_for_raw_belief_fallback():
     system = StructuredMemorySystem(
         memory_mode="learned_memory",
