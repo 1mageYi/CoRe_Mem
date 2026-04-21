@@ -40,11 +40,12 @@
     - latest non-regression probe `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T005228Z_hard3_compare.json` 又机械确认剩余 `5370... / a40d5... / c8a763...` 三条样本都未回退，因此 current HEAD 已把 actual hard-4 gate 提回 `4/4`
     - corrected local-only Persona `smoke8` `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T010549Z_stage2_memory_canary.json` 已给出 `local_exact = 5/8`、`baseline = 1/8`，说明 `eade2c3` 的 gain 已经开始从 hard-4 向更大的 Persona slice 外扩
     - partial local-only `smoke16` 在主动截断前也已给出 `local_exact = 6/6`、`baseline = 1/6`，因此当前 gain 没有在更大 slice 上立刻塌掉；current HEAD `49e1841` 又进一步把其中 `b358...` 这类 `suggest_new_ideas` 样本暴露出的 `belief=true` boolean-like noise 修成 support-slot canonical value，说明这条 projection / belief noise 线确实值得保留
+    - fresh partial `suggest_new_ideas` local-only slice `outputs_v2/v33_boolean_belief_suggest8_localonly/artifacts/20260421T021500Z_partial_summary.json` 又给出 `local = 4/4`、`baseline = 0/4`、`boolean-like belief rows = 0/4`；当前新问题已不再是 “boolean-backfill 有没有价值”，而是它是否只对前几个样本有效
   - Truth boundary:
     - 当前主问题已不再是 gain evidence 是否成立，而是 learned path 能否接管 authoritative runtime
     - 这轮不允许在 symbolic authoritative path 上 closeout
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample quick-smoke 不再决定方向，retain 直接看 `PersonaMem 512 / LongMemEval-S 500`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已进一步收紧成：boolean-like belief noise 的 generic coercion 已经落地，下一轮要判断它在更大 `suggest_new_ideas` / Persona slice 上是否外扩；若不能外扩，就继续把主火力打回 selected-slot ranking 与更大 local-only measurement
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已进一步收紧成：boolean-like belief noise 的 generic coercion 已在第一组 `suggest_new_ideas` partial slice 上成立，下一轮应换一组小 slice 验证它不是只对前几个样本有效；若不能复现，就继续把主火力打回 selected-slot ranking 与更大 local-only measurement
 
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:

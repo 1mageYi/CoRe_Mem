@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-21 Session 095
+
+- Worked on: 用 focused `suggest_new_ideas` local-only slice 测量 `49e1841` 的 boolean-backfill 是否开始外扩
+- State changed:
+  - fresh run `outputs_v2/v33_boolean_belief_suggest8_localonly/runs/20260421T020526Z_stage2_memory_canary_personamem/` 启动后确认 `provider_configured = false`，但 learned full-context CPU path 吞吐偏慢，因此在 evidence 足够后主动截断
+  - 当前 partial artifact `outputs_v2/v33_boolean_belief_suggest8_localonly/artifacts/20260421T021500Z_partial_summary.json` 已给出 `completed = 4/8`、`local_exact = 4/4`、`baseline = 0/4`、`boolean-like belief rows = 0/4`
+  - 这说明 `49e1841` 的 generic boolean-backfill 已不再只停留在单样本 `b358...`，至少在首批 focused `suggest_new_ideas` slice 上形成了可测外扩
+  - 因为这轮仍是 partial measurement、official verifier 没动，helper 已把它记为 iteration `30 refine`
+- Evidence / artifacts:
+  - commit `49e1841`
+  - `outputs_v2/v33_boolean_belief_suggest8_localonly/artifacts/20260421T021500Z_partial_summary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 “boolean-backfill 对 focused suggest slice 是否有效” 当开放问题，它已经在首个 partial slice 上成立
+  - 下一轮直接换一组新的 `suggest_new_ideas` 小 slice，验证这条外扩不是只发生在前几个 music-preference 样本上；若不稳定，再把主火力切回 selected-slot ranking
+
 # 2026-04-21 Session 094
 
 - Worked on: 把 `smoke16` 暴露出的 `belief=true` projection noise 收敛成 generic boolean-like belief backfill
