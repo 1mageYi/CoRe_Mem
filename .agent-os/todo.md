@@ -38,11 +38,12 @@
     - current HEAD `883d48d` 又新增了 generic `feedback reason` parser coverage；对应 clean targeted Persona `4`-sample gate `outputs_v2/v33_music_software_facet_local/artifacts/20260420T234300Z_compare.json` 已进一步从 retained `1/4` 提到 `3/4`，其中 `a40d5...` 从 `(c)` 翻正到 `(d)`，当前只剩 `acd742...` 未解决
     - current HEAD `eade2c3` 又新增了 restricted same-relation latent rerank 与 invalid-relation belief-coercion 修复；单样本 probe `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T004426Z_acd742_compare.json` 已把 `acd742...` 从 `(b)` 翻正到 `(c)`，belief 也稳定落成 `music_preference=producing music with software`
     - latest non-regression probe `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T005228Z_hard3_compare.json` 又机械确认剩余 `5370... / a40d5... / c8a763...` 三条样本都未回退，因此 current HEAD 已把 actual hard-4 gate 提回 `4/4`
+    - corrected local-only Persona `smoke8` `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T010549Z_stage2_memory_canary.json` 已给出 `local_exact = 5/8`、`baseline = 1/8`，说明 `eade2c3` 的 gain 已经开始从 hard-4 向更大的 Persona slice 外扩
   - Truth boundary:
     - 当前主问题已不再是 gain evidence 是否成立，而是 learned path 能否接管 authoritative runtime
     - 这轮不允许在 symbolic authoritative path 上 closeout
     - 当前已批准的新路线是：保留同一 provider/interface，只做协议层最小 `<think>` 清洗；`8`-sample quick-smoke 不再决定方向，retain 直接看 `PersonaMem 512 / LongMemEval-S 500`
-    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已从 hard-case non-regression 前推到更大 slice measurement：先用一个更大但仍可控的 Persona 小样本 sanity run 测试 `eade2c3` 是否开始产生 slice-level 正增益，再决定是否恢复更大 partial holdout
+    - 当前真实状态是 active measurement / refine，而不是“必须先切 provider/interface 才能继续”的硬 blocker；但修复后的 Persona provider exact 仍明显低于 retained `v32`，而且主剩余问题已收敛到 local projection / belief quality；当前 next hypothesis 已进一步前推到更大的 local-only Persona slice measurement：先看 `16/32` 级别上 `eade2c3` 的 gain 是否继续成立，再决定是否恢复更大 partial holdout
 
 - `TD-042` `[doing]` 以 `v3.1 / v31 latent-first quality run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v30` baseline 继续推进 full holdout 上真正更强的 learned 主链。
   - Current focus:

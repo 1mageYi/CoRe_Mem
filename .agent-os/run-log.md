@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-21 Session 092
+
+- Worked on: 把 `eade2c3` 的局部增益从 hard-4 扩到更大的 Persona local-only slice 测量
+- State changed:
+  - 首次 `smoke8` 因默认读到 `GPT_AGENT_API_KEY` 而错误走了 provider path，在第一条样本完成前已主动中断；helper 已把这次配置性失误记为 iteration `26 crash`
+  - 随后 corrected local-only run `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T010549Z_stage2_memory_canary.json` 已跑完，当前 `local_exact = 5/8`、`local_baseline_exact = 1/8`
+  - 这说明 `eade2c3` 的 latent-facet rerank + belief-coercion 修复不只打通 hard-4，而是开始在更大的 Persona slice 上体现 local gain
+  - 因为 official verifier 仍是 `36`，helper 已把 corrected smoke8 记为 iteration `27 refine`
+- Evidence / artifacts:
+  - commit `eade2c3`
+  - `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T010549Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 `smoke8` 当最终 gate，它只负责确认 gain 已开始外扩
+  - 下一轮直接把 local-only Persona slice 继续放大到 `16` 或 `32`，再决定是否值得恢复更大 partial holdout
+
 # 2026-04-21 Session 091
 
 - Worked on: 验证 `eade2c3` 是否把此前已经打通的 Persona hard samples 打回去
