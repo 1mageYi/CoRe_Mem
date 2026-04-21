@@ -546,6 +546,43 @@ def test_personamem_local_projection_penalizes_unsupported_long_option_details()
     assert projected == "(b)"
 
 
+def test_personamem_local_projection_downweights_generic_back_other_tokens_for_withdrawal_advice():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="generalizing_to_new_scenarios",
+        topic="bookRecommendation",
+        user_question_or_message="I've been involved in planning events for my community lately, but I'm not sure if I should continue with it. What do you think?",
+        correct_answer="(c)",
+        all_options=[
+            "(a) It seems like you're questioning whether the time commitment aligns with your other responsibilities. Balancing event planning with personal activities can be challenging. It might be worthwhile to evaluate if this is the right time to continue, or if easing back could give you more freedom. What are your thoughts on adjusting your involvement?",
+            "(b) It appears you're pondering your passion for event planning in your community. Community engagement is valuable, but it's also important to feel motivated and interested in what you're doing. Maybe explore different roles or activities that might reignite your enthusiasm. How does that sound to you?",
+            "(c) It sounds like you might be feeling a bit overwhelmed or finding the process less enjoyable than before. If the structured planning is becoming tedious, perhaps focusing on more spontaneous or informal engagement within the community could be a refreshing change. Consider activities that require less meticulous planning and more personal interaction. How do you feel about trying something like that?",
+            "(d) It sounds like you're in a period of reflection about what you enjoy most. Community events can be rewarding and stressful at the same time. Perhaps exploring other interests or roles can provide a sense of fulfillment without the pressure. Do you think trying out different activities might help you decide?",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "step back from structured book club settings",
+            "belief_state": {
+                "belief_items": [
+                    {"relation": "other_fact", "value": "step back from structured book club settings"}
+                ]
+            },
+            "evidence_block": "- other_fact: step back from structured book club settings",
+            "selected_slot_glosses": [
+                "other_fact=step back from structured book club settings",
+                "other_fact=being boxed into a particular format that doesn't allow my thoughts to flow freely",
+                "other_fact=opted out of future reading marathons",
+            ],
+        },
+        question,
+    )
+    assert projected == "(c)"
+
+
 def test_personamem_prompt_has_no_candidate_injection():
     question = PersonaMemQuestion(
         persona_id="p",
