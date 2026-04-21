@@ -35,11 +35,6 @@ from core_mem.providers.openai_compatible import OpenAICompatibleConfig, OpenAIC
 from core_mem.v2.system import StructuredMemorySystem
 from run_stage2_canary import build_canary_manifests
 
-_INTERACTIONAL_OTHER_FACT_RE = re.compile(
-    r"^(?:(?:i|i'm|im|i am|really|just|still|now|also)\s+)*(?:looking|searching|seeking|asking|wondering|trying|hoping)\b",
-    re.IGNORECASE,
-)
-
 
 def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -436,67 +431,8 @@ def _resolve_personamem_prediction(local_answer: str, options: list[str]) -> str
     return lexical_option_projection(local_answer, options)
 
 
-def _looks_interactional_other_fact_value(value: str) -> bool:
-    return bool(_INTERACTIONAL_OTHER_FACT_RE.match(str(value or "").strip()))
-
-
-def _split_slot_gloss(gloss: str) -> tuple[str, str]:
-    if "=" not in gloss:
-        return "", gloss.strip()
-    relation, value = gloss.split("=", 1)
-    return relation.strip(), value.strip()
-
-
-def _repair_interactional_other_fact_projection(
-    *,
-    head: OptionScoringHead,
-    question: PersonaMemQuestion,
-    memory_payload: dict[str, Any],
-    projected: str,
-) -> str | None:
-    belief_items = [
-        item for item in memory_payload["belief_state"].get("belief_items", []) if isinstance(item, dict)
-    ]
-    if len(belief_items) != 1:
-        return None
-    belief_item = belief_items[0]
-    relation = str(belief_item.get("relation", "")).strip().lower()
-    answer_text = str(memory_payload.get("answer_text", ""))
-    if relation != "other_fact" or not _looks_interactional_other_fact_value(answer_text):
-        return None
-
-    selected_slot_glosses = [
-        str(item) for item in memory_payload.get("selected_slot_glosses", []) if str(item).strip()
-    ]
-    if not selected_slot_glosses:
-        return None
-    support_slot_glosses = {
-        str(item) for item in memory_payload.get("support_slot_glosses", []) if str(item).strip()
-    }
-    for gloss in selected_slot_glosses:
-        if gloss in support_slot_glosses:
-            continue
-        candidate_relation, candidate_value = _split_slot_gloss(gloss)
-        if candidate_relation.strip().lower() != relation:
-            continue
-        if _looks_interactional_other_fact_value(candidate_value):
-            continue
-        candidate_projection = head.select_option(
-            query_text=question.user_question_or_message,
-            answer_text=candidate_value,
-            options=question.all_options,
-            belief_values=[candidate_value],
-            evidence_text=f"- {candidate_relation}: {candidate_value}",
-            selected_slot_glosses=[gloss],
-        )
-        if candidate_projection != projected:
-            return option_label(candidate_projection) if options_use_labels(question.all_options) else candidate_projection
-    return None
-
-
 def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
-    head = OptionScoringHead()
-    projected = head.select_option(
+    projected = OptionScoringHead().select_option(
         query_text=question.user_question_or_message,
         answer_text=str(memory_payload.get("answer_text", "")),
         options=question.all_options,
@@ -513,14 +449,6 @@ def _project_personamem_local_answer(memory_payload: dict[str, Any], question: P
             )
         ],
     )
-    repaired_projection = _repair_interactional_other_fact_projection(
-        head=head,
-        question=question,
-        memory_payload=memory_payload,
-        projected=projected,
-    )
-    if repaired_projection is not None:
-        projected = repaired_projection
     if projected in question.all_options:
         return option_label(projected) if options_use_labels(question.all_options) else projected
     if projected != memory_payload["answer_text"]:
