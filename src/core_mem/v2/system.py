@@ -452,10 +452,9 @@ class StructuredMemorySystem:
         predictor = self._resolve_learned_belief_predictor()
         if predictor is None:
             return self._empty_learned_belief(query_id), "learned_memory_unavailable"
-        belief_prompt_slots = self._belief_prompt_slots(query_text, selected)
 
         try:
-            payload = predictor(query_id, query_text, belief_prompt_slots)
+            payload = predictor(query_id, query_text, selected)
             learned_belief = self._coerce_learned_belief(
                 payload,
                 query_id=query_id,
@@ -467,46 +466,6 @@ class StructuredMemorySystem:
         if not learned_belief.belief_items:
             return self._empty_learned_belief(query_id), "learned_memory_empty"
         return learned_belief, "learned_memory"
-
-    @classmethod
-    def _belief_prompt_slots(cls, query_text: str, slots: list[SlotRecord]) -> list[SlotRecord]:
-        if len(slots) <= 1:
-            return slots
-        query_terms = cls._query_terms(query_text)
-        other_fact_candidates: list[tuple[int, SlotRecord, float, float]] = []
-        for index, slot in enumerate(slots):
-            if slot.relation != "other_fact":
-                continue
-            overlap = cls._lexical_overlap(query_terms, slot)
-            if overlap <= 0.0:
-                continue
-            concrete = float(cls._slot_is_concrete_facet(slot))
-            other_fact_candidates.append((index, slot, overlap, concrete))
-        if len(other_fact_candidates) < 2:
-            return slots
-        if not any(concrete > 0.0 for _, _, _, concrete in other_fact_candidates):
-            return slots
-        if not any(concrete <= 0.0 for _, _, _, concrete in other_fact_candidates):
-            return slots
-
-        reordered_candidates = sorted(
-            other_fact_candidates,
-            key=lambda item: (
-                item[3],
-                item[2],
-                float(item[1].confidence),
-                -float(item[0]),
-            ),
-            reverse=True,
-        )
-        replacement_map = {
-            original_index: candidate_slot
-            for (original_index, _, _, _), (_, candidate_slot, _, _) in zip(other_fact_candidates, reordered_candidates)
-        }
-        prompt_slots = list(slots)
-        for index, candidate_slot in replacement_map.items():
-            prompt_slots[index] = candidate_slot
-        return prompt_slots
 
     def _slot_assignment_enabled(self) -> bool:
         return self.use_learned_slot_assignment or self.slot_assignment_mode == "learned"
@@ -1007,7 +966,7 @@ class StructuredMemorySystem:
             (
                 "instruction: Recover the semantic fields and emit a compact structured object. "
                 "Semantic correctness matters more than raw JSON surface matching. "
-                "The memory_slots are already ordered from most belief-relevant to least belief-relevant. "
+                "The memory_slots are already ordered from most query-relevant to least query-relevant. "
                 "If one of the top-ranked slots directly answers the query, copy that slot's relation and value "
                 "instead of switching to a generic relation such as other_fact."
             ),
