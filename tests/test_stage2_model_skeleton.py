@@ -260,6 +260,92 @@ def test_structured_memory_system_prefers_recent_change_negative_slot_for_advice
     assert any("step back from structured book club settings" in gloss for gloss in selected_glosses[:3])
 
 
+def test_same_relation_latent_facet_promotion_requires_score_proximity():
+    system = StructuredMemorySystem()
+    incumbent = Observation.from_dict(
+        {
+            "obs_id": "obs-incumbent",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-1",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "particularly thrilled about the prospect of showcasing these items at our future events",
+            "value_type": "other",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "positive",
+            "confidence": 0.8,
+            "evidence_text": "I feel thrilled about showcasing these items at future events.",
+            "canonical_gloss": "other_fact=particularly thrilled about the prospect of showcasing these items at our future events",
+        }
+    )
+    bad_candidate = Observation.from_dict(
+        {
+            "obs_id": "obs-bad-candidate",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-2",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "assisting with literacy programs",
+            "value_type": "other",
+            "time_scope": "current",
+            "status_hint": "active",
+            "polarity": "positive",
+            "confidence": 0.8,
+            "evidence_text": "I am assisting with literacy programs.",
+            "canonical_gloss": "other_fact=assisting with literacy programs",
+        }
+    )
+    good_candidate = Observation.from_dict(
+        {
+            "obs_id": "obs-good-candidate",
+            "source_dataset": "synthetic",
+            "source_dialogue_id": "dlg-1",
+            "source_turn_id": "turn-3",
+            "session_id": "sess-1",
+            "speaker": "user",
+            "entity": "user",
+            "relation": "other_fact",
+            "value": "step back from structured book club settings",
+            "value_type": "other",
+            "time_scope": "recent_change",
+            "status_hint": "active",
+            "polarity": "negative",
+            "confidence": 0.8,
+            "evidence_text": "I've decided to step back from structured book club settings.",
+            "canonical_gloss": "other_fact=step back from structured book club settings",
+        }
+    )
+    incumbent_slot = system.slot_encoder.encode(incumbent, timestamp="2026-04-07T05:00:00Z")
+    bad_candidate_slot = system.slot_encoder.encode(bad_candidate, timestamp="2026-04-07T05:01:00Z")
+    good_candidate_slot = system.slot_encoder.encode(good_candidate, timestamp="2026-04-07T05:02:00Z")
+
+    assert not StructuredMemorySystem._should_promote_latent_facet_slot(
+        incumbent_slot=incumbent_slot,
+        incumbent_score=0.0268,
+        incumbent_lexical_overlap=0.071,
+        incumbent_latent=0.9789,
+        candidate_slot=bad_candidate_slot,
+        candidate_score=-0.4773,
+        candidate_latent=1.0452,
+    )
+    assert StructuredMemorySystem._should_promote_latent_facet_slot(
+        incumbent_slot=incumbent_slot,
+        incumbent_score=0.0268,
+        incumbent_lexical_overlap=0.071,
+        incumbent_latent=0.9789,
+        candidate_slot=good_candidate_slot,
+        candidate_score=-0.1267,
+        candidate_latent=1.0328,
+    )
+
+
 def test_belief_decoder_preserves_selected_slot_order():
     system = StructuredMemorySystem()
     system.observe_turn(

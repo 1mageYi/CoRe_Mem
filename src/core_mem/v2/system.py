@@ -479,16 +479,18 @@ class StructuredMemorySystem:
             return False
         if cls._belief_value_looks_abstractive(canonical_value):
             return False
-        return len(_TOKEN_RE.findall(canonical_value.lower())) <= 6
+        return len(_TOKEN_RE.findall(canonical_value.lower())) <= 8
 
     @classmethod
     def _should_promote_latent_facet_slot(
         cls,
         *,
         incumbent_slot: SlotRecord,
+        incumbent_score: float,
         incumbent_lexical_overlap: float,
         incumbent_latent: float,
         candidate_slot: SlotRecord,
+        candidate_score: float,
         candidate_latent: float,
     ) -> bool:
         if candidate_slot.relation != incumbent_slot.relation:
@@ -498,6 +500,8 @@ class StructuredMemorySystem:
         if incumbent_lexical_overlap > 0.2:
             return False
         if candidate_latent <= incumbent_latent + 0.03:
+            return False
+        if candidate_slot.relation == "other_fact" and candidate_score + 0.2 < incumbent_score:
             return False
         if not cls._belief_value_looks_abstractive(cls._canonical_slot_value(incumbent_slot)):
             return False
@@ -521,13 +525,16 @@ class StructuredMemorySystem:
             candidate_latent = float(latent_scores.get(candidate_slot.slot_id, float("-inf")))
             insert_index = None
             for idx, incumbent in enumerate(reranked_positive):
-                incumbent_slot, _, incumbent_lexical_overlap = incumbent
+                incumbent_slot, incumbent_score, incumbent_lexical_overlap = incumbent
                 incumbent_latent = float(latent_scores.get(incumbent_slot.slot_id, float("-inf")))
+                candidate_score = candidate[1]
                 if cls._should_promote_latent_facet_slot(
                     incumbent_slot=incumbent_slot,
+                    incumbent_score=incumbent_score,
                     incumbent_lexical_overlap=incumbent_lexical_overlap,
                     incumbent_latent=incumbent_latent,
                     candidate_slot=candidate_slot,
+                    candidate_score=candidate_score,
                     candidate_latent=candidate_latent,
                 ):
                     insert_index = idx
