@@ -21,6 +21,7 @@ from run_stage2_memory_canary import (
     _acquire_run_lock,
     _build_personamem_row,
     _iter_provider_predictions,
+    _memory_payload,
     _observe_personamem_context,
     _project_personamem_local_answer,
     _release_run_lock,
@@ -774,12 +775,56 @@ def test_personamem_local_projection_breaks_truest_music_tie_toward_first_matchi
                 "- music_preference: music in its truest form, without rigid guidelines dictating how i should dissect it"
             ),
             "selected_slot_glosses": [
+                "music_preference=more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies",
+                "other_fact=on a journey to redefine how i approach group collaborations, aiming for a more structured",
+                "other_fact=genuinely hopeful about the potential outcomes of these interactions, as they could open doors to opportunities i never considered before",
+                "music_preference=committing to invest my time in the creation of original music, focusing on my unique sound rather than merely reinterpreting the pieces of other artists",
+                "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ],
+            "support_slot_glosses": [
                 "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
             ],
         },
         question,
     )
     assert projected == "(a)"
+
+
+def test_memory_payload_collects_only_belief_support_slot_glosses():
+    belief_state = {
+        "belief_items": [
+            {
+                "relation": "music_preference",
+                "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                "support_slot_ids": ["slot_keep"],
+            }
+        ]
+    }
+
+    class FakeBeliefState:
+        def to_dict(self):
+            return belief_state
+
+    fake_system = SimpleNamespace(
+        query=lambda query_id, query_text: SimpleNamespace(
+            belief_state=FakeBeliefState(),
+            belief_source="learned_memory",
+            evidence_block="- music_preference: music in its truest form, without rigid guidelines dictating how i should dissect it",
+            answer_text="music in its truest form, without rigid guidelines dictating how i should dissect it",
+            selected_slots=[
+                SimpleNamespace(slot_id="slot_noise", canonical_gloss="other_fact=on a journey to redefine how i approach group collaborations, aiming for a more structured"),
+                SimpleNamespace(slot_id="slot_keep", canonical_gloss="music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"),
+            ],
+            composed_memory="",
+        )
+    )
+
+    payload = _memory_payload(fake_system, "q", "Which approach fits best?")
+
+    assert payload["selected_slot_ids"] == ["slot_noise", "slot_keep"]
+    assert payload["support_slot_glosses"] == [
+        "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
+    ]
 
 
 def test_personamem_prompt_has_no_candidate_injection():

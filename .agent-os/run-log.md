@@ -1,5 +1,28 @@
 # Run Log
 
+# 2026-04-21 Session 104
+
+- Worked on: 继续 `TD-044 / WS-030` managed autoresearch，把 residual projection cluster 从 `14/16` 再往前压到只剩单条 miss
+- State changed:
+  - current worktree 把 Persona answer-head 看到的 gloss 输入从“全部 selected slots”收紧到“belief 实际 support slots”，避免无关 selected-slot gloss 把 scorer 拉向泛项
+  - 对应新增 `_memory_payload` support-slot-glosses test，以及 `344ea...` 的 noisy-selected-slot regression lock；窄测试通过
+  - fresh local-only rerun `outputs_v2/v33_support_gloss_smoke16_localonly/evals_benchmark/20260421T075401Z_stage2_memory_canary.json` 已把 broader Persona gate 从 `14/16` 提到 `15/16`、`baseline = 2/16`
+  - 样本级上，`344ea...` 已从 `(d)` 翻正到 `(a)`，说明它的主问题是 answer-head 吃进了和 belief `support_slot_ids` 无关的 gloss 噪声；当前只剩 `0adf...` 一条 residual miss
+  - full guard 通过、`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`
+- Evidence / artifacts:
+  - `scripts/run_stage2_memory_canary.py`
+  - `tests/test_stage2_memory_canary.py`
+  - `outputs_v2/v33_support_gloss_smoke16_localonly/evals_benchmark/20260421T075401Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k "memory_payload_collects_only_belief_support_slot_glosses or truest_music_tie_toward_first_matching_option or music_production_morphology or structured_withdrawal_to_race_scenario or build_personamem_row_can_complete_provider_prediction or writes_honest_blocked_artifact_without_provider"`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 直接解剖唯一剩余 `0adf...`，判清它是 answer-head 还能继续 generic 化，还是 belief value 本身太粗
+  - 不再对已经翻正的 `344ea...` 重复做 scorer noise experiment
+
 # 2026-04-21 Session 103
 
 - Worked on: 继续 `TD-044 / WS-030` managed autoresearch，把 answer-head rollback 从 `smoke8` 扩到 broader Persona local-only gate，并试探 generic morphology normalization 是否能继续吃掉 residual projection miss

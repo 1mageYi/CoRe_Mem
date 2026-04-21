@@ -442,7 +442,12 @@ def _project_personamem_local_answer(memory_payload: dict[str, Any], question: P
             if isinstance(item, dict)
         ],
         evidence_text=str(memory_payload.get("evidence_block", "")),
-        selected_slot_glosses=[str(item) for item in memory_payload.get("selected_slot_glosses", [])],
+        selected_slot_glosses=[
+            str(item)
+            for item in (
+                memory_payload.get("support_slot_glosses") or memory_payload.get("selected_slot_glosses", [])
+            )
+        ],
     )
     if projected in question.all_options:
         return option_label(projected) if options_use_labels(question.all_options) else projected
@@ -538,13 +543,27 @@ def _render_longmemeval_prompt(question: LongMemEvalQuestion, memory_payload: di
 
 def _memory_payload(system: StructuredMemorySystem, query_id: str, query_text: str) -> dict[str, Any]:
     result = system.query(query_id, query_text)
+    belief_state = result.belief_state.to_dict()
+    support_slot_ids = {
+        str(slot_id)
+        for item in belief_state.get("belief_items", [])
+        if isinstance(item, dict)
+        for slot_id in item.get("support_slot_ids", [])
+        if slot_id
+    }
+    selected_slot_ids = [slot.slot_id for slot in result.selected_slots]
+    selected_slot_glosses = [slot.canonical_gloss for slot in result.selected_slots]
+    support_slot_glosses = [
+        slot.canonical_gloss for slot in result.selected_slots if str(slot.slot_id) in support_slot_ids
+    ]
     return {
-        "belief_state": result.belief_state.to_dict(),
+        "belief_state": belief_state,
         "belief_source": result.belief_source,
         "evidence_block": result.evidence_block,
         "answer_text": result.answer_text,
-        "selected_slot_ids": [slot.slot_id for slot in result.selected_slots],
-        "selected_slot_glosses": [slot.canonical_gloss for slot in result.selected_slots],
+        "selected_slot_ids": selected_slot_ids,
+        "selected_slot_glosses": selected_slot_glosses,
+        "support_slot_glosses": support_slot_glosses,
         "composed_memory": result.composed_memory,
     }
 
