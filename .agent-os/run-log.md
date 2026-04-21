@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-20 Session 089
+
+- Worked on: 针对 `a40d5...` 缺失 “positive feedback from peers” reason slot 的问题，补一条 generic feedback-reason parser coverage
+- State changed:
+  - current HEAD `883d48d` 现可把 “received feedback from peers about my last podcast” 这类 clause 稳定写成 `other_fact=getting positive feedback from my peers about my last podcast`
+  - `tests/test_stage2_parser.py` 已补齐对应回归；configured guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - 用同一 `4` 个 Persona hard samples 的 clean local-only replay 重新测量后，targeted gate 已从 retained `1/4` 提到 `3/4`
+  - 样本级变化是：`a40d5...` 从旧的 `(c)` 翻到正确 `(d)`；`5370...` 继续正确 `(b)`；`c8a763...` 继续正确 `(b)`；当前只剩 `acd742...` 仍停在 `(b)`
+  - 因为 official verifier 仍没动，helper 已把这轮记为 iteration `23 refine`
+- Evidence / artifacts:
+  - commit `883d48d`
+  - `outputs_v2/v33_music_software_facet_local/artifacts/20260420T234300Z_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 `a40d5...` 当当前主 blocker，它已经被 parser coverage 打通
+  - 下一轮直接集中打剩余唯一 hard case `acd742...` 的 selected-slot ranking / belief selection
+
 # 2026-04-20 Session 088
 
 - Worked on: 收紧 `v33` Persona relation-drift 里的 parser bug，验证 software/music clause 不再被错误写成 `location`
