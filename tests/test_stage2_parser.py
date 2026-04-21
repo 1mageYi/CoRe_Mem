@@ -112,6 +112,61 @@ def test_stage2_parser_extracts_feedback_reason_clause():
     assert any(item.value == "getting positive feedback from my peers about my last podcast" for item in observations)
 
 
+def test_stage2_parser_extracts_blog_authoring_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I curated a list of top 10 must-watch films for a blog as well.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "curated a list of top 10 must-watch films for a blog"
+
+
+def test_stage2_parser_extracts_learning_topic_only_with_same_turn_authoring_context():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I curated a list of top 10 must-watch films for a blog as well, and the experience was enriching because it gave me an opportunity to learn more about storytelling techniques and cinematography.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert any(item.value == "curated a list of top 10 must-watch films for a blog" for item in observations)
+    assert any(item.value == "film storytelling techniques" for item in observations)
+
+
+def test_stage2_parser_does_not_extract_learning_topic_without_authoring_context():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "Overall, the experience was enriching, as it provided me with an opportunity to learn more about storytelling techniques and cinematography.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
+def test_stage2_parser_does_not_treat_progressive_im_learning_clause_as_fact():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I truly believe that this journey will not only elevate my music but also connect me more deeply with the traditions I'm learning about.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
 def test_stage2_parser_extracts_step_back_withdrawal_clause():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(
