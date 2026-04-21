@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-21 Session 097
+
+- Worked on: 把 `49e1841` 的验证从 focused `suggest_new_ideas` slice 推回同 manifest 的 mixed Persona local-only gate
+- State changed:
+  - fresh mixed run `outputs_v2/v33_boolean_backfill_smoke8_localonly/runs/20260421T022247Z_stage2_memory_canary_personamem/` 复用了旧 `eade2c3` smoke8 的同一 manifest，但 current learned CPU runtime 吞吐依然偏慢，因此在 evidence 足够后主动截断
+  - 当前 partial artifact `outputs_v2/v33_boolean_backfill_smoke8_localonly/artifacts/20260421T023400Z_partial_summary.json` 已给出 `completed = 4/8`、`local = 4/4`、`baseline = 1/4`、`boolean-like belief rows = 0/4`
+  - 这四条样本已经覆盖 `recall_user_shared_facts`、`provide_preference_aligned_recommendations`、`suggest_new_ideas` 与 `recalling_the_reasons_behind_previous_updates` 四类问题，说明 `49e1841` 的 gain 不再只停留在 focused suggest slice，而是开始在 broader mixed gate 上体现出至少“不回退且局部更优”的信号
+  - 因为这轮仍是 partial measurement、official verifier 没动，helper 已把它记为 iteration `32 refine`
+- Evidence / artifacts:
+  - commit `49e1841`
+  - `outputs_v2/v33_boolean_backfill_smoke8_localonly/artifacts/20260421T023400Z_partial_summary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续找新的 boolean-noise micro-fix
+  - 下一轮直接把同一 mixed Persona local-only gate 往后推进，判断 current HEAD 是否有机会把旧 `5/8` 再往上推；若不能，再把主火力切回 selected-slot ranking
+
 # 2026-04-21 Session 096
 
 - Worked on: 用第二组 focused `suggest_new_ideas` local-only slice 检查 `49e1841` 的 boolean-backfill 是否只是首组样本偶然命中
