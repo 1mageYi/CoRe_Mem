@@ -328,8 +328,7 @@ class Stage2ObservationParser:
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),
             (r"\b(?:i don't like|i do not like|i hate|i can't stand)\s+(?P<value>.+)", "negative", 0.9),
-            (r"\b(?:i\s+think\s+)?(?:i am|i'm)\s+(?P<value>more drawn to\s+.+)", "positive", 0.86),
-            (r"\b(?:i work as|my job is|i am an?|i'm an?)\s+(?P<value>.+)", "neutral", 0.82),
+            (r"\b(?:i am|i'm|i work as|my job is)\s+(?:an?\s+)?(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i live in|i'm from|i am from)\s+(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i want to|i plan to|i'm going to)\s+(?P<value>.+)", "positive", 0.8),
             (r"\b(?:i can't eat|i cannot eat|i'm allergic to|i am allergic to)\s+(?P<value>.+)", "negative", 0.88),
