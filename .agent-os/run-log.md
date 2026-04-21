@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-21 Session 091
+
+- Worked on: 验证 `eade2c3` 是否把此前已经打通的 Persona hard samples 打回去
+- State changed:
+  - 以 shared predictors 顺序重放 `5370...`、`a40d5...` 与 `c8a763...` 后，三条样本全部保持正确，分别仍是 `(b)`、`(d)` 与 `(b)`
+  - 结合前一轮 `acd742... -> (c)` 的单样本 probe，current HEAD `eade2c3` 现在已把 actual hard-4 gate 提到 `4/4`
+  - 由于这轮只是 measurement、没有改变 official verifier，helper 已把它记为 iteration `25 refine`
+- Evidence / artifacts:
+  - commit `eade2c3`
+  - `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T005228Z_hard3_probe.json`
+  - `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T005228Z_hard3_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 当前不再需要继续围着 hard-4 做单点修补，它已经在 actual runtime 上闭合成 `4/4`
+  - 下一轮直接把 measurement 扩到更大但仍可控的 Persona 小样本，判断局部 gain 是否能外扩
+
 # 2026-04-21 Session 090
 
 - Worked on: 针对 `acd742...` 的 remaining hard case，修 query ranking 与 learned belief coercion 的同 relation facet 竞争
