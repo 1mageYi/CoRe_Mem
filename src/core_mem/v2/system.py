@@ -248,6 +248,11 @@ class StructuredMemorySystem:
                     ),
                     reverse=True,
                 )
+                positive, negative = self._rerank_same_relation_latent_facet_candidates(
+                    positive,
+                    negative,
+                    latent_scores=latent_scores,
+                )
                 ranked = [slot for slot, _, _ in [*positive, *negative]]
             else:
                 ranked = [
@@ -426,6 +431,74 @@ class StructuredMemorySystem:
 
     def _slot_assignment_enabled(self) -> bool:
         return self.use_learned_slot_assignment or self.slot_assignment_mode == "learned"
+
+    @classmethod
+    def _slot_is_concrete_facet(cls, slot: SlotRecord) -> bool:
+        if not cls._relation_supports_distinct_facets(slot.relation):
+            return False
+        canonical_value = cls._canonical_slot_value(slot)
+        if not canonical_value:
+            return False
+        if cls._belief_value_looks_abstractive(canonical_value):
+            return False
+        return len(_TOKEN_RE.findall(canonical_value.lower())) <= 6
+
+    @classmethod
+    def _should_promote_latent_facet_slot(
+        cls,
+        *,
+        incumbent_slot: SlotRecord,
+        incumbent_lexical_overlap: float,
+        incumbent_latent: float,
+        candidate_slot: SlotRecord,
+        candidate_latent: float,
+    ) -> bool:
+        if candidate_slot.relation != incumbent_slot.relation:
+            return False
+        if not cls._relation_supports_distinct_facets(candidate_slot.relation):
+            return False
+        if incumbent_lexical_overlap > 0.2:
+            return False
+        if candidate_latent <= incumbent_latent + 0.03:
+            return False
+        if not cls._belief_value_looks_abstractive(cls._canonical_slot_value(incumbent_slot)):
+            return False
+        return cls._slot_is_concrete_facet(candidate_slot)
+
+    @classmethod
+    def _rerank_same_relation_latent_facet_candidates(
+        cls,
+        positive: list[tuple[SlotRecord, float, float]],
+        negative: list[tuple[SlotRecord, float, float]],
+        *,
+        latent_scores: dict[str, float],
+    ) -> tuple[list[tuple[SlotRecord, float, float]], list[tuple[SlotRecord, float, float]]]:
+        if not positive or not negative:
+            return positive, negative
+
+        reranked_positive = list(positive)
+        remaining_negative: list[tuple[SlotRecord, float, float]] = []
+        for candidate in negative:
+            candidate_slot = candidate[0]
+            candidate_latent = float(latent_scores.get(candidate_slot.slot_id, float("-inf")))
+            insert_index = None
+            for idx, incumbent in enumerate(reranked_positive):
+                incumbent_slot, _, incumbent_lexical_overlap = incumbent
+                incumbent_latent = float(latent_scores.get(incumbent_slot.slot_id, float("-inf")))
+                if cls._should_promote_latent_facet_slot(
+                    incumbent_slot=incumbent_slot,
+                    incumbent_lexical_overlap=incumbent_lexical_overlap,
+                    incumbent_latent=incumbent_latent,
+                    candidate_slot=candidate_slot,
+                    candidate_latent=candidate_latent,
+                ):
+                    insert_index = idx
+                    break
+            if insert_index is None:
+                remaining_negative.append(candidate)
+                continue
+            reranked_positive.insert(insert_index, candidate)
+        return reranked_positive, remaining_negative
 
     def _latent_slot_scores(self, query_text: str, slots: list[SlotRecord]) -> dict[str, float]:
         if not slots:
@@ -938,12 +1011,39 @@ class StructuredMemorySystem:
             support_slot_ids = item.get("support_slot_ids")
             if relation not in available_relations and isinstance(fallback_item, dict):
                 relation = str(fallback_item.get("relation", relation))
-                fallback_support_ids = fallback_item.get("support_slot_ids")
-                if fallback_support_ids:
-                    support_slot_ids = fallback_support_ids
-                fallback_value = str(fallback_item.get("value", ""))
-                if fallback_value:
-                    value = fallback_value
+                candidate_support_slot_ids = [str(slot_id) for slot_id in support_slot_ids] if support_slot_ids else []
+                if not candidate_support_slot_ids:
+                    candidate_support_slot_ids = StructuredMemorySystem._infer_support_slot_ids(
+                        fallback_slots,
+                        relation=relation,
+                        value=value,
+                    )
+                candidate_support_slot = StructuredMemorySystem._select_belief_support_slot(
+                    fallback_slots,
+                    relation=relation,
+                    support_slot_ids=candidate_support_slot_ids,
+                )
+                sanitized_value = StructuredMemorySystem._sanitize_belief_value(value, relation=relation)
+                keep_candidate_value = (
+                    bool(sanitized_value)
+                    and candidate_support_slot is not None
+                    and candidate_support_slot.relation == relation
+                    and not StructuredMemorySystem._should_backfill_belief_value(
+                        sanitized_value,
+                        relation=relation,
+                        support_slot=candidate_support_slot,
+                    )
+                )
+                if keep_candidate_value:
+                    value = sanitized_value
+                    support_slot_ids = candidate_support_slot_ids
+                else:
+                    fallback_support_ids = fallback_item.get("support_slot_ids")
+                    if fallback_support_ids:
+                        support_slot_ids = fallback_support_ids
+                    fallback_value = str(fallback_item.get("value", ""))
+                    if fallback_value:
+                        value = fallback_value
             if not support_slot_ids:
                 support_slot_ids = StructuredMemorySystem._infer_support_slot_ids(
                     fallback_slots,

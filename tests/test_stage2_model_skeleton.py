@@ -323,6 +323,81 @@ def test_structured_memory_system_prefers_higher_query_score_within_lexical_posi
     assert "glass menagerie" in result.answer_text
 
 
+def test_structured_memory_system_promotes_concrete_latent_facet_over_weak_same_relation_overlap():
+    def _latent_ranker(_query_text: str, slots):
+        scores: dict[str, float] = {}
+        for slot in slots:
+            if "producing music with software" in slot.canonical_gloss:
+                scores[slot.slot_id] = 1.13
+            elif "unique sound rather than merely reinterpreting" in slot.canonical_gloss:
+                scores[slot.slot_id] = 1.07
+            else:
+                scores[slot.slot_id] = 0.1
+        return scores
+
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: '"belief_items": ["good"]["good"]',
+        latent_slot_ranker=_latent_ranker,
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-music-abstract",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-latent-facet",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-latent-facet",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "committing to invest my time in the creation of original music, focusing on my unique sound rather than merely reinterpreting the pieces of other artists",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.9,
+                "evidence_text": "I am committing to invest my time in the creation of original music, focusing on my unique sound rather than merely reinterpreting the pieces of other artists.",
+                "canonical_gloss": "music_preference=committing to invest my time in the creation of original music, focusing on my unique sound rather than merely reinterpreting the pieces of other artists",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-music-software",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-latent-facet",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-latent-facet",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "producing music with software",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.9,
+                "evidence_text": "I like producing music with software.",
+                "canonical_gloss": "music_preference=producing music with software",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query(
+        "query-latent-facet",
+        "I recently attended an event where there was a unique blend of modern beats with Pacific sounds.",
+    )
+
+    assert result.selected_slots[0].canonical_gloss == "music_preference=producing music with software"
+    assert result.belief_state.belief_items[0].relation == "music_preference"
+    assert result.belief_state.belief_items[0].value == "producing music with software"
+
+
 def test_structured_memory_system_uses_recent_dialogue_context_for_coupon_redemption():
     system = StructuredMemorySystem()
     system.observe_turn(
