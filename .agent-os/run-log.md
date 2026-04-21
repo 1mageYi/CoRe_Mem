@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-21 Session 090
+
+- Worked on: 针对 `acd742...` 的 remaining hard case，修 query ranking 与 learned belief coercion 的同 relation facet 竞争
+- State changed:
+  - current HEAD `eade2c3` 在 `src/core_mem/v2/system.py` 中新增了 restricted same-relation latent rerank：当 lexical-positive 的 incumbent 是长抽象 facet，而同 relation 的 concrete facet 具有更强 latent score 时，允许后者越过严格的 positive/negative 分层
+  - 同一 commit 又修了 invalid relation 的 belief coercion：如果 repair 阶段已经恢复出 grounded value，不再无条件用 fallback item 的抽象 value 覆盖它
+  - `tests/test_stage2_model_skeleton.py` 已补齐同 relation latent-facet 回归；configured guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - 单样本 probe `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T004426Z_acd742_probe.json` 已机械确认：`acd742...` 从旧的 `(b)` 翻到正确 `(c)`，belief 变为 `music_preference=producing music with software`
+  - 因为 official verifier 仍没动，helper 已把这轮记为 iteration `24 refine`
+- Evidence / artifacts:
+  - commit `eade2c3`
+  - `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T004426Z_acd742_probe.json`
+  - `outputs_v2/v33_latent_facet_rerank_local/artifacts/20260421T004426Z_acd742_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 `acd742...` 当作剩余未解的单样本 blocker，它已经在 current HEAD 上翻正
+  - 下一轮先建立更便宜的 non-regression gate，确认 `eade2c3` 对剩余 hard slice / 小样本 Persona 不回退，再决定是否恢复更大 partial holdout
+
 # 2026-04-20 Session 089
 
 - Worked on: 针对 `a40d5...` 缺失 “positive feedback from peers” reason slot 的问题，补一条 generic feedback-reason parser coverage
