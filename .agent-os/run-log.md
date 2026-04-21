@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-21 Session 096
+
+- Worked on: 用第二组 focused `suggest_new_ideas` local-only slice 检查 `49e1841` 的 boolean-backfill 是否只是首组样本偶然命中
+- State changed:
+  - fresh run `outputs_v2/v33_boolean_belief_suggest4b_localonly/runs/20260421T021706Z_stage2_memory_canary_personamem/` 已完整跑完，summary `outputs_v2/v33_boolean_belief_suggest4b_localonly/evals_benchmark/20260421T021706Z_stage2_memory_canary.json` 当前记录 `local_exact = 4/4`、`local_baseline_exact = 0/4`、`provider_configured = false`
+  - 对应 artifact `outputs_v2/v33_boolean_belief_suggest4b_localonly/artifacts/20260421T022100Z_boolean_check.json` 进一步确认 `boolean-like belief rows = 0/4`
+  - 因此 `49e1841` 的 generic boolean-backfill 已不再是单样本 `b358...` 或单个 partial slice 偶然命中，而是在两组 focused `suggest_new_ideas` slice 上都成立
+  - 因为这轮仍是 local-only measurement、official verifier 没动，helper 已把它记为 iteration `31 refine`
+- Evidence / artifacts:
+  - commit `49e1841`
+  - `outputs_v2/v33_boolean_belief_suggest4b_localonly/evals_benchmark/20260421T021706Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_boolean_belief_suggest4b_localonly/artifacts/20260421T022100Z_boolean_check.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 `belief=true` / boolean-like coercion 当当前主不确定项，它已经在两组 focused suggest slice 上稳定成立
+  - 下一轮直接回到更广的 mixed Persona local-only gate，判断这条修复是否开始改变 broader local ceiling；若没有，就把主火力切回 selected-slot ranking
+
 # 2026-04-21 Session 095
 
 - Worked on: 用 focused `suggest_new_ideas` local-only slice 测量 `49e1841` 的 boolean-backfill 是否开始外扩
