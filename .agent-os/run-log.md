@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-21 Session 093
+
+- Worked on: 继续放大 local-only Persona slice，并在 evidence 足够后主动截断长耗时 measurement
+- State changed:
+  - `smoke16` local-only run 在主动截断前已完成 `6` 条样本，当前 `local_exact = 6/6`、`local_baseline_exact = 1/6`
+  - 这说明 `eade2c3` 的局部 gain 不只在 `smoke8` 上成立，也没有在更大的 Persona slice 上立刻塌掉
+  - 当前 partial `smoke16` 还暴露出一个更高优先级的诊断线索：`b358...` 这类 `suggest_new_ideas` 样本虽然当前 answer 仍正确，但 learned belief value 会退化成 `true`
+  - 因为这轮是 partial measurement、没有改 official verifier，helper 已把它记为 iteration `28 refine`
+- Evidence / artifacts:
+  - commit `eade2c3`
+  - `outputs_v2/v33_latent_facet_rerank_smoke16_localonly/runs/20260421T012155Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续空等 `smoke16` 全量跑完
+  - 下一轮先检查 `suggest_new_ideas` / `belief=true` 这类 projection-noise 是否值得做最小修复
+
 # 2026-04-21 Session 092
 
 - Worked on: 把 `eade2c3` 的局部增益从 hard-4 扩到更大的 Persona local-only slice 测量
