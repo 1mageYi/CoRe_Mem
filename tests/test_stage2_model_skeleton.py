@@ -826,6 +826,42 @@ def test_structured_memory_system_backfills_malformed_learned_belief_value_from_
     assert result.belief_state.belief_items[0].value == "music in its truest form, without rigid guidelines dictating how i should dissect it"
 
 
+def test_structured_memory_system_backfills_boolean_like_learned_belief_value_from_support_slot():
+    system = StructuredMemorySystem(
+        memory_mode="learned_memory",
+        use_learned_memory=True,
+        learned_belief_predictor=lambda *_args, **_kwargs: "true",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-learned-music-boolean",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "music_preference",
+                "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.9,
+                "evidence_text": "I want to enjoy music in its truest form.",
+                "canonical_gloss": "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-learned-bool-support", "How can I find a more fulfilling way to express my love for music?")
+    assert result.belief_source == "learned_memory"
+    assert result.belief_state.belief_items[0].relation == "music_preference"
+    assert result.belief_state.belief_items[0].value == "music in its truest form, without rigid guidelines dictating how i should dissect it"
+
+
 def test_structured_memory_system_backfills_same_relation_belief_value_when_ungrounded():
     def _predict(query_id: str, _query_text: str, _slots):
         return {

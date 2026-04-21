@@ -34,6 +34,7 @@ _NUMBER_VALUE_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
 _RAW_VALUE_STRIP_RE = re.compile(r'^[\s\[\]\{\}",:]+|[\s\[\]\{\}",:]+$')
 _STRUCTURAL_VALUE_NOISE_RE = re.compile(r'[\{\}\[\]]|":|",|"{2,}|"{3,}|,\s*"')
 _MULTI_FACET_RELATIONS = {"other_fact", "hobby"}
+_BOOLEAN_LIKE_VALUES = {"true", "false", "yes", "no"}
 _QUERY_STOPWORDS = {
     "a",
     "an",
@@ -1223,6 +1224,8 @@ class StructuredMemorySystem:
         canonical_value = cls._canonical_slot_value(support_slot)
         if not canonical_value:
             return False
+        if cleaned.lower() in _BOOLEAN_LIKE_VALUES and canonical_value.strip().lower() not in _BOOLEAN_LIKE_VALUES:
+            return True
         if cleaned.lower() == canonical_value.lower():
             return False
         grounded = cls._belief_value_grounded_in_support_slot(cleaned, support_slot=support_slot)
