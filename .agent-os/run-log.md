@@ -1,5 +1,96 @@
 # Run Log
 
+# 2026-04-21 Session 102
+
+- Worked on: 回滚 `OptionScoringHead` 的 v33 density penalties，验证它是否是 `0d... / 2cef...` 这类 answer-head regression 的直接来源
+- State changed:
+  - 当前 worktree 已撤回 `3234a4b` 引入的 `support-density / unsupported-detail / option_length` 惩罚，让 `OptionScoringHead` 回到 v32 overlap-style ranking，同时保留 `12e676a` 的 low-info token cleanup
+  - `tests/test_stage2_memory_canary.py` 已补两条 regression：一条直接锁住 `0d...` 的 cooking recommendation projection，另一条锁住 `2cef...` 的 preference-evolution option ordering；对应窄测试与 full guard 已通过
+  - `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`，所以这轮当前只能诚实记为 refine；与此同时，fresh `smoke8` rerun 目前已落前 `4` 条样本且都保持正确，但完整 local measurement 仍在跑
+- Evidence / artifacts:
+  - `src/core_mem/v2/answer_head.py`
+  - `tests/test_stage2_memory_canary.py`
+  - `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/runs/20260421T055417Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 等 in-flight local-only measurement 收口后，用 helper 记账这轮 answer-head rollback refine
+  - 若 broader local-only gate 不继续上升，就回到剩余 projection miss 的结构性分析，而不是继续堆 option-density 惩罚
+
+# 2026-04-21 Session 101
+
+- Worked on: 把 `d71...` 的 answer-head blocker 再往前推进，并验证 narrow option-head gain 是否成立
+- State changed:
+  - 未提交的 `back-only` low-info token patch 虽然通过了窄测试，但 fresh `d71...` probe `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T053853Z_stage2_memory_canary.json` 只把 local answer 从 `(a)` 摇到 `(d)`，没有翻到 gold `(c)`；helper 已把它记为 iteration `42 discard` 并回滚
+  - 随后 commit `12e676a` 把 `back / other / think / thoughts` 一起压成 option-head low-info overlap tokens；fresh probes `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T054201Z_stage2_memory_canary.json` 与 `outputs_v2/v33_advice_probe_b449/evals_benchmark/20260421T054201Z_stage2_memory_canary.json` 已分别给出 `local_exact = 1/1` 与 `1/1`，而 `outputs_v2/v33_advice_probe_0d/evals_benchmark/20260421T054201Z_stage2_memory_canary.json` 仍是 `0/1`
+  - full guard 通过、`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`；helper 已把这轮记为 iteration `43 refine`
+  - 当前又已启动旧 `smoke8` manifest 的 fresh local-only rerun，准备检查这条 narrow answer-head gain 是否开始从 `d71...` 向 broader Persona slice 外扩
+- Evidence / artifacts:
+  - commit `12e676a`
+  - `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T054201Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_advice_probe_b449/evals_benchmark/20260421T054201Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_advice_probe_0d/evals_benchmark/20260421T054201Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 用 fresh `smoke8` local-only measurement 判断 `12e676a` 是否开始形成 broader projection gain
+  - 若 `smoke8` 不继续上升，就直接回到 `0d...` 这类 remaining projection miss 的结构性特征分析
+
+# 2026-04-21 Session 100
+
+- Worked on: 把 `d71...` 从 selected-slot / belief miss 继续往前推进到 option-head-only blocker
+- State changed:
+  - commit `2cd6c9b` 已把 withdrawal clause 编成 `recent_change` advice evidence，并把 advice-query zero-overlap negatives 改成 `score-first` 排序；fresh `d71...` probe `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T051757Z_stage2_memory_canary.json` 已让 `cdc8...` 进入 selected top-k，但 belief 仍留在 `assisting with literacy programs`
+  - 随后 commit `c4e71d1` 又把 weak `other_fact` latent facet promotion 收紧到“candidate latent 更高且 score 不显著更差”的 gate；fresh `d71...` probe `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T052743Z_stage2_memory_canary.json` 已让 selected[0] 与 learned belief 一起落成 `step back from structured book club settings`
+  - 同一 probe 的 local answer 仍是 `(a)` 而不是 gold `(c)`；raw predictor output 已证实当前 learned belief 本身就跟着 selected[0] 走，因此 bottleneck 已从 belief repair 继续收紧成 option projection
+  - full guard 与 `scripts/verify_stage2_v33_longrun.py --score-only` 已重新通过；helper 已把 selected-topk refine 记为 iteration `39 refine`、belief-corrected refine 记为 iteration `40 refine`，并用 iteration `41 no-op` 修正了一次 commit provenance typo
+- Evidence / artifacts:
+  - commit `2cd6c9b`
+  - commit `c4e71d1`
+  - `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T051757Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T052743Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_withdrawal_probe_d71/runs/20260421T052743Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续调 retrieval / belief for `d71...`
+  - 直接针对 answer-option projection 的 `(a)` 偏置做下一轮 local-only experiment
+
+# 2026-04-21 Session 099
+
+- Worked on: 在 corrected learned runtime 上复核 `d71...` withdrawal coverage，判断 parser patch 应该 discard 还是 refine 保留
+- State changed:
+  - current HEAD `3fa4d06` 保留了 activity-withdrawal parser coverage，并补齐 `tests/test_stage2_parser.py` 的 `step back / opted out` 回归；configured guard 再次通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`
+  - fresh corrected-runtime `d71...` probe `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T045624Z_stage2_memory_canary.json` 继续给出 `local_exact = 0/1`、answer `(d)`，但进一步 inspection 已确认 active memory 里新增了 `other_fact=step back from structured book club settings`
+  - 同一 inspection 也确认 selected slots 仍没有把该 withdrawal slot 带进 belief；belief 继续只保留 `other_fact=assisting with literacy programs`，因此当前 bottleneck 已从 parser/write 缺口收紧成 selected-slot ranking / belief selection miss
+  - 因为这轮形成的是 write-coverage refine 而不是 score gain，helper 接下来应把它记为 iteration `37 refine`
+- Evidence / artifacts:
+  - commit `3fa4d06`
+  - `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T045624Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_withdrawal_probe_d71/runs/20260421T045624Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续扩 parser-only 或 answer-head-only micro-fix
+  - 直接针对 `d71...` 与 broader mixed Persona gate 推进 selected-slot ranking / belief selection hypothesis，并继续基于 corrected runtime 做 local-only measurement
+
+# 2026-04-21 Session 098
+
+- Worked on: 试探 generic withdrawal parser coverage 是否能把 mixed Persona 剩余瓶颈从 parser/write 面继续往前推进
+- State changed:
+  - current HEAD `18f1f53` 曾为 `step back from structured ... settings` / `opted out of ...` 这类 activity-withdrawal turn 增加 generic parser coverage，并补了 synthetic parser tests 与 targeted local projection test
+  - 但 fresh real local-only probe `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T040035Z_stage2_memory_canary.json` 仍给出 `local_exact = 0/1`；对应 prediction 里 `d71...` 的 belief 继续停在 `other_fact=assisting with literacy programs`，answer 仍是 `(d)`，没有翻到 gold `(c)`
+  - 因为这轮 patch 没有形成 real sample gain，代码已完整回滚；helper 已把它记为 iteration `33 discard`
+- Evidence / artifacts:
+  - commit `18f1f53`
+  - `outputs_v2/v33_withdrawal_probe_d71/evals_benchmark/20260421T040035Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_withdrawal_probe_d71/runs/20260421T040035Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再继续扩 parser-only withdrawal coverage
+  - 下一轮若 mixed Persona local-only gate 没有继续改善，就直接把主火力打回 selected-slot ranking / belief selection，而不是继续在 parser micro-fix 上消耗 iteration
+
 # 2026-04-21 Session 097
 
 - Worked on: 把 `49e1841` 的验证从 focused `suggest_new_ideas` slice 推回同 manifest 的 mixed Persona local-only gate
@@ -2328,3 +2419,44 @@
   - `tests/test_stage2_v23_longrun.py`
 - Next likely action:
   - 以 fresh-start 启动新的后台 `v2.3 long-run` autoresearch，并在 baseline 后开始围绕 `LongMemEval-S` 质量与 learned slot assignment 迭代
+
+## 2026-04-21 Session 026
+
+- Worked on: 继续 `TD-044 / WS-030` managed autoresearch，验证 advice-query finite-option answer head 是否能把 current `v33` Persona local ceiling 往上推
+- State changed:
+  - 用 helper 记账 iteration `35 discard`
+  - authoritative state 当前更新为：retained metric 仍是 `36`，last status 变为 `discard`，last trial labels 为 `advice-option-head / 0d-exact-flip / b449-nonregression / d71-still-blocked / v33`
+  - advice-query option-head patch 已完整回滚，repo 只保留 experiment artifacts 与状态文档更新
+- Evidence / artifacts:
+  - `outputs_v2/v33_advice_probe_0d/evals_benchmark/20260421T042820Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_advice_probe_b449/evals_benchmark/20260421T042832Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_advice_probe_d71/evals_benchmark/20260421T042841Z_stage2_memory_canary.json`
+  - `research-results.tsv` row `35`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k "broader_selected_memory_for_advice_queries or free_form_creativity_advice_non_regression or unsupported_long_option_details or local_projection_maps_belief_text_to_option_label"`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+- Next likely action:
+  - 继续沿 `selected-slot ranking / belief selection` 主线推进，而不是继续做 parser-only coverage 或 finite-option weighting micro-fix
+
+## 2026-04-21 Session 027
+
+- Worked on: 修正 `v33` learned-authoritative runner 的配置真相，确保 default canary path 会自动加载当前 intended learned checkpoints
+- State changed:
+  - commit `cd1205f` 已把 `configs/minimax_m27.yaml` 的 `stage2_runtime` defaults 接进 `scripts/run_stage2_memory_canary.py`
+  - helper 已把这轮记为 iteration `36 refine`
+  - retained metric 继续是 `36`，但 current runtime truth 现在明确要求：后续 learned-authoritative probes 默认必须跑在 non-null checkpoint dirs 上
+- Evidence / artifacts:
+  - `configs/minimax_m27.yaml`
+  - `scripts/run_stage2_memory_canary.py`
+  - `tests/test_stage2_memory_canary.py`
+  - `outputs_v2/v33_advice_probe_0d/evals_benchmark/20260421T043908Z_stage2_memory_canary.json`
+  - `research-results.tsv` row `36`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k "stage2_runtime_defaults_load_from_config or uses_stage2_runtime_defaults_from_config or writes_learned_alias_artifact or writes_honest_blocked_artifact_without_provider"`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 在 corrected learned runtime 上继续推进 selected-slot ranking / belief selection，而不是再浪费在 null-checkpoint noise 上

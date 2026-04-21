@@ -109,9 +109,6 @@ class OptionScoringHead:
     """Rank answer options from latent/belief evidence without benchmark-specific shortcuts."""
 
     min_token_len: int = 3
-    unsupported_detail_penalty: float = 0.5
-    support_density_bonus: float = 4.0
-    option_length_penalty: float = 0.3
 
     def _content_token_set(self, text: str) -> set[str]:
         return {
@@ -167,12 +164,6 @@ class OptionScoringHead:
             if normalized_answer and normalized_body:
                 if normalized_answer in normalized_body or normalized_body in normalized_answer:
                     score += 6.0
-            if option_terms and support_terms:
-                supported = len(option_terms & support_terms)
-                unsupported = len(option_terms - support_terms)
-                score += self.support_density_bonus * (supported / len(option_terms))
-                score -= self.unsupported_detail_penalty * unsupported
-                score -= self.option_length_penalty * len(option_terms)
             if score > best_score:
                 best_score = score
                 best_option = option_label(option) if label_mode else option

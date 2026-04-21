@@ -583,6 +583,89 @@ def test_personamem_local_projection_downweights_generic_back_other_tokens_for_w
     assert projected == "(c)"
 
 
+def test_personamem_local_projection_prefers_recipe_expansion_over_generic_markets():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recalling_facts_mentioned_by_the_user",
+        topic="foodRecommendation",
+        user_question_or_message="Can you suggest some new cooking techniques or recipes I might enjoy exploring?",
+        correct_answer="(c)",
+        all_options=[
+            "(a) Since you've recently taken a cooking class and enjoyed learning about both the techniques and cultural histories behind recipes, you might appreciate exploring local farmers' markets. Discovering fresh, seasonal produce and learning about the farmers' stories could enhance your appreciation of ingredients. Have you tried visiting different markets to find unique ingredients?",
+            "(b) Since you've recently taken a cooking class and enjoyed learning about both the techniques and cultural histories behind recipes, you might appreciate starting a food blog. Sharing your culinary journey and exchanging ideas with fellow enthusiasts could further enrich your experience. Have you tried writing about your own interpretations of the dishes you've learned?",
+            "(c) Since you've recently taken a cooking class and enjoyed learning about both the techniques and cultural histories behind recipes, you might appreciate delving into fusion cuisines. Exploring how different cultures use similar ingredients in unique ways could further expand your culinary skills. Have you tried looking into how you can combine elements from the cuisines you learned about with others to create something entirely new?",
+            "(d) Since you've recently taken a cooking class and enjoyed learning about both the techniques and cultural histories behind recipes, you might appreciate experimenting with molecular gastronomy. Understanding the science behind cooking could add a new dimension to your skills. Have you tried using techniques like spherification or sous vide to transform classic dishes?",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "opted out of cooking classes that i once enjoyed",
+            "belief_state": {
+                "belief_items": [
+                    {"relation": "other_fact", "value": "opted out of cooking classes that i once enjoyed"}
+                ]
+            },
+            "evidence_block": "- other_fact: opted out of cooking classes that i once enjoyed",
+            "selected_slot_glosses": [
+                "other_fact=opted out of cooking classes that i once enjoyed",
+                "hobby=experimenting with different recipes",
+                "other_fact=excited to learn various techniques that can facilitate this process",
+            ],
+        },
+        question,
+    )
+    assert projected == "(c)"
+
+
+def test_personamem_local_projection_recovers_preference_evolution_option_order():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="track_full_preference_evolution",
+        topic="musicRecommendation",
+        user_question_or_message=(
+            "After several disagreements over the artistic direction, I felt stifled, which really discouraged me from that collaborative process. "
+            "It was as if the creative vision I had in mind was at odds with the direction my bandmates wanted to pursue. "
+            "I remember those discussions often being emotionally charged, where opinions clashed and passion ran high, but ultimately, it was clear that I couldn't contribute to something that did not resonate with my artistic essence. "
+            "Feeling restricted in that environment made me question not just my contributions, but also my abilities and instincts as an artist. "
+            "This inner turmoil prompted a desire for more autonomy over my own creative endeavors, leading to a pivotal decision to explore my artistry in a more personal and independent setting."
+        ),
+        correct_answer="(a)",
+        all_options=[
+            "(a) I understand that initially, you enjoyed collaborating with other musicians, finding it an enriching creative experience. However, over time, your preferences evolved due to feeling stifled by disagreements over artistic direction. This led to a shift away from collaboration, as you felt constrained and questioned your artistic abilities and instincts. Your journey reflects a transition from a collaborative approach to seeking independence in order to pursue your creative endeavors in a manner that resonates with your artistic essence.",
+            "(b) You initially felt constrained by disagreements over artistic direction, feeling stifled and questioning your artistic abilities and instincts. Afterwards, you went on to enjoy collaborating with other musicians, as it was an enriching creative experience, before ultimately seeking independence to pursue your creative endeavors.",
+            "(c) At first, you questioned your artistic abilities and instincts, feeling stifled by disagreements over artistic direction in collaborations. Nevertheless, over time, you began enjoying collaboration with other musicians as an enriching creative experience, before eventually transitioning to independence to fully resonate with your true creative essence.",
+            "(d) Initially, you felt constrained by disagreements over artistic direction, which made you question your artistic abilities and instincts. However, over time, you found collaborating with other musicians to be an enriching creative experience. This led to a shift towards collaboration, as you sought creative endeavors that resonate with your artistic essence.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "able to create a unique sound that pays homage to my roots while also pushing the boundaries of what is traditionally expected",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "able to create a unique sound that pays homage to my roots while also pushing the boundaries of what is traditionally expected",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: able to create a unique sound that pays homage to my roots while also pushing the boundaries of what is traditionally expected",
+            "selected_slot_glosses": [
+                "music_preference=enjoy collaborating with other musicians, finding it an enriching creative experience",
+                "other_fact=able to create a unique sound that pays homage to my roots while also pushing the boundaries of what is traditionally expected",
+                "music_preference=seeking independence in order to pursue my creative endeavors",
+            ],
+        },
+        question,
+    )
+    assert projected == "(a)"
+
+
 def test_personamem_prompt_has_no_candidate_injection():
     question = PersonaMemQuestion(
         persona_id="p",
