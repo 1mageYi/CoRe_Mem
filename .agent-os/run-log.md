@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-21 Session 094
+
+- Worked on: 把 `smoke16` 暴露出的 `belief=true` projection noise 收敛成 generic boolean-like belief backfill
+- State changed:
+  - current HEAD `49e1841` 在 `src/core_mem/v2/system.py` 中新增 boolean-like learned belief value backfill：当 `true/false/yes/no` 这类低信息值挂在 same-support belief 上、而 support slot canonical value 明显是非 boolean 语义时，系统会回填 canonical value
+  - `tests/test_stage2_model_skeleton.py` 已补齐对应回归；targeted tests、configured guard 与 real sample replay 均通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - real sample probe `outputs_v2/v33_boolean_belief_backfill_local/artifacts/20260421T015404Z_b358_probe.json` 已机械确认：`b3588797-acdf-40d3-bcc5-951f81896f95` 从 `belief=true` 修回 support-slot canonical text，answer 仍保持正确 `(a)`
+  - 因为 official verifier 没动，helper 已把这轮记为 iteration `29 refine`
+- Evidence / artifacts:
+  - commit `49e1841`
+  - `outputs_v2/v33_boolean_belief_backfill_local/artifacts/20260421T015404Z_b358_probe.json`
+  - `outputs_v2/v33_boolean_belief_backfill_local/artifacts/20260421T015404Z_b358_compare.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Next likely action:
+  - 不再把 `belief=true` 是否值得修当开放问题，它已经在 current HEAD 上被 generic 化并通过真实样本验证
+  - 下一轮先判断这条 boolean-backfill 能否在更大 `suggest_new_ideas` / Persona slice 上形成可测外扩；若不能，就把主火力打回 selected-slot ranking 与更大 local-only measurement
+
 # 2026-04-21 Session 093
 
 - Worked on: 继续放大 local-only Persona slice，并在 evidence 足够后主动截断长耗时 measurement
