@@ -59,6 +59,20 @@ _STORE_CONTEXT_PATTERNS = (
         re.IGNORECASE,
     ),
 )
+_WITHDRAWAL_PATTERNS = (
+    re.compile(
+        r"\b(?:i(?:'ve| have)? decided to|i)\s+(?P<value>step back from\s+[^,.!?]+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:i\s+)?(?P<value>opted out of\s+[^,.!?]+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:i\s+)?(?P<value>stopped attending\s+[^,.!?]+)",
+        re.IGNORECASE,
+    ),
+)
 
 
 def _slugify(text: str) -> str:
@@ -97,6 +111,17 @@ def _extract_music_technology_value(clause: str) -> tuple[str, str, float] | Non
     return "producing music with software", "positive", 0.78
 
 
+def _extract_withdrawal_value(clause: str) -> tuple[str, str, float] | None:
+    for pattern in _WITHDRAWAL_PATTERNS:
+        match = pattern.search(clause)
+        if not match:
+            continue
+        value = match.group("value").strip(" .,!?\n\t")
+        if value:
+            return value.lower(), "negative", 0.8
+    return None
+
+
 def _normalize_feedback_value(value: str) -> str:
     lowered = " ".join(value.lower().split())
     if "feedback" not in lowered:
@@ -111,6 +136,8 @@ def _normalize_feedback_value(value: str) -> str:
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
+    if any(phrase in lowered_value for phrase in ("step back from", "opted out of", "stopped attending")):
+        return "other_fact", "other"
     if "redeemed" in lowered_text and "coupon" in lowered_text:
         return "episodic_event", "event"
     if "graduated with" in lowered_text or "degree" in lowered_text:
@@ -292,6 +319,9 @@ class Stage2ObservationParser:
         music_tech = _extract_music_technology_value(cleaned)
         if music_tech is not None:
             return music_tech
+        withdrawal = _extract_withdrawal_value(cleaned)
+        if withdrawal is not None:
+            return withdrawal
 
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),

@@ -112,6 +112,36 @@ def test_stage2_parser_extracts_feedback_reason_clause():
     assert any(item.value == "getting positive feedback from my peers about my last podcast" for item in observations)
 
 
+def test_stage2_parser_extracts_step_back_withdrawal_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "However, I've decided to step back from structured book club settings.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "step back from structured book club settings"
+
+
+def test_stage2_parser_extracts_opted_out_withdrawal_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I also opted out of cooking classes that I once enjoyed.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "opted out of cooking classes that i once enjoyed"
+
+
 def test_stage2_parser_extracts_store_location_from_shopping_turn():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(
