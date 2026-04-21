@@ -73,26 +73,6 @@ _WITHDRAWAL_PATTERNS = (
         re.IGNORECASE,
     ),
 )
-_AUTHORING_PATTERNS = (
-    re.compile(
-        r"\b(?:i\s+)?(?:even\s+)?(?P<value>(?:wrote|write|created|create|curated|curate|published|publish|posted|post|shared|share)\s+"
-        r"[^,.!?]{0,120}?\b(?:blog|list|portfolio|newsletter)\b[^,.!?]{0,80})",
-        re.IGNORECASE,
-    ),
-)
-_LEARNING_TOPIC_PATTERNS = (
-    re.compile(
-        r"\b(?:learn(?:ing)?\s+more\s+about|learned\s+about|opportunity\s+to\s+learn\s+more\s+about|chance\s+to\s+learn\s+more\s+about)\s+"
-        r"(?P<value>[^,.!?]+)",
-        re.IGNORECASE,
-    ),
-)
-_LEARNING_TOPIC_ANCHORS = (
-    (re.compile(r"\b(?:film|films|cinema)\b", re.IGNORECASE), "film"),
-    (re.compile(r"\b(?:movie|movies)\b", re.IGNORECASE), "movie"),
-    (re.compile(r"\b(?:music|musical|song|songs)\b", re.IGNORECASE), "music"),
-    (re.compile(r"\b(?:book|books|reading)\b", re.IGNORECASE), "book"),
-)
 
 
 def _slugify(text: str) -> str:
@@ -151,48 +131,6 @@ def _normalize_feedback_value(value: str) -> str:
     about_match = re.search(r"\babout\s+([^,.!?]+)", lowered)
     about = f" about {about_match.group(1).strip()}" if about_match else ""
     return f"getting {positive}feedback{source}{about}".strip()
-
-
-def _normalize_authored_content_value(value: str) -> str:
-    cleaned = " ".join(value.lower().split())
-    cleaned = re.sub(r"^(?:i\s+)?", "", cleaned)
-    cleaned = re.sub(r"\s+(?:as well|too)$", "", cleaned)
-    return cleaned.strip(" .,!?\n\t")
-
-
-def _extract_authored_content_value(clause: str) -> tuple[str, str, float] | None:
-    for pattern in _AUTHORING_PATTERNS:
-        match = pattern.search(clause)
-        if not match:
-            continue
-        value = _normalize_authored_content_value(match.group("value"))
-        if value:
-            return value, "positive", 0.78
-    return None
-
-
-def _extract_learning_topic_value(clause: str, *, turn_text: str | None = None) -> tuple[str, str, float] | None:
-    if not turn_text or _extract_authored_content_value(turn_text) is None:
-        return None
-    for pattern in _LEARNING_TOPIC_PATTERNS:
-        match = pattern.search(clause)
-        if not match:
-            continue
-        value = " ".join(match.group("value").lower().split()).strip(" .,!?\n\t")
-        value = _anchor_learning_topic_value(value, turn_text=turn_text)
-        if value:
-            return value, "positive", 0.76
-    return None
-
-
-def _anchor_learning_topic_value(value: str, *, turn_text: str) -> str:
-    lowered_value = f" {value.lower()} "
-    for pattern, anchor in _LEARNING_TOPIC_ANCHORS:
-        if f" {anchor} " in lowered_value:
-            return value
-        if pattern.search(turn_text):
-            return f"{anchor} {value}".strip()
-    return value
 
 
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
@@ -275,7 +213,6 @@ class Stage2ObservationParser:
         if speaker == "assistant":
             return []
         candidates: list[Observation] = []
-        turn_text = _strip_role_prefix(text).strip()
         for idx, clause in enumerate(self._split_clauses(text)):
             parsed = self._parse_clause(
                 clause,
@@ -287,7 +224,6 @@ class Stage2ObservationParser:
                 speaker=speaker,
                 entity=entity,
                 context_text=context_text,
-                turn_text=turn_text,
             )
             if parsed is not None:
                 candidates.append(parsed)
@@ -312,9 +248,8 @@ class Stage2ObservationParser:
         speaker: str,
         entity: str,
         context_text: str | None,
-        turn_text: str,
     ) -> Observation | None:
-        value, polarity, confidence = self._extract_value(clause, context_text=context_text, turn_text=turn_text)
+        value, polarity, confidence = self._extract_value(clause, context_text=context_text)
         if not value or confidence < self.minimum_confidence:
             return None
 
@@ -347,12 +282,7 @@ class Stage2ObservationParser:
         )
 
     @staticmethod
-    def _extract_value(
-        clause: str,
-        *,
-        context_text: str | None = None,
-        turn_text: str | None = None,
-    ) -> tuple[str, str, float]:
+    def _extract_value(clause: str, *, context_text: str | None = None) -> tuple[str, str, float]:
         cleaned = _strip_role_prefix(clause).strip()
         lowered = cleaned.lower()
         special_patterns = [
@@ -394,17 +324,11 @@ class Stage2ObservationParser:
         withdrawal = _extract_withdrawal_value(cleaned)
         if withdrawal is not None:
             return withdrawal
-        authored_content = _extract_authored_content_value(cleaned)
-        if authored_content is not None:
-            return authored_content
-        learning_topic = _extract_learning_topic_value(cleaned, turn_text=turn_text)
-        if learning_topic is not None:
-            return learning_topic
 
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),
             (r"\b(?:i don't like|i do not like|i hate|i can't stand)\s+(?P<value>.+)", "negative", 0.9),
-            (r"\b(?:i work as|my job is|i am an?|i'm an?)\s+(?P<value>.+)", "neutral", 0.82),
+            (r"\b(?:i am|i'm|i work as|my job is)\s+(?:an?\s+)?(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i live in|i'm from|i am from)\s+(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i want to|i plan to|i'm going to)\s+(?P<value>.+)", "positive", 0.8),
             (r"\b(?:i can't eat|i cannot eat|i'm allergic to|i am allergic to)\s+(?P<value>.+)", "negative", 0.88),
