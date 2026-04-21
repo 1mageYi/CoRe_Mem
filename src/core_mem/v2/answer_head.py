@@ -104,6 +104,18 @@ def _token_set(text: str) -> set[str]:
     return set(_TOKEN_RE.findall(normalize_answer(text)))
 
 
+def _normalize_content_token(token: str) -> str:
+    normalized = token.lower()
+    if len(normalized) <= 4:
+        return normalized
+    if normalized.endswith("ies") and len(normalized) > 5:
+        return normalized[:-3] + "y"
+    for suffix in ("tions", "tion", "ings", "ing", "ed", "es", "s"):
+        if len(normalized) > len(suffix) + 2 and normalized.endswith(suffix):
+            return normalized[: -len(suffix)]
+    return normalized
+
+
 @dataclass(frozen=True)
 class OptionScoringHead:
     """Rank answer options from latent/belief evidence without benchmark-specific shortcuts."""
@@ -112,7 +124,7 @@ class OptionScoringHead:
 
     def _content_token_set(self, text: str) -> set[str]:
         return {
-            token
+            _normalize_content_token(token)
             for token in _token_set(text)
             if len(token) >= self.min_token_len and token not in _LOW_INFO_OPTION_TOKENS
         }

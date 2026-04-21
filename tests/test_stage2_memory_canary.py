@@ -666,6 +666,122 @@ def test_personamem_local_projection_recovers_preference_evolution_option_order(
     assert projected == "(a)"
 
 
+def test_personamem_local_projection_matches_music_production_morphology():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="suggest_new_ideas",
+        topic="musicRecommendation",
+        user_question_or_message=(
+            "I'm exploring new creative outlets and would love some suggestions. "
+            "Any ideas on activities that can capture emotions and ideas effectively?"
+        ),
+        correct_answer="(b)",
+        all_options=[
+            "(a) Another route you might consider is engaging in a collaborative project that involves exploring and blending different musical traditions. Much like how conversations with like-minded individuals can spark creativity and lead to new artistic endeavors, working with others on fusion music projects can blend unique perspectives, offering a fresh tapestry of sound that captures emotions and ideas effectively. Such collaborations might lead to artistic growth and open the door to new projects where diverse influences intertwine, creating a vibrant expression that resonates with audiences.",
+            "(b) Have you considered diving deeper into the various aspects of music production or learning about different genres and styles? Experimenting with new techniques or instruments could also offer fresh ways to express yourself creatively.",
+            "(c) Consider trying your hand at musical storytelling through documentaries. While some might feel lacking, there are incredible narratives to explore that highlight the authentic experiences of artists and the depth of their artistry. You could create a documentary that goes beyond spectacle to spotlight genuine stories, making space for underrepresented voices. Embarking on such a project could not only capture emotions and ideas effectively but also offer viewers a richer, more impactful connection to music and its cultural context.",
+            "(d) Exploring curated playlists or creating your own can be a creative outlet that allows you to appreciate and highlight artists from underrepresented genres or regions. By spotlighting talented individuals who bring unique cultural elements through fusion genres, you engage emotionally with the diversity and innovation in music. This approach not only helps capture emotions and ideas but also deepens your understanding of the music industry's rich landscape. It's a rewarding way to connect with the artistry and reflect these emotions in your musical journey.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "producing music with software",
+            "belief_state": {
+                "belief_items": [
+                    {"relation": "music_preference", "value": "producing music with software"}
+                ]
+            },
+            "evidence_block": "- music_preference: producing music with software",
+            "selected_slot_glosses": ["music_preference=producing music with software"],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_generalizes_structured_withdrawal_to_race_scenario():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="generalizing_to_new_scenarios",
+        topic="bookRecommendation",
+        user_question_or_message=(
+            "I've been thinking about joining a 5k race that my friends are signing up for, "
+            "but I'm not sure if it's something I should do. What do you think?"
+        ),
+        correct_answer="(d)",
+        all_options=[
+            "(a) Before deciding, consider how you respond to competition and social settings. A race can be a fun and rewarding goal, offering a chance to connect with your friends, but if that doesn't sound appealing, focusing on personal achievements and fitness milestones might be more suitable.",
+            "(b) Thinking about joining a 5k race is a great opportunity to challenge yourself and have fun with friends. If the idea excites you, it might be a good way to bond while also setting personal fitness goals. Remember, it's all about participating and enjoying the experience more than anything else.",
+            "(c) If you're feeling unsure, it might help to think about what you enjoy most in activities. Participating in an event with friends can be motivating, and trying something new could bring a fresh and exciting change to your routine. Enjoyment and camaraderie often make the experience worthwhile.",
+            "(d) If you're feeling hesitant, maybe it's worth considering how you like to approach physical activities. If being part of a structured event feels overwhelming or stressful, it might be better to enjoy the activity at your own pace, like running at your preferred time and setting your own goals. Finding enjoyment in the journey without the pressure to keep up with others can be really fulfilling.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "step back from structured book club settings",
+            "belief_state": {
+                "belief_items": [
+                    {"relation": "other_fact", "value": "step back from structured book club settings"}
+                ]
+            },
+            "evidence_block": "- other_fact: step back from structured book club settings",
+            "selected_slot_glosses": ["other_fact=step back from structured book club settings"],
+        },
+        question,
+    )
+    assert projected == "(d)"
+
+
+def test_personamem_local_projection_breaks_truest_music_tie_toward_first_matching_option():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="provide_preference_aligned_recommendations",
+        topic="musicRecommendation",
+        user_question_or_message=(
+            "I'm working on a new project blending cultural elements with modern music styles and "
+            "I'm curious what fresh approaches or techniques I could explore to really captivate an audience. "
+            "Any creative recommendations?"
+        ),
+        correct_answer="(a)",
+        all_options=[
+            "(a) To truly captivate your audience with a fusion of traditional and modern sounds, consider experimenting with a symphonic electronic style. This approach can elevate traditional melodies by embedding them within sweeping orchestral arrangements, paired with rhythmic electronic beats that offer a contemporary edge. Try collaborating with artists who specialize in electronic symphony-a genre that perfectly marries the depth of classical compositions with the energy of electronic music. This could not only highlight the richness of your cultural heritage but also attract a wide audience that appreciates intricate, harmonious blends. By focusing on a cohesive narrative within your remix, you could address creative differences by setting a clear artistic direction and shared aesthetic goal from the outset.",
+            "(b) To truly captivate your audience with a fusion of traditional and modern sounds, consider experimenting with a symphonic electronic style. This approach can elevate traditional melodies by embedding them within sweeping orchestral arrangements, paired with rhythmic electronic beats that offer a contemporary edge. Try collaborating with artists who specialize in electronic symphony-a genre that perfectly marries the depth of classical compositions with the energy of electronic music. This could not only highlight the richness of your cultural heritage but also attract a wide audience that appreciates intricate, harmonious blends. By focusing on a cohesive narrative within your remix, you could address creative differences by setting a clear artistic direction and shared aesthetic goal from the outset.",
+            "(c) One approach could be to dive into traditional Polynesian dances as the central element of your project. Use these movements to create a visually captivating performance, incorporating them with gentle acoustic guitar melodies that capture the essence of island life. Collaborate with other Pacific Island artists who focus on traditional dance music, ensuring the cultural integrity of your work is preserved. This approach not only emphasizes your connection to the rich heritage of the Pacific Islands but can also draw in audiences interested in cultural diversity. By keeping the performance rooted in authentic expressions, you can establish a clear, engaging narrative that respects and celebrates traditional practices.",
+            "(d) Consider hosting intimate live performances focusing on acoustic instruments and unplugged sets. This tactile experience can enhance the authenticity of blending traditional and modern sounds, offering audiences a raw, unaffected connection to your music. Collaborate with folk and jazz artists who excel in spontaneous, improvisational performances to infuse a natural, storytelling element into your songs. This method may help uncover new nuances within your music as you capture the spontaneous magic of live session recordings. By prioritizing acoustic soundscapes, you could navigate creative differences by embracing organic, real-time creation as a shared objective.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "music_preference",
+                        "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                    }
+                ]
+            },
+            "evidence_block": (
+                "- music_preference: music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ),
+            "selected_slot_glosses": [
+                "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ],
+        },
+        question,
+    )
+    assert projected == "(a)"
+
+
 def test_personamem_prompt_has_no_candidate_injection():
     question = PersonaMemQuestion(
         persona_id="p",

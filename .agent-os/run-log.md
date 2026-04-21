@@ -1,20 +1,46 @@
 # Run Log
 
+# 2026-04-21 Session 103
+
+- Worked on: 继续 `TD-044 / WS-030` managed autoresearch，把 answer-head rollback 从 `smoke8` 扩到 broader Persona local-only gate，并试探 generic morphology normalization 是否能继续吃掉 residual projection miss
+- State changed:
+  - helper 先把一次误跑记成 iteration `47 crash`：首个 `smoke16` broadening run 因当前 shell 继承了 `GPT_AGENT_API_KEY` 而错误进入 provider path，`run_metadata.json` 显示 `provider_configured=true`，因此在 `2` 条样本后主动中断并改为显式 `env -u GPT_AGENT_API_KEY` 重跑
+  - corrected local-only rerun `outputs_v2/v33_answer_head_overlap_smoke16_localonly_retry/evals_benchmark/20260421T064851Z_stage2_memory_canary.json` 已完整收口到 `local_exact = 12/16`、`baseline = 2/16`；helper 已把这条 measurement 记成 iteration `48 no-op`
+  - broadened smoke16 暴露出 `5370... / 32b... / 344ea... / 0adf...` 四条 residual projection miss，其中 `5370...` 与 `32b...` 都指向 generic lexical morphology mismatch：`producing` vs `production`、`structured` vs `settings`
+  - current worktree 随后为 `src/core_mem/v2/answer_head.py` 加入 minimal morphology normalization，并在 `tests/test_stage2_memory_canary.py` 新增三条 projection regressions；窄测试、full guard 与 `scripts/verify_stage2_v33_longrun.py --score-only` 均已通过，official verifier 仍是 `36`
+  - fresh broader gate `outputs_v2/v33_answer_head_stem_smoke16_localonly/evals_benchmark/20260421T071739Z_stage2_memory_canary.json` 已把 `local_exact` 从旧的 `12/16` 提到 `14/16`，翻正 `5370...` 与 `32b...`，只剩 `344ea...` 与 `0adf...`
+- Evidence / artifacts:
+  - `src/core_mem/v2/answer_head.py`
+  - `tests/test_stage2_memory_canary.py`
+  - `outputs_v2/v33_answer_head_overlap_smoke16_localonly_retry/evals_benchmark/20260421T064851Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_answer_head_stem_smoke16_localonly/evals_benchmark/20260421T071739Z_stage2_memory_canary.json`
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k "recipe_expansion_over_generic_markets or preference_evolution_option_order or unsupported_long_option_details or generic_back_other_tokens or music_production_morphology or structured_withdrawal_to_race_scenario or truest_music_tie_toward_first_matching_option"`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 把剩余 `344ea... / 0adf...` 逐条拆成 “answer-head lexical/semantic gap” 还是 “belief still too coarse”
+  - 在此之前不再回头重复 parser / retrieval / belief 微调，也不再重复只证明 broader gain 已存在的 measurement
+
 # 2026-04-21 Session 102
 
 - Worked on: 回滚 `OptionScoringHead` 的 v33 density penalties，验证它是否是 `0d... / 2cef...` 这类 answer-head regression 的直接来源
 - State changed:
   - 当前 worktree 已撤回 `3234a4b` 引入的 `support-density / unsupported-detail / option_length` 惩罚，让 `OptionScoringHead` 回到 v32 overlap-style ranking，同时保留 `12e676a` 的 low-info token cleanup
   - `tests/test_stage2_memory_canary.py` 已补两条 regression：一条直接锁住 `0d...` 的 cooking recommendation projection，另一条锁住 `2cef...` 的 preference-evolution option ordering；对应窄测试与 full guard 已通过
-  - `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`，所以这轮当前只能诚实记为 refine；与此同时，fresh `smoke8` rerun 目前已落前 `4` 条样本且都保持正确，但完整 local measurement 仍在跑
+  - `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`，所以这轮当前只能诚实记为 refine
+  - 同一 session 内，`12e676a` 启动的 fresh `smoke8` rerun `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T055417Z_stage2_memory_canary.json` 已完整收口到 `local_exact = 6/8`、`baseline = 1/8`；helper 已另外用 iteration `45 no-op` 把这条 late evidence 记回 state，而不替换 current trial commit `f9ebc8b`
 - Evidence / artifacts:
   - `src/core_mem/v2/answer_head.py`
   - `tests/test_stage2_memory_canary.py`
   - `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/runs/20260421T055417Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `outputs_v2/v33_latent_facet_rerank_smoke8_localonly/evals_benchmark/20260421T055417Z_stage2_memory_canary.json`
   - `research-results.tsv`
   - `autoresearch-state.json`
 - Next likely action:
-  - 等 in-flight local-only measurement 收口后，用 helper 记账这轮 answer-head rollback refine
+  - 以 `smoke8 = 6/8` 作为当前 local floor，给 `f9ebc8b` 跑新的 broader local-only measurement
   - 若 broader local-only gate 不继续上升，就回到剩余 projection miss 的结构性分析，而不是继续堆 option-density 惩罚
 
 # 2026-04-21 Session 101
