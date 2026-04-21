@@ -97,6 +97,17 @@ def _extract_music_technology_value(clause: str) -> tuple[str, str, float] | Non
     return "producing music with software", "positive", 0.78
 
 
+def _normalize_feedback_value(value: str) -> str:
+    lowered = " ".join(value.lower().split())
+    if "feedback" not in lowered:
+        return value
+    positive = "positive " if any(token in lowered for token in ("great", "positive", "helpful", "encouraging")) else ""
+    source = " from my peers" if "peer" in lowered else ""
+    about_match = re.search(r"\babout\s+([^,.!?]+)", lowered)
+    about = f" about {about_match.group(1).strip()}" if about_match else ""
+    return f"getting {positive}feedback{source}{about}".strip()
+
+
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
     lowered_text = text.lower()
     lowered_value = value.lower()
@@ -260,11 +271,18 @@ class Stage2ObservationParser:
             (r"\brepainted my bedroom walls\s+(?P<value>[^,.!?]+)", "neutral", 0.8),
             (r"\bcan't make it to\s+(?P<value>serenity yoga)\b", "neutral", 0.78),
             (r"\bnear\s+(?P<value>serenity yoga)\b", "neutral", 0.74),
+            (
+                r"\b(?:after\s+)?receiv(?:ing|ed)\s+(?:some\s+)?(?P<value>[^,.!?]*feedback[^,.!?]*(?:about [^,.!?]+)?)",
+                "positive",
+                0.8,
+            ),
         ]
         for pattern, polarity, confidence in special_patterns:
             match = re.search(pattern, lowered)
             if match:
                 value = match.group("value").strip(" .,!?\n\t")
+                if "feedback" in value:
+                    value = _normalize_feedback_value(value)
                 if "redeemed" in lowered and "coupon" in lowered:
                     store = _infer_contextual_store(context_text or "")
                     if store and f" at {store}" not in value and f" from {store}" not in value:

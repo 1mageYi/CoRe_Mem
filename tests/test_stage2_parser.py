@@ -98,6 +98,20 @@ def test_stage2_parser_does_not_treat_from_phrase_inside_music_clause_as_locatio
     assert all(item.relation != "location" for item in observations)
 
 
+def test_stage2_parser_extracts_feedback_reason_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I recorded a new episode after receiving some great feedback from my peers about my last podcast.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations
+    assert any(item.value == "getting positive feedback from my peers about my last podcast" for item in observations)
+
+
 def test_stage2_parser_extracts_store_location_from_shopping_turn():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(
