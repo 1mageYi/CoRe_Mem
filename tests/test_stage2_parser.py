@@ -112,6 +112,35 @@ def test_stage2_parser_extracts_feedback_reason_clause():
     assert any(item.value == "getting positive feedback from my peers about my last podcast" for item in observations)
 
 
+def test_stage2_parser_extracts_more_drawn_music_preference_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I think I am more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies and harmonies.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "music_preference"
+    assert observations[0].value.startswith("more drawn to the emotional aspects of music")
+    assert "feelings evoked by melodies" in observations[0].value
+
+
+def test_stage2_parser_does_not_treat_progressive_im_learning_clause_as_fact():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I truly believe that this journey will not only elevate my music but also connect me more deeply with the traditions I'm learning about.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
 def test_stage2_parser_extracts_step_back_withdrawal_clause():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(
