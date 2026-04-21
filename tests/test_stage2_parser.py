@@ -125,6 +125,7 @@ def test_stage2_parser_extracts_step_back_withdrawal_clause():
     assert len(observations) == 1
     assert observations[0].relation == "other_fact"
     assert observations[0].value == "step back from structured book club settings"
+    assert observations[0].time_scope == "recent_change"
 
 
 def test_stage2_parser_extracts_opted_out_withdrawal_clause():
@@ -140,6 +141,7 @@ def test_stage2_parser_extracts_opted_out_withdrawal_clause():
     assert len(observations) == 1
     assert observations[0].relation == "other_fact"
     assert observations[0].value == "opted out of cooking classes that i once enjoyed"
+    assert observations[0].time_scope == "recent_change"
 
 
 def test_stage2_parser_extracts_store_location_from_shopping_turn():

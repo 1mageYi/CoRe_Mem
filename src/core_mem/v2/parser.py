@@ -175,6 +175,8 @@ def _infer_relation(text: str, value: str) -> tuple[str, str]:
 
 def _infer_time_scope(text: str) -> str:
     lowered = text.lower()
+    if any(phrase in lowered for phrase in ("step back from", "opted out of", "stopped attending")):
+        return "recent_change"
     if "used to" in lowered:
         return "past"
     if "will" in lowered or "plan to" in lowered or "going to" in lowered:

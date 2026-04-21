@@ -44,7 +44,10 @@ class LifecycleManager:
                 )
             if (
                 observation.relation in _FACET_RELATIONS
-                and observation.time_scope == "current"
+                and (
+                    observation.time_scope == "current"
+                    or (observation.relation == "other_fact" and observation.time_scope == "recent_change")
+                )
                 and slot.canonical_gloss.lower() not in observation.value.lower()
                 and observation.value.lower() not in slot.canonical_gloss.lower()
             ):

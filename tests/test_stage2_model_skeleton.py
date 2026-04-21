@@ -110,6 +110,156 @@ def test_structured_memory_system_keeps_distinct_music_facets_active():
     assert len(active_music_slots) >= 2
 
 
+def test_structured_memory_system_keeps_recent_change_other_fact_distinct():
+    system = StructuredMemorySystem()
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-other-fact-current",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "assisting with literacy programs",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.8,
+                "evidence_text": "I am assisting with literacy programs.",
+                "canonical_gloss": "other_fact=assisting with literacy programs",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-other-fact-recent-change",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "step back from structured book club settings",
+                "value_type": "other",
+                "time_scope": "recent_change",
+                "status_hint": "active",
+                "polarity": "negative",
+                "confidence": 0.8,
+                "evidence_text": "I've decided to step back from structured book club settings.",
+                "canonical_gloss": "other_fact=step back from structured book club settings",
+            }
+        ),
+        timestamp="2026-04-07T05:05:00Z",
+    )
+
+    active_other_fact_slots = [
+        slot for slot in [*system.state.core_slots, *system.state.residual_slots] if slot.active_flag and slot.relation == "other_fact"
+    ]
+    assert len(active_other_fact_slots) >= 2
+    assert any("assisting with literacy programs" in slot.canonical_gloss for slot in active_other_fact_slots)
+    assert any("step back from structured book club settings" in slot.canonical_gloss for slot in active_other_fact_slots)
+
+
+def test_structured_memory_system_prefers_recent_change_negative_slot_for_advice_queries():
+    def _latent_ranker(_query_text: str, slots):
+        scores = {}
+        for slot in slots:
+            if "assisting with literacy programs" in slot.canonical_gloss:
+                scores[slot.slot_id] = 1.0452
+            elif "step back from structured book club settings" in slot.canonical_gloss:
+                scores[slot.slot_id] = 1.0328
+            elif "future events" in slot.canonical_gloss:
+                scores[slot.slot_id] = 0.9789
+            else:
+                scores[slot.slot_id] = 0.5
+        return scores
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-advice-events",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "particularly thrilled about the prospect of showcasing these items at our future events",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.8,
+                "evidence_text": "I feel thrilled about showcasing these items at future events.",
+                "canonical_gloss": "other_fact=particularly thrilled about the prospect of showcasing these items at our future events",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-advice-literacy",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "assisting with literacy programs",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.8,
+                "evidence_text": "I am assisting with literacy programs.",
+                "canonical_gloss": "other_fact=assisting with literacy programs",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-advice-step-back",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-1",
+                "source_turn_id": "turn-3",
+                "session_id": "sess-1",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "step back from structured book club settings",
+                "value_type": "other",
+                "time_scope": "recent_change",
+                "status_hint": "active",
+                "polarity": "negative",
+                "confidence": 0.8,
+                "evidence_text": "I've decided to step back from structured book club settings.",
+                "canonical_gloss": "other_fact=step back from structured book club settings",
+            }
+        ),
+        timestamp="2026-04-07T05:02:00Z",
+    )
+
+    result = system.query(
+        "query-advice",
+        "I've been involved in planning events for my community lately, but I'm not sure if I should continue with it. What do you think?",
+    )
+    selected_glosses = [slot.canonical_gloss for slot in result.selected_slots]
+    assert any("step back from structured book club settings" in gloss for gloss in selected_glosses[:3])
+
+
 def test_belief_decoder_preserves_selected_slot_order():
     system = StructuredMemorySystem()
     system.observe_turn(

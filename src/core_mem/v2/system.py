@@ -262,9 +262,10 @@ class StructuredMemorySystem:
                     reverse=True,
                 )
                 negative.sort(
-                    key=lambda item: (
-                        float(latent_scores.get(item[0].slot_id, float("-inf"))),
-                        item[1],
+                    key=(
+                        (lambda item: (item[1], float(latent_scores.get(item[0].slot_id, float("-inf")))))
+                        if self._query_seeks_open_ended_advice(query_text)
+                        else (lambda item: (float(latent_scores.get(item[0].slot_id, float("-inf"))), item[1]))
                     ),
                     reverse=True,
                 )
