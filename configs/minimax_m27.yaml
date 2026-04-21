@@ -30,3 +30,12 @@ benchmarks:
     subset: s
 outputs:
   root: outputs_v2
+stage2_runtime:
+  learned_memory_checkpoint_dir: outputs_v2/checkpoints/20260416T003548Z_stage2_train_exec
+  learned_memory_train_config_path: configs/stage2_train.yaml
+  learned_memory_device: cpu
+  latent_retriever_checkpoint_dir: outputs_v2/checkpoints/20260419T070526Z_stage2_v31_latent_exec
+  latent_retriever_device: cpu
+  learned_slot_assignment_checkpoint_dir: outputs_v2/checkpoints/20260416T003548Z_stage2_train_exec
+  learned_slot_assignment_train_config_path: configs/stage2_train.yaml
+  learned_slot_assignment_device: cpu

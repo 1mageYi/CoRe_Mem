@@ -29,6 +29,7 @@ from run_stage2_memory_canary import (
     _render_longmemeval_prompt,
     _render_personamem_options,
     _render_personamem_prompt,
+    _stage2_runtime_defaults,
     _should_use_symbolic_parallel_fast_path,
     _strip_explicit_think_blocks,
     run_personamem_canary,
@@ -84,6 +85,42 @@ def test_iter_provider_predictions_supports_parallel_workers(monkeypatch):
         (1, "echo::b", "echo::b"),
         (2, "echo::c", "echo::c"),
     ]
+
+
+def test_stage2_runtime_defaults_load_from_config(tmp_path: Path):
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  name: core_mem",
+                "  stage: stage2",
+                "llm:",
+                "  provider: openai_compatible",
+                "  api_key_env: GPT_AGENT_API_KEY",
+                "  base_url: https://example.com/v1",
+                "  model: fake-model",
+                "benchmarks:",
+                "  primary: personamem",
+                "  secondary: longmemeval_s",
+                "stage2_runtime:",
+                "  learned_memory_checkpoint_dir: outputs_v2/checkpoints/learned",
+                "  learned_memory_train_config_path: configs/stage2_train.yaml",
+                "  latent_retriever_checkpoint_dir: outputs_v2/checkpoints/latent",
+                "  learned_slot_assignment_checkpoint_dir: outputs_v2/checkpoints/slot",
+                "  learned_slot_assignment_train_config_path: configs/stage2_slot.yaml",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    defaults = _stage2_runtime_defaults(config_path)
+
+    assert defaults["learned_memory_checkpoint_dir"] == "outputs_v2/checkpoints/learned"
+    assert defaults["learned_memory_train_config_path"] == "configs/stage2_train.yaml"
+    assert defaults["latent_retriever_checkpoint_dir"] == "outputs_v2/checkpoints/latent"
+    assert defaults["learned_slot_assignment_checkpoint_dir"] == "outputs_v2/checkpoints/slot"
+    assert defaults["learned_slot_assignment_train_config_path"] == "configs/stage2_slot.yaml"
 
 
 def test_strip_explicit_think_blocks_only_removes_protocol_noise():
@@ -201,6 +238,118 @@ def test_stage2_memory_canary_writes_learned_alias_artifact(tmp_path: Path):
     alias_payload = json.loads(learned_alias.read_text(encoding="utf-8"))
     assert alias_payload["memory_mode"] == "learned_memory"
     assert alias_payload["summary_path"] == payload["summary_path"]
+
+
+def test_run_personamem_canary_uses_stage2_runtime_defaults_from_config(monkeypatch, tmp_path: Path):
+    output_root = tmp_path / "outputs_v2"
+    run_dir = output_root / "runs" / "defaulted_personamem"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "project:",
+                "  name: core_mem",
+                "  stage: stage2",
+                "llm:",
+                "  provider: openai_compatible",
+                "  api_key_env: GPT_AGENT_API_KEY",
+                "  base_url: https://example.com/v1",
+                "  model: fake-model",
+                "benchmarks:",
+                "  primary: personamem",
+                "  secondary: longmemeval_s",
+                "  personamem:",
+                "    data_root: unused",
+                "stage2_runtime:",
+                "  learned_memory_checkpoint_dir: outputs_v2/checkpoints/learned",
+                "  learned_memory_train_config_path: configs/stage2_train.yaml",
+                "  latent_retriever_checkpoint_dir: outputs_v2/checkpoints/latent",
+                "  learned_slot_assignment_checkpoint_dir: outputs_v2/checkpoints/slot",
+                "  learned_slot_assignment_train_config_path: configs/stage2_slot.yaml",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"sample_ids": ["q1"]}), encoding="utf-8")
+    questions = [
+        PersonaMemQuestion(
+            persona_id="p1",
+            question_id="q1",
+            question_type="recall_user_shared_facts",
+            topic="food",
+            user_question_or_message="What food do I like?",
+            correct_answer="(a)",
+            all_options=["(a) sushi", "(b) pasta"],
+            shared_context_id="ctx",
+            end_index_in_shared_context=1,
+        )
+    ]
+
+    class _NoProvider:
+        def is_configured(self) -> bool:
+            return False
+
+    class _FakeAdapter:
+        def load_shared_contexts(self):
+            return {"ctx": "user: I like sushi."}
+
+        def load_questions(self):
+            return questions
+
+        def render_context_for_question(self, question, contexts):
+            return contexts[question.shared_context_id]
+
+    captured: dict[str, str | None] = {}
+
+    def _fake_resolve_shared_predictors(**kwargs):
+        captured.update(kwargs)
+        return None, None, None
+
+    def _fake_build_personamem_row(*args, **kwargs):
+        question = args[0]
+        return {
+            "sample_id": question.question_id,
+            "benchmark": "personamem",
+            "question_type": question.question_type,
+            "topic": question.topic,
+            "expected_answer": question.correct_answer,
+            "memory_answer_local": question.correct_answer,
+            "memory_answer_local_baseline": "baseline",
+            "provider_prediction": None,
+            "provider_raw_prediction": None,
+            "provider_status": "provider_not_configured",
+            "provider_configured": False,
+            "observed_turns": 1,
+            "belief_source": "learned_memory",
+            "selected_slot_ids": [],
+            "belief_state": {"belief_items": []},
+            "evidence_block": "",
+            "prompt": "prompt",
+            "prompt_version": "stage2_memory_canary_v2",
+        }
+
+    monkeypatch.setattr("run_stage2_memory_canary._provider_from_llm", lambda llm: _NoProvider())
+    monkeypatch.setattr("run_stage2_memory_canary._ensure_canary_manifest", lambda output_root, benchmark: manifest_path)
+    monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+    monkeypatch.setattr("run_stage2_memory_canary._resolve_shared_predictors", _fake_resolve_shared_predictors)
+    monkeypatch.setattr("run_stage2_memory_canary._build_personamem_row", _fake_build_personamem_row)
+
+    payload = run_personamem_canary(
+        output_root=output_root,
+        config_path=config_path,
+        limit=1,
+        memory_mode="learned_memory",
+        slot_assignment_mode="learned",
+        requested_run_dir=str(run_dir),
+    )
+
+    assert payload["status"] == "blocked_provider_not_configured"
+    assert captured["learned_memory_checkpoint_dir"] == "outputs_v2/checkpoints/learned"
+    assert captured["learned_memory_train_config_path"] == "configs/stage2_train.yaml"
+    assert captured["latent_retriever_checkpoint_dir"] == "outputs_v2/checkpoints/latent"
+    assert captured["learned_slot_assignment_checkpoint_dir"] == "outputs_v2/checkpoints/slot"
+    assert captured["learned_slot_assignment_train_config_path"] == "configs/stage2_slot.yaml"
 
 
 def test_stage2_memory_canary_writes_slot_assignment_alias_artifact(tmp_path: Path):
@@ -663,6 +812,32 @@ def test_stage2_memory_canary_writes_v33_answer_option_aliases_for_learned_runti
             return contexts[question.shared_context_id]
 
     monkeypatch.setattr("run_stage2_memory_canary.PersonaMemAdapter", lambda data_root: _FakeAdapter())
+    monkeypatch.setattr("run_stage2_memory_canary._resolve_shared_predictors", lambda **kwargs: (None, None, None))
+
+    def _fake_build_personamem_row(*args, **kwargs):
+        question = args[0]
+        return {
+            "sample_id": question.question_id,
+            "benchmark": "personamem",
+            "question_type": question.question_type,
+            "topic": question.topic,
+            "expected_answer": question.correct_answer,
+            "memory_answer_local": question.correct_answer,
+            "memory_answer_local_baseline": "baseline",
+            "provider_prediction": None,
+            "provider_raw_prediction": None,
+            "provider_status": "provider_not_configured",
+            "provider_configured": False,
+            "observed_turns": 1,
+            "belief_source": "learned_memory",
+            "selected_slot_ids": [],
+            "belief_state": {"belief_items": []},
+            "evidence_block": "",
+            "prompt": "prompt",
+            "prompt_version": "stage2_memory_canary_v2",
+        }
+
+    monkeypatch.setattr("run_stage2_memory_canary._build_personamem_row", _fake_build_personamem_row)
 
     payload = run_personamem_canary(
         output_root=output_root,

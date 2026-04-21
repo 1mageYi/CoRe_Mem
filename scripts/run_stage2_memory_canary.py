@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 from typing import Any
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +109,28 @@ def _copy_config_snapshot(config_path: Path, run_dir: Path) -> Path:
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _stage2_runtime_defaults(config_path: Path) -> dict[str, str]:
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    stage2 = payload.get("stage2_runtime", {}) or {}
+    if not isinstance(stage2, dict):
+        return {}
+    defaults: dict[str, str] = {}
+    for key in (
+        "learned_memory_checkpoint_dir",
+        "learned_memory_train_config_path",
+        "learned_memory_device",
+        "latent_retriever_checkpoint_dir",
+        "latent_retriever_device",
+        "learned_slot_assignment_checkpoint_dir",
+        "learned_slot_assignment_train_config_path",
+        "learned_slot_assignment_device",
+    ):
+        value = stage2.get(key)
+        if value:
+            defaults[key] = str(value)
+    return defaults
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -939,6 +962,25 @@ def run_personamem_canary(
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
+    runtime_defaults = _stage2_runtime_defaults(config_path)
+    learned_memory_checkpoint_dir = learned_memory_checkpoint_dir or runtime_defaults.get("learned_memory_checkpoint_dir")
+    learned_memory_train_config_path = learned_memory_train_config_path or runtime_defaults.get(
+        "learned_memory_train_config_path"
+    )
+    learned_memory_device = runtime_defaults.get("learned_memory_device", learned_memory_device)
+    latent_retriever_checkpoint_dir = latent_retriever_checkpoint_dir or runtime_defaults.get(
+        "latent_retriever_checkpoint_dir"
+    )
+    latent_retriever_device = runtime_defaults.get("latent_retriever_device", latent_retriever_device)
+    learned_slot_assignment_checkpoint_dir = learned_slot_assignment_checkpoint_dir or runtime_defaults.get(
+        "learned_slot_assignment_checkpoint_dir"
+    )
+    learned_slot_assignment_train_config_path = learned_slot_assignment_train_config_path or runtime_defaults.get(
+        "learned_slot_assignment_train_config_path"
+    )
+    learned_slot_assignment_device = runtime_defaults.get(
+        "learned_slot_assignment_device", learned_slot_assignment_device
+    )
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
     adapter = PersonaMemAdapter(data_root=REPO_ROOT / config.benchmarks.personamem.data_root)
@@ -1134,6 +1176,25 @@ def run_longmemeval_canary(
     requested_run_dir: str | None = None,
     resume: bool = False,
 ) -> dict[str, Any]:
+    runtime_defaults = _stage2_runtime_defaults(config_path)
+    learned_memory_checkpoint_dir = learned_memory_checkpoint_dir or runtime_defaults.get("learned_memory_checkpoint_dir")
+    learned_memory_train_config_path = learned_memory_train_config_path or runtime_defaults.get(
+        "learned_memory_train_config_path"
+    )
+    learned_memory_device = runtime_defaults.get("learned_memory_device", learned_memory_device)
+    latent_retriever_checkpoint_dir = latent_retriever_checkpoint_dir or runtime_defaults.get(
+        "latent_retriever_checkpoint_dir"
+    )
+    latent_retriever_device = runtime_defaults.get("latent_retriever_device", latent_retriever_device)
+    learned_slot_assignment_checkpoint_dir = learned_slot_assignment_checkpoint_dir or runtime_defaults.get(
+        "learned_slot_assignment_checkpoint_dir"
+    )
+    learned_slot_assignment_train_config_path = learned_slot_assignment_train_config_path or runtime_defaults.get(
+        "learned_slot_assignment_train_config_path"
+    )
+    learned_slot_assignment_device = runtime_defaults.get(
+        "learned_slot_assignment_device", learned_slot_assignment_device
+    )
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
     adapter = LongMemEvalAdapter(data_root=REPO_ROOT / config.benchmarks.longmemeval.data_root)
