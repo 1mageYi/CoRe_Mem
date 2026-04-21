@@ -1576,6 +1576,155 @@ def test_structured_memory_system_query_terms_normalize_question_noise():
     assert "work" in terms
 
 
+def test_structured_memory_system_query_terms_drop_generic_advice_words():
+    terms = StructuredMemorySystem._query_terms(
+        "Can you suggest some new cooking techniques or recipes I might enjoy exploring?"
+    )
+    assert "can" not in terms
+    assert "might" not in terms
+    assert "enjoy" not in terms
+    assert "suggest" not in terms
+    assert "explor" not in terms
+    assert "cook" in terms
+    assert "recip" in terms
+
+
+def test_structured_memory_system_detects_open_ended_advice_queries():
+    assert StructuredMemorySystem._query_seeks_open_ended_advice(
+        "I've been involved in planning events for my community lately, but I'm not sure if I should continue with it. What do you think?"
+    )
+    assert StructuredMemorySystem._query_seeks_open_ended_advice(
+        "Can you suggest some new cooking techniques or recipes I might enjoy exploring?"
+    )
+    assert not StructuredMemorySystem._query_seeks_open_ended_advice(
+        "What is the name of the yoga studio where I take classes?"
+    )
+
+
+def test_structured_memory_system_advice_queries_do_not_overweight_irrelevant_enjoy_overlap():
+    def _latent_ranker(_query_text: str, slots):
+        return {
+            slot.slot_id: (3.0 if "experimenting with different recipes" in slot.canonical_gloss else 0.1)
+            for slot in slots
+        }
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-meditation",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-advice",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-advice",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "hobby",
+                "value": "not enjoy meditation",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "negative",
+                "confidence": 0.8,
+                "evidence_text": "I used to not enjoy meditation.",
+                "canonical_gloss": "hobby=not enjoy meditation",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-recipes",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-advice",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-advice",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "hobby",
+                "value": "experimenting with different recipes",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "positive",
+                "confidence": 0.9,
+                "evidence_text": "I enjoy experimenting with different recipes.",
+                "canonical_gloss": "hobby=experimenting with different recipes",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query(
+        "query-advice-cooking",
+        "Can you suggest some new cooking techniques or recipes I might enjoy exploring?",
+    )
+    assert "experimenting with different recipes" in result.selected_slots[0].canonical_gloss
+
+
+def test_structured_memory_system_advice_queries_do_not_overweight_scenario_terms():
+    def _latent_ranker(_query_text: str, slots):
+        return {
+            slot.slot_id: (3.0 if "imagining the conversations" in slot.canonical_gloss else 0.1)
+            for slot in slots
+        }
+
+    system = StructuredMemorySystem(latent_slot_ranker=_latent_ranker)
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-literacy",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-advice",
+                "source_turn_id": "turn-1",
+                "session_id": "sess-advice",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "assisting with literacy programs",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 0.82,
+                "evidence_text": "I'm assisting with literacy programs and organizing community events to promote reading.",
+                "canonical_gloss": "other_fact=assisting with literacy programs",
+            }
+        ),
+        timestamp="2026-04-07T05:00:00Z",
+    )
+    system.observe_observation(
+        Observation.from_dict(
+            {
+                "obs_id": "obs-conversations",
+                "source_dataset": "synthetic",
+                "source_dialogue_id": "dlg-advice",
+                "source_turn_id": "turn-2",
+                "session_id": "sess-advice",
+                "speaker": "user",
+                "entity": "user",
+                "relation": "other_fact",
+                "value": "imagining the conversations that might have occurred among readers",
+                "value_type": "other",
+                "time_scope": "current",
+                "status_hint": "active",
+                "polarity": "neutral",
+                "confidence": 0.82,
+                "evidence_text": "I enjoy imagining the conversations that might have occurred among readers.",
+                "canonical_gloss": "other_fact=imagining the conversations that might have occurred among readers",
+            }
+        ),
+        timestamp="2026-04-07T05:01:00Z",
+    )
+
+    result = system.query(
+        "query-advice-community",
+        "I've been involved in planning events for my community lately, but I'm not sure if I should continue with it. What do you think?",
+    )
+    assert "imagining the conversations" in result.selected_slots[0].canonical_gloss
+
+
 def test_structured_memory_system_slot_terms_apply_light_stemming():
     observation = Observation.from_dict(
         {

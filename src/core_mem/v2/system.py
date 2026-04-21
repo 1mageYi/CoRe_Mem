@@ -40,8 +40,10 @@ _QUERY_STOPWORDS = {
     "an",
     "and",
     "answer",
+    "advice",
     "before",
     "called",
+    "can",
     "change",
     "changed",
     "current",
@@ -51,13 +53,20 @@ _QUERY_STOPWORDS = {
     "day",
     "do",
     "does",
+    "enjoy",
+    "enjoyed",
+    "enjoying",
     "exact",
+    "explore",
+    "exploring",
     "former",
     "for",
     "from",
     "have",
     "how",
     "i",
+    "idea",
+    "ideas",
     "in",
     "is",
     "it",
@@ -65,7 +74,9 @@ _QUERY_STOPWORDS = {
     "many",
     "me",
     "much",
+    "might",
     "my",
+    "new",
     "number",
     "of",
     "old",
@@ -74,7 +85,14 @@ _QUERY_STOPWORDS = {
     "phrase",
     "please",
     "previous",
+    "recommend",
+    "recommendation",
+    "recommendations",
     "shortest",
+    "suggest",
+    "suggesting",
+    "suggestion",
+    "suggestions",
     "the",
     "their",
     "they",
@@ -87,6 +105,7 @@ _QUERY_STOPWORDS = {
     "which",
     "who",
     "with",
+    "think",
     "daily",
 }
 
@@ -367,6 +386,22 @@ class StructuredMemorySystem:
         return lowered.startswith("how many") or lowered.startswith("how much") or "what number" in lowered
 
     @staticmethod
+    def _query_seeks_open_ended_advice(query_text: str) -> bool:
+        lowered = query_text.lower()
+        return any(
+            phrase in lowered
+            for phrase in (
+                "can you suggest",
+                "what do you think",
+                "should i continue",
+                "should i keep",
+                "how can i",
+                "what should i",
+                "what would you recommend",
+            )
+        )
+
+    @staticmethod
     def _slot_has_date_value(slot: SlotRecord) -> bool:
         return bool(_DATE_VALUE_RE.search(slot.canonical_gloss))
 
@@ -388,7 +423,8 @@ class StructuredMemorySystem:
         lowered_query = query_text.lower()
         temporal_role = float(slot.soft_role_scores.temporal)
         stable_role = float(slot.soft_role_scores.stable)
-        score = semantic + (2.4 * lexical_overlap)
+        lexical_weight = 0.8 if self._query_seeks_open_ended_advice(lowered_query) else 2.4
+        score = semantic + (lexical_weight * lexical_overlap)
 
         if self._query_prefers_historical_memory(lowered_query):
             score += (0.85 * temporal_role) - (0.15 * stable_role)
