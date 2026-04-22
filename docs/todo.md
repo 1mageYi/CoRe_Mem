@@ -2,10 +2,12 @@
 
 ## Doing
 
-- `TD-045` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `PersonaMem 512`），在**不改 `core / residual` 双银行结构**的前提下，暂时把主优化目标收敛到 `PersonaMem 512`，让 learned latent / belief / option scorer 成为 finite-option personalization 的主能力来源。
+- `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `PersonaMem 512`），在**不改 `core / residual` 双银行结构**的前提下，暂时把主优化目标收敛到 `PersonaMem 512`，让 learned latent / belief / option scorer 成为 finite-option personalization 的主能力来源。
   - 当前锚点：retained `v32` full `PersonaMem 512` 为 `provider/local = 183/175`；current `v33` learned-authoritative full 为 `provider/local = 182/196`。
   - 当前诊断：`v33` 在 Persona local 上已有 `+21`，但 provider exact 反而 `-1`；`LongMemEval-S` 与 Persona 的任务形态差别太大，短期同时优化会拉扯方向。
   - 当前策略：`PersonaMem 512` 是主指标；`LongMemEval-S 500` 只作为 non-catastrophic guard。provider 只作为 auxiliary evidence，不再一票否决 learned option-scorer/local gain。
+  - Final retained state: `scripts/verify_stage2_v4_longrun.py --score-only = 38/38`
+  - Success evidence: learned local / option-scorer full replay `219/512` 超过 `v33` full Persona local `196/512`
   - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no benchmark leakage、不训练 benchmark answers、不靠 provider prompt trick 作为主收益。
   - 计划：[docs/v4_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v4_plan.md)
 

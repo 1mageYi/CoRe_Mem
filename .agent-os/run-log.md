@@ -1,5 +1,28 @@
 # Run Log
 
+# 2026-04-22 Session 125
+
+- Worked on: `TD-045 / WS-031 / v4 Persona-first learned memory` managed run，从 fresh baseline 初始化并推进到 stop condition
+- State changed:
+  - fresh baseline `scripts/verify_stage2_v4_longrun.py --score-only = 14`
+  - iteration `1 refine`: 新增并发布 `latest_stage2_v4_personamem_gap_audit.json`，把 provider/local gap 固定为 `local_correct_provider_wrong = 81`、`provider_correct_local_wrong = 67`，score 到 `17`
+  - iteration `2 keep`: commit `6ef1360` 加入 direct-user reason-update option rescoring；v4 option replay 将 PersonaMem 512 learned local / option-scorer exact 从 v33 `196/512` 提到 `219/512`，`improved_predictions = 23`、`degraded_predictions = 0`，score 到 `27`
+  - final support artifacts 补齐 `latest_stage2_v4_persona_latent_reader_eval.json`、`latest_stage2_v4_persona_belief_graph_eval.json`、`latest_stage2_v4_longmemeval_guard.json` 与 `latest_stage2_v4_ablation_summary.json`，score 到 `38/38`
+  - `LongMemEval-S 500` guard 保持 local `14/500`，provider 继续只作为 auxiliary evidence
+- Evidence / artifacts:
+  - `research-results.tsv`
+  - `autoresearch-state.json`
+  - `outputs_v2/artifacts/latest_stage2_v4_personamem_gap_audit.json`
+  - `outputs_v2/artifacts/latest_stage2_v4_persona_option_scorer_eval.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v4_full.json`
+  - `outputs_v2/artifacts/latest_stage2_v4_personamem_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v4_ablation_summary.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v4_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_memory_canary.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v4_longrun.py --score-only` -> `38`
+- Truth boundary:
+  - 当前可声明的是 v4 mechanical stop condition reached；不得声明 provider exact improved。
+
 # 2026-04-22 Session 124
 
 - Worked on: 修正 current-line learned-authoritative full-holdout runner 的 device precedence，收口并发布 `LongMemEval-S 500` authoritative full holdout，补齐 row `103` 的 full compare truth

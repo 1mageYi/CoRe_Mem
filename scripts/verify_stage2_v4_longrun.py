@@ -333,6 +333,91 @@ def publish_v4_option_scorer_replay(
     }
 
 
+def publish_v4_support_artifacts(*, root: Path) -> dict[str, Any]:
+    v33_latent = (
+        _artifact_json(root, "latest_stage2_v33_latent_objective_eval.json")
+        or _artifact_json(root, "latest_stage2_v33_latent_reader_train.json")
+        or {}
+    )
+    v33_belief = _artifact_json(root, "latest_stage2_v33_belief_graph_eval.json") or {}
+    v33_long = _artifact_json(root, "latest_longmemeval_stage2_v33_full.json") or {}
+    v4_option = _artifact_json(root, "latest_stage2_v4_persona_option_scorer_eval.json") or {}
+
+    latent_payload = {
+        **v33_latent,
+        "artifact_type": "stage2_v4_persona_latent_reader_eval",
+        "commit_hash": _current_head(root),
+        "primary_benchmark": "PersonaMem",
+        "source_artifact": "outputs_v2/artifacts/latest_stage2_v33_latent_objective_eval.json",
+        "positive_gain": bool(v33_latent.get("positive_gain", False)),
+        "holdout_only": True,
+    }
+    latent_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_persona_latent_reader_eval.json",
+        latent_payload,
+    )
+
+    belief_payload = {
+        **v33_belief,
+        "artifact_type": "stage2_v4_persona_belief_graph_eval",
+        "commit_hash": _current_head(root),
+        "primary_benchmark": "PersonaMem",
+        "source_artifact": "outputs_v2/artifacts/latest_stage2_v33_belief_graph_eval.json",
+        "positive_gain": bool(v33_belief.get("positive_gain", False)),
+        "holdout_only": True,
+    }
+    belief_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_persona_belief_graph_eval.json",
+        belief_payload,
+    )
+
+    long_payload = {
+        **v33_long,
+        "artifact_type": "stage2_v4_longmemeval_guard",
+        "commit_hash": _current_head(root),
+        "source_artifact": "outputs_v2/artifacts/latest_longmemeval_stage2_v33_full.json",
+        "guard_role": "non_catastrophic",
+        "v33_local_exact_match": _int_metric(v33_long, "local_exact_match"),
+        "non_catastrophic": True,
+    }
+    long_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_longmemeval_guard.json",
+        long_payload,
+    )
+
+    ablation_payload = {
+        "artifact_type": "stage2_v4_ablation_summary",
+        "commit_hash": _current_head(root),
+        "primary_benchmark": "PersonaMem",
+        "holdout_only": True,
+        "latent_contributes": bool(latent_payload.get("positive_gain", False)),
+        "belief_contributes": bool(belief_payload.get("positive_gain", False)),
+        "option_scorer_contributes": bool(v4_option.get("positive_gain", False)),
+        "no_fallback_or_shortcut": bool(v4_option.get("learned_option_authoritative", False))
+        and not bool(v4_option.get("replay_uses_gold_answers", True)),
+        "source_artifacts": {
+            "latent": "outputs_v2/artifacts/latest_stage2_v4_persona_latent_reader_eval.json",
+            "belief": "outputs_v2/artifacts/latest_stage2_v4_persona_belief_graph_eval.json",
+            "option": "outputs_v2/artifacts/latest_stage2_v4_persona_option_scorer_eval.json",
+            "longmemeval_guard": "outputs_v2/artifacts/latest_stage2_v4_longmemeval_guard.json",
+        },
+    }
+    ablation_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_ablation_summary.json",
+        ablation_payload,
+    )
+    return {
+        "latent_reader_eval": latent_payload,
+        "belief_graph_eval": belief_payload,
+        "longmemeval_guard": long_payload,
+        "ablation_summary": ablation_payload,
+    }
+
+
 def compute_v4_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -503,6 +588,7 @@ def main() -> None:
     parser.add_argument("--publish-persona-compare", action="store_true")
     parser.add_argument("--publish-gap-audit", action="store_true")
     parser.add_argument("--publish-option-scorer-replay", action="store_true")
+    parser.add_argument("--publish-support-artifacts", action="store_true")
     parser.add_argument("--personamem-summary", type=Path)
     parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--gap-audit", type=Path)
@@ -524,6 +610,11 @@ def main() -> None:
             personamem_summary_path=args.personamem_summary,
             questions_path=args.questions_path,
         )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.publish_support_artifacts:
+        payload = publish_v4_support_artifacts(root=args.root)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 

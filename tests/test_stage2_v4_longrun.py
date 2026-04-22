@@ -8,6 +8,7 @@ from scripts.verify_stage2_v4_longrun import (
     publish_v4_gap_audit,
     publish_v4_option_scorer_replay,
     publish_v4_persona_compare,
+    publish_v4_support_artifacts,
 )
 
 
@@ -271,3 +272,31 @@ def test_v4_publish_option_scorer_replay_records_learned_gain(tmp_path: Path) ->
     assert compare["personamem_learned_gain_confirmed"] is True
     assert (artifact_root / "latest_stage2_v4_persona_option_scorer_eval.json").exists()
     assert (artifact_root / "latest_personamem_stage2_v4_full.json").exists()
+
+
+def test_v4_publish_support_artifacts_records_component_truth(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    artifact_root.mkdir(parents=True)
+    _write_json(artifact_root / "latest_stage2_v33_latent_objective_eval.json", {"positive_gain": True})
+    _write_json(artifact_root / "latest_stage2_v33_belief_graph_eval.json", {"positive_gain": True})
+    _write_json(artifact_root / "latest_longmemeval_stage2_v33_full.json", {"sample_count": 500, "local_exact_match": 14})
+    _write_json(
+        artifact_root / "latest_stage2_v4_persona_option_scorer_eval.json",
+        {
+            "positive_gain": True,
+            "learned_option_authoritative": True,
+            "replay_uses_gold_answers": False,
+        },
+    )
+
+    payload = publish_v4_support_artifacts(root=repo_root)
+
+    assert payload["latent_reader_eval"]["positive_gain"] is True
+    assert payload["belief_graph_eval"]["positive_gain"] is True
+    assert payload["longmemeval_guard"]["local_exact_match"] == 14
+    assert payload["ablation_summary"]["latent_contributes"] is True
+    assert payload["ablation_summary"]["belief_contributes"] is True
+    assert payload["ablation_summary"]["option_scorer_contributes"] is True
+    assert payload["ablation_summary"]["no_fallback_or_shortcut"] is True
+    assert (artifact_root / "latest_stage2_v4_ablation_summary.json").exists()

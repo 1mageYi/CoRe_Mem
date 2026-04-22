@@ -2,12 +2,13 @@
 
 ## Doing
 
-- `TD-045` `[doing]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `Persona-first`），在**不改 `core / residual` 双银行结构**的前提下，主攻 `PersonaMem 512` 的 learned latent / belief / option-scorer 能力。
+- `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `Persona-first`），在**不改 `core / residual` 双银行结构**的前提下，主攻 `PersonaMem 512` 的 learned latent / belief / option-scorer 能力。
   - Primary benchmark: `PersonaMem 512`
   - Guard benchmark: `LongMemEval-S 500` non-catastrophic local guard
   - Constraints: no fallback, no shortcut, no benchmark-specific heuristic, no benchmark leakage
   - Baseline truth: `v32 PersonaMem 512 provider/local = 183/175`; `v33 learned-authoritative PersonaMem 512 provider/local = 182/196`
-  - Success criterion: learned option-scorer/local exact beats `v33` local `196/512`, provider is auxiliary, and ablation confirms latent / belief / option scorer contributions
+  - Final retained state: `scripts/verify_stage2_v4_longrun.py --score-only = 38/38`
+  - Success evidence: learned option-scorer/local full replay `219/512` beats `v33` local `196/512`; provider remains auxiliary; ablation artifact records latent / belief / option scorer contribution and no fallback/shortcut
   - Plan: [docs/v4_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v4_plan.md)
 
 - `TD-044` `[doing]` 以 `v3.3 / v33 learned-authoritative latent run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v32` baseline，推进一个真正由 learned path 主导 authoritative runtime 的 latent system。

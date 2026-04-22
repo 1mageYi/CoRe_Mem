@@ -1,5 +1,19 @@
 # Acceptance Report
 
+## Stage 2 V4 Runtime Evidence
+
+- `EV-V4-001` -> `TD-045 / WS-031` Persona-first learned memory
+  - Status: verified
+  - Evidence:
+    - `scripts/verify_stage2_v4_longrun.py --score-only` 当前返回 `38/38`
+    - `latest_stage2_v4_personamem_gap_audit.json` 记录 v33 Persona full gap：`local_correct_provider_wrong = 81`、`provider_correct_local_wrong = 67`
+    - `latest_stage2_v4_persona_option_scorer_eval.json` 记录 direct-user reason-update option replay：baseline `196/512` -> option scorer `219/512`，`improved_predictions = 23`，`degraded_predictions = 0`
+    - `latest_personamem_stage2_v4_full.json` 与 `latest_stage2_v4_personamem_compare.json` 记录 learned runtime `memory_mode = learned_memory`、`slot_assignment_mode = learned`，provider 为 auxiliary
+    - `latest_stage2_v4_longmemeval_guard.json` 记录 non-catastrophic guard local `14/500`
+    - `latest_stage2_v4_ablation_summary.json` 记录 latent / belief / option scorer contributions 与 `no_fallback_or_shortcut = true`
+  - Boundary:
+    - 当前完成态是 option-scorer replay + inherited learned latent/belief evidence；不得误写成 provider exact 改善或 full provider rerun 改善。
+
 ## Stage 1 Acceptance Tracking
 
 - `EV-001` -> `AC-001` vanilla CoRe Memory 完整实现

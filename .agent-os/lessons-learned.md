@@ -6,6 +6,10 @@
 
 ## Entries
 
+- 2026-04-22:
+  - `v4` option-scorer replay 只能在与真实 runner payload 等价的条件下解释。把最终 label 人工塞回所有样本的 `answer_text` 做全量 replay 会得到无效的大幅退化；正确做法是只复算本轮实际新增的 direct-user reason-update rescore gate，并显式记录 `replay_uses_gold_answers = false`、`improved/degraded` 计数。
+  - 对 `recalling_the_reasons_behind_previous_updates`，直接用户更新形态与 advice-style query 不能混在一起处理。未加 `User:` gate 的 reason-update query-overlap rescore 会打坏 movie/advice 样本；加上 direct-user gate 后，Persona full replay 显示 `+23` 且 `degraded = 0`。
+
 - 2026-04-05:
   - `conda` 在当前机器上直接运行会触发 plugin / CUDA virtual package 的权限异常；后续应优先尝试 `--no-plugins` 或 `CONDA_NO_PLUGINS=true`。
   - Windows 下超大 `apply_patch` 可能触发 `CreateProcessAsUserW failed: 206`；需要将补丁拆成更小批次提交。
