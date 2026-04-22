@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -38,6 +39,22 @@ def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
 
 def _artifact_exists(root: Path, name: str) -> bool:
     return (root / "outputs_v2" / "artifacts" / name).exists()
+
+
+def _normalize(text: Any) -> str:
+    if text is None:
+        return ""
+    return " ".join(str(text).strip().lower().split())
+
+
+def _label_prefix_match(expected: Any, prediction: Any) -> bool:
+    normalized_expected = _normalize(expected)
+    normalized_prediction = _normalize(prediction)
+    return bool(normalized_expected and normalized_prediction.startswith(normalized_expected))
+
+
+def _exact_match(expected: Any, prediction: Any) -> bool:
+    return _normalize(expected) == _normalize(prediction)
 
 
 def _int_metric(payload: dict[str, Any] | None, key: str) -> int:
@@ -83,6 +100,102 @@ def _write_latest_and_stamped(root: Path, latest_name: str, payload: dict[str, A
     _write_json(latest_path, payload)
     _write_json(stamped_path, payload)
     return {"latest_path": str(latest_path), "stamped_path": str(stamped_path)}
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if stripped:
+                rows.append(json.loads(stripped))
+    return rows
+
+
+def _group_gap_counts(rows: list[dict[str, Any]], *, key: str) -> dict[str, dict[str, int]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row.get(key) or "unknown")].append(row)
+    output: dict[str, dict[str, int]] = {}
+    for group_key in sorted(grouped):
+        group_rows = grouped[group_key]
+        local_correct = 0
+        provider_correct = 0
+        local_correct_provider_wrong = 0
+        provider_correct_local_wrong = 0
+        for row in group_rows:
+            expected = row.get("expected_answer")
+            local_ok = _exact_match(expected, row.get("memory_answer_local"))
+            provider_ok = _label_prefix_match(expected, row.get("provider_prediction"))
+            local_correct += int(local_ok)
+            provider_correct += int(provider_ok)
+            local_correct_provider_wrong += int(local_ok and not provider_ok)
+            provider_correct_local_wrong += int(provider_ok and not local_ok)
+        output[group_key] = {
+            "count": len(group_rows),
+            "local_exact_match": local_correct,
+            "provider_label_prefix_match": provider_correct,
+            "local_correct_provider_wrong": local_correct_provider_wrong,
+            "provider_correct_local_wrong": provider_correct_local_wrong,
+        }
+    return output
+
+
+def publish_v4_gap_audit(*, root: Path, personamem_summary_path: Path) -> dict[str, Any]:
+    summary = _read_json(personamem_summary_path) or {}
+    predictions_path = Path(str(summary.get("predictions_path", "")))
+    if not predictions_path.is_absolute():
+        predictions_path = root / predictions_path
+    rows = _read_jsonl(predictions_path)
+
+    provider_blank_count = 0
+    provider_nonlabel_count = 0
+    local_correct_provider_wrong = 0
+    provider_correct_local_wrong = 0
+    both_correct = 0
+    both_wrong = 0
+    provider_status_counts: Counter[str] = Counter()
+    for row in rows:
+        expected = row.get("expected_answer")
+        local_ok = _exact_match(expected, row.get("memory_answer_local"))
+        provider_ok = _label_prefix_match(expected, row.get("provider_prediction"))
+        provider_prediction = _normalize(row.get("provider_prediction"))
+        provider_status_counts[str(row.get("provider_status") or "unknown")] += 1
+        provider_blank_count += int(not provider_prediction)
+        provider_nonlabel_count += int(bool(provider_prediction) and not provider_prediction.startswith("("))
+        local_correct_provider_wrong += int(local_ok and not provider_ok)
+        provider_correct_local_wrong += int(provider_ok and not local_ok)
+        both_correct += int(local_ok and provider_ok)
+        both_wrong += int(not local_ok and not provider_ok)
+
+    payload = {
+        "artifact_type": "stage2_v4_personamem_gap_audit",
+        "commit_hash": _current_head(root),
+        "source_summary_path": str(personamem_summary_path),
+        "predictions_path": str(predictions_path),
+        "primary_benchmark": "PersonaMem",
+        "sample_count": len(rows),
+        "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
+        "provider_is_auxiliary": True,
+        "local_exact_match": sum(
+            int(_exact_match(row.get("expected_answer"), row.get("memory_answer_local"))) for row in rows
+        ),
+        "provider_label_prefix_match": sum(
+            int(_label_prefix_match(row.get("expected_answer"), row.get("provider_prediction"))) for row in rows
+        ),
+        "local_correct_provider_wrong": local_correct_provider_wrong,
+        "provider_correct_local_wrong": provider_correct_local_wrong,
+        "both_correct": both_correct,
+        "both_wrong": both_wrong,
+        "provider_blank_count": provider_blank_count,
+        "provider_nonlabel_count": provider_nonlabel_count,
+        "provider_status_counts": dict(provider_status_counts),
+        "by_question_type": _group_gap_counts(rows, key="question_type"),
+        "by_topic": _group_gap_counts(rows, key="topic"),
+    }
+    payload["artifact_paths"] = _write_latest_and_stamped(root, "latest_stage2_v4_personamem_gap_audit.json", payload)
+    return payload
 
 
 def compute_v4_longrun(root: Path) -> dict[str, Any]:
@@ -253,10 +366,18 @@ def main() -> None:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--score-only", action="store_true")
     parser.add_argument("--publish-persona-compare", action="store_true")
+    parser.add_argument("--publish-gap-audit", action="store_true")
     parser.add_argument("--personamem-summary", type=Path)
     parser.add_argument("--gap-audit", type=Path)
     parser.add_argument("--longmemeval-guard", type=Path)
     args = parser.parse_args()
+
+    if args.publish_gap_audit:
+        if args.personamem_summary is None:
+            raise SystemExit("--publish-gap-audit requires --personamem-summary")
+        payload = publish_v4_gap_audit(root=args.root, personamem_summary_path=args.personamem_summary)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
 
     if args.publish_persona_compare:
         if args.personamem_summary is None:

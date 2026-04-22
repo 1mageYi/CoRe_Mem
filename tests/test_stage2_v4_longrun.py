@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v4_longrun import compute_v4_longrun, publish_v4_persona_compare
+from scripts.verify_stage2_v4_longrun import (
+    compute_v4_longrun,
+    publish_v4_gap_audit,
+    publish_v4_persona_compare,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -140,3 +144,66 @@ def test_v4_publish_persona_compare_marks_provider_auxiliary(tmp_path: Path) -> 
     assert compare["personamem_learned_gain_confirmed"] is True
     assert (artifact_root / "latest_personamem_stage2_v4_full.json").exists()
     assert (artifact_root / "latest_stage2_v4_personamem_compare.json").exists()
+
+
+def test_v4_publish_gap_audit_counts_provider_local_disagreements(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    run_root = repo_root / "outputs_v2" / "runs" / "personamem"
+    run_root.mkdir(parents=True)
+    predictions = run_root / "predictions.jsonl"
+    predictions.write_text(
+        "\n".join(
+            json.dumps(row)
+            for row in [
+                {
+                    "sample_id": "local-only",
+                    "question_type": "recall_user_shared_facts",
+                    "topic": "musicRecommendation",
+                    "expected_answer": "(b)",
+                    "memory_answer_local": "(b)",
+                    "provider_prediction": "",
+                    "provider_status": "completed",
+                },
+                {
+                    "sample_id": "provider-only",
+                    "question_type": "suggest_new_ideas",
+                    "topic": "bookRecommendation",
+                    "expected_answer": "(c)",
+                    "memory_answer_local": "(a)",
+                    "provider_prediction": "(c)",
+                    "provider_status": "completed",
+                },
+                {
+                    "sample_id": "nonlabel",
+                    "question_type": "suggest_new_ideas",
+                    "topic": "bookRecommendation",
+                    "expected_answer": "(d)",
+                    "memory_answer_local": "(a)",
+                    "provider_prediction": "I would pick d",
+                    "provider_status": "completed",
+                },
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    summary = run_root / "summary.json"
+    _write_json(
+        summary,
+        {
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "learned",
+            "predictions_path": str(predictions.relative_to(repo_root)),
+        },
+    )
+
+    payload = publish_v4_gap_audit(root=repo_root, personamem_summary_path=summary)
+
+    assert payload["provider_is_auxiliary"] is True
+    assert payload["sample_count"] == 3
+    assert payload["local_correct_provider_wrong"] == 1
+    assert payload["provider_correct_local_wrong"] == 1
+    assert payload["provider_blank_count"] == 1
+    assert payload["provider_nonlabel_count"] == 1
+    assert payload["by_question_type"]["suggest_new_ideas"]["count"] == 2
+    assert (repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v4_personamem_gap_audit.json").exists()
