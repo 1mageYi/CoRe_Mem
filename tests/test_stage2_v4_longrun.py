@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.verify_stage2_v4_longrun import (
     compute_v4_longrun,
     publish_v4_gap_audit,
+    publish_v4_option_scorer_replay,
     publish_v4_persona_compare,
 )
 
@@ -207,3 +208,66 @@ def test_v4_publish_gap_audit_counts_provider_local_disagreements(tmp_path: Path
     assert payload["provider_nonlabel_count"] == 1
     assert payload["by_question_type"]["suggest_new_ideas"]["count"] == 2
     assert (repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v4_personamem_gap_audit.json").exists()
+
+
+def test_v4_publish_option_scorer_replay_records_learned_gain(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    run_root = repo_root / "outputs_v2" / "runs" / "personamem"
+    data_root = repo_root / "data" / "personamem"
+    artifact_root.mkdir(parents=True)
+    run_root.mkdir(parents=True)
+    data_root.mkdir(parents=True)
+    _write_json(artifact_root / "latest_personamem_stage2_v33_full.json", {"local_exact_match": 0})
+
+    questions = data_root / "questions_32k.csv"
+    questions.write_text(
+        "\n".join(
+            [
+                "persona_id,question_id,question_type,topic,user_question_or_message,correct_answer,all_options,shared_context_id,end_index_in_shared_context",
+                (
+                    "p,q1,recalling_the_reasons_behind_previous_updates,datingConsultation,"
+                    "\"User: I skipped larger comedy shows because loud settings felt disconnected.\","
+                    "\"(b)\",\"['(a) Larger comedy shows are now best.', '(b) Smaller personal comedy gatherings fit better.']\",ctx,1"
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    predictions = run_root / "predictions.jsonl"
+    predictions.write_text(
+        json.dumps(
+            {
+                "sample_id": "q1",
+                "expected_answer": "(b)",
+                "memory_answer_local": "(a)",
+                "belief_state": {"belief_items": [{"relation": "other_fact", "value": "smaller personal comedy gatherings"}]},
+                "evidence_block": "- other_fact: smaller personal comedy gatherings",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    summary = run_root / "summary.json"
+    _write_json(
+        summary,
+        {
+            "sample_count": 1,
+            "memory_mode": "learned_memory",
+            "slot_assignment_mode": "learned",
+            "predictions_path": str(predictions.relative_to(repo_root)),
+        },
+    )
+
+    payload = publish_v4_option_scorer_replay(root=repo_root, personamem_summary_path=summary, questions_path=questions)
+
+    option_eval = payload["option_scorer_eval"]
+    compare = payload["personamem_compare"]
+    assert option_eval["positive_gain"] is True
+    assert option_eval["option_scorer_exact_match"] == 1
+    assert option_eval["baseline_local_exact_match"] == 0
+    assert option_eval["learned_option_authoritative"] is True
+    assert compare["personamem_learned_gain_confirmed"] is True
+    assert (artifact_root / "latest_stage2_v4_persona_option_scorer_eval.json").exists()
+    assert (artifact_root / "latest_personamem_stage2_v4_full.json").exists()

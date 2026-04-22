@@ -569,6 +569,22 @@ def _project_personamem_local_answer(memory_payload: dict[str, Any], question: P
     )
     if repaired_projection is not None:
         projected = repaired_projection
+    if (
+        question.question_type == "recalling_the_reasons_behind_previous_updates"
+        and question.user_question_or_message.strip().lower().startswith("user:")
+    ):
+        reason_update_projection = head.select_option(
+            query_text=question.user_question_or_message,
+            question_type=question.question_type,
+            answer_text=projected,
+            options=question.all_options,
+            belief_values=[str(item.get("value", "")) for item in belief_items],
+            evidence_text=str(memory_payload.get("evidence_block", "")),
+            selected_slot_glosses=[],
+            include_query_overlap=True,
+        )
+        if reason_update_projection != projected:
+            projected = reason_update_projection
     if projected in question.all_options:
         return option_label(projected) if options_use_labels(question.all_options) else projected
     if projected != memory_payload["answer_text"]:

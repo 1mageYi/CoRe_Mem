@@ -1388,6 +1388,102 @@ def test_personamem_local_projection_breaks_negative_deadline_tie_toward_pressur
     assert projected == "(b)"
 
 
+def test_personamem_local_projection_rescores_reason_update_from_belief_and_query():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recalling_the_reasons_behind_previous_updates",
+        topic="datingConsultation",
+        user_question_or_message=(
+            "User: I found myself skipping larger comedy shows, though. Initially, I was excited about "
+            "attending these big events, but over time the loud atmosphere left me feeling "
+            "disconnected. I realized that what I truly enjoy are candid moments and shared "
+            "laughter in a smaller crowd where I can connect with the performers."
+        ),
+        correct_answer="(b)",
+        all_options=[
+            "(a) It's interesting to hear that you're leaning towards larger comedy shows now. "
+            "They often offer a vibrant atmosphere that amplifies the energy of the performance.",
+            "(b) It sounds like you've gone through a significant shift in your feelings toward "
+            "comedy shows. It's understandable to feel disconnected in larger settings where the "
+            "atmosphere can distract from the performance itself. I am curious to see how these "
+            "changes will influence your overall outlook as you choose smaller, more personal gatherings.",
+            "(c) It's great to see that you've shifted your focus toward weekend cooking classes "
+            "and culinary workshops.",
+            "(d) Moving towards guided museum tours is a great idea because exhibitions each "
+            "have their own unique charm.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "larger comedy shows",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "curious to see how these changes will influence my overall outlook on life",
+                    }
+                ]
+            },
+            "evidence_block": (
+                "- other_fact: curious to see how these changes will influence my overall outlook on life"
+            ),
+            "selected_slot_glosses": [
+                "other_fact=curious to see how these changes will influence my overall outlook on life"
+            ],
+            "support_slot_glosses": [
+                "other_fact=curious to see how these changes will influence my overall outlook on life"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_skips_reason_rescore_for_advice_query():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recalling_the_reasons_behind_previous_updates",
+        topic="movieRecommendation",
+        user_question_or_message=(
+            "I've heard that attending local art exhibits might be interesting, but I'm not sure "
+            "if it's worthwhile. Would it be a good use of my time?"
+        ),
+        correct_answer="(a)",
+        all_options=[
+            "(a) Your preference about attending film festivals changed due to the positive "
+            "connections and networking opportunities you experienced previously.",
+            "(b) Your preference about attending film festivals changed due to the diversity of "
+            "films you discovered previously.",
+            "(c) Your preference changed due to exciting travel opportunities.",
+            "(d) Your preference changed due to unique cultural experiences.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "positive connections and networking opportunities",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "feeling particularly enthusiastic about this journey",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: feeling particularly enthusiastic about this journey",
+            "selected_slot_glosses": ["other_fact=feeling particularly enthusiastic about this journey"],
+            "support_slot_glosses": ["other_fact=feeling particularly enthusiastic about this journey"],
+        },
+        question,
+    )
+    assert projected == "(a)"
+
+
 def test_memory_payload_collects_only_belief_support_slot_glosses():
     belief_state = {
         "belief_items": [

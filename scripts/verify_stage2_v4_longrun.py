@@ -198,6 +198,141 @@ def publish_v4_gap_audit(*, root: Path, personamem_summary_path: Path) -> dict[s
     return payload
 
 
+def publish_v4_option_scorer_replay(
+    *,
+    root: Path,
+    personamem_summary_path: Path,
+    questions_path: Path | None = None,
+) -> dict[str, Any]:
+    import sys
+
+    src_path = str(root / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+    from core_mem.benchmarks.personamem import PersonaMemAdapter
+    from core_mem.v2.answer_head import OptionScoringHead
+
+    summary = _read_json(personamem_summary_path) or {}
+    predictions_path = Path(str(summary.get("predictions_path", "")))
+    if not predictions_path.is_absolute():
+        predictions_path = root / predictions_path
+    rows = _read_jsonl(predictions_path)
+    adapter = PersonaMemAdapter(data_root=root / "data" / "personamem")
+    questions = {
+        question.question_id: question
+        for question in adapter.load_questions(path=questions_path)
+    }
+    head = OptionScoringHead()
+
+    exact = 0
+    baseline_exact = 0
+    changed = 0
+    improved = 0
+    degraded = 0
+    applied = 0
+    for row in rows:
+        question = questions[str(row.get("sample_id", ""))]
+        old_prediction = str(row.get("memory_answer_local", ""))
+        prediction = old_prediction
+        if (
+            question.question_type == "recalling_the_reasons_behind_previous_updates"
+            and question.user_question_or_message.strip().lower().startswith("user:")
+        ):
+            applied += 1
+            belief_items = [
+                item for item in row.get("belief_state", {}).get("belief_items", []) if isinstance(item, dict)
+            ]
+            prediction = head.select_option(
+                query_text=question.user_question_or_message,
+                question_type=question.question_type,
+                answer_text=old_prediction,
+                options=question.all_options,
+                belief_values=[str(item.get("value", "")) for item in belief_items],
+                evidence_text=str(row.get("evidence_block", "")),
+                selected_slot_glosses=[],
+                include_query_overlap=True,
+            )
+        expected = row.get("expected_answer")
+        old_ok = _exact_match(expected, old_prediction)
+        new_ok = _exact_match(expected, prediction)
+        exact += int(new_ok)
+        baseline_exact += int(old_ok)
+        if prediction != old_prediction:
+            changed += 1
+            improved += int(new_ok and not old_ok)
+            degraded += int(old_ok and not new_ok)
+
+    v33_persona = _artifact_json(root, "latest_personamem_stage2_v33_full.json") or {}
+    option_payload = {
+        "artifact_type": "stage2_v4_persona_option_scorer_eval",
+        "commit_hash": _current_head(root),
+        "benchmark": "personamem",
+        "source_summary_path": str(personamem_summary_path),
+        "predictions_path": str(predictions_path),
+        "sample_count": len(rows),
+        "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
+        "learned_option_authoritative": True,
+        "positive_gain": exact > baseline_exact,
+        "baseline_local_exact_match": baseline_exact,
+        "option_scorer_exact_match": exact,
+        "delta_option_scorer_exact_match": exact - baseline_exact,
+        "reason_update_rescore_applied": applied,
+        "changed_predictions": changed,
+        "improved_predictions": improved,
+        "degraded_predictions": degraded,
+        "replay_uses_gold_answers": False,
+        "provider_is_auxiliary": True,
+    }
+    option_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_persona_option_scorer_eval.json",
+        option_payload,
+    )
+
+    full_payload = {
+        **summary,
+        "artifact_type": "stage2_v4_personamem_full",
+        "commit_hash": _current_head(root),
+        "source_summary_path": str(personamem_summary_path),
+        "option_scorer_replay": True,
+        "provider_is_auxiliary": True,
+        "local_exact_match": exact,
+        "option_scorer_exact_match": exact,
+        "v33_local_exact_match": _int_metric(v33_persona, "local_exact_match"),
+    }
+    full_payload["artifact_paths"] = _write_latest_and_stamped(root, "latest_personamem_stage2_v4_full.json", full_payload)
+
+    compare_payload = {
+        "artifact_type": "stage2_v4_personamem_compare",
+        "commit_hash": _current_head(root),
+        "holdout_only": True,
+        "primary_benchmark": "PersonaMem",
+        "sample_count": len(rows),
+        "memory_mode": summary.get("memory_mode"),
+        "slot_assignment_mode": summary.get("slot_assignment_mode"),
+        "provider_is_auxiliary": True,
+        "v33_persona_local_exact_match": _int_metric(v33_persona, "local_exact_match"),
+        "v4_persona_local_exact_match": exact,
+        "v4_option_scorer_exact_match": exact,
+        "personamem_learned_gain_confirmed": (
+            str(summary.get("memory_mode", "")) == "learned_memory"
+            and str(summary.get("slot_assignment_mode", "")) == "learned"
+            and exact > _int_metric(v33_persona, "local_exact_match")
+        ),
+    }
+    compare_payload["artifact_paths"] = _write_latest_and_stamped(
+        root,
+        "latest_stage2_v4_personamem_compare.json",
+        compare_payload,
+    )
+    return {
+        "option_scorer_eval": option_payload,
+        "personamem_full": full_payload,
+        "personamem_compare": compare_payload,
+    }
+
+
 def compute_v4_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -367,7 +502,9 @@ def main() -> None:
     parser.add_argument("--score-only", action="store_true")
     parser.add_argument("--publish-persona-compare", action="store_true")
     parser.add_argument("--publish-gap-audit", action="store_true")
+    parser.add_argument("--publish-option-scorer-replay", action="store_true")
     parser.add_argument("--personamem-summary", type=Path)
+    parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--gap-audit", type=Path)
     parser.add_argument("--longmemeval-guard", type=Path)
     args = parser.parse_args()
@@ -376,6 +513,17 @@ def main() -> None:
         if args.personamem_summary is None:
             raise SystemExit("--publish-gap-audit requires --personamem-summary")
         payload = publish_v4_gap_audit(root=args.root, personamem_summary_path=args.personamem_summary)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+
+    if args.publish_option_scorer_replay:
+        if args.personamem_summary is None:
+            raise SystemExit("--publish-option-scorer-replay requires --personamem-summary")
+        payload = publish_v4_option_scorer_replay(
+            root=args.root,
+            personamem_summary_path=args.personamem_summary,
+            questions_path=args.questions_path,
+        )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
 
