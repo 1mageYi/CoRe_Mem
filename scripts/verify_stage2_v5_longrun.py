@@ -9,10 +9,16 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from core_mem.v2.v5_encoder_harness import V5_ENCODER_CANDIDATES, evaluate_proxy_encoder
 
 
 def _read_text(path: Path) -> str:
@@ -28,6 +34,13 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as handle:
+        return [json.loads(line) for line in handle if line.strip()]
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -396,6 +409,92 @@ def publish_v5_context_selfsupervised(
     return payload
 
 
+def publish_v5_encoder_compare(
+    *,
+    root: Path,
+    context_artifact_path: Path | None = None,
+    max_eval_samples: int = 96,
+) -> dict[str, Any]:
+    context_artifact_file = context_artifact_path or root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json"
+    context_artifact = _read_json(context_artifact_file)
+    if not context_artifact:
+        raise FileNotFoundError("Missing v5 context self-supervised artifact.")
+
+    task_files = context_artifact.get("task_files") or {}
+    eval_rows: list[dict[str, Any]] = []
+    for split_name in ("val", "eval"):
+        file_value = task_files.get(split_name)
+        if not file_value:
+            continue
+        file_path = Path(file_value)
+        if not file_path.is_absolute():
+            file_path = root / file_path
+        eval_rows.extend(_read_jsonl(file_path))
+    eval_rows = eval_rows[:max_eval_samples]
+
+    dependency_status: dict[str, bool] = {}
+    for module_name in ("sentence_transformers", "transformers", "torch"):
+        try:
+            __import__(module_name)
+            dependency_status[module_name] = True
+        except ImportError:
+            dependency_status[module_name] = False
+
+    results: list[dict[str, Any]] = []
+    for candidate in V5_ENCODER_CANDIDATES:
+        metrics = evaluate_proxy_encoder(eval_rows, candidate=candidate)
+        results.append(
+            {
+                "name": candidate.name,
+                "model_id": candidate.model_id,
+                "family": candidate.family,
+                "backend": "deterministic_hashing_proxy",
+                "pretrained_weights_loaded": False,
+                "metrics": metrics,
+                "ablation_metrics": {
+                    "shuffled_target_mrr": metrics["shuffled_target_mrr"],
+                    "mrr_minus_shuffled": metrics["mrr"] - metrics["shuffled_target_mrr"],
+                },
+            }
+        )
+
+    selected = max(
+        results,
+        key=lambda item: (
+            float(item["metrics"].get("mrr", 0.0)),
+            float(item["metrics"].get("top1_accuracy", 0.0)),
+            float(item["ablation_metrics"].get("mrr_minus_shuffled", 0.0)),
+        ),
+    )
+    payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_encoder_compare",
+        "commit_hash": _current_head(root),
+        "generated_at": _timestamp(),
+        "context_selfsupervised_artifact": str(
+            context_artifact_file.relative_to(root) if context_artifact_file.is_relative_to(root) else context_artifact_file
+        ),
+        "evaluation_backend": "deterministic_hashing_proxy",
+        "dependency_status": dependency_status,
+        "pretrained_weights_loaded": False,
+        "pretrained_weight_note": (
+            "This iteration establishes the BGE/E5/Contriever harness and gold-free comparison path. "
+            "It records model ids but does not claim pretrained weights were loaded."
+        ),
+        "compared_backbones": [candidate.model_id for candidate in V5_ENCODER_CANDIDATES],
+        "selected_backbone": selected["model_id"],
+        "selected_family": selected["family"],
+        "selection_metric": "gold_free_context_selfsupervised_mrr_then_top1",
+        "uses_ablation_metrics": True,
+        "not_selected_by_personamem_only": True,
+        "uses_personamem_gold": False,
+        "eval_samples": len(eval_rows),
+        "results": results,
+    }
+    _write_json(root / "outputs_v2" / "artifacts" / "latest_stage2_v5_encoder_compare.json", payload)
+    _write_json(root / "outputs_v2" / "artifacts" / f"{_timestamp()}_latest_stage2_v5_encoder_compare.json", payload)
+    return payload
+
+
 def compute_v5_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -725,10 +824,13 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
     parser.add_argument("--publish-personamem-isolation", action="store_true")
     parser.add_argument("--publish-context-selfsupervised", action="store_true")
+    parser.add_argument("--publish-encoder-compare", action="store_true")
     parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--contexts-path", type=Path)
     parser.add_argument("--isolation-path", type=Path)
+    parser.add_argument("--context-artifact-path", type=Path)
     parser.add_argument("--max-samples-per-context", type=int, default=8)
+    parser.add_argument("--max-eval-samples", type=int, default=96)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--score-only", action="store_true")
     args = parser.parse_args()
@@ -747,6 +849,14 @@ def main() -> None:
             contexts_path=args.contexts_path,
             isolation_path=args.isolation_path,
             max_samples_per_context=args.max_samples_per_context,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if args.publish_encoder_compare:
+        payload = publish_v5_encoder_compare(
+            root=args.root,
+            context_artifact_path=args.context_artifact_path,
+            max_eval_samples=args.max_eval_samples,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return

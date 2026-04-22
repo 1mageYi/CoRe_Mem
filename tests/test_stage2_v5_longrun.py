@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.verify_stage2_v5_longrun import (
     compute_v5_longrun,
     publish_v5_context_selfsupervised,
+    publish_v5_encoder_compare,
     publish_v5_personamem_isolation,
 )
 
@@ -187,3 +188,90 @@ def test_v5_longrun_counts_context_selfsupervision_checks(tmp_path: Path) -> Non
     payload = compute_v5_longrun(repo_root)
 
     assert payload["score"] == 21
+
+
+def test_publish_v5_encoder_compare_records_three_backbones_without_gold(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    sample_root = artifact_root / "stage2_v5_context_selfsupervised"
+    sample_root.mkdir(parents=True)
+    rows = [
+        {
+            "sample_id": "s1",
+            "input_context": [{"role": "user", "content": "I love music and technology."}],
+            "target_text": "I remix electronic music.",
+        },
+        {
+            "sample_id": "s2",
+            "input_context": [{"role": "user", "content": "Libraries feel relaxing."}],
+            "target_text": "I volunteer at the local library.",
+        },
+        {
+            "sample_id": "s3",
+            "input_context": [{"role": "user", "content": "Food markets are too crowded."}],
+            "target_text": "I prefer quiet grocery stores.",
+        },
+    ]
+    for split in ("val", "eval"):
+        (sample_root / f"{split}.jsonl").write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+    _write_json(
+        artifact_root / "latest_stage2_v5_context_selfsupervised.json",
+        {
+            "task_files": {
+                "val": str(sample_root / "val.jsonl"),
+                "eval": str(sample_root / "eval.jsonl"),
+            },
+            "no_gold_answers": True,
+        },
+    )
+
+    payload = publish_v5_encoder_compare(root=repo_root)
+
+    assert len(payload["compared_backbones"]) == 3
+    assert payload["selected_backbone"]
+    assert payload["uses_ablation_metrics"] is True
+    assert payload["not_selected_by_personamem_only"] is True
+    assert payload["uses_personamem_gold"] is False
+    assert payload["pretrained_weights_loaded"] is False
+    assert (artifact_root / "latest_stage2_v5_encoder_compare.json").exists()
+
+
+def test_v5_longrun_counts_encoder_compare_checks(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_docs(repo_root)
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_personamem_isolation.json",
+        {
+            "split_by_shared_context_id": True,
+            "split_by_persona": True,
+            "no_gold_leakage": True,
+            "gold_used_for_memory_substrate": False,
+            "train_eval_contexts_disjoint": True,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json",
+        {
+            "no_gold_answers": True,
+            "train_samples": 10,
+            "eval_samples": 4,
+            "stage2_32k_used_as_warmup": True,
+            "claims_large_scale_pretraining": False,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_encoder_compare.json",
+        {
+            "compared_backbones": ["BAAI/bge-base-en-v1.5", "intfloat/e5-base-v2", "facebook/contriever"],
+            "selected_backbone": "intfloat/e5-base-v2",
+            "uses_ablation_metrics": True,
+            "not_selected_by_personamem_only": True,
+        },
+    )
+
+    payload = compute_v5_longrun(repo_root)
+
+    assert payload["score"] == 25
