@@ -2,11 +2,12 @@
 
 ## Doing
 
-- `TD-046` `[planned]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成真正可训练、可消融、可发表的 latent memory system。
-  - 当前锚点：retained `v32 / v33 / v4` baselines 继续保留，v5 尚未产生新训练 gain。
-  - 当前重点：pretrained encoder comparison、learned write controller、core/residual latent state、query-conditioned latent reader、latent-only / shuffled-latent ablation、strict PersonaMem gold calibration isolation。
+- `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。
+  - 当前锚点：retained `v32 / v33 / v4` baselines 继续保留；v5 managed run 已从 baseline `13` 推到 `52/52`。
+  - 已完成重点：PersonaMem gold-isolation、gold-free context self-supervision、encoder proxy comparison、learned write controller、core/residual latent state、query-conditioned latent reader、latent-only / text-only / shuffled-latent / no-controller ablation、strict PersonaMem gold calibration isolation。
+  - Final retained state：`scripts/verify_stage2_v5_longrun.py --score-only = 52`；`research-results.tsv` iteration `7 keep` 已记录 stop-condition label。
   - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no benchmark leakage；PersonaMem gold 不得训练 memory substrate，只能隔离训练薄 answer/readout head。
-  - Success boundary：必须证明 latent 本身在 text ablation / shuffled latent / core-only / residual-only / no-controller 等 ablation 下有真实贡献，不能只报告 option exact。
+  - Success boundary：当前本地 verifier / artifacts 机械满足；但 encoder comparison 是 deterministic proxy 且显式记录 `pretrained_weights_loaded = false`，provider 仍是 auxiliary，不得写成 provider-side superiority 或真实 pretrained comparison 结论。
   - 计划：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
 
 - `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `PersonaMem 512`），在**不改 `core / residual` 双银行结构**的前提下，暂时把主优化目标收敛到 `PersonaMem 512`，让 learned latent / belief / option scorer 成为 finite-option personalization 的主能力来源。

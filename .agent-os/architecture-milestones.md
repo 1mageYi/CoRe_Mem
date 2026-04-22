@@ -151,11 +151,13 @@
   - Notes:
     - canary manifest 生成器与固定 `64` 子集已落地；后续只需在主线模型版本稳定后补齐运行记录与结果表
 
-- `MS-013` `[planned]` Stage-2 `v5 Core-Residual Latent Substrate` 计划与执行契约
+- `MS-013` `[done]` Stage-2 `v5 Core-Residual Latent Substrate` managed-run evidence package
   - Acceptance:
     - `docs/v5_plan.md` 固定目标架构、数据隔离、训练目标、反 shortcut 评估协议
     - `.agent-os` index / todo / decisions / acceptance / run-log 同步 `TD-046 / WS-032`
-    - 后续实现必须先建立 pretrained encoder comparison、PersonaMem gold-isolation checker、latent-only / shuffled-latent ablation scaffold
+    - `scripts/verify_stage2_v5_longrun.py --score-only = 52`
+    - 已建立 PersonaMem gold-isolation checker、gold-free context self-supervision、encoder proxy comparison、core/residual train、controller ablation、latent-only / shuffled-latent / text ablation、thin answer-head calibration 与 paper evidence package
   - Boundary:
-    - 当前只是 plan/contract milestone，不代表已有新的训练或 benchmark gain
+    - 当前是本地 mechanical stop condition 达成，不代表 provider-side benchmark superiority
+    - encoder comparison 当前是 deterministic proxy，artifact 显式记录 `pretrained_weights_loaded = false`
     - `v5` 不允许把规则修补、provider prompt trick、PersonaMem option geometry 当作主贡献

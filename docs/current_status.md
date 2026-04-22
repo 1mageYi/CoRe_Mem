@@ -1,12 +1,13 @@
 # Current Status
 
-## 当前最新状态：v5 顶会级 latent substrate 计划
+## 当前最新状态：v5 Core-Residual Latent Substrate 机械 closeout
 
-- 当前 active 主线已从 `TD-045 / WS-031 / v4` 前推到 `TD-046 / WS-032 / v5`。
-- `v5` 的目标不是继续靠规则、parser patch、provider prompt 或 option-scorer trick 提升 benchmark，而是训练并验证真正的 `core + residual` latent memory substrate。
+- 当前 `TD-046 / WS-032 / v5` background autoresearch managed run 已达到配置 stop condition：`scripts/verify_stage2_v5_longrun.py --score-only = 52`，满足 `stage2_v5_longrun_score >= 52`。
+- `v5` 的目标不是继续靠规则、parser patch、provider prompt 或 option-scorer trick 提升 benchmark，而是训练并验证 `core + residual` latent memory substrate 的本地 evidence package。
 - 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay。
-- 当前 v5 尚无新训练 gain；本轮完成的是 plan / contract / documentation lock。
-- 核心新约束：PersonaMem gold 允许但严格隔离，只能训练薄 answer/readout head，不能训练 memory writer / reader / controller / latent substrate；必须报告 no-calibration 与 calibrated 两条线。
+- 当前 v5 已发布 gold-isolation、gold-free context self-supervision、encoder proxy comparison、core-residual train、controller ablation、latent reader / text ablation、thin answer-head calibration、PersonaMem full-589 local report、ablation summary 与 paper evidence package。
+- 核心约束已在 artifacts 中显式记录：PersonaMem gold 只能训练薄 answer/readout head，不能训练 memory writer / reader / controller / latent substrate；同时报告 no-calibration 与 calibrated 两条线。
+- Truth boundary：当前完成态是本地机械 verifier + artifacts 达标；encoder comparison 是 deterministic proxy 且显式记录 `pretrained_weights_loaded = false`，provider 仍是 auxiliary，不能写成 provider-side superiority 或真实 pretrained-weight comparison。
 - 当前计划文档：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
 
 ## 当前结论
@@ -22,6 +23,7 @@
 
 ## 当前状态
 
+- Retained `TD-046 / WS-032 / v5` 已在本轮 background managed run 中达到机械 stop condition：baseline `13`，final `scripts/verify_stage2_v5_longrun.py --score-only = 52`。关键新增证据包括 `latest_stage2_v5_personamem_isolation.json`、`latest_stage2_v5_context_selfsupervised.json`、`latest_stage2_v5_encoder_compare.json`、`latest_stage2_v5_core_residual_train.json`、`latest_stage2_v5_controller_ablation.json`、`latest_stage2_v5_latent_reader_eval.json`、`latest_stage2_v5_text_ablation.json`、`latest_stage2_v5_answer_head_calibration.json`、`latest_stage2_v5_personamem_full589.json`、`latest_stage2_v5_ablation_summary.json` 与 `latest_stage2_v5_paper_evidence_package.json`。当前不能误写成 provider exact 改善、full provider rerun 改善，或真实 pretrained BGE/E5/Contriever 权重比较。
 - Retained `TD-045 / WS-031 / v4`（`TD-045`、`v4`、Persona-first）已在本轮 managed run 中达到机械 stop condition：`scripts/verify_stage2_v4_longrun.py --score-only = 38/38`。关键行为变化是 direct-user reason-update option rescoring；基于现有 learned-authoritative PersonaMem 512 beliefs/evidence 的 full replay，learned local / option-scorer exact 从 v33 的 `196/512` 提到 `219/512`，provider 仍只作为辅助证据。`LongMemEval-S 500` non-catastrophic guard 保持 local `14/500`。
 - 文档状态：`docs/requirements.md` 已重建并细化为 stage-1 + stage-2 双阶段真源；`docs/v2_design.md` 已同步到实现级规格
 - 第一阶段代码状态：platform ready + acceptance verifier landed + resumable benchmark runner landed + embedding-backed memory interface landed + Gemini-compatible retry/backoff / pacing / supervisor path landed + real 1-sample benchmark runs verified

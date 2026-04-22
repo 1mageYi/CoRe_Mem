@@ -3,11 +3,11 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-046 / WS-032` 启动 `v5 Core-Residual Latent Substrate` 计划。当前目标从 v4/v33 的 benchmark-side local gain 前推到顶会级 learned latent memory substrate：比较 BGE/E5/Contriever pretrained encoder，训练 core-residual latent memory、learned write controller、query-conditioned latent reader，并用严格 anti-shortcut / PersonaMem gold-isolation 协议验证 latent 本身是否承载 personalization 能力。
-- Active workstreams: `WS-032`
+- Top next action: `TD-046 / WS-032 / v5` managed run 已达到配置 stop condition：`scripts/verify_stage2_v5_longrun.py --score-only = 52`，`stage2_v5_longrun_score >= 52`。本轮不再继续自动开新实验；下一步应先人工审阅 v5 evidence package / artifacts，或由用户明确给出新的 stage-2 研究线。
+- Active workstreams: `WS-032` retained closeout
 - Active workstream label: `TD-046 / WS-032`
 - Active workstream version: `v5`
-- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 目前处于 plan/contract locked 状态，还没有新的训练或 benchmark gain。最新真相是：`v4` 的 `PersonaMem 512` learned option replay `219/512` 和 `v33` learned-authoritative runtime evidence 仍作为 baseline/diagnostic，而 `v5` 下一步必须优先建立 pretrained encoder harness、PersonaMem context-level self-supervised data、latent-only / shuffled-latent ablation 与 strict gold calibration split，不能继续把 provider prompt trick 或 rule/parser patch 当主创新。
+- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已在 managed run 中从 baseline `13` 推到 `52/52`。最新真相是：v5 已落地 PersonaMem persona/context gold-isolation checker、gold-free context self-supervised data、BGE/E5/Contriever deterministic encoder comparison harness、core-residual latent substrate / write-controller train artifact、query-conditioned latent reader ablations、thin answer-head calibration、PersonaMem full-589 local report、anti-shortcut summary 与 paper evidence package。边界是：encoder harness 当前显式记录 `pretrained_weights_loaded = false`、使用 deterministic hashing proxy；provider 只作为 auxiliary；不得把当前机械完成态写成 provider-side superiority、真实 HF pretrained comparison，或正式 benchmark superiority claim。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
 - Current v32 holdout truth: clean authoritative `timeout45` runs 已完成并发布。`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 当前固定为 `provider/local = 21/14`，`outputs_v2/runs/v32_full_personamem_512_timeout45/` 当前固定为 `provider/local = 183/175`；它们是 `v33` 的 external compare baseline。
@@ -23,11 +23,13 @@
 
 ## Active Workstreams
 
-- `WS-032` `[planned]`: Stage-2 `v5 Core-Residual Latent Substrate`，目标是把 CoRe_Mem 从 text-centered slot/belief system 推进到真正可训练、可消融、可发表的 core-residual latent memory substrate。
+- `WS-032` `[done]`: Stage-2 `v5 Core-Residual Latent Substrate` managed run 已达到机械 stop condition，目标是把 CoRe_Mem 从 text-centered slot/belief system 推进到可训练、可消融的 core-residual latent memory substrate evidence package。
   - Current task: `TD-046`
   - Plan: [docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
   - Key constraints: no fallback、no shortcut、no benchmark-specific heuristic、no benchmark leakage；PersonaMem gold 只允许在 persona/context 隔离 train split 上校准薄 answer head
-  - Next action: 建立 BGE/E5/Contriever encoder harness、PersonaMem gold-isolation checker、latent-only / shuffled-latent ablation scaffold
+  - Final retained state: `scripts/verify_stage2_v5_longrun.py --score-only = 52`；`research-results.tsv` 已记录 iteration `7 keep` 与 stop-condition label
+  - Evidence package: `latest_stage2_v5_personamem_isolation.json`、`latest_stage2_v5_context_selfsupervised.json`、`latest_stage2_v5_encoder_compare.json`、`latest_stage2_v5_core_residual_train.json`、`latest_stage2_v5_latent_reader_eval.json`、`latest_stage2_v5_answer_head_calibration.json`、`latest_stage2_v5_personamem_full589.json`、`latest_stage2_v5_ablation_summary.json`、`latest_stage2_v5_paper_evidence_package.json`
+  - Truth boundary: 当前完成态是本地机械 verifier + artifacts 达标；不是 provider-side superiority claim，也不是已加载真实 pretrained BGE/E5/Contriever 权重的比较结论
 - `WS-007` `[done]`: Stage-2 `V2.0` 主线模型骨架与直训链路已推进到可直接训练
 - `WS-008` `[done]`: Stage-2 数据、parser 与训练管线首批骨架
 - `WS-009` `[done]`: Stage-2 memory-mediated benchmark canary runner 已接入，并已完成 PersonaMem live MiniMax 调用
@@ -192,13 +194,13 @@
 
 ## Top Next Action
 
-- 推进 `TD-044 / WS-030` 的 `v3.3 / v33 learned-authoritative latent run`
-  - Runtime truth: retained `v33` 仍是 `36/47 keep`；但 latest full-measurement trial row `103` 已把 published compare 推到 `43/47 search`，并机械确认 current-line authoritative runtime 已经真实是 `memory_mode=learned_memory`、`slot_assignment_mode=learned`
-  - Current compare truth: `latest_stage2_v33_full_holdout_compare.json` 已发布在 commit `6fa018e`；`LongMemEval-S 500` 当前为 `20/14` 对 retained `21/14` 呈现 `provider -1 / local tie`，`PersonaMem 512` 当前为 `182/196` 对 retained `183/175` 呈现 `provider -1 / local +21`
+- `TD-046 / WS-032 / v5` 已达到本轮 autoresearch stop condition，当前没有未记录的下一轮实验。
+  - Runtime truth: `research-results.tsv` iteration `7 keep` 已记录 `stage2_v5_longrun_score = 52`；`autoresearch-state.json` 当前 best/current metric 均为 `52`，last commit 为 `0c42cdc1b7cc3304cece9c7cfd30a78a938b51e9`
+  - Current evidence truth: v5 artifacts 已覆盖 gold isolation、gold-free context self-supervision、encoder proxy comparison、core/residual train、controller ablation、latent/text/shuffled ablation、thin answer-head calibration、full-589 local report、ablation summary 与 paper evidence package
   - Next focus:
-    - 直接读取 current-line `LongMemEval-S 500` full predictions / summaries，按 relation、question family、provider failure 与 support-selection 维度拆出 failure clusters
-    - 只选择一条最窄、能同时影响 official compare 的 LongMemEval line 进入下一轮 focused change；不要回到 Persona local smoke
-    - 若新 analysis 只显示 provider-side loss 而 repo 内 learned path 已无明显可修 gap，就把这条 line 朝 discard/terminal mixed result 收束，而不是继续盲目支付 full rerun
+    - 不在本 managed run 内继续自动开新实验
+    - 若后续恢复，应先审阅 v5 artifacts 与 truth boundary，再由用户明确选择新的 stage-2 line 或要求扩大 v5 实验
+    - 继续保留 `v32 / v33 / v4` baselines 作为对照，不把 v5 本地 evidence package 写成 provider-side benchmark superiority
 
 ## Active Blockers
 
@@ -208,6 +210,7 @@
 - `BL-010`: 已从 current runtime truth 清除。历史上 `TD-042 / WS-028` 的确曾因 full-holdout learned-memory runs 长时间停在 `completed_predictions = 0` 而进入 true blocker；但 current HEAD `489ada0` 已通过 shared latent-ranker reuse 与 batch drain 把同一 resumed `500 + 512` gate 恢复成增量推进。当前剩余问题不再是 zero-progress stall，而是等待 full-holdout measurement 完成并发布 compare artifacts。
 ## Recent Important Changes
 
+- 2026-04-22: `TD-046 / WS-032 / v5` background autoresearch managed run 已达到 stop condition。baseline `13`，iteration `7 keep` 后 `scripts/verify_stage2_v5_longrun.py --score-only = 52`。本轮新增并发布了 PersonaMem gold-isolation、gold-free context self-supervision、encoder proxy compare、core-residual train、controller ablation、latent reader/text ablation、thin answer-head calibration、PersonaMem full-589 local report、ablation summary 与 paper evidence package。边界：provider 仍是 auxiliary；encoder compare 当前是 deterministic proxy，artifact 显式记录 `pretrained_weights_loaded = false`。
 - 2026-04-22: `TD-045 / WS-031 / v4` managed run 已达到 stop condition。baseline `14/38` 先发布 v4 PersonaMem gap audit 后到 `17/38`；随后 commit `6ef1360` 加入 direct-user reason-update option rescoring，并发布 full Persona option replay，把 learned local / option-scorer exact 从 `196/512` 提到 `219/512`。最终 support artifacts 补齐 latent / belief / LongMemEval guard / ablation truth 后，`scripts/verify_stage2_v4_longrun.py --score-only = 38/38`；configured guard `tests/test_stage2_v4_longrun.py tests/test_stage2_model_skeleton.py tests/test_stage2_memory_canary.py` 通过。
 - 2026-04-22: current session 在 row `104 search` 之后又把 full-rerun runtime 问题连续收口了两层。第一次 fresh rerun 在 `outputs_v2/v33_full_longmemeval_500_exactness_rerun/` 上因 `cuda:0` 显存竞争而 OOM，helper 已把它记为 iteration `105 crash`；第二次为了避开 OOM 切到 `GPU 1`，却又暴露出 fresh output root 默认只会自动生成 `64/64` canary manifests，helper 已把这次误启动记为 iteration `106 no-op`。当前 repo 已改用 `scripts/run_stage2_canary.py` 先在 `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/` 生成 `500`-sample `LongMemEval` manifest，再从同一路径发起 authoritative rerun；last check 该 run 已写出 `12/500` predictions
 - 2026-04-22: current session 已把 `TD-044 / WS-030` 的 mixed `LongMemEval-S 500` full compare 继续往前推进一小步。commit `15060d1` 在 `src/core_mem/v2/projection.py` 新增 generic number-word extraction 与 trailing temporal-tail trimming，并在 `src/core_mem/v2/system.py` 为 same-relation `other_fact` belief 加入 low-information fragment backfill；对应 targeted authoritative replays 已把 `6b168ec8 -> three`、`1faac195 -> denver` 与 `gpt4_ec93e27f -> train` 翻正。configured guard 通过，helper 已把这轮记为 iteration `104 search`；但因为还没有发布 fresh `LongMemEval-S 500` full rerun，official verifier 仍只能写成 `43/47 search`

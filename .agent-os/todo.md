@@ -2,21 +2,31 @@
 
 ## Doing
 
-- `TD-046` `[planned]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成真正可训练、可消融、可发表的 latent memory system。
+- `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。
   - Current workstream: `WS-032`
   - Current retained baselines: `v32` symbolic authoritative full benchmark、`v33` learned-authoritative runtime/full-holdout evidence、`v4` Persona-first learned option replay。
-  - Immediate scope:
-    - compare pretrained encoders `BGE / E5 / Contriever`
-    - build PersonaMem context-level self-supervised episode data without gold answers
-    - implement strict persona/context grouped gold calibration split
-    - train/evaluate core-residual latent writer, latent reader, and thin answer/readout head
-    - report latent-only / text-only / shuffled-latent / core-only / residual-only / no-controller ablations
+  - Final retained state:
+    - baseline `stage2_v5_longrun_score = 13`
+    - final `scripts/verify_stage2_v5_longrun.py --score-only = 52`
+    - `research-results.tsv` iteration `7 keep` 已记录 stop-condition label
+  - Implemented scope:
+    - PersonaMem persona/context grouped gold-isolation checker
+    - PersonaMem context-level self-supervised episode data without gold answers
+    - `BGE / E5 / Contriever` encoder comparison harness with deterministic proxy metrics
+    - core-residual latent substrate and learned write-controller train artifact
+    - query-conditioned latent reader and latent/text/shuffled ablations
+    - thin answer-head calibration and PersonaMem full-589 local report
+    - anti-shortcut ablation summary and paper evidence package
   - Hard constraints:
     - no fallback
     - no shortcut
     - no benchmark-specific heuristic
     - no benchmark leakage
     - PersonaMem gold can calibrate only a thin answer/readout head, never the memory writer/reader/controller/latent substrate
+  - Truth boundary:
+    - current completion is local mechanical verifier + artifact evidence
+    - provider is auxiliary, not a superiority claim
+    - encoder comparison currently records model ids through a deterministic hashing proxy and explicitly marks `pretrained_weights_loaded = false`
   - Plan: [docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
 
 - `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `Persona-first`），在**不改 `core / residual` 双银行结构**的前提下，主攻 `PersonaMem 512` 的 learned latent / belief / option-scorer 能力。

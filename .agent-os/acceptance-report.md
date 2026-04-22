@@ -215,18 +215,28 @@
     - 当前不能声称 `v33` 已满足 keep / acceptance，因为两条 gain flag 仍都是 `false`；LongMemEval 仍是 `provider -1 / local tie`，Persona 仍是 `provider -1 / local +21`
     - 因此当前最诚实状态是 completed full-measurement mixed search result，而不是 acceptance met / keep closeout
 
-- `EV-018` -> `WS-032 / TD-046` `v5` plan / contract lock
-  - Status: planned
+- `EV-018` -> `WS-032 / TD-046` `v5 Core-Residual Latent Substrate` contract lock and managed-run evidence
+  - Status: verified
   - Evidence:
     - `docs/v5_plan.md` 已创建，明确 core-residual latent substrate 的目标架构、训练数据、训练目标、anti-shortcut 评估和里程碑
-    - `scripts/verify_stage2_v5_longrun.py --score-only` 已提供 v5 mechanical score，当前文档/contract baseline 为 `13/52`
+    - `research-results.tsv` 已记录 baseline `13` 与 iteration `7 keep`；最终 `stage2_v5_longrun_score = 52`
+    - `autoresearch-state.json` 当前 best/current metric 均为 `52`，last commit 为 `0c42cdc1b7cc3304cece9c7cfd30a78a938b51e9`
+    - `scripts/verify_stage2_v5_longrun.py --score-only` 当前返回 `52`
     - `.agent-os/project-index.md` 已把 active workstream 前推到 `TD-046 / WS-032 / v5`
     - `.agent-os/change-decisions.md` 已记录 PersonaMem gold calibration isolation、pretrained backbone comparison、MiniMax teacher 边界
     - `.agent-os/todo.md` 与 `docs/todo.md` 已同步 `TD-046`
-  - Acceptance pending:
-    - pretrained encoder comparison harness 尚未实现
-    - PersonaMem gold-isolation checker 尚未实现
-    - latent-only / shuffled-latent ablation scaffold 尚未实现
-    - 当前没有新的训练 gain 或 benchmark gain
+    - `outputs_v2/artifacts/latest_stage2_v5_personamem_isolation.json` 记录 PersonaMem persona/context grouped split、`sample_count = 589`、`no_gold_leakage = true`
+    - `outputs_v2/artifacts/latest_stage2_v5_context_selfsupervised.json` 记录 gold-free context self-supervised samples，并显式记录 `no_gold_answers = true`
+    - `outputs_v2/artifacts/latest_stage2_v5_encoder_compare.json` 记录 `BGE / E5 / Contriever` comparison harness、`uses_ablation_metrics = true`、`not_selected_by_personamem_only = true`
+    - `outputs_v2/artifacts/latest_stage2_v5_core_residual_train.json` 与 `latest_stage2_v5_controller_ablation.json` 记录 core/residual substrate train 与 controller ablation positive gain
+    - `outputs_v2/artifacts/latest_stage2_v5_latent_reader_eval.json` 与 `latest_stage2_v5_text_ablation.json` 记录 latent-only beats random、shuffled-latent drop 与 `full_beats_text_only = true`
+    - `outputs_v2/artifacts/latest_stage2_v5_answer_head_calibration.json` 记录 strict gold isolation、thin answer-head-only calibration 与 no-cal / calibrated split
+    - `outputs_v2/artifacts/latest_stage2_v5_personamem_full589.json` 记录 PersonaMem full-589 local report，provider 为 auxiliary 且 `provider_run_executed = false`
+    - `outputs_v2/artifacts/latest_stage2_v5_ablation_summary.json` 与 `latest_stage2_v5_paper_evidence_package.json` 记录 anti-shortcut summary 与 paper evidence boundary
+  - Verification:
+    - `conda run -n core_mem pytest -q tests/test_stage2_v5_longrun.py` -> passed
+    - `git diff --check && python scripts/verify_stage2_v5_longrun.py --score-only` -> `52`
   - Boundary:
-    - `EV-018` 只证明 v5 文档与执行契约已锁定，不代表 latent substrate 已实现
+    - `EV-018` 证明 v5 本地 mechanical evidence package 已达到 configured stop condition
+    - 当前不能写成 provider-side superiority claim；provider 仍是 auxiliary
+    - 当前 encoder comparison harness 显式记录 `pretrained_weights_loaded = false`，因此不能写成真实 pretrained HF weights 的模型优劣结论

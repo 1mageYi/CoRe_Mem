@@ -1,5 +1,36 @@
 # Run Log
 
+# 2026-04-22 Session 126
+
+- Worked on: `TD-046 / WS-032 / v5 Core-Residual Latent Substrate` background autoresearch managed run，从 fresh baseline 推进到 configured stop condition
+- State changed:
+  - fresh baseline `scripts/verify_stage2_v5_longrun.py --score-only = 13`
+  - iteration `1 keep`: 新增 PersonaMem persona/context grouped gold-isolation checker，score 到 `17`
+  - iteration `2 keep`: 新增 PersonaMem raw-context gold-free self-supervised builder，score 到 `21`
+  - iteration `3 keep`: 新增 `BGE / E5 / Contriever` encoder comparison harness，score 到 `25`；artifact 显式记录 deterministic proxy 与 `pretrained_weights_loaded = false`
+  - iteration `4 keep`: 新增 core/residual latent substrate train 与 learned write-controller ablation，score 到 `32`
+  - iteration `5 keep`: 新增 query-conditioned latent reader 与 latent/shuffled/text ablation publishers，score 到 `38`
+  - iteration `6 keep`: 收紧 text ablation gate，`full_beats_text_only = true`，score 到 `39`
+  - iteration `7 keep`: 发布 thin answer-head calibration、PersonaMem full-589 local report、anti-shortcut summary 与 paper evidence package，score 到 `52`
+- Evidence / artifacts:
+  - `research-results.tsv` iteration `7 keep`
+  - `autoresearch-state.json` best/current metric `52`
+  - `outputs_v2/artifacts/latest_stage2_v5_personamem_isolation.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_context_selfsupervised.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_encoder_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_core_residual_train.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_controller_ablation.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_latent_reader_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_answer_head_calibration.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_personamem_full589.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_ablation_summary.json`
+  - `outputs_v2/artifacts/latest_stage2_v5_paper_evidence_package.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v5_longrun.py`
+  - `git diff --check && python scripts/verify_stage2_v5_longrun.py --score-only` -> `52`
+- Truth boundary:
+  - 当前可声明的是 v5 local mechanical stop condition reached；不得声明 provider-side superiority、formal benchmark superiority，或真实 pretrained BGE/E5/Contriever 权重比较已经完成。
+
 # 2026-04-22 Session 125
 
 - Worked on: `TD-045 / WS-031 / v4 Persona-first learned memory` managed run，从 fresh baseline 初始化并推进到 stop condition
