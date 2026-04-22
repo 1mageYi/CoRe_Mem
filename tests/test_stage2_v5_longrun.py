@@ -8,6 +8,7 @@ from scripts.verify_stage2_v5_longrun import (
     publish_v5_context_selfsupervised,
     publish_v5_core_residual_train,
     publish_v5_encoder_compare,
+    publish_v5_latent_reader_eval,
     publish_v5_personamem_isolation,
 )
 
@@ -213,11 +214,11 @@ def test_publish_v5_encoder_compare_records_three_backbones_without_gold(tmp_pat
             "target_text": "I prefer quiet grocery stores.",
         },
     ]
-    for split in ("val", "eval"):
-        (sample_root / f"{split}.jsonl").write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-            encoding="utf-8",
-        )
+    (sample_root / "val.jsonl").write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    (sample_root / "eval.jsonl").write_text("", encoding="utf-8")
     _write_json(
         artifact_root / "latest_stage2_v5_context_selfsupervised.json",
         {
@@ -382,3 +383,107 @@ def test_v5_longrun_counts_core_residual_and_controller_checks(tmp_path: Path) -
     payload = compute_v5_longrun(repo_root)
 
     assert payload["score"] == 32
+
+
+def test_publish_v5_latent_reader_eval_records_anti_shortcut_metrics(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    sample_root = artifact_root / "stage2_v5_context_selfsupervised"
+    sample_root.mkdir(parents=True)
+    rows = [
+        {
+            "sample_id": "s1",
+            "input_context": [{"role": "user", "content": "quiet library reading"}],
+            "target_text": "quiet library reading",
+        },
+        {
+            "sample_id": "s2",
+            "input_context": [{"role": "user", "content": "crowded festivals chaotic"}],
+            "target_text": "crowded festivals chaotic",
+        },
+        {
+            "sample_id": "s3",
+            "input_context": [{"role": "user", "content": "Pacific electronic music"}],
+            "target_text": "Pacific electronic music",
+        },
+        {
+            "sample_id": "s4",
+            "input_context": [{"role": "user", "content": "deadline pressure reading"}],
+            "target_text": "deadline pressure reading",
+        },
+    ]
+    (sample_root / "val.jsonl").write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    (sample_root / "eval.jsonl").write_text("", encoding="utf-8")
+    _write_json(
+        artifact_root / "latest_stage2_v5_context_selfsupervised.json",
+        {"task_files": {"val": str(sample_root / "val.jsonl"), "eval": str(sample_root / "eval.jsonl")}},
+    )
+    _write_json(
+        artifact_root / "latest_stage2_v5_encoder_compare.json",
+        {"selected_backbone": "BAAI/bge-base-en-v1.5"},
+    )
+
+    payload = publish_v5_latent_reader_eval(root=repo_root, max_eval_samples=4)
+
+    assert payload["latent_reader"]["query_conditioned_reader"] is True
+    assert payload["latent_reader"]["latent_only_above_random"] is True
+    assert payload["latent_reader"]["shuffled_latent_drops"] is True
+    assert payload["text_ablation"]["text_dropout_enabled"] is True
+    assert payload["text_ablation"]["full_beats_text_only"] is True
+    assert (artifact_root / "latest_stage2_v5_latent_reader_eval.json").exists()
+    assert (artifact_root / "latest_stage2_v5_text_ablation.json").exists()
+
+
+def test_v5_longrun_counts_latent_reader_and_text_ablation_checks(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_docs(repo_root)
+    for name, payload in {
+        "latest_stage2_v5_personamem_isolation.json": {
+            "split_by_shared_context_id": True,
+            "split_by_persona": True,
+            "no_gold_leakage": True,
+            "gold_used_for_memory_substrate": False,
+            "train_eval_contexts_disjoint": True,
+        },
+        "latest_stage2_v5_context_selfsupervised.json": {
+            "no_gold_answers": True,
+            "train_samples": 10,
+            "eval_samples": 4,
+            "stage2_32k_used_as_warmup": True,
+            "claims_large_scale_pretraining": False,
+        },
+        "latest_stage2_v5_encoder_compare.json": {
+            "compared_backbones": ["BAAI/bge-base-en-v1.5", "intfloat/e5-base-v2", "facebook/contriever"],
+            "selected_backbone": "intfloat/e5-base-v2",
+            "uses_ablation_metrics": True,
+            "not_selected_by_personamem_only": True,
+        },
+        "latest_stage2_v5_core_residual_train.json": {
+            "trainable_core_residual": True,
+            "trainable_write_controller": True,
+            "positive_gain": True,
+            "train_seconds": 0.1,
+            "device": "cpu",
+        },
+        "latest_stage2_v5_controller_ablation.json": {
+            "learned_controller_beats_disabled": True,
+            "covered_actions": ["new", "merge", "overwrite", "stale"],
+        },
+        "latest_stage2_v5_latent_reader_eval.json": {
+            "latent_only_above_random": True,
+            "shuffled_latent_drops": True,
+            "query_conditioned_reader": True,
+        },
+        "latest_stage2_v5_text_ablation.json": {
+            "full_beats_text_only": True,
+            "text_dropout_enabled": True,
+        },
+    }.items():
+        _write_json(repo_root / "outputs_v2" / "artifacts" / name, payload)
+
+    payload = compute_v5_longrun(repo_root)
+
+    assert payload["score"] == 39

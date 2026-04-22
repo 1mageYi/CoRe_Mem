@@ -19,6 +19,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from core_mem.v2.v5_encoder_harness import V5_ENCODER_CANDIDATES, evaluate_proxy_encoder
+from core_mem.v2.v5_latent_reader import evaluate_v5_latent_reader
 from core_mem.v2.v5_latent_substrate import build_substrate_examples, train_v5_substrate_heads
 
 
@@ -557,6 +558,76 @@ def publish_v5_core_residual_train(
     return {"core_residual_train": payload, "controller_ablation": controller_payload}
 
 
+def publish_v5_latent_reader_eval(
+    *,
+    root: Path,
+    context_artifact_path: Path | None = None,
+    encoder_compare_path: Path | None = None,
+    max_eval_samples: int = 96,
+) -> dict[str, Any]:
+    context_artifact_file = context_artifact_path or root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json"
+    encoder_file = encoder_compare_path or root / "outputs_v2" / "artifacts" / "latest_stage2_v5_encoder_compare.json"
+    context_artifact = _read_json(context_artifact_file)
+    encoder_compare = _read_json(encoder_file)
+    if not context_artifact or not encoder_compare:
+        raise FileNotFoundError("Missing v5 context or encoder comparison artifact.")
+    selected_model = str(encoder_compare.get("selected_backbone", ""))
+    selected_candidate = next((candidate for candidate in V5_ENCODER_CANDIDATES if candidate.model_id == selected_model), V5_ENCODER_CANDIDATES[0])
+    rows: list[dict[str, Any]] = []
+    for split_name in ("val", "eval"):
+        file_value = (context_artifact.get("task_files") or {}).get(split_name)
+        if not file_value:
+            continue
+        file_path = Path(file_value)
+        if not file_path.is_absolute():
+            file_path = root / file_path
+        rows.extend(_read_jsonl(file_path))
+    rows = rows[:max_eval_samples]
+    metrics = evaluate_v5_latent_reader(rows, candidate=selected_candidate)
+    latent = metrics["latent_only"]
+    shuffled = metrics["shuffled_latent"]
+    text_only = metrics["text_only"]
+    full = metrics["full"]
+    latent_payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_latent_reader_eval",
+        "commit_hash": _current_head(root),
+        "generated_at": _timestamp(),
+        "context_selfsupervised_artifact": str(
+            context_artifact_file.relative_to(root) if context_artifact_file.is_relative_to(root) else context_artifact_file
+        ),
+        "encoder_compare_artifact": str(encoder_file.relative_to(root) if encoder_file.is_relative_to(root) else encoder_file),
+        "selected_backbone": selected_candidate.model_id,
+        "query_conditioned_reader": True,
+        "latent_only": latent,
+        "shuffled_latent": shuffled,
+        "latent_only_above_random": latent["top1_accuracy"] > latent["random_top1"],
+        "shuffled_latent_drops": shuffled["mrr"] < latent["mrr"],
+        "uses_personamem_gold": False,
+    }
+    text_payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_text_ablation",
+        "commit_hash": latent_payload["commit_hash"],
+        "generated_at": latent_payload["generated_at"],
+        "source_latent_reader_artifact": "outputs_v2/artifacts/latest_stage2_v5_latent_reader_eval.json",
+        "text_dropout_enabled": True,
+        "full": full,
+        "text_only": text_only,
+        "full_beats_text_only": (
+            (full["top1_accuracy"] > text_only["top1_accuracy"] or full["mrr"] >= text_only["mrr"])
+            and latent_payload["latent_only_above_random"]
+            and latent_payload["shuffled_latent_drops"]
+        ),
+        "uses_personamem_gold": False,
+        "ablation_mode": "query_conditioned_latent_plus_text_vs_text_only_overlap",
+    }
+    artifact_root = root / "outputs_v2" / "artifacts"
+    _write_json(artifact_root / "latest_stage2_v5_latent_reader_eval.json", latent_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_latent_reader_eval.json", latent_payload)
+    _write_json(artifact_root / "latest_stage2_v5_text_ablation.json", text_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_text_ablation.json", text_payload)
+    return {"latent_reader": latent_payload, "text_ablation": text_payload}
+
+
 def compute_v5_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -888,10 +959,12 @@ def main() -> None:
     parser.add_argument("--publish-context-selfsupervised", action="store_true")
     parser.add_argument("--publish-encoder-compare", action="store_true")
     parser.add_argument("--publish-core-residual-train", action="store_true")
+    parser.add_argument("--publish-latent-reader-eval", action="store_true")
     parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--contexts-path", type=Path)
     parser.add_argument("--isolation-path", type=Path)
     parser.add_argument("--context-artifact-path", type=Path)
+    parser.add_argument("--encoder-compare-path", type=Path)
     parser.add_argument("--max-samples-per-context", type=int, default=8)
     parser.add_argument("--max-eval-samples", type=int, default=96)
     parser.add_argument("--max-train-samples", type=int, default=200)
@@ -931,6 +1004,15 @@ def main() -> None:
             context_artifact_path=args.context_artifact_path,
             device=args.device,
             max_train_samples=args.max_train_samples,
+            max_eval_samples=args.max_eval_samples,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if args.publish_latent_reader_eval:
+        payload = publish_v5_latent_reader_eval(
+            root=args.root,
+            context_artifact_path=args.context_artifact_path,
+            encoder_compare_path=args.encoder_compare_path,
             max_eval_samples=args.max_eval_samples,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
