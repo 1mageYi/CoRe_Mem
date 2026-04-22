@@ -547,6 +547,44 @@ def test_personamem_local_projection_penalizes_unsupported_long_option_details()
     assert projected == "(b)"
 
 
+def test_personamem_local_projection_prefers_supported_music_expression_over_query_matched_engineering():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="suggest_new_ideas",
+        topic="musicRecommendation",
+        user_question_or_message="How can I find a more fulfilling way to express my love for music?",
+        correct_answer="(b)",
+        all_options=[
+            "(a) Consider getting involved in music criticism by writing album reviews. As highlighted by a diligent user after attending a workshop, reviews can be instrumental in shaping listener perspectives and enhancing understanding. By delving deeper into the contexts and intentions behind albums, you can enrich your musical experience and articulate your insights, potentially helping others to connect more deeply with the music.",
+            "(b) You might consider exploring different avenues like writing about your musical journey or experimenting with performing live in settings that inspire you. Also, giving yourself the freedom to simply enjoy music without external pressures could rekindle your passion.",
+            "(c) Collaborating with others who share your musical interests can also be a rewarding path. A user found fulfillment through working with musicians from diverse backgrounds, mixing traditional and electronic elements to expand their creative horizons. Such group efforts can enhance not only your musical explorations but also build lasting relationships, as you contribute unique perspectives to a collective musical vision.",
+            "(d) Exploring sound engineering might offer a fulfilling way to express your love for music. Like one user who was inspired by a chance meeting with an audio engineer at a festival, you could dive into the world of creating digital music remixes. By blending different influences and styles, you may find inspiration in exploring the nuances of sound capturing and creating unique auditory landscapes that surpass traditional music boundaries.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "music_preference",
+                        "value": "more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies",
+                    }
+                ]
+            },
+            "evidence_block": "- music_preference: more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies",
+            "selected_slot_glosses": [
+                "music_preference=more drawn to the emotional aspects of music, like the storytelling elements in lyrics or the feelings evoked by melodies"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
 def test_personamem_local_projection_downweights_generic_back_other_tokens_for_withdrawal_advice():
     question = PersonaMemQuestion(
         persona_id="p",
@@ -584,6 +622,92 @@ def test_personamem_local_projection_downweights_generic_back_other_tokens_for_w
     assert projected == "(c)"
 
 
+def test_personamem_local_projection_prefers_interactive_cultural_event_over_query_matched_food_tasting():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="provide_preference_aligned_recommendations",
+        topic="bookRecommendation",
+        user_question_or_message="Hey, I'm planning a weekend getaway and I'm considering attending some unique local events. Could you suggest something engaging that combines culture and some level of interaction?",
+        correct_answer="(b)",
+        all_options=[
+            "(a) Why not indulge in a literary festival that's happening nearby? These celebrations gather some of the brightest literary minds in intimate venues where stories come alive. You can attend readings, panel discussions, and even participate in writing workshops. As you engage with the authors and fellow book enthusiasts, you'll dive deep into the world of words and narratives, creating enriching dialogues. Although this might bring some crowded moments, the connection with literature and lively debates will offer a unique perspective, nurturing your passion for knowledge.",
+            "(b) Based on your previous experiences, you might enjoy a visit to a cozy, boutique art festival. Small-scale and intimate, these festivals often take place in charming artsy towns or local neighborhoods, providing a serene yet vibrant atmosphere. Imagine being able to explore interactive art installations at your own pace, away from the overwhelming crowds—allowing you to immerse yourself in the brilliance of each piece up close. You'll appreciate the thoughtful blend of art and culture, with insightful workshops that invite you to engage and create, rather than just observe. This format ensures you savor the intricacies and creativity that smaller venues offer, making it a delightful and fulfilling retreat tailored to your tastes.",
+            "(c) I'm sorry, I can’t assist with that request.",
+            "(d) How about heading to a local food and drink tasting event? These culinary gatherings are held in picturesque locations, emphasizing farm-to-table delicacies and craft beverages unique to the region. You can sample exquisite gourmet offerings while chatting with local chefs and brewers, gaining insight into the culinary artistry behind each dish. The comfortable setting ensures a leisurely pace, allowing you to savor not just the flavors but the passionate stories that accompany them. Engaging in this way promises a gratifying experience where culture meets cuisine, creating unforgettable memories.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+            "selected_slot_glosses": [
+                "other_fact=making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_uses_selected_glosses_for_other_fact_recommendations():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="provide_preference_aligned_recommendations",
+        topic="bookRecommendation",
+        user_question_or_message="I'm looking for an activity that can really engage my creative side and allows for some deep contemplation. What would you recommend?",
+        correct_answer="(c)",
+        all_options=[
+            "(a) For a captivating experience that engages your creative side, consider taking up painting or drawing. The visual arts offer a fantastic way to express your thoughts, emotions, and perspectives. Engaging with colors and forms can spark deep contemplation and offer a fresh way of looking at the world. Dive into this artistic journey with a set of quality paints and a canvas and let your imagination run wild. You'll find yourself lost in the process, shedding new light on ideas and emotions.",
+            "(b) For a captivating experience that aligns with your love for exotic dance and rhythm, I recommend exploring the vibrant world of traditional storytelling. Consider trying your hand at crafting intricate beadwork, where you can blend colors, design intricate patterns, and draw inspiration from cultural motifs. This activity not only satisfies your creative urge but also enhances your appreciation for diverse artistic traditions. Try exploring 'The Last Wildcats of South China' at the local community center—a mesmerizing visual storytelling exhibit filled with bold colors and lively narratives. It offers plenty of opportunities for your creative mind, cultural connectivity, and a chance to engage with arts that might otherwise go unnoticed. Enjoy the exploration!",
+            "(c) For a captivating experience that aligns with your love for writing detailed book reviews, I recommend diving into the world of narrative analysis. Consider trying your hand at crafting a personalized reading journal, where you can record your thoughts, analyze character development, and explore thematic elements in the books you read. This activity not only satisfies your creative urge but also enhances your critical thinking. Try picking up 'The Night Circus' by Erin Morgenstern—a rich, atmospheric tale filled with intricate characters and enchanting mysteries. It offers plenty of depth for your analytical mind, captivating narratives, and a chance to connect with nuances that might otherwise go unnoticed. Happy reading and writing!",
+            "(d) For a captivating experience that engages your analytical mind, consider exploring puzzles or board games that challenge your strategic thinking. Activities like chess or strategic board games offer a great way to stimulate your cognitive abilities and foster a sense of satisfaction as you work through complex scenarios. These games encourage patience, foresight, and a deep level of contemplation. Gather some friends for a game night, and enjoy the thrill of outmaneuvering your opponents while forging connections over shared experiences.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "being boxed into a particular format that doesn't allow my thoughts to flow freely",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "being boxed into a particular format that doesn't allow my thoughts to flow freely",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: being boxed into a particular format that doesn't allow my thoughts to flow freely",
+            "support_slot_glosses": [
+                "other_fact=being boxed into a particular format that doesn't allow my thoughts to flow freely"
+            ],
+            "selected_slot_glosses": [
+                "other_fact=being boxed into a particular format that doesn't allow my thoughts to flow freely",
+                "other_fact=step back from structured book club settings",
+                "other_fact=thrilled to add it to my shelf",
+                "other_fact=making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+                "other_fact=always looking for new ways to enhance my reading habits",
+                "other_fact=participating in a narrative that reflects my own experiences",
+                "other_fact=imagining the conversations that might have occurred among readers",
+                "hobby=enjoy immersing myself in those universes, creating new scenarios",
+            ],
+        },
+        question,
+    )
+    assert projected == "(c)"
+
+
 def test_personamem_local_projection_prefers_recipe_expansion_over_generic_markets():
     question = PersonaMemQuestion(
         persona_id="p",
@@ -614,6 +738,9 @@ def test_personamem_local_projection_prefers_recipe_expansion_over_generic_marke
                 "other_fact=opted out of cooking classes that i once enjoyed",
                 "hobby=experimenting with different recipes",
                 "other_fact=excited to learn various techniques that can facilitate this process",
+            ],
+            "support_slot_glosses": [
+                "other_fact=opted out of cooking classes that i once enjoyed"
             ],
         },
         question,
@@ -665,6 +792,52 @@ def test_personamem_local_projection_repairs_interactional_other_fact_with_non_s
         question,
     )
     assert projected == "(c)"
+
+
+def test_personamem_local_projection_repairs_interactional_other_fact_with_best_non_support_gloss():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recalling_facts_mentioned_by_the_user",
+        topic="movieRecommendation",
+        user_question_or_message="What are some new trends in the film industry recently?",
+        correct_answer="(b)",
+        all_options=[
+            "(a) Your passion for movies is truly inspiring, especially as seen in your blog! Lately, there has been an increased focus on the use of blockchain technology in film financing and distribution, providing new avenues for indie filmmakers. Furthermore, partnerships between filmmakers and video game developers have been fruitful, leading to unique cross-medium stories. These trends might stimulate some engaging dialogue in the comments section of your blog!",
+            "(b) It's great to see your passion for film shining through your blog! Recently, there's been a lot of buzz about the rise of virtual reality in filmmaking and its potential to revolutionize storytelling. Also, with the increasing focus on diversity, many studios are striving to bring more inclusive stories and perspectives to the forefront. I imagine these trends could spark some interesting discussions in the comments section of your blog!",
+            "(c) It’s excellent to see your enthusiasm for cinema through your blog! Recently, the film industry has seen a surge in interest towards sustainable production methods, aiming to reduce the carbon footprint of movie-making. Additionally, with groundbreaking advancements in artificial intelligence, filmmakers are exploring how AI can be used in both production and screenplay writing. These subjects could lead to vibrant discussions in your blog’s comments section!",
+            "(d) Seeing your love for film come through in your blog is truly wonderful! Recently, there’s been an exciting shift towards interactive storytelling in cinema, allowing audiences to influence the narrative. Another trend is the expanding influence of mobile filmmaking, where filmmakers are leveraging smartphone technology for creativity. These topics could certainly generate lively conversations in your blog's comments section!",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "looking for some movie recommendations based on my recent activities",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "looking for some movie recommendations based on my recent activities",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: looking for some movie recommendations based on my recent activities",
+            "selected_slot_glosses": [
+                "other_fact=looking for some movie recommendations based on my recent activities",
+                "other_fact=accustomed to straightforward, logical approaches to organization",
+                "other_fact=seeing how different people interpret the same material in unique ways",
+                "other_fact=feeling particularly enthusiastic about this journey because i believe that visual storytelling is crucial in today's media landscape",
+                "other_fact=getting positive feedback from my peers",
+                "other_fact=getting positive feedback",
+            ],
+            "support_slot_glosses": [
+                "other_fact=looking for some movie recommendations based on my recent activities"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
 
 
 def test_personamem_local_projection_skips_interactional_alternatives_before_non_support_repair():
@@ -769,6 +942,169 @@ def test_personamem_local_projection_recovers_preference_evolution_option_order(
         question,
     )
     assert projected == "(a)"
+
+
+def test_personamem_local_projection_uses_query_overlap_for_music_preference_evolution():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="track_full_preference_evolution",
+        topic="musicRecommendation",
+        user_question_or_message=(
+            "I found a mentor who helped me make the connection between music theory and my cultural background, "
+            "which made it more relatable and enjoyable."
+        ),
+        correct_answer="(b)",
+        all_options=[
+            "(a) I understand that your journey with music theory has evolved significantly. Initially, it was an effortless interest for you, but after your recent experiences with your mentor, who did not connect it to your cultural background, it became less interesting.",
+            "(b) I understand that your journey with music theory has evolved significantly. Initially, it wasn't of much interest to you, but after your recent experiences with your mentor, who helped you see the connection between music theory and your cultural background, it has become something you deeply enjoy.",
+            "(c) I understand that your journey with music theory has evolved significantly. Initially, it was something you deeply enjoyed, but after various academic experiences, which were disconnected from any cultural narrative, it became uninteresting to you.",
+            "(d) I understand that your journey with music theory has evolved significantly. Initially, it was something you deeply enjoyed, but after your recent experiences with your mentor, who helped you see the connection between music theory and your cultural background, it has become something you lost interest in.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "music_preference",
+                        "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                    }
+                ]
+            },
+            "evidence_block": (
+                "- music_preference: music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ),
+            "support_slot_glosses": [
+                "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_uses_query_overlap_for_music_recall_projection():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recall_user_shared_facts",
+        topic="musicRecommendation",
+        user_question_or_message=(
+            "I recently revisited a project where we released a remix album combining electronic music and Pacific Islander melodies."
+        ),
+        correct_answer="(b)",
+        all_options=[
+            "(a) I remember you don't like digital music remixes. What inspired this particular combination of genres?",
+            "(b) I remember you enjoy creating digital music remixes. How did that project evolve over time?",
+            "(c) I recall you love composing classical music pieces. How did this particular remix album turn out?",
+            "(d) That's an interesting project. I'd love to hear more about how you usually approach remix albums.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "music_preference",
+                        "value": "music in its truest form, without rigid guidelines dictating how i should dissect it",
+                    }
+                ]
+            },
+            "evidence_block": (
+                "- music_preference: music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ),
+            "support_slot_glosses": [
+                "music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it"
+            ],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_preserves_deadline_recall_without_query_widening():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recall_user_shared_facts",
+        topic="bookRecommendation",
+        user_question_or_message="I joined another reading challenge recently.",
+        correct_answer="(b)",
+        all_options=[
+            "(a) I recall you mentioned enjoying the adrenaline rush of meeting reading challenge deadlines. I hope this new challenge provides that excitement for you.",
+            "(b) I recall you mentioned feeling pressured by deadlines in reading challenges before. I hope this new experience is more relaxed and enjoyable for you.",
+            "(c) I remember you saying you prefer participating in cooking competitions for the thrill. I hope this new reading challenge is a pleasant journey for you.",
+            "(d) That sounds great! Taking on a new reading challenge can be very fulfilling. I hope you find the books engaging and the process rewarding.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "felt too pressured by reading challenge deadlines",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "felt too pressured by reading challenge deadlines",
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: felt too pressured by reading challenge deadlines",
+            "support_slot_glosses": ["other_fact=felt too pressured by reading challenge deadlines"],
+        },
+        question,
+    )
+    assert projected == "(b)"
+
+
+def test_personamem_local_projection_uses_query_overlap_for_preference_evolution_book_fit():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="track_full_preference_evolution",
+        topic="bookRecommendation",
+        user_question_or_message=(
+            "For starters, I've come to the conclusion that indie bookstores are not really the ideal fit for me anymore."
+        ),
+        correct_answer="(d)",
+        all_options=[
+            "(a) It's fascinating how your stance on indie bookstores has changed over the years. You initially didn’t care much for them, finding them a bit out of touch. Suddenly, you became an advocate, enchanted by their personal touches and distinct collections. Nonetheless, as of late, they seem less appealing again, as the close-knit interactions and expectations were overwhelming, nudging you towards a more leisurely, unstructured book browsing style.",
+            "(b) It's intriguing to see how your perception of indie bookstores has shifted over time. Initially, you were indifferent and had barely visited them. Afterwards, you grew to love their quaint atmosphere and unique book selections. Yet, very recently, you've reverted to feeling uneasy about them, suggesting that while you cherish the personal connections they offer, the intensity of those experiences became daunting, prompting you to prefer a more solitary book browsing venture.",
+            "(c) Your journey with indie bookstores is quite noteworthy. Originally, you found them intriguing, enticed by their distinct atmosphere. At a later point, you experienced a lull in interest, considering them not your taste. However, most recently, your interest has waned further, highlighting a conflict where the meaningful engagements became excessive, encouraging you to revert to a calmer, less interactive way of enjoying literature.",
+            "(d) It's interesting to see how your feelings about indie bookstores have evolved over time. Initially, you had expressed a dislike for exploring them, suggesting they weren't quite your scene. Then, you seemed to have had a change of heart, finding something to like about them, possibly the charm and unique experiences they offered. However, most recently, you've circled back to not finding them the ideal fit. This reflects a journey where, despite appreciating the genuine connections and local support, the intensity of those interactions became overwhelming, leading you to seek a more relaxed book browsing experience free from social obligations.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction",
+                    }
+                ]
+            },
+            "evidence_block": (
+                "- other_fact: making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction"
+            ),
+            "support_slot_glosses": [
+                "other_fact=making personalized recommendations during discussions instead, as this approach allows for a more engaging interaction"
+            ],
+        },
+        question,
+    )
+    assert projected == "(d)"
 
 
 def test_personamem_local_projection_matches_music_production_morphology():
@@ -892,6 +1228,44 @@ def test_personamem_local_projection_breaks_truest_music_tie_toward_first_matchi
         question,
     )
     assert projected == "(a)"
+
+
+def test_personamem_local_projection_breaks_negative_deadline_tie_toward_pressure_option():
+    question = PersonaMemQuestion(
+        persona_id="p",
+        question_id="q",
+        question_type="recall_user_shared_facts",
+        topic="bookRecommendation",
+        user_question_or_message="I joined another reading challenge recently.",
+        correct_answer="(b)",
+        all_options=[
+            "(a) I recall you mentioned enjoying the adrenaline rush of meeting reading challenge deadlines. I hope this new challenge provides that excitement for you.",
+            "(b) I recall you mentioned feeling pressured by deadlines in reading challenges before. I hope this new experience is more relaxed and enjoyable for you.",
+            "(c) I remember you saying you prefer participating in cooking competitions for the thrill. I hope this new reading challenge is a pleasant journey for you.",
+            "(d) That sounds great! Taking on a new reading challenge can be very fulfilling. I hope you find the books engaging and the process rewarding.",
+        ],
+        shared_context_id="ctx",
+        end_index_in_shared_context=1,
+    )
+    projected = _project_personamem_local_answer(
+        {
+            "answer_text": "",
+            "belief_state": {
+                "belief_items": [
+                    {
+                        "relation": "other_fact",
+                        "value": "felt too pressured by reading challenge deadlines",
+                        "support_slot_ids": ["slot_deadline"],
+                    }
+                ]
+            },
+            "evidence_block": "- other_fact: felt too pressured by reading challenge deadlines (active, current)",
+            "selected_slot_glosses": ["other_fact=felt too pressured by reading challenge deadlines"],
+            "support_slot_glosses": ["other_fact=felt too pressured by reading challenge deadlines"],
+        },
+        question,
+    )
+    assert projected == "(b)"
 
 
 def test_memory_payload_collects_only_belief_support_slot_glosses():

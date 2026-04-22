@@ -454,6 +454,39 @@ def _repair_interactional_other_fact_projection(
     memory_payload: dict[str, Any],
     projected: str,
 ) -> str | None:
+    def _candidate_projection_score(candidate_value: str, gloss: str) -> tuple[str, float, int]:
+        query_terms = head._content_token_set(question.user_question_or_message)
+        answer_terms = head._content_token_set(candidate_value)
+        belief_terms = head._content_token_set(candidate_value)
+        evidence_terms = head._content_token_set(f"- other_fact: {candidate_value}")
+        gloss_terms = head._content_token_set(gloss)
+        best_option = ""
+        best_score = float("-inf")
+        label_mode = options_use_labels(question.all_options)
+        for option in question.all_options:
+            body = option_body(option)
+            option_terms = head._content_token_set(body)
+            score = 0.0
+            if answer_terms:
+                score += 4.0 * len(answer_terms & option_terms)
+            if belief_terms:
+                score += 3.0 * len(belief_terms & option_terms)
+            if evidence_terms:
+                score += 2.0 * len(evidence_terms & option_terms)
+            if gloss_terms:
+                score += 1.5 * len(gloss_terms & option_terms)
+            if query_terms:
+                score += 0.5 * len(query_terms & option_terms)
+            normalized_body = normalize_answer(body)
+            normalized_answer = normalize_answer(candidate_value)
+            if normalized_answer and normalized_body:
+                if normalized_answer in normalized_body or normalized_body in normalized_answer:
+                    score += 6.0
+            if score > best_score:
+                best_score = score
+                best_option = option_label(option) if label_mode else option
+        return best_option, best_score, len(gloss_terms)
+
     belief_items = [
         item for item in memory_payload["belief_state"].get("belief_items", []) if isinstance(item, dict)
     ]
@@ -473,6 +506,7 @@ def _repair_interactional_other_fact_projection(
     support_slot_glosses = {
         str(item) for item in memory_payload.get("support_slot_glosses", []) if str(item).strip()
     }
+    best_candidate: tuple[str, float, int] | None = None
     for gloss in selected_slot_glosses:
         if gloss in support_slot_glosses:
             continue
@@ -481,37 +515,51 @@ def _repair_interactional_other_fact_projection(
             continue
         if _looks_interactional_other_fact_value(candidate_value):
             continue
-        candidate_projection = head.select_option(
-            query_text=question.user_question_or_message,
-            answer_text=candidate_value,
-            options=question.all_options,
-            belief_values=[candidate_value],
-            evidence_text=f"- {candidate_relation}: {candidate_value}",
-            selected_slot_glosses=[gloss],
-        )
+        candidate_projection, candidate_score, candidate_size = _candidate_projection_score(candidate_value, gloss)
         if candidate_projection != projected:
-            return option_label(candidate_projection) if options_use_labels(question.all_options) else candidate_projection
-    return None
+            candidate_rank = (candidate_projection, candidate_score, candidate_size)
+            if best_candidate is None or candidate_rank[1:] > best_candidate[1:]:
+                best_candidate = candidate_rank
+    if best_candidate is None:
+        return None
+    return option_label(best_candidate[0]) if options_use_labels(question.all_options) else best_candidate[0]
 
 
 def _project_personamem_local_answer(memory_payload: dict[str, Any], question: PersonaMemQuestion) -> str:
     head = OptionScoringHead()
+    belief_items = [
+        item for item in memory_payload["belief_state"].get("belief_items", []) if isinstance(item, dict)
+    ]
+    support_glosses = [str(item) for item in memory_payload.get("support_slot_glosses", [])]
+    selected_glosses = [str(item) for item in memory_payload.get("selected_slot_glosses", [])]
+    projection_glosses = support_glosses or selected_glosses
+    if (
+        question.question_type == "provide_preference_aligned_recommendations"
+        and len(belief_items) == 1
+        and str(belief_items[0].get("relation", "")).strip().lower() == "other_fact"
+        and selected_glosses
+    ):
+        projection_glosses = selected_glosses
+    primary_relation = str(belief_items[0].get("relation", "")).strip().lower() if belief_items else ""
+    include_query_overlap = (
+        len(projection_glosses) > 1
+        or question.question_type == "recalling_facts_mentioned_by_the_user"
+        or question.question_type == "track_full_preference_evolution"
+        or (
+            question.question_type == "recall_user_shared_facts"
+            and question.topic == "musicRecommendation"
+            and primary_relation == "music_preference"
+        )
+    )
     projected = head.select_option(
         query_text=question.user_question_or_message,
+        question_type=question.question_type,
         answer_text=str(memory_payload.get("answer_text", "")),
         options=question.all_options,
-        belief_values=[
-            str(item.get("value", ""))
-            for item in memory_payload["belief_state"].get("belief_items", [])
-            if isinstance(item, dict)
-        ],
+        belief_values=[str(item.get("value", "")) for item in belief_items],
         evidence_text=str(memory_payload.get("evidence_block", "")),
-        selected_slot_glosses=[
-            str(item)
-            for item in (
-                memory_payload.get("support_slot_glosses") or memory_payload.get("selected_slot_glosses", [])
-            )
-        ],
+        selected_slot_glosses=projection_glosses,
+        include_query_overlap=include_query_overlap,
     )
     repaired_projection = _repair_interactional_other_fact_projection(
         head=head,

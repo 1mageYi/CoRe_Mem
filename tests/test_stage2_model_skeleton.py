@@ -9,7 +9,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from core_mem.v2.system import StructuredMemoryState, StructuredMemorySystem
-from core_mem.v2.schemas import Observation
+from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
 
 
 def test_structured_memory_system_answers_from_active_slot():
@@ -2208,6 +2208,97 @@ def test_answer_projection_extracts_frequency_phrase_for_how_often_queries():
 
     result = system.query("query-projection-frequency", "How often do I attend yoga classes to help with my anxiety?")
     assert result.answer_text == "three times a week"
+
+
+def _slot(slot_id: str, relation: str, gloss: str) -> SlotRecord:
+    return SlotRecord(
+        slot_id=slot_id,
+        bank="residual",
+        entity="user",
+        relation=relation,
+        retrieval_key=[0.0],
+        latent_tokens=[[0.0]],
+        soft_role_scores=SoftRoleScores(),
+        confidence=0.8,
+        first_seen_ts="2026-04-07T05:00:00Z",
+        last_update_ts="2026-04-07T05:00:00Z",
+        revision_count=1,
+        active_flag=True,
+        revision_parent=None,
+        canonical_gloss=gloss,
+    )
+
+
+def test_coerce_learned_belief_prefers_query_matched_other_fact_slot_for_statement_recall():
+    fallback_slots = [
+        _slot("slot_step_back", "other_fact", "other_fact=step back from structured book club settings"),
+        _slot("slot_library", "other_fact", "other_fact=appreciate visiting local libraries"),
+    ]
+    belief = StructuredMemorySystem._coerce_learned_belief(
+        {
+            "query_id": "q",
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "step back from structured book club settings",
+                    "support_slot_ids": ["slot_step_back"],
+                }
+            ],
+        },
+        query_id="q",
+        query_text="Yesterday afternoon, I went back to the library and spent some time there.",
+        fallback_slots=fallback_slots,
+    )
+
+    assert belief.belief_items[0].value == "appreciate visiting local libraries"
+    assert belief.belief_items[0].support_slot_ids == ["slot_library"]
+
+
+def test_coerce_learned_belief_prefers_environment_aversion_slot_for_fit_query():
+    fallback_slots = [
+        _slot("slot_library", "other_fact", "other_fact=appreciate visiting local libraries"),
+        _slot("slot_festival", "other_fact", "other_fact=larger festivals feel too crowded and chaotic for me"),
+    ]
+    belief = StructuredMemorySystem._coerce_learned_belief(
+        {
+            "query_id": "q",
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "appreciate visiting local libraries",
+                    "support_slot_ids": ["slot_library"],
+                }
+            ],
+        },
+        query_id="q",
+        query_text="Do you think a large city known for its vibrant nightlife could be a good fit for me?",
+        fallback_slots=fallback_slots,
+    )
+
+    assert belief.belief_items[0].value == "larger festivals feel too crowded and chaotic for me"
+    assert belief.belief_items[0].support_slot_ids == ["slot_festival"]
+
+
+def test_rerank_same_relation_latent_facet_candidates_promotes_environment_aversion_slot():
+    library = _slot("slot_library", "other_fact", "other_fact=appreciate visiting local libraries")
+    festival = _slot("slot_festival", "other_fact", "other_fact=larger festivals feel too crowded and chaotic for me")
+    positive = [(library, -0.035, 0.05)]
+    negative = [(festival, -0.068, 0.0)]
+
+    reranked_positive, remaining_negative = StructuredMemorySystem._rerank_same_relation_latent_facet_candidates(
+        positive,
+        negative,
+        query_text="Do you think a large city known for its vibrant nightlife could be a good fit for me?",
+        latent_scores={
+            library.slot_id: 1.10,
+            festival.slot_id: 1.07,
+        },
+    )
+
+    assert reranked_positive[0][0].slot_id == festival.slot_id
+    assert remaining_negative == []
 
 
 def test_learned_belief_example_uses_compact_slot_view():

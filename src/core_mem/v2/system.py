@@ -35,6 +35,33 @@ _RAW_VALUE_STRIP_RE = re.compile(r'^[\s\[\]\{\}",:]+|[\s\[\]\{\}",:]+$')
 _STRUCTURAL_VALUE_NOISE_RE = re.compile(r'[\{\}\[\]]|":|",|"{2,}|"{3,}|,\s*"')
 _MULTI_FACET_RELATIONS = {"other_fact", "hobby"}
 _BOOLEAN_LIKE_VALUES = {"true", "false", "yes", "no"}
+_ENVIRONMENT_FIT_QUERY_MARKERS = (
+    "do you think",
+    "good fit",
+    "fit for me",
+    "considering whether",
+    "planning a trip",
+    "what do you think",
+)
+_HIGH_ENERGY_ENVIRONMENT_TERMS = {
+    "attractions",
+    "bustling",
+    "chaotic",
+    "city",
+    "crowded",
+    "nightlife",
+    "vibrant",
+}
+_ENVIRONMENT_AVERSION_TERMS = {
+    "chaotic",
+    "crowd",
+    "crowded",
+    "loud",
+    "nightlife",
+    "noisy",
+    "overstimulating",
+    "overwhelm",
+}
 _QUERY_STOPWORDS = {
     "a",
     "an",
@@ -272,6 +299,7 @@ class StructuredMemorySystem:
                 positive, negative = self._rerank_same_relation_latent_facet_candidates(
                     positive,
                     negative,
+                    query_text=query_text,
                     latent_scores=latent_scores,
                 )
                 ranked = [slot for slot, _, _ in [*positive, *negative]]
@@ -403,6 +431,18 @@ class StructuredMemorySystem:
         )
 
     @staticmethod
+    def _query_seeks_environment_fit_advice(query_text: str) -> bool:
+        lowered = query_text.lower()
+        if not (
+            StructuredMemorySystem._query_seeks_open_ended_advice(lowered)
+            or "do you think" in lowered
+        ):
+            return False
+        if not any(marker in lowered for marker in _ENVIRONMENT_FIT_QUERY_MARKERS):
+            return False
+        return any(term in lowered for term in _HIGH_ENERGY_ENVIRONMENT_TERMS)
+
+    @staticmethod
     def _slot_has_date_value(slot: SlotRecord) -> bool:
         return bool(_DATE_VALUE_RE.search(slot.canonical_gloss))
 
@@ -508,11 +548,38 @@ class StructuredMemorySystem:
         return cls._slot_is_concrete_facet(candidate_slot)
 
     @classmethod
+    def _slot_has_environment_aversion_signal(cls, slot: SlotRecord) -> bool:
+        terms = cls._belief_value_terms(cls._canonical_slot_value(slot))
+        return bool(terms & _ENVIRONMENT_AVERSION_TERMS)
+
+    @classmethod
+    def _should_promote_environment_aversion_slot(
+        cls,
+        *,
+        query_text: str,
+        incumbent_slot: SlotRecord,
+        incumbent_lexical_overlap: float,
+        candidate_slot: SlotRecord,
+    ) -> bool:
+        if not cls._query_seeks_environment_fit_advice(query_text):
+            return False
+        if candidate_slot.relation != "other_fact" or incumbent_slot.relation != "other_fact":
+            return False
+        if incumbent_lexical_overlap > 0.2:
+            return False
+        if not cls._slot_has_environment_aversion_signal(candidate_slot):
+            return False
+        if cls._slot_has_environment_aversion_signal(incumbent_slot):
+            return False
+        return True
+
+    @classmethod
     def _rerank_same_relation_latent_facet_candidates(
         cls,
         positive: list[tuple[SlotRecord, float, float]],
         negative: list[tuple[SlotRecord, float, float]],
         *,
+        query_text: str,
         latent_scores: dict[str, float],
     ) -> tuple[list[tuple[SlotRecord, float, float]], list[tuple[SlotRecord, float, float]]]:
         if not positive or not negative:
@@ -536,6 +603,11 @@ class StructuredMemorySystem:
                     candidate_slot=candidate_slot,
                     candidate_score=candidate_score,
                     candidate_latent=candidate_latent,
+                ) or cls._should_promote_environment_aversion_slot(
+                    query_text=query_text,
+                    incumbent_slot=incumbent_slot,
+                    incumbent_lexical_overlap=incumbent_lexical_overlap,
+                    candidate_slot=candidate_slot,
                 ):
                     insert_index = idx
                     break
@@ -1095,11 +1167,27 @@ class StructuredMemorySystem:
                     relation=relation,
                     value=value,
                 )
+            original_support_slot_ids = [str(slot_id) for slot_id in support_slot_ids]
             support_slot = StructuredMemorySystem._select_belief_support_slot(
                 fallback_slots,
                 relation=relation,
-                support_slot_ids=[str(slot_id) for slot_id in support_slot_ids],
+                support_slot_ids=original_support_slot_ids,
             )
+            support_slot = StructuredMemorySystem._select_query_matched_recall_support_slot(
+                query_text=query_text,
+                relation=relation,
+                support_slot=support_slot,
+                fallback_slots=fallback_slots,
+            )
+            support_slot = StructuredMemorySystem._select_environment_fit_support_slot(
+                query_text=query_text,
+                relation=relation,
+                support_slot=support_slot,
+                fallback_slots=fallback_slots,
+            )
+            support_slot_switched = support_slot is not None and support_slot.slot_id not in original_support_slot_ids
+            if support_slot is not None:
+                support_slot_ids = [support_slot.slot_id]
             if StructuredMemorySystem._should_backfill_belief_value(
                 value,
                 relation=relation,
@@ -1108,6 +1196,17 @@ class StructuredMemorySystem:
                 value = StructuredMemorySystem._canonical_slot_value(support_slot)
             else:
                 value = StructuredMemorySystem._sanitize_belief_value(value, relation=relation)
+                if (
+                    support_slot_switched
+                    and relation == "other_fact"
+                    and
+                    support_slot is not None
+                    and not StructuredMemorySystem._belief_value_grounded_in_support_slot(
+                        value,
+                        support_slot=support_slot,
+                    )
+                ):
+                    value = StructuredMemorySystem._canonical_slot_value(support_slot)
             belief_items.append(
                 {
                     "relation": relation,
@@ -1198,6 +1297,101 @@ class StructuredMemorySystem:
             for token in _TOKEN_RE.findall(str(value or "").lower())
             if len(token) >= 3
         }
+
+    @classmethod
+    def _query_informative_terms(cls, text: str) -> set[str]:
+        return {term for term in cls._query_terms(text) if len(term) >= 5}
+
+    @staticmethod
+    def _query_term_matches_slot_text(term: str, text: str) -> bool:
+        normalized_text = f" {text.lower()} "
+        candidates = {term}
+        if term.endswith("y") and len(term) > 3:
+            candidates.add(f"{term[:-1]}ies")
+        elif term.endswith("ies") and len(term) > 4:
+            candidates.add(f"{term[:-3]}y")
+        for candidate in candidates:
+            if f" {candidate} " in normalized_text:
+                return True
+        return False
+
+    @classmethod
+    def _select_query_matched_recall_support_slot(
+        cls,
+        *,
+        query_text: str,
+        relation: str,
+        support_slot: SlotRecord | None,
+        fallback_slots: list[SlotRecord],
+    ) -> SlotRecord | None:
+        if relation != "other_fact":
+            return support_slot
+        if str(query_text or "").strip().endswith("?"):
+            return support_slot
+        informative_terms = cls._query_informative_terms(query_text)
+        if not informative_terms:
+            return support_slot
+
+        def _overlap(slot: SlotRecord | None) -> int:
+            if slot is None:
+                return 0
+            slot_terms = cls._belief_value_terms(cls._canonical_slot_value(slot))
+            slot_terms.update(cls._belief_value_terms(slot.canonical_gloss))
+            exact_matches = informative_terms & slot_terms
+            raw_text_matches = {
+                term
+                for term in informative_terms
+                if term not in exact_matches
+                and cls._query_term_matches_slot_text(
+                    term,
+                    cls._canonical_slot_value(slot),
+                )
+            }
+            raw_text_matches.update(
+                {
+                    term
+                    for term in informative_terms
+                    if term not in exact_matches and term not in raw_text_matches
+                    and cls._query_term_matches_slot_text(term, slot.canonical_gloss)
+                }
+            )
+            return len(exact_matches | raw_text_matches)
+
+        current_overlap = _overlap(support_slot)
+        best_slot = support_slot
+        best_overlap = current_overlap
+        for candidate in fallback_slots:
+            if candidate.relation != relation:
+                continue
+            candidate_overlap = _overlap(candidate)
+            if candidate_overlap > best_overlap:
+                best_slot = candidate
+                best_overlap = candidate_overlap
+        if best_slot is None or best_overlap <= 0 or best_overlap <= current_overlap:
+            return support_slot
+        return best_slot
+
+    @classmethod
+    def _select_environment_fit_support_slot(
+        cls,
+        *,
+        query_text: str,
+        relation: str,
+        support_slot: SlotRecord | None,
+        fallback_slots: list[SlotRecord],
+    ) -> SlotRecord | None:
+        if relation != "other_fact":
+            return support_slot
+        if not cls._query_seeks_environment_fit_advice(query_text):
+            return support_slot
+        if support_slot is not None and cls._slot_has_environment_aversion_signal(support_slot):
+            return support_slot
+        for candidate in fallback_slots:
+            if candidate.relation != relation:
+                continue
+            if cls._slot_has_environment_aversion_signal(candidate):
+                return candidate
+        return support_slot
 
     @classmethod
     def _belief_value_grounded_in_support_slot(

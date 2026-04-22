@@ -182,3 +182,17 @@
   - Boundary:
     - 当前能诚实声明的是 `v2.6` 的机械 stop condition 已达成
     - 当前仍不能误写成 LongMemEval failure mass 已全面解决；remaining问题仍主要集中在 `other_fact / projection` family
+
+- `EV-017` -> `WS-030 / TD-044` `v33` learned-authoritative full-holdout runtime 证据
+  - Status: partial
+  - Evidence:
+    - `research-results.tsv` row `102` 已把 current-line authoritative `PersonaMem 512` full measurement 正式记账为 completed `search`
+    - `autoresearch-state.json` 当前 iteration 已同步到 `102`，并记录 row-102 labels `personamem512-full / authoritative-full / provider-minus1-local-plus21 / compare-still-incomplete / verifier-flat / v33`
+    - `outputs_v2/v33_full_personamem_512_query_overlap/evals_benchmark/20260421T001000Z_stage2_memory_canary.json` 已完整记录 current-line `PersonaMem 512` full holdout：`provider_exact_match = 182`、`local_exact_match = 196`
+    - retained baseline `outputs_v2/artifacts/latest_personamem_stage2_v32_full.json` 当前固定为 `provider/local = 183/175`，因此 current-line Persona full measurement 已形成 `provider -1 / local +21`
+    - 当前 session 已确认同一 full Persona run 的 provider failure shape 固定为 `blank = 108`、`nonlabel = 12`
+    - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` 当前仍为 `36`
+  - Boundary:
+    - 当前能诚实声明的是：current-line `PersonaMem 512` authoritative full holdout 已完成，且 local full-measurement gain 已成立
+    - 当前不能声称 `v33` full holdout compare 已完成，因为 current-line `LongMemEval-S 500` full summary 仍缺
+    - 因此 `latest_longmemeval_stage2_v33_full.json`、`latest_personamem_stage2_v33_full.json` 与 `latest_stage2_v33_full_holdout_compare.json` 仍不能发布，official verifier 也仍停在 `36`

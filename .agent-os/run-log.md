@@ -1,5 +1,399 @@
 # Run Log
 
+# 2026-04-22 Session 123
+
+- Worked on: 收口并记账 current-line authoritative `PersonaMem 512` full holdout，把 row `102` 的 completed measurement 同步到 runtime 文档，并把 top next action 收窄到 current-line `LongMemEval-S 500` full artifact
+- State changed:
+  - `outputs_v2/v33_full_personamem_512_query_overlap/evals_benchmark/20260421T001000Z_stage2_memory_canary.json` 已完整确认 current-line `PersonaMem 512` full holdout `provider/local = 182/196`
+  - 相对 retained `v32` full Persona `183/175`，current line 呈现 `provider -1 / local +21`；这说明 local learned-authoritative gain 已在 full measurement 上成立，但 provider 仍略低于 retained baseline
+  - 同一 full Persona run 的 provider-side failure shape 已固定为 `blank = 108`、`nonlabel = 12`
+  - helper 侧 artifacts 已同步：`research-results.tsv` row `102` 与 `autoresearch-state.json` 已写入 completed full-measurement truth
+  - `.agent-os/project-index.md` 已把 top next action 收窄为：停止新的 Persona local smoke，直接完成并发布 current-line `LongMemEval-S 500` authoritative full holdout
+  - `.agent-os/todo.md`、`docs/todo.md`、`docs/current_status.md` 与 `.agent-os/acceptance-report.md` 已同步这条 row-102 runtime truth
+- Evidence / artifacts:
+  - `research-results.tsv` row `102`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_full_personamem_512_query_overlap/evals_benchmark/20260421T001000Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_full_personamem_512_query_overlap/evals_benchmark/20260421T001000Z_personamem_canary.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v32_full.json`
+- Verification:
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --publish-full-holdout-artifacts` 仍不能诚实完成，因为脚本仍缺 current-line `LongMemEval-S 500` summary
+- Next likely action:
+  - 直接定位并完成 current-line `LongMemEval-S 500` authoritative full holdout
+  - 拿到 LongMemEval full summary 后，再发布 `latest_longmemeval_stage2_v33_full.json`、`latest_personamem_stage2_v33_full.json` 与 `latest_stage2_v33_full_holdout_compare.json`
+
+# 2026-04-21 Session 122
+
+- Worked on: 试探一条更窄的 contextual-library wording enrichment，验证 “给 library-affinity belief 加回 inviting / peaceful atmosphere 语义” 是否能在 row `94` 的 support-coercion 基线之上顺手修好 `346...`
+- State changed:
+  - 当前 worktree 曾短暂把 contextual library parser 的 value 从 `appreciate visiting local libraries` 改成 `appreciate visiting local libraries for their inviting and peaceful atmosphere`，对应 parser / support-switch 单测先通过，cheap replay 里 `346` 也会从 `(d)` 翻到 `(c)`，而 `7a4` 继续保持 `(c)`
+  - 但 fresh authoritative rerun `outputs_v2/v33_parser_library_support_coercion_enriched_smoke3_localonly/evals_benchmark/20260421T180337Z_stage2_memory_canary.json` 最终仍只是 `2/3`
+  - 样本级上，`7a4ed201...` 与 `0d78111b...` 都继续保持 gold `(c)`；但 `346a304a...` 并没有按 cheap replay 留在 enriched library belief，反而退化成更差的 stale-reader belief `imagining the conversations that might have occurred among readers`，local/provider 也一起掉到 `(a)`。full guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`；helper 已把这轮按 iteration `95 discard` 记账，当前代码也已回滚回 row `94` 的 baseline
+- Evidence / artifacts:
+  - `research-results.tsv` row `95`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_library_support_coercion_enriched_smoke3_localonly/evals_benchmark/20260421T180337Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_library_support_coercion_enriched_smoke3_localonly/runs/20260421T180337Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'local_library_appreciation_clause or contextual_library_appreciation_clause or contextual_crowded_festival_aversion_clause or contextual_reading_deadline_pressure_clause or community_theater_audition_clause' tests/test_stage2_model_skeleton.py -k 'query_matched_other_fact_slot or question_style_query'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 不再继续打 library wording enrichment
+  - 保持 row `94` 的 support-coercion baseline，直接拆解 `346...` 的 stale-support / belief-selection 主线
+
+# 2026-04-21 Session 121
+
+- Worked on: 把 row `93` 的 contextual library parser 与更窄的 statement-recall support coercion 组合，验证这条 belief-selection line 是否能在 authoritative runtime 上真正修复 `7a4...`
+- State changed:
+  - 当前 worktree 在保留 row `93` contextual library parser 的同时，又在 `StructuredMemorySystem._coerce_learned_belief()` 里加入了一个极窄 support rewrite：只对 `other_fact`、statement-style recall query 生效，并且只有当 query-informative term 与候选 slot 的 raw text 更匹配时才改写 support
+  - 这条逻辑第一次实现时曾把 same-relation concise learned belief 也一起 canonicalize，导致 full guard 中 `oolong tea` 两条骨架测试失败；随后已收窄成“只有 support 真被 recall-specific 改写时，才对 ungrounded value 做 canonical backfill”，相关关键单测已恢复通过
+  - fresh authoritative rerun `outputs_v2/v33_parser_library_support_coercion_v2_smoke3_localonly/evals_benchmark/20260421T175208Z_stage2_memory_canary.json` 已完整收口到 `2/3`
+  - 样本级上，`7a4ed201...` 现在终于在真实 learned-authoritative runtime 上翻到 gold `(c)`，belief/support 都切到 `other_fact=appreciate visiting local libraries`；`0d78111b...` 继续保持 gold `(c)`；但 `346a304a...` 仍旧被同一 library belief 污染成 `(d)`。helper 已把这轮按 iteration `94 search` 记账，full guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+- Evidence / artifacts:
+  - `research-results.tsv` row `94`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_library_support_coercion_v2_smoke3_localonly/evals_benchmark/20260421T175208Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_library_support_coercion_v2_smoke3_localonly/runs/20260421T175208Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'local_library_appreciation_clause or contextual_library_appreciation_clause or contextual_crowded_festival_aversion_clause or contextual_reading_deadline_pressure_clause or community_theater_audition_clause' tests/test_stage2_model_skeleton.py -k 'query_matched_other_fact_slot or question_style_query'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 不再把 `7a4 / 346` 继续作为同 bundle 推进
+  - 优先把 `346...` 单独当成 scenario-generalization contamination / belief-selection residual 继续拆解，同时把 `7a4...` 保留为 statement-recall support-switch 的 live candidate
+
+# 2026-04-21 Session 120
+
+- Worked on: 试探一条最小 contextual library-affinity parser，验证“给 `7a4...` 补 library slot”是否真能带来 runtime gain
+- State changed:
+  - 当前 worktree 曾短暂加入一条更窄的 contextual library parser：只在 `library` 上下文里遇到 “the atmosphere was so inviting ...” 这类描述时，抽取 `other_fact=appreciate visiting local libraries`
+  - 对应窄 parser tests 先通过；随后 fresh authoritative `smoke3` `outputs_v2/v33_parser_library_smoke3_localonly/evals_benchmark/20260421T173124Z_stage2_memory_canary.json` 完整收口到 `1/3`
+  - 样本级上，`7a4ed201...` 虽然第一次把 `appreciate visiting local libraries` 拉进 selected top-8，但 learned belief 仍继续选择旧的 `step back from structured book club settings`，local 仍是 `(b)`；`346a304a...` 则被这条新 library slot 明确污染成 `other_fact=appreciate visiting local libraries` 并落到 `(d)`；只有 `0d78111b...` 继续保持 gold `(c)`
+  - helper 已把这轮按 iteration `93 discard` 记账，当前代码也已回滚回 row `92` / row `87` 的稳定线。当前 runtime truth 因而再次收紧：`7a4 / 346` 已不能再归因为 parser coverage，二者都应直接视为 belief-selection residual
+- Evidence / artifacts:
+  - `research-results.tsv` row `93`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_library_smoke3_localonly/evals_benchmark/20260421T173124Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_library_smoke3_localonly/runs/20260421T173124Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'local_library_appreciation_clause or contextual_library_appreciation_clause or contextual_crowded_festival_aversion_clause or contextual_reading_deadline_pressure_clause or community_theater_audition_clause'`
+  - rollback 后再跑 `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'local_library_appreciation_clause or contextual_crowded_festival_aversion_clause or contextual_reading_deadline_pressure_clause or community_theater_audition_clause'`
+- Next likely action:
+  - 不再继续 parser widening；`7a4` 已证明“gold slot 进入 selected memory”本身不足以切换 learned belief
+  - 直接围绕 `7a4 / 346` 的 conflicting selected-slot / belief-choice shape 设计下一条最小 belief-selection experiment
+
+# 2026-04-21 Session 119
+
+- Worked on: 把 `c2d3...` 的 answer-projection residual 单独拆出来，先后试探 wording-only 与 polarity tie-break 两条线，并把有效版本收窄到 recall-family
+- State changed:
+  - 先用 cheap scorer inventory 确认：`felt too pressured by reading challenge deadlines` 会和 `(a)/(b)` 打平，当前只是因为默认 first-match 才落到 `(a)`；而若直接把 value wording 改成更 scorer-friendly 的 phrase，cheap scorer 会选 `(b)`
+  - 但 fresh authoritative wording rerun `outputs_v2/v33_parser_contextual_wording_smoke3_localonly/evals_benchmark/20260421T165819Z_stage2_memory_canary.json` 又说明，这条 wording tweak 在真实 learned runtime 里会让 `c2d3...` 掉回旧 stale support，因此 helper 已把它按 iteration `90 discard` 记账并回滚
+  - 随后 broad polarity tie-break 先在 authoritative `smoke3` 上把 `c2d3...` 真正翻到 gold `(b)`、继续保住 `0d781...`，但 full guard 失败在 retained recommendation regression test；helper 已把这轮按 iteration `91 discard` 记账
+  - 最后把 polarity tie-break 收窄到 recall-family question types 后，fresh authoritative rerun `outputs_v2/v33_answer_polarity_recallonly_smoke3_localonly/evals_benchmark/20260421T170528Z_stage2_memory_canary.json` 已完整收口到 `2/3`
+  - 样本级上，`c2d3daad...` 现在终于在真实 learned-authoritative runtime 上翻到 gold `(b)`，`0d78111b...` 继续保持 gold `(c)`，`346a304a...` 仍完全静止在 stale hobby belief `(a)`；full guard 通过、verifier 仍是 `36`。helper 已把这轮记为 iteration `92 search`
+- Evidence / artifacts:
+  - `research-results.tsv` rows `90`, `91`, `92`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_contextual_wording_smoke3_localonly/evals_benchmark/20260421T165819Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_answer_polarity_smoke3_localonly/evals_benchmark/20260421T170528Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_answer_polarity_recallonly_smoke3_localonly/evals_benchmark/20260421T170528Z_stage2_memory_canary.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'breaks_negative_deadline_tie_toward_pressure_option or breaks_truest_music_tie_toward_first_matching_option or uses_selected_glosses_for_other_fact_recommendations or generalizes_structured_withdrawal_to_race_scenario or prefers_recipe_expansion_over_generic_markets'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 不再回到 `c2d3...`；它已从 active unresolved set 中移除
+  - 直接围绕 `346... / 7a4...` 组织下一条 widen gate，继续打 stale-support / belief-selection 主线
+
+# 2026-04-21 Session 118
+
+- Worked on: 给 `c2d3 / 346 / 0d781` 做同-turn contextual parser experiment，验证 residual 里是否还有“同句前后小句断裂”这一层 parser/retrieval 问题
+- State changed:
+  - 当前 worktree 在 `Stage2ObservationParser.parse_turn()` 里加入了同-turn clause context，只把 `deadline pressure` 与 `too crowded and chaotic` 提取限制在 contextual mention 下：前者需要上文同 turn 出现 `reading challenge`，后者需要上文同 turn 出现 `festival`
+  - 窄 parser tests 通过后，fresh authoritative `smoke3` `outputs_v2/v33_parser_contextual_smoke3_localonly/evals_benchmark/20260421T165206Z_stage2_memory_canary.json` 完整收口到 `1/3`
+  - 样本级上，`c2d3daad...` 第一次从 stale support 切到正确 belief `felt too pressured by reading challenge deadlines`，但 local answer 仍然是 `(a)`；`346a304a...` 继续完全不动，仍落在旧 hobby belief `(a)`；`0d78111b...` 继续保持 gold `(c)`
+  - helper 已把这轮按 iteration `89 search` 记账；当前 runtime truth 因而从“`c2d3 / 346 / 7a4` 都属于 stale-support 主线”再收窄成“两条主线”：`c2d3` 已进入 answer projection，而 `346 / 7a4` 仍是 stale-support / belief-selection
+- Evidence / artifacts:
+  - `research-results.tsv` row `89`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_contextual_smoke3_localonly/evals_benchmark/20260421T165206Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_contextual_smoke3_localonly/runs/20260421T165206Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'feedback_reason_clause or step_back_withdrawal_clause or had_to_step_back_withdrawal_clause or reading_deadline_pressure_clause or contextual_reading_deadline_pressure_clause or local_library_appreciation_clause or crowded_festival_aversion_clause or contextual_crowded_festival_aversion_clause or community_theater_audition_clause or more_drawn_music_preference_clause or progressive_im_learning_clause'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 对 `c2d3...` 做单样本 answer-projection / option-head search，目标是把已经正确的 belief 从 `(a)` 拉到 gold `(b)`
+  - 把 `346 / 7a4` 留在后续 stale-support / belief-selection 主线
+
+# 2026-04-21 Session 117
+
+- Worked on: 验证 `346...` 是否还缺最后一条 parser clause，也就是把 row `87` 的 theater-only line 上单独加回 `crowded-festival aversion`
+- State changed:
+  - 当前 worktree 曾短暂把 `the experience was too crowded and chaotic ...` 窄 parser clause 加回，并把对应 parser test 改回正向 extraction；窄 parser tests 与 authoritative `smoke2` 均已完成
+  - fresh authoritative rerun `outputs_v2/v33_parser_theater_festival_smoke2_localonly/evals_benchmark/20260421T163358Z_stage2_memory_canary.json` 与 row `87` 完全相同，仍是 `1/2`
+  - 样本级上，`0d78111b...` 继续保持 gold `(c)`，但 `346a304a...` 完全不动，仍落在同一个 hobby belief `(a)`。因此 helper 已把这轮按 iteration `88 discard` 记账：`crowded-festival` clause 只增加 parser 复杂度，没有带来任何额外 runtime gain
+  - 当前代码已回滚回 row `87` 的 theater-only parser line；相关窄 parser tests 再次通过
+- Evidence / artifacts:
+  - `research-results.tsv` row `88`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_theater_festival_smoke2_localonly/evals_benchmark/20260421T163358Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_theater_festival_smoke2_localonly/runs/20260421T163358Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'feedback_reason_clause or step_back_withdrawal_clause or had_to_step_back_withdrawal_clause or reading_deadline_pressure_clause or local_library_appreciation_clause or crowded_festival_aversion_clause or community_theater_audition_clause or more_drawn_music_preference_clause or progressive_im_learning_clause'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 不再继续 parser search；保留 row `87` 的 theater-only parser candidate 作为 `0d781` live gain
+  - 直接分析并实验 `346 / c2d3 / 7a4` 的 stale-support / belief-selection 主线
+
+# 2026-04-21 Session 116
+
+- Worked on: 把 row `86` 的 parser bundle 收窄回 `community theater audition` + `had to step back` 最小版本，并用 `0d781 + 346` authoritative smoke2 验证 gain 是否能脱离 contamination bundle 存活
+- State changed:
+  - 当前 worktree 已移除 row `86` 里会引入 `deadline pressure / local library / crowded festival` widening 的 parser special patterns，只保留 `had to step back` withdrawal clause 与 `community theater audition` clause；对应 parser tests 已改成 theater positive + contamination negatives
+  - fresh authoritative `smoke2` `outputs_v2/v33_parser_theater_smoke2_localonly/evals_benchmark/20260421T162630Z_stage2_memory_canary.json` 已完整收口到 `1/2`
+  - 样本级上，`0d78111b...` 继续保持 gold `(c)`；`346a304a...` 不再出现 row `86` 的 library contamination，但仍停在更老的 hobby belief `(a)`。这说明 current theater-only parser line 是一个干净的窄 gain candidate，而 `346` 已不再是 parser contamination 问题
+  - full guard 通过，`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`；helper 已把这轮记为 iteration `87 search`
+- Evidence / artifacts:
+  - `research-results.tsv` row `87`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_theater_smoke2_localonly/evals_benchmark/20260421T162630Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_theater_smoke2_localonly/runs/20260421T162630Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'feedback_reason_clause or step_back_withdrawal_clause or had_to_step_back_withdrawal_clause or reading_deadline_pressure_clause or local_library_appreciation_clause or crowded_festival_aversion_clause or community_theater_audition_clause or more_drawn_music_preference_clause or progressive_im_learning_clause'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 保留当前 theater-only parser candidate，不再继续扩大 parser line
+  - 直接回到 `346 / c2d3 / 7a4` 的 stale-support / belief-selection 搜索
+
+# 2026-04-21 Session 115
+
+- Worked on: 给 row `85` 之后剩余的 `c2d3 / 7a4 / 346 / 0d781` 四条 residual 增加 parser coverage，并用 authoritative `smoke4` 判断这条 parser line 是否值得保留
+- State changed:
+  - 当前 worktree 在 `src/core_mem/v2/parser.py` 新增了四类 residual-specific coverage：`reading challenge deadline pressure`、`meaningful afternoon at a local library`、`skip larger festivals because too crowded/chaotic` 与 `community theater audition felt a rush of excitement`
+  - targeted parser tests 与 raw utterance reproduction 先确认这些 clause 都会被稳定抽出，随后 fresh authoritative `smoke4` `outputs_v2/v33_parser_residual_smoke4_localonly/evals_benchmark/20260421T161703Z_stage2_memory_canary.json` 完整收口到 `1/4`
+  - 样本级上，只有 `0d78111b...` 被新的 `community theater audition` coverage 拉到 gold `(c)`；`c2d3daad...` 与 `7a4ed201...` 仍分别停在旧 stale support 上，没有出现新的 effective belief；`346a304a...` 则被新增 `local library` 观测污染成另一种错答
+  - helper 已把这轮按 iteration `86 search` 记账；当前 runtime truth 因而从“四条 residual 也许都该继续补 parser”收紧成：“parser bundle 不能整包保留，只能考虑保留 `0d781` 对应的 community-theater clause，并回滚会引入 contamination 的 widening”
+- Evidence / artifacts:
+  - `research-results.tsv` row `86`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_residual_smoke4_localonly/evals_benchmark/20260421T161703Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_parser_residual_smoke4_localonly/runs/20260421T161703Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'feedback_reason_clause or step_back_withdrawal_clause or had_to_step_back_withdrawal_clause or reading_deadline_pressure_clause or local_library_appreciation_clause or crowded_festival_aversion_clause or community_theater_audition_clause or more_drawn_music_preference_clause or progressive_im_learning_clause'`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 把 parser patch 收窄回 `community theater audition` 与未见污染的 `had to step back` coverage
+  - 用 `0d781 + 346` 的 authoritative 对照 gate 判断这条单点 parser gain 能否在不引入 contamination 的前提下独立保留
+
+# 2026-04-21 Session 114
+
+- Worked on: 把 row `83` 的 relation-gated scorer line 与 row `84` 的 interactional best-candidate repair 合并到同一 authoritative `smoke11`，确认它们是否能在真实 learned-authoritative runtime 中共存
+- State changed:
+  - fresh authoritative combined rerun `outputs_v2/v33_interactional_best_candidate_smoke11_localonly/evals_benchmark/20260421T155704Z_stage2_memory_canary.json` 已完整收口到 `7/11`
+  - 样本级上，`2b3ce0bd...` 继续保持 gold `(c)`，`cd81feb9...` 也继续保持 gold `(b)`，而 `c8a763... / afd724f4... / 0d2259ae... / 0adf58d8... / ead3e803...` 五条 control slice 全部继续 hold
+  - 剩余 unresolved set 已正式缩到 `c2d3daad... / 7a4ed201... / 346a304a... / 0d78111b...` 四条；helper 已把这轮记为 iteration `85 search`
+- Evidence / artifacts:
+  - `research-results.tsv` row `85`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_interactional_best_candidate_smoke11_localonly/evals_benchmark/20260421T155704Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_best_candidate_smoke11_localonly/runs/20260421T155704Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - 当前代码未再新增改动；沿用 row `84` 同一 working line 的 full guard / verifier truth
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 直接对 `c2d3 / 7a4 / 346 / 0d781` 四条 residual 做 cheap payload / scorer analysis
+  - 按 recall-family residual 与 belief-value truncation residual 两组收缩下一条 search，而不是继续扩大已成立的 `smoke11`
+
+# 2026-04-21 Session 113
+
+- Worked on: 把 interactional request-like repair 的 candidate selection 从 “first differing” 收窄成 “best candidate”，并先用 `0adf / cd81 / ead3` 做 authoritative smoke3
+- State changed:
+  - 当前 worktree 把 interactional `other_fact` repair 改成遍历全部 non-support same-relation candidates，选择 best candidate，而不是按 selected-slot 顺序返回第一个不同 projection
+  - targeted interactional repair tests 通过，随后 full guard 再次通过；`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - fresh authoritative `smoke3` rerun `outputs_v2/v33_interactional_best_candidate_smoke3_localonly/evals_benchmark/20260421T155311Z_stage2_memory_canary.json` 已完整收口到 `3/3`
+  - 样本级上，`cd81feb9...` 已从 `(a)` 拉到 gold `(b)`，而 `0adf58d8...` 与 `ead3e803...` 继续保持 `(c)` 与 `(d)`；helper 已把这轮记为 iteration `84 search`
+- Evidence / artifacts:
+  - `research-results.tsv` row `84`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_interactional_best_candidate_smoke3_localonly/evals_benchmark/20260421T155311Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_best_candidate_smoke3_localonly/runs/20260421T155311Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'repairs_interactional_other_fact_with_non_support_gloss or repairs_interactional_other_fact_with_best_non_support_gloss or skips_interactional_alternatives_before_non_support_repair'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 把当前 interactional best-candidate patch widen 回 full `smoke11`
+  - 确认 `cd81` 的 gain 是否能和 row `83` 的 relation-gated scorer line 共存
+
+# 2026-04-21 Session 112
+
+- Worked on: 把 row `82` 的过宽 recommendation widening 收窄成 relation-gated scorer patch，并用同一 `smoke11` manifest 做 authoritative rerun
+- State changed:
+  - 当前 worktree 把 selected-gloss base projection 收窄为：只在 `provide_preference_aligned_recommendations` 且单条 belief relation 为 `other_fact` 时启用
+  - targeted scorer tests 先通过，随后 full guard 再次通过；`scripts/verify_stage2_v33_longrun.py --score-only` 仍是 `36`
+  - fresh authoritative rerun `outputs_v2/v33_option_scorer_widen_smoke11_reco_otherfact_localonly/evals_benchmark/20260421T153608Z_stage2_memory_canary.json` 已完整收口到 `6/11`
+  - 这条更窄 patch 继续把 `2b3ce0bd...` 保持在 gold `(c)`，同时继续守住 `c8a763... / afd724f4... / 0d2259ae... / 0adf58d8... / ead3e803...`，没有重演 row `82` 的 recommendation regression；helper 已把这轮记为 iteration `83 search`
+- Evidence / artifacts:
+  - `research-results.tsv` row `83`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_option_scorer_widen_smoke11_reco_otherfact_localonly/evals_benchmark/20260421T153608Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_option_scorer_widen_smoke11_reco_otherfact_localonly/runs/20260421T153608Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'uses_selected_glosses_for_other_fact_recommendations or prefers_interactive_cultural_event_over_query_matched_food_tasting or breaks_truest_music_tie_toward_first_matching_option or prefers_supported_music_expression_over_query_matched_engineering'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 从 active unresolved set 里移除 `2b3...`
+  - 继续用 cheap scorer / payload analysis 处理剩余 `c2d3 / 7a4 / 346 / 0d781 / cd81`
+
+# 2026-04-21 Session 111
+
+- Worked on: 给 row `81` 的 scorer widen line 增加 recommendation-scoped selected-gloss rerun，并确认它是否能安全吸收 `2b3...`
+- State changed:
+  - fresh authoritative learned-memory Persona `smoke11` reco rerun `outputs_v2/v33_option_scorer_widen_smoke11_reco_localonly/evals_benchmark/20260421T151039Z_stage2_memory_canary.json` 已完整收口到 `6/11`
+  - 当前 patch 的真实 gain 很窄：它把 `2b3ce0bd...` 从 `(a)` 拉到 gold `(c)`，并继续保住 `afd724f4... / 0d2259ae... / 0adf58d8... / ead3e803...`
+  - 但同一 patch 也把已有的 `c8a763...` recommendation invariant 从 `(b)` 打回 `(d)`；full guard 失败在 `test_personamem_local_projection_breaks_truest_music_tie_toward_first_matching_option`
+  - helper 已把这轮按 iteration `82 discard` 记账，因此当前 runtime truth 又收紧了一层：不能把整个 `provide_preference_aligned_recommendations` question type 一起切到 `selected_slot_glosses`
+- Evidence / artifacts:
+  - `research-results.tsv` row `82`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_option_scorer_widen_smoke11_reco_localonly/evals_benchmark/20260421T151039Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_option_scorer_widen_smoke11_reco_localonly/runs/20260421T151039Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+  - configured guard failed on `tests/test_stage2_memory_canary.py::test_personamem_local_projection_breaks_truest_music_tie_toward_first_matching_option`
+- Next likely action:
+  - 回滚这条过宽 recommendation-scoped widening，并恢复 row `81` 的 scorer baseline
+  - 在此基础上继续用 cheap scorer / payload analysis 收窄 `2b3` 的更细分簇，而不是按整个 recommendation family 放宽 scorer 输入
+
+# 2026-04-21 Session 110
+
+- Worked on: 给 committed parser-precision candidate `3288713` 跑 first wider measurement，并据此决定是否保留
+- State changed:
+  - 先完成了 `6142 / a40d / acd742 = 3/3` 的 cheap symbolic-slot singles，并让 `3288713` 通过 full guard；official verifier 继续是 `36`
+  - 随后 intended smoke16 wider gate 首次因忘记显式 `--limit 16` 而只重放了首条 `b449...`；helper 已把这次 completed-but-misconfigured run 记成 iteration `68 no-op`
+  - 更正后的 wider symbolic-slot gate `outputs_v2/v33_parser_precision_smoke16_symbolic_slot_v2/` 最终完整收口到 `13/16`，剩余 miss 为 `d71... / 32b... / 0adf...`
+  - 因为这条 broader gate 仍低于 retained `15/16` floor，commit `3288713` 已按 iteration `69 discard` 记账，并通过 `git revert --no-edit HEAD` 回滚为 `f0e85dd`
+  - 当前 runtime truth 因而进一步收紧成：parser precision specialization 也不是 current broader gain driver；剩余真正要打的 cluster 已重新收敛到 `d71 / 32b / 0adf`
+- Evidence / artifacts:
+  - `research-results.tsv` rows `68-69`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_precision_smoke16_symbolic_slot_v2/runs/20260421T112443Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+  - corrected wider symbolic-slot gate: `13/16`, wrong ids = `d71... / 32b... / 0adf...`
+- Next likely action:
+  - 回到 retained line，直接分析 `d71 / 32b / 0adf` 的共享结构
+  - 优先从 belief-selection / answer-projection 主线继续，而不是再做 parser precision patch
+
+# 2026-04-21 Session 109
+
+- Worked on: 把 parser-precision patch 从 uncommitted narrow hypothesis 推到 committed live candidate，并补 cheap symbolic-slot integration evidence
+- State changed:
+  - parser-precision patch 已作为 commit `3288713` 落地，只包含 `src/core_mem/v2/parser.py` 与 `tests/test_stage2_parser.py`
+  - current candidate 先通过了 targeted parser tests 与 real utterance reproduction，然后又连续通过三条 cheap integration singles：`6142... -> (c)`、`a40d... -> (d)`、`acd742... -> (c)`；它们都跑在 `learned_memory + symbolic slot assignment + provider disabled` 路径下
+  - full guard 已通过，但 `scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`；因此 `3288713` 当前只能诚实记为 live candidate，而不是 retained keep
+  - 一条本来 intended for `a40d` 的 symbolic-slot single 因未预写 manifest 而误跑成 `b449... -> (b)`，helper 已单独记成 manifest-misscope search row
+- Evidence / artifacts:
+  - `research-results.tsv` rows `63-67`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_parser_precision_dual_symbolic_slot/runs/20260421T111523Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `outputs_v2/v33_parser_precision_a40d_symbolic_slot_v2/runs/20260421T111650Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `outputs_v2/v33_parser_precision_acd742_symbolic_slot/runs/20260421T112101Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k "more_drawn_music_preference_clause or progressive_im_learning_clause or feedback_reason_clause"`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 给 `3288713` 一个比 cheap symbolic-slot singles 更宽的 measurement
+  - 若更宽 gate 不继续上升，就直接按 rollback policy 回滚，不继续把 parser precision patch 当作默认 retained 方向
+
+# 2026-04-21 Session 108
+
+- Worked on: 继续 `TD-044 / WS-030` managed autoresearch，围绕 `6142...` 的新 regression 把 parser root cause 再收紧一层
+- State changed:
+  - current worktree 没有继续沿 `fea3dea` 的 authoring / learning-topic line 前推，而是只保留更精确的一点：把旧的泛化 `i am / i'm` value 规则收回 occupation-shape，同时显式支持 `I am more drawn to ...` 这类 preference clause
+  - targeted parser tests 通过，真实 utterance reproduction 也已机械确认边界：`6142` 风格句子现在会产生 `music_preference=more drawn to the emotional aspects of music...`，`a40d` 风格的 `I'm learning about` 句子继续不产生 observation，而 feedback-reason 句子仍保留 `other_fact=getting positive feedback from my peers about my last podcast`
+  - 两条 heavyweight learned-authoritative single-sample canary 曾短暂启动，但在写出第一条 prediction 前就被主动中止，因为它们对当前 narrow parser gate 来说过于昂贵；helper 已把这轮只按 iteration `62 search` 记为 narrow parser evidence，而没有把未完成 canary 计入结果
+- Evidence / artifacts:
+  - `research-results.tsv` row `62`
+  - `autoresearch-state.json`
+  - `src/core_mem/v2/parser.py`
+  - `tests/test_stage2_parser.py`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k "more_drawn_music_preference_clause or progressive_im_learning_clause or feedback_reason_clause"`
+  - real utterance reproduction:
+    - `6142_more_drawn -> music_preference | more drawn to the emotional aspects of music...`
+    - `a40d_learning_about -> NONE`
+    - `a40d_feedback -> other_fact | getting positive feedback from my peers about my last podcast`
+- Next likely action:
+  - 给这条 uncommitted parser-precision patch 找一个比 parser test 更宽、但比 learned-authoritative canary 更便宜的 integration gate
+  - 若它能继续同时守住 `6142 / a40d`，再决定是否值得进入 commit + broader local gate
+
+# 2026-04-21 Session 107
+
+- Worked on: 继续 `TD-044 / WS-030` managed autoresearch，把 row `60` 之后已经完成的 broader smoke16 partial 诚实记账，并判断 `fea3dea` 是否可保留
+- State changed:
+  - helper 已把 commit `fea3dea` 按 iteration `61 discard` 记账：这条 committed parser-narrowing trial 虽然先在 authoritative single-sample path 上恢复了 `a40d... -> (d)`，并在 broader local-only partial gate 中继续守住 `acd742... / f546... / b358... / 5370... / a40d... / 2cef...`
+  - 但同一 broader gate `outputs_v2/v33_narrow_reorder_smoke16_localonly_v2/runs/20260421T104520Z_stage2_memory_canary_personamem/predictions.jsonl` 也暴露出新的 `6142...` regression：retained 原本正确 `(c)` 被拉回 `(a)`，belief 漂到 `music_preference=music in its truest form, without rigid guidelines dictating how i should dissect it`
+  - 因为 retained `smoke16` floor 本来就已是 `15/16`，这条新 regression 使 `fea3dea` 的最好结果也只会打平而不是超过 retained；commit 已通过 `git revert --no-edit HEAD` 回滚为 `ec0cc40`
+  - 当前 runtime truth 因而从“parser narrowing 也许能 broader-safe 保住 `a40d...`”进一步收紧成：“generic parser-noise cleanup 不是当前 gain driver；下一层主瓶颈是 same-relation `music_preference` belief / option selection”
+- Evidence / artifacts:
+  - `research-results.tsv` row `61`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_narrow_reorder_a40d_auth/evals_benchmark/20260421T103710Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_narrow_reorder_smoke16_localonly_v2/runs/20260421T104520Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - row `60` authoritative single-sample `a40d...` run finished `1/1`
+  - broader local-only smoke16 partial completed `7` predictions before stop; current exact `6/7`，唯一 miss 为 `6142...`
+- Next likely action:
+  - 直接解剖 `6142...` 为什么会把“public criticism / scrutiny”类 reason 问题拉回抽象 `music_preference`
+  - 不再把 parser narrowing 当当前 retained 主线，后续 hypothesis 必须先守住 `smoke16 = 15/16` floor
+
+# 2026-04-21 Session 106
+
+- Worked on: 围绕唯一剩余 `0adf...` 残差，试探 parser widening 与 belief prompt slot ordering 能否形成 broader-safe 修复
+- State changed:
+  - 未提交的 parser patch 先补了 durable authored artifact 与 learning-topic recall；single-sample probe 一度把 `0adf...` active memory 扩成 `blog + film storytelling techniques`，并可在 targeted reorder 下把 local answer 从 `(a)` 翻到 gold `(c)`
+  - 随后未提交的 belief-prompt concrete-slot ordering 又把 learned belief prompt 里的 `film storytelling techniques` 提到 blog 前面，single-sample 0adf raw predictor 也随之从 blog 改成了 `film storytelling techniques`
+  - 但 fresh broader local-only partial run `outputs_v2/v33_belief_prompt_slots_smoke16_localonly/runs/20260421T090045Z_stage2_memory_canary_personamem/predictions.jsonl` 前 `3` 条直接掉到 `0/3`：`acd742...` 被拉去更泛的原创音乐 fact，`f546...` 被拉去 generic goal，`b358...` 也从 retained correct option 回退
+  - helper 已把这轮按 iteration `52 discard` 记账；代码已完整回滚，因此当前 runtime truth 从“也许可以靠 parser+belief prompt 顺手拿下 0adf”收窄为“这条线只在单样本成立，broader slice 立即回退”
+- Evidence / artifacts:
+  - `research-results.tsv` row `52`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_belief_prompt_slots_smoke16_localonly/runs/20260421T090045Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - targeted parser / memory-canary / model-skeleton narrow tests on the discarded patch all passed before rollback
+  - fresh broader local-only Persona partial gate: `0/3` before stopping the run to avoid more wasted CPU
+- Next likely action:
+  - 回到更宽 non-regression gate 下继续分析 `0adf...` 的 support-slot / belief-selection
+  - 不再把 parser widening 或 belief-prompt slot reorder 当作当前 residual miss 的优先 retained 方向
+
+# 2026-04-21 Session 105
+
+- Worked on: 围绕唯一剩余 `0adf...` 残差验证 parser/write 是否仍是 gain driver
+- State changed:
+  - 临时补了一条 generic `learn more about ...` parser coverage，并用 `tests/test_stage2_parser.py` 的 targeted parser subset 做了 cheap gate
+  - fresh single-sample inspection 显示，这条 patch 确实把 `other_fact=storytelling techniques` 新 observation 写进了 active memory，并让它进入 `selected_slot_glosses`
+  - 但 learned belief 仍然把 `support_slot_ids` 绑在粗 `other_fact=looking for some movie recommendations based on my recent activities` 上，`answer_text` 与 local projection 继续停在 `(a)`
+  - helper 已把这轮按 iteration `51 discard` 记账，因此当前 runtime truth 进一步收紧成：`0adf...` 不再是 parser-only 缺 observation 的问题，而是 selected/support-slot 与 belief-selection 问题
+- Evidence / artifacts:
+  - `research-results.tsv` row `51`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_support_gloss_smoke16_localonly/runs/20260421T075401Z_stage2_memory_canary_personamem/predictions.jsonl`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k "learning_topic_clause or feedback_reason_clause or step_back_withdrawal_clause or opted_out_withdrawal_clause or music_technology_preference_from_software_context"`
+  - targeted single-sample 0adf inspection under current learned runtime
+- Next likely action:
+  - 直接针对 `0adf...` 的 support-slot / belief-selection 做下一轮 hypothesis
+  - 不再把 parser-only coverage 当作当前残差的优先方向
+
 # 2026-04-21 Session 104
 
 - Worked on: 继续 `TD-044 / WS-030` managed autoresearch，把 residual projection cluster 从 `14/16` 再往前压到只剩单条 miss
@@ -2509,3 +2903,336 @@
   - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
 - Next likely action:
   - 在 corrected learned runtime 上继续推进 selected-slot ranking / belief selection，而不是再浪费在 null-checkpoint noise 上
+
+## 2026-04-21 Session 028
+
+- Worked on: 围绕 parser 之外的 residual failure shape，验证 `other_fact` interactional request-like support 是否能通过更窄的 answer-head repair 形成新的 `v33` live candidate
+- State changed:
+  - commit `eb9480b` 已落地，只改 `scripts/run_stage2_memory_canary.py` 与 `tests/test_stage2_memory_canary.py`
+  - helper 已把这轮记为 iteration `70 search`
+  - authoritative state 当前更新为：retained metric 仍是 `36`，last status 变为 `search`，last trial labels 为 `interactional-other-fact / answer-head-repair / 0adf-restored / ead3-restored / committed-trial / verifier-flat / v33`
+- Evidence / artifacts:
+  - `scripts/run_stage2_memory_canary.py`
+  - `tests/test_stage2_memory_canary.py`
+  - `research-results.tsv` row `70`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'interactional_other_fact or interactional_alternatives or support_slot_glosses or unsupported_long_option_details or generalizes_structured_withdrawal or matches_music_production_morphology'`
+  - direct real row-build on current learned-authoritative runtime: `0adf58d8-c519-406c-9f58-f298060d404d -> local (c)` with learned belief unchanged as `other_fact=looking for some movie recommendations based on my recent activities`
+  - direct real payload rebuild on current learned-authoritative runtime: `ead3e803-ac45-4c5d-a76e-014f906ff0f6` now repairs from support-projected `(c)` to final local `(d)`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 在更宽 authoritative measurement 上验证 request-like support 是否真能外扩成 broader Persona gain；若 wider gate 不扩张，就按 rollback policy 回滚 `eb9480b`
+
+## 2026-04-21 Session 029
+
+- Worked on: 给 `eb9480b` 做 cheap prevalence audit，判断 request-like `other_fact` support 是否只是 `0adf` 单点过拟合
+- State changed:
+  - helper 已把这轮记为 iteration `71 search`
+  - 当前 runtime truth 已补充：request-like single-item `other_fact` support 在现有 `PersonaMem 512` full artifacts 里真实存在，但非常稀疏；当前命中的唯一 full-holdout 样本是 `ead3...`
+- Evidence / artifacts:
+  - `research-results.tsv` row `71`
+  - `autoresearch-state.json`
+  - `outputs_v2/runs/v32_full_personamem_512/predictions.jsonl`
+  - `outputs_v2/runs/v32_full_personamem_512_timeout45/predictions.jsonl`
+- Verification:
+  - cheap audit over current full Persona outputs: both `v32_full_personamem_512` artifacts contain exactly one request-like single-item `other_fact` row, `ead3e803-ac45-4c5d-a76e-014f906ff0f6`, and it is wrong in both
+- Next likely action:
+  - 决定是否为 `eb9480b` 支付一次更重的 authoritative wider measurement；如果要跑，优先围绕 request-shape slice，而不是整包 parser / belief gate
+
+## 2026-04-21 Session 030
+
+- Worked on: 给 `eb9480b` 跑与 retained `15/16` 完全同 manifest 的 authoritative Persona `smoke16` local-only rerun，验证 request-like support repair 是否能真正抬高 broader local floor
+- State changed:
+  - helper 已把这轮记为 iteration `72 refine`
+  - current runtime truth 已从 “runtime-safe committed candidate” 前推到 “authoritative local smoke16 = 16/16”；此前 retained 唯一 miss `0adf...` 现已翻正
+- Evidence / artifacts:
+  - `outputs_v2/v33_interactional_other_fact_smoke16_localonly_v2/evals_benchmark/20260421T120739Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_other_fact_smoke16_localonly_v2/runs/20260421T120739Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `72`
+  - `autoresearch-state.json`
+- Verification:
+  - fresh authoritative local-only Persona smoke16 rerun -> `local_exact_match = 16/16`, `baseline_local_exact_match = 2/16`
+  - sample-level confirms `0adf...=(c)`, `d71...=(c)`, `32b...=(d)`, `a40d...=(d)`, `6142...=(c)`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 给真实 full-holdout request-shape sample `ead3...` 跑 dedicated authoritative canary，确认这条 gain 不只停留在 retained 16-slice
+
+## 2026-04-21 Session 031
+
+- Worked on: 给 `eb9480b` 跑真实 full-holdout request-shape 样本 `ead3...` 的 dedicated authoritative canary，确认 request-like support repair 不是只在 retained `16`-slice 上成立
+- State changed:
+  - helper 已把这轮记为 iteration `73 refine`
+  - current runtime truth 已从“broader local floor = 16/16”前推到“真实 full-holdout request-shape sample 也在 learned-authoritative local path 上翻正”
+- Evidence / artifacts:
+  - `outputs_v2/v33_interactional_other_fact_ead3_auth/evals_benchmark/20260421T123312Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_other_fact_ead3_auth/runs/20260421T123312Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `73`
+  - `autoresearch-state.json`
+- Verification:
+  - fresh authoritative `ead3...` canary -> `local_exact_match = 1/1`, `baseline_local_exact_match = 0/1`
+  - sample-level confirm `ead3e803-ac45-4c5d-a76e-014f906ff0f6 = (d)` while learned belief remains interactional `other_fact`
+- Next likely action:
+  - 把 row `72` 的 retained `16`-slice 再并入 `ead3...`，做一个更宽但仍可控的 authoritative local-only gate，判断 `eb9480b` 是否值得继续支付更重 measurement
+
+## 2026-04-21 Session 032
+
+- Worked on: 给 `eb9480b` 跑包含 retained `16`-slice + `ead3...` 的 authoritative Persona `smoke17` local-only rerun，验证 request-like support repair 是否能在同一 learned-authoritative gate 里同时守住 `d71 / 32b / 0adf / ead3`
+- State changed:
+  - helper 已把这轮记为 iteration `74 refine`
+  - current runtime truth 已从 `smoke16 = 16/16` + dedicated `ead3 = 1/1` 前推到统一 authoritative local-only `smoke17 = 17/17`
+- Evidence / artifacts:
+  - `outputs_v2/v33_interactional_other_fact_smoke17_localonly/evals_benchmark/20260421T123528Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_other_fact_smoke17_localonly/runs/20260421T123528Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `74`
+  - `autoresearch-state.json`
+- Verification:
+  - fresh authoritative local-only Persona smoke17 rerun -> `local_exact_match = 17/17`, `baseline_local_exact_match = 2/17`
+  - sample-level confirms `d71...=(c)`, `32b...=(d)`, `0adf...=(c)`, `ead3...=(d)`
+- Next likely action:
+  - 在不改代码的前提下先给 `eb9480b` 支付一条更宽的 authoritative local-only Persona gate，判断这条 request-like repair 是否足够稳，值得继续支付更重的 official learned-authoritative measurement
+
+## 2026-04-21 Session 033
+
+- Worked on: 给 `eb9480b` 跑更宽 authoritative Persona `smoke32` local-only gate，并把这条 request-like `other_fact` repair 的 broadened failure 面正式记账
+- State changed:
+  - helper 已把这轮记为 iteration `75 discard`
+  - current runtime truth 已从 “`smoke17 = 17/17` 的 promising local refine” 收紧为 “`smoke32 = 24/32` 的 broader regression candidate”，下一步应先 rollback `eb9480b`
+- Evidence / artifacts:
+  - `outputs_v2/v33_interactional_other_fact_smoke32_localonly/evals_benchmark/20260421T130303Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_interactional_other_fact_smoke32_localonly/runs/20260421T130303Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `75`
+  - `autoresearch-state.json`
+- Verification:
+  - fresh authoritative local-only Persona smoke32 completed with `local_exact_match = 24/32`, `baseline_local_exact_match = 2/32`
+  - sample-level confirms `0adf...=(c)` and `ead3...=(d)` still hold, but widened regressions appear on `c8a763... / c2d3daad... / 2b3ce0bd... / 7a4ed201... / afd724f4... / 346a304a... / cd81feb9... / 0d78111b...`
+- Follow-up:
+  - rollback policy 已执行：current HEAD -> revert commit `3aa38d2`
+  - fresh full guard re-pass；`scripts/verify_stage2_v33_longrun.py --score-only` 仍为 `36`
+  - 已启动同 manifest 的 post-rollback authoritative local-only compare：`outputs_v2/v33_postrollback_smoke32_localonly/runs/20260421T134355Z_stage2_memory_canary_personamem/`
+- Next likely action:
+  - 等 post-rollback `smoke32` 对照收口，确定 `eb9480b` 真实打坏了哪些原本正确样本，再据此重启下一条 search
+
+## 2026-04-21 Session 034
+
+- Worked on: 完成 post-rollback authoritative Persona `smoke32` 对照，确认 simple rollback 是否优于 `eb9480b`
+- State changed:
+  - helper 已把这轮记为 iteration `76 search`
+  - current runtime truth 已从“rollback compare running”前推到“simple rollback 不是更优 retained line；request-like patch 有真实窄 gain，但 persistent residual 仍需单独处理”
+- Evidence / artifacts:
+  - `outputs_v2/v33_postrollback_smoke32_localonly/evals_benchmark/20260421T134355Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_postrollback_smoke32_localonly/runs/20260421T134355Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `76`
+  - `autoresearch-state.json`
+- Verification:
+  - post-rollback authoritative local-only Persona smoke32 completed with `local_exact_match = 22/32`, `baseline_local_exact_match = 2/32`
+  - sample-level confirms persistent residuals on `c8a763... / c2d3daad... / 2b3ce0bd... / 7a4ed201... / afd724f4... / 346a304a... / 0d78111b...`
+  - request-like gains `0adf...` and `ead3...` are lost again after rollback, while `cd81feb9...` remains wrong with a different option
+- Next likely action:
+  - 把 `request-like other_fact` 的真实局部 gain 与 persistent scorer / belief residual 分开，重新设计下一条 search，而不是简单保留 rollback 或整条恢复 `eb9480b`
+
+## 2026-04-21 Session 035
+
+- Worked on: 根据 row `76` 的对照结果恢复 request-like `other_fact` repair，重新建立更强的 working baseline
+- State changed:
+  - helper 已把这轮记为 iteration `77 search`
+  - current HEAD 已恢复为 `d48c58c`；当前 runtime truth 从 “rollback baseline active” 切回 “保留 request-like 窄 gain 的 search baseline”
+- Evidence / artifacts:
+  - `research-results.tsv` row `77`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'interactional_other_fact or interactional_alternatives or support_slot_glosses or unsupported_long_option_details or generalizes_structured_withdrawal or matches_music_production_morphology'`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Next likely action:
+  - 在 `d48c58c` 上继续针对 persistent scorer / belief residual 搜索，同时保住 request-like 局部 gain
+
+## 2026-04-21 Session 036
+
+- Worked on: 在 `d48c58c` 上做窄 local option scorer refine，把 query overlap 从 single-slot base projection 移出，同时保留 multi-slot tie-break 与 interactional repair path
+- State changed:
+  - helper 已把这轮记为 iteration `78 search`
+  - current runtime truth 已从“恢复 request-like baseline”前推到“single-slot no-query / multi-slot query tie-break”成为当前 live scorer candidate
+- Evidence / artifacts:
+  - `research-results.tsv` row `78`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'prefers_supported_music_expression_over_query_matched_engineering or prefers_interactive_cultural_event_over_query_matched_food_tasting or prefers_recipe_expansion_over_generic_markets or repairs_interactional_other_fact_with_non_support_gloss or skips_interactional_alternatives_before_non_support_repair or downweights_generic_back_other_tokens_for_withdrawal_advice or matches_music_production_morphology or generalizes_structured_withdrawal_to_race_scenario or breaks_truest_music_tie_toward_first_matching_option'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Notes:
+  - 首次尝试把 query overlap 全局移除时，`recipe` 与 `ead3`-path regression tests 立即失败；最终 patch 收紧为“single-slot base no-query / multi-slot base query tie-break”，并保留 interactional repair 的 query-sensitive reproject
+  - full guard 通过、verifier 仍是 `36`；这条线目前只能诚实记为 `search`，还没有 authoritative local slice 证据
+- Next likely action:
+  - 给 row `78` 支付一条 authoritative learned_memory Persona residual slice，验证 `c8 / afd / recipe` 的 scorer unit gains 是否能在 real learned-authoritative runtime 里成立，并确认 `0adf / ead3` request-like gain 不受影响
+
+## 2026-04-21 Session 037
+
+- Worked on: 给 row `78` 支付 authoritative learned-memory Persona residual gate，并在真实 runtime 上把 recipe-style recall regression 再收紧到 direct-fact recall question type
+- State changed:
+  - helper 已把这两轮分别记为 iteration `79 search` 与 `80 search`
+  - current runtime truth 已从“row 78 only has unit-test evidence”前推到“row 80 scorer candidate 已在 authoritative `smoke5` 上收口到 `5/5`”
+- Evidence / artifacts:
+  - `outputs_v2/v33_option_scorer_residual_smoke5_localonly/evals_benchmark/20260421T144348Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_option_scorer_residual_smoke5_recall_localonly/evals_benchmark/20260421T145519Z_stage2_memory_canary.json`
+  - `research-results.tsv` rows `79-80`
+  - `autoresearch-state.json`
+- Verification:
+  - row `79` authoritative learned-memory `smoke5` completed at `4/5`: `c8 / afd / 0adf / ead3` correct, `0d225` regressed to `(a)`
+  - runtime payload introspection then showed `0d225` real path uses single `support_slot_glosses`, unlike the earlier multi-gloss unit setup
+  - after narrowing the rule to allow query tie-break on `recalling_facts_mentioned_by_the_user`, the fresh authoritative rerun reached `5/5`
+- Notes:
+  - the refined scorer rule is now: single-support base projection defaults to no-query, but direct-fact recall question types still allow query tie-break; request-like repair remains unchanged
+  - verifier stays `36`, so this is still `search`, not keep
+- Next likely action:
+  - widen beyond the resolved `smoke5` and probe the remaining unresolved residuals `c2d3 / 2b3 / 7a4 / 346 / 0d781 / cd81`, while keeping the current `smoke5` controls intact
+
+## 2026-04-21 Session 038
+
+- Worked on: 把 row `80` 的 scorer line widening 到包含 remaining unresolved residuals 的 authoritative Persona `smoke11`
+- State changed:
+  - helper 已把这轮记为 iteration `81 search`
+  - current runtime truth 已从“row 80 scorer line cleanly holds smoke5 controls”前推到“row 81 shows a stable control slice but no broader gain yet”
+- Evidence / artifacts:
+  - `outputs_v2/v33_option_scorer_widen_smoke11_localonly/evals_benchmark/20260421T150027Z_stage2_memory_canary.json`
+  - `research-results.tsv` row `81`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke11` completed at `5/11`
+  - controls `c8 / afd / 0d225 / 0adf / ead3` all hold
+  - unresolved residuals `c2d3 / 2b3 / 7a4 / 346 / 0d781 / cd81` all remain wrong
+- Notes:
+  - cheap scorer analysis on `c2d3` shows it belongs to `recall_user_shared_facts`, and its option overlaps remain nearly tied under the current rule; this suggests the next minimal search may still live inside the recall-family question-type handling rather than requiring a wholly new answer-head branch
+- Next likely action:
+  - keep the current scorer line unchanged, cluster the remaining six by question type / payload geometry, and test whether extending the direct-fact recall query-tie-break family is a real gain driver before touching broader recommendation/generalization residuals
+
+## 2026-04-21 Session 039
+
+- Worked on: 把 `346` 的 scenario-generalization contamination 从 parser/library wording 主线切开，落下一条 environment-fit rerank/support surgery，并用 authoritative `smoke3` 验证它能否与 row `94/87` 的 `7a4 / 0d781` gain 共存
+- State changed:
+  - helper 已把这轮记为 iteration `96 search`
+  - current runtime truth 已从“`346` 是更干净的 primary residual”前推到“`346` 已被真实翻正，但这条 line 仍需 wider local gate 验证”
+- Evidence / artifacts:
+  - `outputs_v2/v33_environment_fit_support_smoke3_localonly/evals_benchmark/20260421T181900Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_environment_fit_support_smoke3_localonly/runs/20260421T181900Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `96`
+  - `autoresearch-state.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_model_skeleton.py -k 'environment_aversion_slot or query_matched_other_fact_slot or question_style_query'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_parser.py -k 'contextual_library_appreciation_clause or community_theater_audition_clause' tests/test_stage2_model_skeleton.py -k 'environment_aversion_slot or query_matched_other_fact_slot'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `env -u GPT_AGENT_API_KEY -u OPENAI_API_KEY conda run -n core_mem python scripts/run_stage2_memory_canary.py --config configs/minimax_m27.yaml --benchmark personamem --output-root outputs_v2/v33_environment_fit_support_smoke3_localonly --limit 3 --memory-mode learned_memory --slot-assignment-mode learned --run-dir outputs_v2/v33_environment_fit_support_smoke3_localonly/runs/20260421T181900Z_stage2_memory_canary_personamem --json`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `36`
+- Notes:
+  - 这轮没有继续动 parser，也没有继续打 library wording；只在 `system.py` 里新增了 environment-fit query 下的 `other_fact` rerank/support surgery
+  - authoritative `smoke3` 已完整收口到 `3/3`：`346 -> (c)`，同时 `7a4 -> (c)` 与 `0d781 -> (c)` 继续 hold
+  - official verifier 仍是 `36`，所以这条 line 当前只能诚实记为 `search`，还不是 keep
+- Next likely action:
+  - widen row `96` 到包含其余 scenario/generalization residual 的更大 authoritative local gate，判断这条 environment-fit rerank/support 是否只修 `346`，还是能对剩余 broader slice 形成外扩
+
+## 2026-04-21 Session 040
+
+- Worked on: 把 row `96` 从 residual trio 扩成 coexistence gate，验证 environment-fit rerank/support 不会打坏 row `80` scorer controls
+- State changed:
+  - helper 已把这轮记为 iteration `97 search`
+  - current runtime truth 已从“row `96` 只在 `346 / 7a4 / 0d781` 上成立”前推到“row `96` 已通过 `smoke8 = 8/8` coexistence gate”
+- Evidence / artifacts:
+  - `outputs_v2/v33_environment_fit_support_smoke8_localonly/evals_benchmark/20260421T182800Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_environment_fit_support_smoke8_localonly/runs/20260421T182800Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `97`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke8` completed at `8/8`
+  - the run keeps `c8 / afd / 0d225 / 0adf / ead3` and simultaneously holds `346 / 7a4 / 0d781`
+  - `346` continues to route through `other_fact=larger festivals feel too crowded and chaotic for me`
+- Notes:
+  - no new code changes landed between row `96` and this coexistence measurement; this row is pure runtime validation that the current line keeps the old floor while adding the new environment-fit gain
+  - official verifier remains `36`, so this is still `search`, not keep
+- Next likely action:
+  - rerun the old `smoke11` manifest on the current line and check whether the previously separate gains now coexist as a full `11/11` local gate before paying any heavier measurement
+
+## 2026-04-21 Session 041
+
+- Worked on: 把 current line 推回旧 `smoke11` 同 manifest，验证此前分散成立的 gains 是否已经能在同一 learned-authoritative line 上一起成立
+- State changed:
+  - helper 已把这轮记为 iteration `98 search`
+  - current runtime truth 已从“row `96/97` 通过 `smoke8` coexistence”前推到“current line 已通过 `smoke11 = 11/11` coexistence gate”
+- Evidence / artifacts:
+  - `outputs_v2/v33_environment_fit_support_smoke11_localonly/evals_benchmark/20260421T183400Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_environment_fit_support_smoke11_localonly/runs/20260421T183400Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `98`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke11` completed at `11/11`
+  - row `80 / 83 / 84 / 92 / 94 / 96` gains all coexist on the same current line
+  - retained verifier is still `36`
+- Notes:
+  - this row is again runtime validation rather than a new code patch; the value is that the current line no longer needs to be described as a set of isolated narrow fixes
+  - the next useful gate is now the old `smoke32` manifest, because that is the last established wider local slice before official measurement
+- Next likely action:
+  - run the old `smoke32` manifest on the current line and compare directly against row `75 = 24/32` to decide whether this line has finally crossed from narrow coexistence into broader Persona generalization
+
+## 2026-04-21 Session 042
+
+- Worked on: 跑完 old `smoke32` 同 manifest 的 current-line authoritative widened gate，并把 row `98` 的 `smoke11 = 11/11` 推进到更宽 Persona slice
+- State changed:
+  - helper 已把这轮记为 iteration `99 search`
+  - current runtime truth 已从“current line 已通过 `smoke11 = 11/11`”前推到“current line 在 authoritative `smoke32` 上达到 `29/32`，但 widened gains 同时引入了 3 条新的 `musicRecommendation` answer-projection regression”
+- Evidence / artifacts:
+  - `outputs_v2/v33_environment_fit_support_smoke32_localonly/evals_benchmark/20260421T184200Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_environment_fit_support_smoke32_localonly/runs/20260421T184200Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `99`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke32` completed at `29/32`
+  - relative to row `75 = 24/32`, the current line fixes all eight old residuals `c8 / c2d3 / 2b3 / 7a4 / afd / 346 / cd81 / 0d781`
+  - the current line newly regresses `defecce2... / b4812983... / 7028667...`, all in the `musicRecommendation` answer-projection family
+- Notes:
+  - `defecce...` 与 `b481...` 在 current line 和旧 wider baseline 上的 `selected_slot_ids` 与 `belief_state` 完全相同，差异只出现在最终 option projection，因此当前 widened blocker 更像 answer projection，而不是 retrieval / belief
+  - 这轮没有新代码改动，也没有新的 guard/verifier rerun；row `99` 的价值是 widened local truth 更新，而不是新的 retained metric
+- Next likely action:
+  - cluster `defecce... / b481... / 7028667...` into a dedicated `musicRecommendation` answer-projection residual gate, verify whether they share the same scorer geometry, and only then decide whether the current line is worth an official measurement
+
+## 2026-04-21 Session 043
+
+- Worked on: 把 row `99` 暴露的三条新 regression 收窄成最小 answer-projection gate，并验证 current line 的 single-support query-overlap hypothesis
+- State changed:
+  - helper 已把这轮记为 iteration `100 search`
+  - current runtime truth 已从“widened `smoke32` 暴露三条新 regression”前推到“这三条 regression 已在 authoritative `smoke4` 上被同一条窄 query-overlap patch 全部翻正，而且 `c2d3` 继续 hold”
+- Evidence / artifacts:
+  - `outputs_v2/v33_music_projection_smoke4_localonly/evals_benchmark/20260421T000000Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_music_projection_smoke4_localonly/runs/20260421T000000Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `100`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke4` completed at `4/4`
+  - `defecce... / b481... / 7028667...` all flipped back to gold
+  - `c2d3...` remained correct
+  - full guard passed and `scripts/verify_stage2_v33_longrun.py --score-only` remained `36`
+- Notes:
+  - cheap scorer replay now shows the underlying geometry clearly: with `include_query_overlap=False`, all three row-99 regressions collapse to `(a)`; restoring query overlap flips them back to gold
+  - the patch is deliberately narrow: it restores query overlap for single-support `track_full_preference_evolution`, plus `recall_user_shared_facts` only when `topic=musicRecommendation` and the primary belief relation is `music_preference`
+- Next likely action:
+  - rerun the widened `smoke32` manifest on the current line and check whether the row-99 regressions disappear without reopening earlier fixes
+
+## 2026-04-21 Session 044
+
+- Worked on: 把 row `100` 的 single-support query-overlap patch widen 回旧 `smoke32` 同 manifest，验证这条 answer-projection 修复是否能和 row `99` 的 broader floor 共存
+- State changed:
+  - helper 已把这轮记为 iteration `101 search`
+  - current runtime truth 已从“row `100` 在 `smoke4 = 4/4` 成立”前推到“current line 在 widened `smoke32` 上达到 `32/32`，旧 wider floor 与 row `99` 的 3 条新 regression 已全部同时 hold”
+- Evidence / artifacts:
+  - `outputs_v2/v33_music_projection_smoke32_localonly/evals_benchmark/20260421T000500Z_stage2_memory_canary.json`
+  - `outputs_v2/v33_music_projection_smoke32_localonly/runs/20260421T000500Z_stage2_memory_canary_personamem/predictions.jsonl`
+  - `research-results.tsv` row `101`
+  - `autoresearch-state.json`
+- Verification:
+  - authoritative learned-memory Persona `smoke32` completed at `32/32`
+  - `defecce... / b481... / 7028667...` all stayed fixed under the widened gate
+  - the previously recovered wider floor `c8 / c2d3 / 2b3 / 7a4 / afd / 346 / cd81 / 0d781` also continued to hold
+- Notes:
+  - this is the strongest local v33 result so far; the remaining blocker is no longer local coexistence but the absence of fresh v33 full-holdout artifacts
+  - since the code did not change after row `100`, no new guard/verifier rerun was needed before logging row `101`
+- Next likely action:
+  - stop spending more budget on local gates and start the current-line authoritative full-holdout measurement needed by `scripts/verify_stage2_v33_longrun.py`

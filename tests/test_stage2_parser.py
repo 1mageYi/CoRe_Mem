@@ -144,6 +144,125 @@ def test_stage2_parser_extracts_opted_out_withdrawal_clause():
     assert observations[0].time_scope == "recent_change"
 
 
+def test_stage2_parser_extracts_had_to_step_back_withdrawal_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "However, I had to step back from community theater after experiencing stage fright during my first performance.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "step back from community theater after experiencing stage fright during my first performance"
+    assert observations[0].time_scope == "recent_change"
+
+
+def test_stage2_parser_does_not_extract_reading_deadline_pressure_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I felt too pressured by the deadlines.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
+def test_stage2_parser_extracts_contextual_reading_deadline_pressure_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I also participated in a reading challenge, but I felt too pressured by the deadlines.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "felt too pressured by reading challenge deadlines"
+    assert observations[0].polarity == "negative"
+
+
+def test_stage2_parser_does_not_extract_local_library_appreciation_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I just spent a meaningful afternoon at a local library, where I discovered a whole range of books on various topics.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
+def test_stage2_parser_extracts_contextual_library_appreciation_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I just spent a meaningful afternoon at a local library. The atmosphere was so inviting and peaceful.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "appreciate visiting local libraries"
+    assert observations[0].polarity == "positive"
+
+
+def test_stage2_parser_does_not_extract_crowded_festival_aversion_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "The experience was too crowded and chaotic for my personal enjoyment.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
+def test_stage2_parser_extracts_contextual_crowded_festival_aversion_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I decided to skip upcoming larger festivals. The experience was too crowded and chaotic for my personal enjoyment.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "larger festivals feel too crowded and chaotic for me"
+    assert observations[0].polarity == "negative"
+
+
+def test_stage2_parser_extracts_community_theater_audition_clause():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "Interestingly, I recently auditioned for a role in a community theater play and felt a rush of excitement.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert len(observations) == 1
+    assert observations[0].relation == "other_fact"
+    assert observations[0].value == "auditioned for a role in a community theater play and felt a rush of excitement"
+    assert observations[0].polarity == "positive"
+
+
 def test_stage2_parser_extracts_store_location_from_shopping_turn():
     parser = Stage2ObservationParser()
     observations = parser.parse_turn(

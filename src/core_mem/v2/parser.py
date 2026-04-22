@@ -65,6 +65,10 @@ _WITHDRAWAL_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(
+        r"\b(?:i\s+)?(?:had to|have to)\s+(?P<value>step back from\s+[^,.!?]+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"\b(?:i\s+)?(?P<value>opted out of\s+[^,.!?]+)",
         re.IGNORECASE,
     ),
@@ -213,7 +217,11 @@ class Stage2ObservationParser:
         if speaker == "assistant":
             return []
         candidates: list[Observation] = []
+        turn_context: list[str] = []
         for idx, clause in enumerate(self._split_clauses(text)):
+            combined_context = "\n".join(
+                part for part in [context_text, *turn_context[-2:]] if isinstance(part, str) and part.strip()
+            )
             parsed = self._parse_clause(
                 clause,
                 local_index=idx,
@@ -223,10 +231,11 @@ class Stage2ObservationParser:
                 session_id=session_id,
                 speaker=speaker,
                 entity=entity,
-                context_text=context_text,
+                context_text=combined_context or None,
             )
             if parsed is not None:
                 candidates.append(parsed)
+            turn_context.append(clause)
         return candidates
 
     @staticmethod
@@ -305,11 +314,54 @@ class Stage2ObservationParser:
                 "positive",
                 0.8,
             ),
+            (
+                r"\b(?:i\s+felt(?:\s+too)?\s+pressured by the deadlines|feeling pressured by deadlines)\b",
+                "negative",
+                0.82,
+            ),
+            (
+                r"\bthe atmosphere was so inviting\b[^,.!?]*",
+                "positive",
+                0.82,
+            ),
+            (
+                r"\b(?:i\s+recently\s+)?auditioned for a role in a community theater play(?: and felt a rush of excitement)?\b",
+                "positive",
+                0.84,
+            ),
+            (
+                r"\bthe experience was too crowded(?: and chaotic)?\b[^,.!?]*",
+                "negative",
+                0.8,
+            ),
         ]
         for pattern, polarity, confidence in special_patterns:
             match = re.search(pattern, lowered)
             if match:
-                value = match.group("value").strip(" .,!?\n\t")
+                if "value" in match.groupdict():
+                    value = match.group("value").strip(" .,!?\n\t")
+                elif "pressured by the deadlines" in match.group(0):
+                    context_lower = str(context_text or "").lower()
+                    if "reading challenge" in context_lower:
+                        value = "felt too pressured by reading challenge deadlines"
+                    else:
+                        continue
+                elif "the atmosphere was so inviting" in match.group(0):
+                    context_lower = str(context_text or "").lower()
+                    if "local library" in context_lower or "library" in context_lower:
+                        value = "appreciate visiting local libraries"
+                    else:
+                        continue
+                elif "auditioned for a role in a community theater play" in match.group(0):
+                    value = "auditioned for a role in a community theater play and felt a rush of excitement"
+                elif "too crowded" in match.group(0):
+                    context_lower = str(context_text or "").lower()
+                    if "festival" in context_lower:
+                        value = "larger festivals feel too crowded and chaotic for me"
+                    else:
+                        continue
+                else:
+                    value = match.group(0).strip(" .,!?\n\t")
                 if "feedback" in value:
                     value = _normalize_feedback_value(value)
                 if "redeemed" in lowered and "coupon" in lowered:

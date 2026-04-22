@@ -55,6 +55,41 @@ _LOW_INFO_OPTION_TOKENS = {
     "you",
     "your",
 }
+_NEGATIVE_POLARITY_TOKENS = {
+    "anxious",
+    "anxiety",
+    "chaotic",
+    "crowd",
+    "crowded",
+    "deadline",
+    "deadlin",
+    "exhaust",
+    "overwhelm",
+    "pressure",
+    "pressur",
+    "rigid",
+    "stress",
+    "stressful",
+    "tense",
+    "uncomfortable",
+}
+_POSITIVE_POLARITY_TOKENS = {
+    "adrenaline",
+    "calm",
+    "comfort",
+    "enjoy",
+    "enjoyable",
+    "excite",
+    "excit",
+    "fulfill",
+    "joy",
+    "joyful",
+    "love",
+    "relax",
+    "reward",
+    "rewarding",
+    "thrill",
+}
 
 
 def normalize_answer(text: str | None) -> str:
@@ -129,15 +164,21 @@ class OptionScoringHead:
             if len(token) >= self.min_token_len and token not in _LOW_INFO_OPTION_TOKENS
         }
 
+    @staticmethod
+    def _polarity_score(terms: set[str]) -> int:
+        return len(terms & _NEGATIVE_POLARITY_TOKENS) - len(terms & _POSITIVE_POLARITY_TOKENS)
+
     def select_option(
         self,
         *,
         query_text: str,
+        question_type: str = "",
         answer_text: str,
         options: list[str],
         belief_values: list[str] | None = None,
         evidence_text: str = "",
         selected_slot_glosses: list[str] | None = None,
+        include_query_overlap: bool = True,
     ) -> str:
         if not options:
             return answer_text
@@ -152,9 +193,14 @@ class OptionScoringHead:
         belief_terms = self._content_token_set(" ".join(belief_values or []))
         evidence_terms = self._content_token_set(evidence_text)
         gloss_terms = self._content_token_set(" ".join(selected_slot_glosses or []))
-        support_terms = query_terms | answer_terms | belief_terms | evidence_terms | gloss_terms
+        evidence_polarity = self._polarity_score(answer_terms | belief_terms | evidence_terms | gloss_terms)
+        polarity_tie_break_enabled = question_type in {
+            "recall_user_shared_facts",
+            "recalling_facts_mentioned_by_the_user",
+        }
         best_option = answer_text
         best_score = float("-inf")
+        best_tie_break = float("-inf")
         label_mode = options_use_labels(options)
         for option in options:
             body = option_body(option)
@@ -169,14 +215,22 @@ class OptionScoringHead:
                 score += 2.0 * len(evidence_terms & option_terms)
             if gloss_terms:
                 score += 1.5 * len(gloss_terms & option_terms)
-            if query_terms:
+            if include_query_overlap and query_terms:
                 score += 0.5 * len(query_terms & option_terms)
             normalized_body = normalize_answer(body)
             normalized_answer = normalize_answer(answer_text)
             if normalized_answer and normalized_body:
                 if normalized_answer in normalized_body or normalized_body in normalized_answer:
                     score += 6.0
-            if score > best_score:
+            option_polarity = self._polarity_score(option_terms)
+            tie_break = 0.0
+            if polarity_tie_break_enabled:
+                if evidence_polarity != 0 and option_polarity != 0 and (evidence_polarity * option_polarity) > 0:
+                    tie_break = float(abs(option_polarity))
+                elif evidence_polarity != 0 and option_polarity != 0:
+                    tie_break = float(-abs(option_polarity))
+            if score > best_score or (score == best_score and tie_break > best_tie_break):
                 best_score = score
+                best_tie_break = tie_break
                 best_option = option_label(option) if label_mode else option
         return best_option
