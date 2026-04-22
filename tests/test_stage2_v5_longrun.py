@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.verify_stage2_v5_longrun import compute_v5_longrun, publish_v5_personamem_isolation
+from scripts.verify_stage2_v5_longrun import (
+    compute_v5_longrun,
+    publish_v5_context_selfsupervised,
+    publish_v5_personamem_isolation,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -105,3 +109,81 @@ def test_v5_longrun_counts_isolation_checks(tmp_path: Path) -> None:
     payload = compute_v5_longrun(repo_root)
 
     assert payload["score"] == 17
+
+
+def test_publish_v5_context_selfsupervised_uses_raw_context_without_gold(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data" / "personamem"
+    data_root.mkdir(parents=True)
+    questions = data_root / "questions_32k.csv"
+    questions.write_text(
+        "\n".join(
+            [
+                "persona_id,question_id,question_type,topic,user_question_or_message,correct_answer,all_options,shared_context_id,end_index_in_shared_context",
+                'p1,q1,recall,t,m,(a),"[""(a) x"", ""(b) y""]",c1,10',
+                'p2,q2,recall,t,m,(b),"[""(a) x"", ""(b) y""]",c2,20',
+                'p3,q3,recall,t,m,(a),"[""(a) x"", ""(b) y""]",c3,30',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    contexts = data_root / "shared_contexts_32k.jsonl"
+    contexts.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "shared_context_id": context_id,
+                    "shared_context": [
+                        {"role": "system", "content": "persona"},
+                        {"role": "user", "content": f"user turn {context_id}"},
+                        {"role": "assistant", "content": f"assistant turn {context_id}"},
+                    ],
+                }
+            )
+            for context_id in ("c1", "c2", "c3")
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    publish_v5_personamem_isolation(root=repo_root, questions_path=questions, contexts_path=contexts)
+
+    payload = publish_v5_context_selfsupervised(root=repo_root, contexts_path=contexts, max_samples_per_context=2)
+
+    assert payload["no_gold_answers"] is True
+    assert payload["train_samples"] > 0
+    assert payload["eval_samples"] > 0
+    assert payload["stage2_32k_used_as_warmup"] is True
+    assert payload["claims_large_scale_pretraining"] is False
+    train_rows = (repo_root / payload["task_files"]["train"]).read_text(encoding="utf-8")
+    assert "correct_answer" not in train_rows
+    assert "all_options" not in train_rows
+
+
+def test_v5_longrun_counts_context_selfsupervision_checks(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_docs(repo_root)
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_personamem_isolation.json",
+        {
+            "split_by_shared_context_id": True,
+            "split_by_persona": True,
+            "no_gold_leakage": True,
+            "gold_used_for_memory_substrate": False,
+            "train_eval_contexts_disjoint": True,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json",
+        {
+            "no_gold_answers": True,
+            "train_samples": 10,
+            "eval_samples": 4,
+            "stage2_32k_used_as_warmup": True,
+            "claims_large_scale_pretraining": False,
+        },
+    )
+
+    payload = compute_v5_longrun(repo_root)
+
+    assert payload["score"] == 21

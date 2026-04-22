@@ -35,6 +35,15 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> int:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    return len(rows)
+
+
 def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
@@ -96,6 +105,34 @@ def _context_id_from_row(row: dict[str, Any], line_idx: int) -> str:
     if len(row) == 1:
         return str(next(iter(row.keys())))
     return f"line_{line_idx}"
+
+
+def _context_payload_from_row(row: dict[str, Any]) -> Any:
+    for key in ("shared_context", "context", "messages", "conversation"):
+        if key in row:
+            return row[key]
+    if len(row) == 1:
+        return next(iter(row.values()))
+    return row
+
+
+def _message_rows(payload: Any) -> list[dict[str, str]]:
+    if isinstance(payload, dict) and isinstance(payload.get("messages"), list):
+        payload = payload["messages"]
+    if not isinstance(payload, list):
+        return [{"role": "unknown", "content": str(payload)}] if payload else []
+    rows: list[dict[str, str]] = []
+    for item in payload:
+        if isinstance(item, dict):
+            rows.append(
+                {
+                    "role": str(item.get("role", "unknown")),
+                    "content": str(item.get("content", "")),
+                }
+            )
+        else:
+            rows.append({"role": "unknown", "content": str(item)})
+    return [row for row in rows if row["content"]]
 
 
 def _stable_order(values: set[str], *, seed: str) -> list[str]:
@@ -236,6 +273,126 @@ def publish_v5_personamem_isolation(
     }
     _write_json(artifact_root / "latest_stage2_v5_personamem_isolation.json", payload)
     _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_personamem_isolation.json", payload)
+    return payload
+
+
+def publish_v5_context_selfsupervised(
+    *,
+    root: Path,
+    contexts_path: Path | None = None,
+    isolation_path: Path | None = None,
+    max_samples_per_context: int = 8,
+) -> dict[str, Any]:
+    contexts = contexts_path or root / "data" / "personamem" / "shared_contexts_32k.jsonl"
+    isolation_file = isolation_path or root / "outputs_v2" / "artifacts" / "latest_stage2_v5_personamem_isolation.json"
+    isolation = _read_json(isolation_file)
+    if not contexts.exists() or not isolation:
+        raise FileNotFoundError("Missing PersonaMem contexts or v5 isolation artifact.")
+
+    split_by_context: dict[str, str] = {}
+    for split_name, split_payload in (isolation.get("splits") or {}).items():
+        for context_id in split_payload.get("shared_context_ids", []):
+            split_by_context[str(context_id)] = str(split_name)
+
+    context_messages: dict[str, list[dict[str, str]]] = {}
+    with contexts.open("r", encoding="utf-8") as handle:
+        for idx, line in enumerate(handle):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            context_id = _context_id_from_row(row, idx)
+            context_messages[context_id] = _message_rows(_context_payload_from_row(row))
+
+    rows_by_split: dict[str, list[dict[str, Any]]] = {"train": [], "val": [], "eval": []}
+    for context_id, messages in sorted(context_messages.items()):
+        split_name = split_by_context.get(context_id)
+        if split_name not in rows_by_split:
+            continue
+        emitted = 0
+        for turn_idx, message in enumerate(messages):
+            if emitted >= max_samples_per_context:
+                break
+            content = message["content"].strip()
+            if not content:
+                continue
+            prefix = messages[max(0, turn_idx - 4) : turn_idx]
+            rows_by_split[split_name].append(
+                {
+                    "sample_id": f"{context_id}:masked_turn:{turn_idx}",
+                    "task": "masked_turn_reconstruction",
+                    "source_dataset": "personamem",
+                    "shared_context_id": context_id,
+                    "split": split_name,
+                    "turn_index": turn_idx,
+                    "masked_role": message["role"],
+                    "input_context": prefix,
+                    "target_text": content,
+                    "target_source": "raw_shared_context_turn",
+                    "gold_answer_fields_used": [],
+                    "option_fields_used": [],
+                }
+            )
+            emitted += 1
+            if emitted >= max_samples_per_context:
+                break
+            if turn_idx + 1 < len(messages):
+                next_message = messages[turn_idx + 1]
+                rows_by_split[split_name].append(
+                    {
+                        "sample_id": f"{context_id}:next_turn:{turn_idx + 1}",
+                        "task": "next_turn_prediction",
+                        "source_dataset": "personamem",
+                        "shared_context_id": context_id,
+                        "split": split_name,
+                        "turn_index": turn_idx + 1,
+                        "input_context": messages[max(0, turn_idx - 3) : turn_idx + 1],
+                        "target_role": next_message["role"],
+                        "target_text": next_message["content"],
+                        "target_source": "raw_shared_context_next_turn",
+                        "gold_answer_fields_used": [],
+                        "option_fields_used": [],
+                    }
+                )
+                emitted += 1
+
+    output_root = root / "outputs_v2" / "artifacts" / "stage2_v5_context_selfsupervised"
+    task_files: dict[str, str] = {}
+    for split_name, rows in rows_by_split.items():
+        path = output_root / f"{split_name}.jsonl"
+        _write_jsonl(path, rows)
+        task_files[split_name] = str(path.relative_to(root) if path.is_relative_to(root) else path)
+
+    train_samples = len(rows_by_split["train"])
+    val_samples = len(rows_by_split["val"])
+    heldout_samples = len(rows_by_split["eval"])
+    payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_context_selfsupervised",
+        "commit_hash": _current_head(root),
+        "generated_at": _timestamp(),
+        "source_contexts_path": str(contexts.relative_to(root) if contexts.is_relative_to(root) else contexts),
+        "isolation_artifact": str(isolation_file.relative_to(root) if isolation_file.is_relative_to(root) else isolation_file),
+        "task_files": task_files,
+        "tasks": ["masked_turn_reconstruction", "next_turn_prediction"],
+        "no_gold_answers": True,
+        "gold_answer_fields_used": [],
+        "option_fields_used": [],
+        "train_samples": train_samples,
+        "val_samples": val_samples,
+        "eval_samples": val_samples + heldout_samples,
+        "heldout_samples": heldout_samples,
+        "context_count": len(context_messages),
+        "stage2_32k_used_as_warmup": True,
+        "claims_large_scale_pretraining": False,
+        "training_role": "domain warm-up and gold-free context self-supervision",
+        "leakage_boundary": {
+            "uses_correct_answer": False,
+            "uses_all_options": False,
+            "uses_option_label_geometry": False,
+            "uses_raw_shared_context": True,
+        },
+    }
+    _write_json(root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json", payload)
+    _write_json(root / "outputs_v2" / "artifacts" / f"{_timestamp()}_latest_stage2_v5_context_selfsupervised.json", payload)
     return payload
 
 
@@ -567,8 +724,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
     parser.add_argument("--publish-personamem-isolation", action="store_true")
+    parser.add_argument("--publish-context-selfsupervised", action="store_true")
     parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--contexts-path", type=Path)
+    parser.add_argument("--isolation-path", type=Path)
+    parser.add_argument("--max-samples-per-context", type=int, default=8)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--score-only", action="store_true")
     args = parser.parse_args()
@@ -578,6 +738,15 @@ def main() -> None:
             root=args.root,
             questions_path=args.questions_path,
             contexts_path=args.contexts_path,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if args.publish_context_selfsupervised:
+        payload = publish_v5_context_selfsupervised(
+            root=args.root,
+            contexts_path=args.contexts_path,
+            isolation_path=args.isolation_path,
+            max_samples_per_context=args.max_samples_per_context,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return
