@@ -19,6 +19,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from core_mem.v2.v5_encoder_harness import V5_ENCODER_CANDIDATES, evaluate_proxy_encoder
+from core_mem.v2.v5_latent_substrate import build_substrate_examples, train_v5_substrate_heads
 
 
 def _read_text(path: Path) -> str:
@@ -495,6 +496,67 @@ def publish_v5_encoder_compare(
     return payload
 
 
+def publish_v5_core_residual_train(
+    *,
+    root: Path,
+    context_artifact_path: Path | None = None,
+    device: str = "cpu",
+    max_train_samples: int = 200,
+    max_eval_samples: int = 96,
+) -> dict[str, Any]:
+    context_artifact_file = context_artifact_path or root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json"
+    context_artifact = _read_json(context_artifact_file)
+    if not context_artifact:
+        raise FileNotFoundError("Missing v5 context self-supervised artifact.")
+    task_files = context_artifact.get("task_files") or {}
+    train_path = Path(task_files.get("train", ""))
+    if not train_path.is_absolute():
+        train_path = root / train_path
+    eval_rows: list[dict[str, Any]] = []
+    for split_name in ("val", "eval"):
+        split_path = Path(task_files.get(split_name, ""))
+        if not split_path.is_absolute():
+            split_path = root / split_path
+        eval_rows.extend(_read_jsonl(split_path))
+    train_examples = build_substrate_examples(_read_jsonl(train_path)[:max_train_samples])
+    eval_examples = build_substrate_examples(eval_rows[:max_eval_samples])
+    metrics = train_v5_substrate_heads(train_examples, eval_examples, device=device)
+
+    payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_core_residual_train",
+        "commit_hash": _current_head(root),
+        "generated_at": _timestamp(),
+        "context_selfsupervised_artifact": str(
+            context_artifact_file.relative_to(root) if context_artifact_file.is_relative_to(root) else context_artifact_file
+        ),
+        "training_source": "PersonaMem raw shared context weak supervision plus gold-free context self-supervision",
+        "uses_personamem_gold": False,
+        "uses_all_options": False,
+        "trainable_core_residual": True,
+        "trainable_write_controller": True,
+        "positive_gain": bool(metrics["positive_gain"]),
+        **metrics,
+    }
+    controller_payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_controller_ablation",
+        "commit_hash": payload["commit_hash"],
+        "generated_at": payload["generated_at"],
+        "source_core_residual_train_artifact": "outputs_v2/artifacts/latest_stage2_v5_core_residual_train.json",
+        "learned_controller_accuracy": metrics["action_accuracy"],
+        "disabled_controller_accuracy": metrics["disabled_controller_accuracy"],
+        "learned_controller_beats_disabled": metrics["action_accuracy"] > metrics["disabled_controller_accuracy"],
+        "covered_actions": metrics["covered_actions"],
+        "uses_personamem_gold": False,
+        "ablation_mode": "learned_write_controller_vs_majority_disabled_controller",
+    }
+    artifact_root = root / "outputs_v2" / "artifacts"
+    _write_json(artifact_root / "latest_stage2_v5_core_residual_train.json", payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_core_residual_train.json", payload)
+    _write_json(artifact_root / "latest_stage2_v5_controller_ablation.json", controller_payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_controller_ablation.json", controller_payload)
+    return {"core_residual_train": payload, "controller_ablation": controller_payload}
+
+
 def compute_v5_longrun(root: Path) -> dict[str, Any]:
     docs = root / "docs"
     agent_os = root / ".agent-os"
@@ -825,12 +887,15 @@ def main() -> None:
     parser.add_argument("--publish-personamem-isolation", action="store_true")
     parser.add_argument("--publish-context-selfsupervised", action="store_true")
     parser.add_argument("--publish-encoder-compare", action="store_true")
+    parser.add_argument("--publish-core-residual-train", action="store_true")
     parser.add_argument("--questions-path", type=Path)
     parser.add_argument("--contexts-path", type=Path)
     parser.add_argument("--isolation-path", type=Path)
     parser.add_argument("--context-artifact-path", type=Path)
     parser.add_argument("--max-samples-per-context", type=int, default=8)
     parser.add_argument("--max-eval-samples", type=int, default=96)
+    parser.add_argument("--max-train-samples", type=int, default=200)
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--score-only", action="store_true")
     args = parser.parse_args()
@@ -856,6 +921,16 @@ def main() -> None:
         payload = publish_v5_encoder_compare(
             root=args.root,
             context_artifact_path=args.context_artifact_path,
+            max_eval_samples=args.max_eval_samples,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    if args.publish_core_residual_train:
+        payload = publish_v5_core_residual_train(
+            root=args.root,
+            context_artifact_path=args.context_artifact_path,
+            device=args.device,
+            max_train_samples=args.max_train_samples,
             max_eval_samples=args.max_eval_samples,
         )
         print(json.dumps(payload, ensure_ascii=False, indent=2))

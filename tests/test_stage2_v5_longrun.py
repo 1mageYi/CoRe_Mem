@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.verify_stage2_v5_longrun import (
     compute_v5_longrun,
     publish_v5_context_selfsupervised,
+    publish_v5_core_residual_train,
     publish_v5_encoder_compare,
     publish_v5_personamem_isolation,
 )
@@ -275,3 +276,109 @@ def test_v5_longrun_counts_encoder_compare_checks(tmp_path: Path) -> None:
     payload = compute_v5_longrun(repo_root)
 
     assert payload["score"] == 25
+
+
+def test_publish_v5_core_residual_train_records_positive_controller_gain(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    sample_root = artifact_root / "stage2_v5_context_selfsupervised"
+    sample_root.mkdir(parents=True)
+    train_rows = []
+    eval_rows = []
+    source_rows = [
+        ("system", "Current user persona: I usually love quiet libraries."),
+        ("user", "I recently decided to stop attending crowded festivals."),
+        ("user", "I love calm reading nights."),
+        ("assistant", "That sounds like a new plan."),
+        ("user", "Now I prefer smaller gatherings."),
+        ("user", "I never liked deadline pressure."),
+    ]
+    for idx in range(80):
+        role, text = source_rows[idx % len(source_rows)]
+        train_rows.append({"sample_id": f"train-{idx}", "masked_role": role, "target_text": text, "task": "masked_turn_reconstruction"})
+    for idx in range(36):
+        role, text = source_rows[idx % len(source_rows)]
+        eval_rows.append({"sample_id": f"eval-{idx}", "masked_role": role, "target_text": text, "task": "masked_turn_reconstruction"})
+    for split, rows in {"train": train_rows, "val": eval_rows[:18], "eval": eval_rows[18:]}.items():
+        (sample_root / f"{split}.jsonl").write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+    _write_json(
+        artifact_root / "latest_stage2_v5_context_selfsupervised.json",
+        {
+            "task_files": {
+                "train": str(sample_root / "train.jsonl"),
+                "val": str(sample_root / "val.jsonl"),
+                "eval": str(sample_root / "eval.jsonl"),
+            }
+        },
+    )
+
+    payload = publish_v5_core_residual_train(root=repo_root, max_train_samples=80, max_eval_samples=36)
+
+    train_payload = payload["core_residual_train"]
+    controller_payload = payload["controller_ablation"]
+    assert train_payload["trainable_core_residual"] is True
+    assert train_payload["trainable_write_controller"] is True
+    assert train_payload["positive_gain"] is True
+    assert train_payload["train_seconds"] > 0
+    assert controller_payload["learned_controller_beats_disabled"] is True
+    assert len(controller_payload["covered_actions"]) >= 4
+    assert (artifact_root / "latest_stage2_v5_core_residual_train.json").exists()
+    assert (artifact_root / "latest_stage2_v5_controller_ablation.json").exists()
+
+
+def test_v5_longrun_counts_core_residual_and_controller_checks(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_docs(repo_root)
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_personamem_isolation.json",
+        {
+            "split_by_shared_context_id": True,
+            "split_by_persona": True,
+            "no_gold_leakage": True,
+            "gold_used_for_memory_substrate": False,
+            "train_eval_contexts_disjoint": True,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_context_selfsupervised.json",
+        {
+            "no_gold_answers": True,
+            "train_samples": 10,
+            "eval_samples": 4,
+            "stage2_32k_used_as_warmup": True,
+            "claims_large_scale_pretraining": False,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_encoder_compare.json",
+        {
+            "compared_backbones": ["BAAI/bge-base-en-v1.5", "intfloat/e5-base-v2", "facebook/contriever"],
+            "selected_backbone": "intfloat/e5-base-v2",
+            "uses_ablation_metrics": True,
+            "not_selected_by_personamem_only": True,
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_core_residual_train.json",
+        {
+            "trainable_core_residual": True,
+            "trainable_write_controller": True,
+            "positive_gain": True,
+            "train_seconds": 0.1,
+            "device": "cpu",
+        },
+    )
+    _write_json(
+        repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_controller_ablation.json",
+        {
+            "learned_controller_beats_disabled": True,
+            "covered_actions": ["new", "merge", "overwrite", "stale"],
+        },
+    )
+
+    payload = compute_v5_longrun(repo_root)
+
+    assert payload["score"] == 32
