@@ -18,18 +18,20 @@
     - benchmark remains holdout-only
   - Runtime truth:
     - retained `v32` 已到 `44/44 keep`
-    - current retained `v33` 已到 `36/47 keep`
+    - retained `v33` 仍是 `36/47 keep`，latest full-measurement trial 已到 `43/47 search`
     - `latest_stage2_v33_modular_authoritative_train.json`、`latest_stage2_v33_learned_write_eval.json`、`latest_stage2_v33_latent_reader_train.json`、`latest_stage2_v33_temporal_slot_eval.json`、`latest_stage2_v33_latent_objective_eval.json`、`latest_stage2_v33_belief_graph_eval.json`、`latest_stage2_v33_answer_option_eval.json` 与 `latest_stage2_v33_ablation_summary.json` 已落地
     - current-line authoritative `PersonaMem 512` full holdout 已真实完成：`outputs_v2/v33_full_personamem_512_query_overlap/evals_benchmark/20260421T001000Z_stage2_memory_canary.json` 当前固定为 `provider/local = 182/196`
     - 相对 retained `v32` Persona full `183/175`，current line 呈现 `provider -1 / local +21`；这说明 local learned-authoritative gain 已经在 full measurement 上成立，但 provider 仍未超过 retained baseline
     - 当前 provider 侧 residual 也已在 full Persona artifact 上实测固定为 `blank = 108`、`nonlabel = 12`
-    - 当前 verifier 剩余缺口已经进一步收窄到 current-line `LongMemEval-S 500` authoritative full artifact 与随后才能发布的 `latest_stage2_v33_full_holdout_compare.json`
+    - `latest_stage2_v33_learned_authoritative_runtime.json`、`latest_longmemeval_stage2_v33_full.json`、`latest_personamem_stage2_v33_full.json` 与 `latest_stage2_v33_full_holdout_compare.json` 已在 commit `6fa018e70561eef6b0239f41b3d662794df41a22` 上发布
     - `v32` 已在 modular backbone / write / latent / belief / answer / ablation / full holdout 上全线转正
     - 但 `v32` 的 authoritative full benchmark path 仍是 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`
     - `v33` 的目标是把 authoritative full benchmark path 改成 `learned_memory + learned slot assignment`
-    - row `102 search` 已把这条 Persona full measurement 正式记账；它是 completed full-holdout result，不再是 local smoke / partial probe
-    - `scripts/verify_stage2_v33_longrun.py --publish-full-holdout-artifacts` 当前还不能诚实成功，因为脚本仍缺 current-line `LongMemEval-S 500` summary；所以不能误写成 `latest_longmemeval_stage2_v33_full.json`、`latest_personamem_stage2_v33_full.json` 与 `latest_stage2_v33_full_holdout_compare.json` 已发布
-    - 因而 top next action 已从“继续支付 Persona local smoke”切到“直接完成并发布 current-line `LongMemEval-S 500` authoritative full holdout”，完成后再判断 `v33` 是 mixed search、discard 还是 keep
+    - row `102 search` 已把 Persona full measurement 记账，row `103 search` 又把 current-line `LongMemEval-S 500` full holdout、published compare 与 verifier `43/47` 一并记账
+    - current-line `LongMemEval-S 500` authoritative full holdout `outputs_v2/v33_full_longmemeval_500_query_overlap/evals_benchmark/20260422T015146Z_stage2_memory_canary.json` 当前固定为 `provider/local = 20/14`
+    - 相对 retained `v32` LongMemEval full `21/14`，current line 呈现 `provider -1 / local tie`；相对 retained `v32` Persona full `183/175`，current line 仍是 `provider -1 / local +21`
+    - `latest_stage2_v33_full_holdout_compare.json` 当前显式记录 `longmemeval_gain_confirmed = false`、`personamem_gain_confirmed = false`
+    - 因而 top next action 已从“完成并发布 LongMemEval full holdout”切到“基于已经发布的 mixed full compare，直接分析 LongMemEval-S 500 failure clusters，决定继续 refine 还是 discard”，而不是回到任何新的 Persona local smoke
     - semantic-full checkpoint + `v31` latent ranker 当前已证明 `LongMemEval-S 64` 可到 `provider/local = 10/10`，但 `PersonaMem 64` 最好只到 `provider/local = 21/24`，provider 仍未越过 retained `v32` rate `0.357421875`
     - 当前实际 provider 路径 `https://gpt-agent.cc/v1` 不兑现 MiniMax 官方 OpenAI-compatible 文档中的 `reasoning_split=True` 行为；对失败 Persona prompt 的真实单样本 probe 仍返回 `<think>` 污染的 `message.content`
     - current session 已机械证伪三条 repo 内补救线：runner-side finite-option normalization、`system` role 压制、以及更小 `max_tokens` budget 都没把 Persona provider exact 推过 retained 门槛

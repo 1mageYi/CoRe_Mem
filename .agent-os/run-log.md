@@ -1,5 +1,32 @@
 # Run Log
 
+# 2026-04-22 Session 124
+
+- Worked on: 修正 current-line learned-authoritative full-holdout runner 的 device precedence，收口并发布 `LongMemEval-S 500` authoritative full holdout，补齐 row `103` 的 full compare truth
+- State changed:
+  - `scripts/run_stage2_memory_canary.py` 现已改成显式 CLI device flags 优先于 `stage2_runtime` config defaults，并把 `learned_memory_device`、`latent_retriever_device`、`learned_slot_assignment_device` 写入 `run_metadata.json`
+  - `tests/test_stage2_memory_canary.py` 已新增显式 device 优先级测试；targeted tests 先通过，随后 configured guard 也通过
+  - resumed current-line `LongMemEval-S 500` full holdout `outputs_v2/v33_full_longmemeval_500_query_overlap/runs/20260422T015146Z_stage2_memory_canary_longmemeval/` 已在 `cuda` 上继续跑完，最终 summary `outputs_v2/v33_full_longmemeval_500_query_overlap/evals_benchmark/20260422T015146Z_stage2_memory_canary.json` 固定为 `provider/local = 20/14`
+  - current-line `PersonaMem 512` full holdout 继续固定为 `182/196`；二者随后已通过 publisher 刷新成 `latest_stage2_v33_learned_authoritative_runtime.json`、`latest_longmemeval_stage2_v33_full.json`、`latest_personamem_stage2_v33_full.json` 与 `latest_stage2_v33_full_holdout_compare.json`
+  - official verifier 已从 `36` 提到 `43`；但 full compare 仍是 mixed：LongMemEval 相对 retained `v32` 为 `provider -1 / local tie`，Persona 相对 retained `v32` 为 `provider -1 / local +21`，所以两条 gain flag 都仍是 `false`
+  - 为修正 artifact provenance，当前代码变更已单独提交为 commit `6fa018e70561eef6b0239f41b3d662794df41a22`，并在该 commit 上重新发布 latest v33 full-holdout aliases
+  - helper 已把本轮记为 `research-results.tsv` row `103 search`；`autoresearch-state.json` 当前 iteration 已同步到 `103`
+- Evidence / artifacts:
+  - `research-results.tsv` row `103`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_full_longmemeval_500_query_overlap/evals_benchmark/20260422T015146Z_stage2_memory_canary.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_learned_authoritative_runtime.json`
+  - `outputs_v2/artifacts/latest_longmemeval_stage2_v33_full.json`
+  - `outputs_v2/artifacts/latest_personamem_stage2_v33_full.json`
+  - `outputs_v2/artifacts/latest_stage2_v33_full_holdout_compare.json`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_memory_canary.py -k 'stage2_runtime_defaults_load_from_config or uses_stage2_runtime_defaults_from_config or prefers_explicit_device_over_stage2_runtime_defaults'`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v33_longrun.py tests/test_stage2_v32_longrun.py tests/test_stage2_memory_canary.py tests/test_stage2_training_runtime.py tests/test_stage2_model_skeleton.py`
+  - `conda run -n core_mem python scripts/verify_stage2_v33_longrun.py --score-only` -> `43`
+- Next likely action:
+  - 直接读取 current-line `LongMemEval-S 500` full-holdout failures，按 provider / support-selection / relation-family 拆 cluster
+  - 只在找到 benchmark-agnostic 且能影响 official compare 的最窄 hypothesis 后，才继续下一轮 full rerun
+
 # 2026-04-22 Session 123
 
 - Worked on: 收口并记账 current-line authoritative `PersonaMem 512` full holdout，把 row `102` 的 completed measurement 同步到 runtime 文档，并把 top next action 收窄到 current-line `LongMemEval-S 500` full artifact
