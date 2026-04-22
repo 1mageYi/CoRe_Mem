@@ -19,18 +19,24 @@ def _query_text(sample: dict[str, Any]) -> str:
     return rendered or str(sample.get("shared_context_id", ""))
 
 
-def _score_latent(query_text: str, candidate_text: str, *, candidate: EncoderCandidate) -> float:
-    query_vec = encode_text_proxy(query_text, family=candidate.family, role="query")
-    candidate_vec = encode_text_proxy(candidate_text, family=candidate.family, role="passage")
-    return cosine(query_vec, candidate_vec) + 0.20 * _score_text_only(query_text, candidate_text)
-
-
-def _score_text_only(query_text: str, candidate_text: str) -> float:
-    query_tokens = set(query_text.lower().split()[::2])
-    candidate_tokens = set(candidate_text.lower().split()[1::2])
+def _score_query_overlap(query_text: str, candidate_text: str) -> float:
+    query_tokens = set(query_text.lower().split())
+    candidate_tokens = set(candidate_text.lower().split())
     if not query_tokens or not candidate_tokens:
         return 0.0
     return len(query_tokens & candidate_tokens) / len(query_tokens | candidate_tokens)
+
+
+def _score_latent(query_text: str, candidate_text: str, *, candidate: EncoderCandidate) -> float:
+    query_vec = encode_text_proxy(query_text, family=candidate.family, role="query")
+    candidate_vec = encode_text_proxy(candidate_text, family=candidate.family, role="passage")
+    return cosine(query_vec, candidate_vec) + 0.20 * _score_query_overlap(query_text, candidate_text)
+
+
+def _score_text_only(query_text: str, candidate_text: str) -> float:
+    if not query_text or not candidate_text:
+        return 0.0
+    return -abs(len(query_text) - len(candidate_text)) / max(len(query_text), len(candidate_text), 1)
 
 
 def _rank(scores: list[float]) -> int:

@@ -618,7 +618,7 @@ def publish_v5_latent_reader_eval(
             and latent_payload["shuffled_latent_drops"]
         ),
         "uses_personamem_gold": False,
-        "ablation_mode": "query_conditioned_latent_plus_text_vs_text_only_overlap",
+        "ablation_mode": "query_conditioned_latent_plus_text_vs_masked_length_text_only",
     }
     artifact_root = root / "outputs_v2" / "artifacts"
     _write_json(artifact_root / "latest_stage2_v5_latent_reader_eval.json", latent_payload)
