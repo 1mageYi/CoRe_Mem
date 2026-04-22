@@ -1091,12 +1091,12 @@ def run_personamem_canary(
     slot_assignment_mode: str = "symbolic",
     learned_memory_checkpoint_dir: str | None = None,
     learned_memory_train_config_path: str | None = None,
-    learned_memory_device: str = "cpu",
+    learned_memory_device: str | None = None,
     latent_retriever_checkpoint_dir: str | None = None,
-    latent_retriever_device: str = "cpu",
+    latent_retriever_device: str | None = None,
     learned_slot_assignment_checkpoint_dir: str | None = None,
     learned_slot_assignment_train_config_path: str | None = None,
-    learned_slot_assignment_device: str = "cpu",
+    learned_slot_assignment_device: str | None = None,
     provider_workers: int = 1,
     requested_run_dir: str | None = None,
     resume: bool = False,
@@ -1106,19 +1106,19 @@ def run_personamem_canary(
     learned_memory_train_config_path = learned_memory_train_config_path or runtime_defaults.get(
         "learned_memory_train_config_path"
     )
-    learned_memory_device = runtime_defaults.get("learned_memory_device", learned_memory_device)
+    learned_memory_device = learned_memory_device or runtime_defaults.get("learned_memory_device", "cpu")
     latent_retriever_checkpoint_dir = latent_retriever_checkpoint_dir or runtime_defaults.get(
         "latent_retriever_checkpoint_dir"
     )
-    latent_retriever_device = runtime_defaults.get("latent_retriever_device", latent_retriever_device)
+    latent_retriever_device = latent_retriever_device or runtime_defaults.get("latent_retriever_device", "cpu")
     learned_slot_assignment_checkpoint_dir = learned_slot_assignment_checkpoint_dir or runtime_defaults.get(
         "learned_slot_assignment_checkpoint_dir"
     )
     learned_slot_assignment_train_config_path = learned_slot_assignment_train_config_path or runtime_defaults.get(
         "learned_slot_assignment_train_config_path"
     )
-    learned_slot_assignment_device = runtime_defaults.get(
-        "learned_slot_assignment_device", learned_slot_assignment_device
+    learned_slot_assignment_device = learned_slot_assignment_device or runtime_defaults.get(
+        "learned_slot_assignment_device", "cpu"
     )
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
@@ -1157,10 +1157,12 @@ def run_personamem_canary(
         "use_learned_slot_assignment": slot_assignment_mode == "learned",
         "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
         "learned_memory_train_config_path": learned_memory_train_config_path,
+        "learned_memory_device": learned_memory_device,
         "latent_retriever_checkpoint_dir": latent_retriever_checkpoint_dir,
         "latent_retriever_device": latent_retriever_device,
         "learned_slot_assignment_checkpoint_dir": learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
         "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
+        "learned_slot_assignment_device": learned_slot_assignment_device,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "provider_workers": max(int(provider_workers), 1),
@@ -1305,12 +1307,12 @@ def run_longmemeval_canary(
     slot_assignment_mode: str = "symbolic",
     learned_memory_checkpoint_dir: str | None = None,
     learned_memory_train_config_path: str | None = None,
-    learned_memory_device: str = "cpu",
+    learned_memory_device: str | None = None,
     latent_retriever_checkpoint_dir: str | None = None,
-    latent_retriever_device: str = "cpu",
+    latent_retriever_device: str | None = None,
     learned_slot_assignment_checkpoint_dir: str | None = None,
     learned_slot_assignment_train_config_path: str | None = None,
-    learned_slot_assignment_device: str = "cpu",
+    learned_slot_assignment_device: str | None = None,
     provider_workers: int = 1,
     requested_run_dir: str | None = None,
     resume: bool = False,
@@ -1320,19 +1322,19 @@ def run_longmemeval_canary(
     learned_memory_train_config_path = learned_memory_train_config_path or runtime_defaults.get(
         "learned_memory_train_config_path"
     )
-    learned_memory_device = runtime_defaults.get("learned_memory_device", learned_memory_device)
+    learned_memory_device = learned_memory_device or runtime_defaults.get("learned_memory_device", "cpu")
     latent_retriever_checkpoint_dir = latent_retriever_checkpoint_dir or runtime_defaults.get(
         "latent_retriever_checkpoint_dir"
     )
-    latent_retriever_device = runtime_defaults.get("latent_retriever_device", latent_retriever_device)
+    latent_retriever_device = latent_retriever_device or runtime_defaults.get("latent_retriever_device", "cpu")
     learned_slot_assignment_checkpoint_dir = learned_slot_assignment_checkpoint_dir or runtime_defaults.get(
         "learned_slot_assignment_checkpoint_dir"
     )
     learned_slot_assignment_train_config_path = learned_slot_assignment_train_config_path or runtime_defaults.get(
         "learned_slot_assignment_train_config_path"
     )
-    learned_slot_assignment_device = runtime_defaults.get(
-        "learned_slot_assignment_device", learned_slot_assignment_device
+    learned_slot_assignment_device = learned_slot_assignment_device or runtime_defaults.get(
+        "learned_slot_assignment_device", "cpu"
     )
     config = load_project_config(config_path)
     provider = _provider_from_llm(config.llm)
@@ -1370,10 +1372,12 @@ def run_longmemeval_canary(
         "use_learned_slot_assignment": slot_assignment_mode == "learned",
         "learned_memory_checkpoint_dir": learned_memory_checkpoint_dir,
         "learned_memory_train_config_path": learned_memory_train_config_path,
+        "learned_memory_device": learned_memory_device,
         "latent_retriever_checkpoint_dir": latent_retriever_checkpoint_dir,
         "latent_retriever_device": latent_retriever_device,
         "learned_slot_assignment_checkpoint_dir": learned_slot_assignment_checkpoint_dir or learned_memory_checkpoint_dir,
         "learned_slot_assignment_train_config_path": learned_slot_assignment_train_config_path or learned_memory_train_config_path,
+        "learned_slot_assignment_device": learned_slot_assignment_device,
         "run_timestamp": stamp,
         "commit_hash": _current_commit_hash(),
         "provider_workers": max(int(provider_workers), 1),
@@ -1513,12 +1517,12 @@ def main() -> int:
     parser.add_argument("--slot-assignment-mode", choices=["symbolic", "learned"], default="symbolic")
     parser.add_argument("--learned-memory-checkpoint-dir")
     parser.add_argument("--learned-memory-train-config")
-    parser.add_argument("--learned-memory-device", default="cpu")
+    parser.add_argument("--learned-memory-device")
     parser.add_argument("--latent-retriever-checkpoint-dir")
-    parser.add_argument("--latent-retriever-device", default="cpu")
+    parser.add_argument("--latent-retriever-device")
     parser.add_argument("--learned-slot-assignment-checkpoint-dir")
     parser.add_argument("--learned-slot-assignment-train-config")
-    parser.add_argument("--learned-slot-assignment-device", default="cpu")
+    parser.add_argument("--learned-slot-assignment-device")
     parser.add_argument("--provider-workers", type=int, default=1)
     parser.add_argument("--run-dir")
     parser.add_argument("--resume", action="store_true")
