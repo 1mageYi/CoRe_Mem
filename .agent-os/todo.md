@@ -2,6 +2,14 @@
 
 ## Doing
 
+- `TD-045` `[doing]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `Persona-first`），在**不改 `core / residual` 双银行结构**的前提下，主攻 `PersonaMem 512` 的 learned latent / belief / option-scorer 能力。
+  - Primary benchmark: `PersonaMem 512`
+  - Guard benchmark: `LongMemEval-S 500` non-catastrophic local guard
+  - Constraints: no fallback, no shortcut, no benchmark-specific heuristic, no benchmark leakage
+  - Baseline truth: `v32 PersonaMem 512 provider/local = 183/175`; `v33 learned-authoritative PersonaMem 512 provider/local = 182/196`
+  - Success criterion: learned option-scorer/local exact beats `v33` local `196/512`, provider is auxiliary, and ablation confirms latent / belief / option scorer contributions
+  - Plan: [docs/v4_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v4_plan.md)
+
 - `TD-044` `[doing]` 以 `v3.3 / v33 learned-authoritative latent run` 为目标，在**不改 `core / residual` 双银行结构**的前提下，基于 retained `v32` baseline，推进一个真正由 learned path 主导 authoritative runtime 的 latent system。
   - Current focus:
     - learned authoritative runtime
@@ -31,7 +39,11 @@
     - current-line `LongMemEval-S 500` authoritative full holdout `outputs_v2/v33_full_longmemeval_500_query_overlap/evals_benchmark/20260422T015146Z_stage2_memory_canary.json` 当前固定为 `provider/local = 20/14`
     - 相对 retained `v32` LongMemEval full `21/14`，current line 呈现 `provider -1 / local tie`；相对 retained `v32` Persona full `183/175`，current line 仍是 `provider -1 / local +21`
     - `latest_stage2_v33_full_holdout_compare.json` 当前显式记录 `longmemeval_gain_confirmed = false`、`personamem_gain_confirmed = false`
-    - 因而 top next action 已从“完成并发布 LongMemEval full holdout”切到“基于已经发布的 mixed full compare，直接分析 LongMemEval-S 500 failure clusters，决定继续 refine 还是 discard”，而不是回到任何新的 Persona local smoke
+    - row `104 search` 又把 current-line `LongMemEval` exactness patch 正式记账：generic number-word extraction、location temporal-tail trim 与 low-information `other_fact` belief backfill 已在 authoritative singles 上翻正 `6b168ec8 -> three`、`1faac195 -> denver` 与 `gpt4_ec93e27f -> train`
+    - row `105 crash` 已机械确认：若直接沿默认 `cuda` 路径起 fresh rerun，当前机器上的 `GPU 0` 可能因外部占用而在 shared learned predictor 初始化阶段 OOM
+    - row `106 no-op` 又机械确认：fresh output root 若不先显式生成 full manifest，`run_stage2_memory_canary.py` 会自动退回 `64/64` canary manifests；单纯传 `--limit 500` 不足以形成 authoritative full rerun
+    - 当前真正有效的 rerun 已经切到 `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/`：预生成 full `LongMemEval` manifest 后，authoritative `GPU 1` run 已在 same commit `15060d1` 上启动，last check `run_metadata.json` 为 `sample_count = 500`、`provider_configured = true`、`completed_predictions = 12`
+    - 因而 top next action 已从“再发起 fresh full rerun”前推到“继续监控并收口这个 in-flight `LongMemEval-S 500` full rerun，完成后立即发布 fresh compare”，而不是回到任何新的 Persona local smoke
     - semantic-full checkpoint + `v31` latent ranker 当前已证明 `LongMemEval-S 64` 可到 `provider/local = 10/10`，但 `PersonaMem 64` 最好只到 `provider/local = 21/24`，provider 仍未越过 retained `v32` rate `0.357421875`
     - 当前实际 provider 路径 `https://gpt-agent.cc/v1` 不兑现 MiniMax 官方 OpenAI-compatible 文档中的 `reasoning_split=True` 行为；对失败 Persona prompt 的真实单样本 probe 仍返回 `<think>` 污染的 `message.content`
     - current session 已机械证伪三条 repo 内补救线：runner-side finite-option normalization、`system` role 压制、以及更小 `max_tokens` budget 都没把 Persona provider exact 推过 retained 门槛

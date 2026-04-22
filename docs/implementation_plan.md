@@ -11,6 +11,7 @@
 
 - **Stage-2 是当前主线**
 - **Stage-1 formal benchmark 作为 baseline / acceptance 相关的 pending 项保留，直到用户明确要求 AI 去跑**
+- **当前 active research run 是 `TD-045 / WS-031 / v4 Persona-first learned memory`**：`TD-045`、`v4`、`Persona-first`。主优化目标收敛到 `PersonaMem 512` 的 learned local / option-scorer 能力提升，`LongMemEval-S 500` 降级为 non-catastrophic guard；继续禁止 fallback、shortcut、benchmark-specific heuristic 和 benchmark leakage。
 
 ## 第一阶段总策略
 

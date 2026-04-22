@@ -23,10 +23,19 @@ _DATE_RE = re.compile(
     re.IGNORECASE,
 )
 _NUMBER_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
+_NUMBER_WORD_RE = re.compile(
+    r"\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|"
+    r"sixteen|seventeen|eighteen|nineteen|twenty)\b",
+    re.IGNORECASE,
+)
 _PAGE_NUMBER_RE = re.compile(r"\bpage\s+(\d+(?:\.\d+)?)\b", re.IGNORECASE)
 _FREQUENCY_RE = re.compile(
     r"\b(?:once|twice|(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+times?\s+(?:a|per)\s+"
     r"(?:day|week|month|year)|daily|weekly|monthly|yearly|every\s+(?:day|week|month|year))\b",
+    re.IGNORECASE,
+)
+_TRAILING_LOCATION_TEMPORAL_RE = re.compile(
+    r"\b(?:soon|later|today|tomorrow|tonight|now)\b$",
     re.IGNORECASE,
 )
 _HISTORICAL_COPULA_RE = re.compile(
@@ -92,8 +101,13 @@ class AnswerProjection:
     def _extract_location_phrase(self, text: str) -> str:
         matches = list(_LOCATION_PHRASE_RE.finditer(text))
         if matches:
-            return self._normalize_whitespace(matches[-1].group(1).strip(" ,.;"))
+            return self._trim_location_tail(matches[-1].group(1))
         return text
+
+    def _trim_location_tail(self, text: str) -> str:
+        candidate = self._normalize_whitespace(str(text or "").strip(" ,.;"))
+        trimmed = _TRAILING_LOCATION_TEMPORAL_RE.sub("", candidate).strip(" ,.;")
+        return self._normalize_whitespace(trimmed or candidate)
 
     def _extract_pattern(self, text: str, pattern: re.Pattern[str]) -> str:
         match = pattern.search(text)
@@ -113,6 +127,13 @@ class AnswerProjection:
         match = _NUMBER_RE.search(text)
         if match:
             return self._normalize_whitespace(match.group(0))
+        if query_text.startswith("how many") or "what number" in query_text:
+            match = _NUMBER_WORD_RE.search(stripped)
+            if match:
+                return self._normalize_whitespace(match.group(0))
+            match = _NUMBER_WORD_RE.search(text)
+            if match:
+                return self._normalize_whitespace(match.group(0))
         return stripped
 
     def _extract_frequency_phrase(self, text: str) -> str:

@@ -2094,6 +2094,34 @@ def test_answer_projection_extracts_location_phrase_for_where_queries():
     assert result.answer_text == "the sports store downtown"
 
 
+def test_answer_projection_trims_temporal_tail_from_location_phrase():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "thinking of visiting my sister emily in denver soon",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I'm thinking of visiting my sister Emily in Denver soon.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-where-tail", "Where does my sister Emily live?")
+    assert result.answer_text == "denver"
+
+
 def test_answer_projection_extracts_historical_name_from_other_fact_clause():
     def _predict(query_id: str, _query_text: str, _slots):
         return {
@@ -2182,6 +2210,34 @@ def test_answer_projection_extracts_page_count_for_how_many_queries():
     assert result.answer_text == "220"
 
 
+def test_answer_projection_extracts_number_words_for_how_many_queries():
+    def _predict(query_id: str, _query_text: str, _slots):
+        return {
+            "query_id": query_id,
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "thinking of getting a bike lock with gps tracking that integrates with my bike, so i can keep an eye on my three bikes when i'm not around them",
+                    "support_slot_ids": [],
+                }
+            ],
+        }
+
+    system = StructuredMemorySystem(memory_mode="learned_memory", use_learned_memory=True, learned_belief_predictor=_predict)
+    system.observe_turn(
+        "I can keep an eye on my three bikes when I'm not around them.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg-1",
+        source_turn_id="turn-1",
+        session_id="sess-1",
+        timestamp="2026-04-07T05:00:00Z",
+    )
+
+    result = system.query("query-projection-number-word", "How many bikes do I own?")
+    assert result.answer_text == "three"
+
+
 def test_answer_projection_extracts_frequency_phrase_for_how_often_queries():
     def _predict(query_id: str, _query_text: str, _slots):
         return {
@@ -2253,6 +2309,35 @@ def test_coerce_learned_belief_prefers_query_matched_other_fact_slot_for_stateme
 
     assert belief.belief_items[0].value == "appreciate visiting local libraries"
     assert belief.belief_items[0].support_slot_ids == ["slot_library"]
+
+
+def test_coerce_learned_belief_backfills_low_information_other_fact_fragment():
+    fallback_slots = [
+        _slot(
+            "slot_train",
+            "other_fact",
+            "other_fact=glad to know that japan's train network is relatively eco-friendly",
+        ),
+    ]
+    belief = StructuredMemorySystem._coerce_learned_belief(
+        {
+            "query_id": "q",
+            "query_type": "single_fact",
+            "belief_items": [
+                {
+                    "relation": "other_fact",
+                    "value": "glad",
+                    "support_slot_ids": ["slot_train"],
+                }
+            ],
+        },
+        query_id="q",
+        query_text="Which mode of transport did I use most recently, a bus or a train?",
+        fallback_slots=fallback_slots,
+    )
+
+    assert belief.belief_items[0].value == "glad to know that japan's train network is relatively eco-friendly"
+    assert belief.belief_items[0].support_slot_ids == ["slot_train"]
 
 
 def test_coerce_learned_belief_prefers_environment_aversion_slot_for_fit_query():

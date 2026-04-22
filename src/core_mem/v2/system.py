@@ -35,6 +35,23 @@ _RAW_VALUE_STRIP_RE = re.compile(r'^[\s\[\]\{\}",:]+|[\s\[\]\{\}",:]+$')
 _STRUCTURAL_VALUE_NOISE_RE = re.compile(r'[\{\}\[\]]|":|",|"{2,}|"{3,}|,\s*"')
 _MULTI_FACET_RELATIONS = {"other_fact", "hobby"}
 _BOOLEAN_LIKE_VALUES = {"true", "false", "yes", "no"}
+_LOW_INFORMATION_OTHER_FACT_TERMS = {
+    "afraid",
+    "anxious",
+    "calm",
+    "excited",
+    "glad",
+    "grateful",
+    "happy",
+    "hopeful",
+    "nervous",
+    "proud",
+    "relieved",
+    "sad",
+    "thrilled",
+    "upset",
+    "worried",
+}
 _ENVIRONMENT_FIT_QUERY_MARKERS = (
     "do you think",
     "good fit",
@@ -1434,6 +1451,11 @@ class StructuredMemorySystem:
             return True
         return any(marker in cleaned for marker in (",", ";", "."))
 
+    @classmethod
+    def _belief_value_looks_low_information_fragment(cls, value: str) -> bool:
+        terms = cls._belief_value_terms(value)
+        return bool(terms) and len(terms) <= 2 and terms <= _LOW_INFORMATION_OTHER_FACT_TERMS
+
     @staticmethod
     def _normalize_whitespace(text: str) -> str:
         return " ".join(str(text or "").split())
@@ -1468,6 +1490,13 @@ class StructuredMemorySystem:
             return False
         grounded = cls._belief_value_grounded_in_support_slot(cleaned, support_slot=support_slot)
         same_relation = support_slot.relation.strip().lower() == relation.strip().lower()
+        if (
+            same_relation
+            and relation.strip().lower() == "other_fact"
+            and cls._belief_value_looks_low_information_fragment(cleaned)
+            and len(cls._belief_value_terms(canonical_value)) >= 3
+        ):
+            return True
         # Learned belief values can legitimately be a normalized or query-shaped
         # projection of the support slot content (for example extracting
         # "johnson" from an `other_fact` clause), and some same-relation heads

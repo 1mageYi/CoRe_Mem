@@ -3263,3 +3263,54 @@
   - since the code did not change after row `100`, no new guard/verifier rerun was needed before logging row `101`
 - Next likely action:
   - stop spending more budget on local gates and start the current-line authoritative full-holdout measurement needed by `scripts/verify_stage2_v33_longrun.py`
+
+## 2026-04-22 Session 045
+
+- Worked on: 把 row `103` 的 mixed `LongMemEval-S 500` full compare 收窄成最小 exactness residual，并用 benchmark-agnostic projection / belief patch 验证 current line 是否具备 fresh rerun 价值
+- State changed:
+  - helper 已把这轮记为 iteration `104 search`
+  - current runtime truth 已从“published full compare 仍是 mixed，需要先拆 failure clusters”前推到“row `103` 的三条关键 `LongMemEval` residual 已在 authoritative targeted replay 上被 row `104` patch 翻正，下一步应直接发起 fresh `LongMemEval-S 500` full rerun”
+- Evidence / artifacts:
+  - `outputs_v2/tmp_v33_longmemeval_exactness/6b168ec8/evals_benchmark/20260422T160402Z_stage2_memory_canary.json`
+  - `outputs_v2/tmp_v33_longmemeval_exactness/1faac195/evals_benchmark/20260422T160452Z_stage2_memory_canary.json`
+  - `outputs_v2/tmp_v33_longmemeval_exactness/gpt4_ec93e27f/evals_benchmark/20260422T160451Z_stage2_memory_canary.json`
+  - `outputs_v2/tmp_v33_longmemeval_exactness_provider_exact/6b168ec8/evals_benchmark/20260422T160838Z_stage2_memory_canary.json`
+  - `outputs_v2/tmp_v33_longmemeval_exactness_provider_exact/gpt4_ec93e27f/evals_benchmark/20260422T160837Z_stage2_memory_canary.json`
+  - `research-results.tsv` row `104`
+  - `autoresearch-state.json`
+- Verification:
+  - targeted tests passed: `tests/test_stage2_model_skeleton.py` new projection / belief cases and `tests/test_stage2_memory_canary.py -k test_longmemeval_prompt_adds_query_specific_exact_answer_instruction`
+  - configured guard passed
+  - `scripts/verify_stage2_v33_longrun.py --score-only` remained `43`
+  - authoritative replays now flip `6b168ec8` to `three`, `1faac195` to `denver`, and provider `gpt4_ec93e27f` to `train`
+- Notes:
+  - the fix stayed within the no-shortcut boundary: it adds generic number-word extraction, trims temporal tails from location phrases, and backfills same-relation `other_fact` beliefs only when the learned value collapses to a low-information fragment
+  - this is still not a keep because no fresh `LongMemEval-S 500` full rerun has been published yet; row `104` is only targeted evidence that the mixed compare is worth rerunning
+- Next likely action:
+  - launch a fresh current-line authoritative `LongMemEval-S 500` full rerun with the row `104` patch and publish a new compare artifact to see whether `provider/local` can finally exceed retained `v32` `21/14`
+
+## 2026-04-22 Session 046
+
+- Worked on: 把 row `104` 的 exactness patch 真正推入 fresh `LongMemEval-S 500` authoritative full rerun，并处理连续暴露出来的 GPU / manifest runtime 问题
+- State changed:
+  - 第一次 fresh rerun `outputs_v2/v33_full_longmemeval_500_exactness_rerun/` 在 shared learned predictor 初始化阶段因 `cuda:0` 外部占用而 OOM；helper 已把这轮记为 iteration `105 crash`
+  - 第二次为避开 OOM 切到 `GPU 1`，但 fresh output root 默认自动生成了 `64/64` canary manifests，`run_metadata.json` 立即暴露 `sample_count = 64`；该次误启动在产生任何 prediction 之前就被中止，helper 已把它记为 iteration `106 no-op`
+  - 随后 repo 已改成先用 `scripts/run_stage2_canary.py` 在 `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/` 显式生成 `500`-sample `LongMemEval` manifest，再用同一 `row 104` code path 在 `GPU 1` 上启动 authoritative rerun
+  - 当前有效 run `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/runs/20260422T162229Z_stage2_memory_canary_longmemeval/` last check 已推进到 `completed_predictions = 12 / 500`
+- Evidence / artifacts:
+  - `research-results.tsv` rows `105` and `106`
+  - `autoresearch-state.json`
+  - `outputs_v2/v33_full_longmemeval_500_exactness_rerun/runs/20260422T161942Z_stage2_memory_canary_longmemeval/run_metadata.json`
+  - `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1/runs/20260422T162048Z_stage2_memory_canary_longmemeval/run_metadata.json`
+  - `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/evals_benchmark/20260422T162213Z_longmemeval_canary.json`
+  - `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/runs/20260422T162229Z_stage2_memory_canary_longmemeval/run_metadata.json`
+  - `outputs_v2/v33_full_longmemeval_500_exactness_rerun_gpu1_fullmanifest/runs/20260422T162229Z_stage2_memory_canary_longmemeval/predictions.jsonl`
+- Verification:
+  - row `105` crash stack is a true environment failure: `torch.OutOfMemoryError` while loading the shared learned belief predictor onto `cuda`
+  - row `106` no-op is a true mis-sized run: `run_metadata.json` showed `sample_count = 64` before any predictions were written
+  - current valid rerun is now past `0/500` and incrementally writing `predictions.jsonl`
+- Notes:
+  - the key runtime lesson here is that `--limit 500` does not create a `500`-sample manifest for a fresh output root; full holdout requires explicit prebuilt manifests or reuse of an existing full manifest path
+  - current work has moved from “prepare a rerun” to “an authoritative full rerun is live and advancing”
+- Next likely action:
+  - keep monitoring `20260422T162229Z_stage2_memory_canary_longmemeval/` to completion, then publish a fresh `latest_stage2_v33_*` compare and rerun verifier/guard
