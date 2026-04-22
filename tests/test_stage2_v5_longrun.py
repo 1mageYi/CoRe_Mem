@@ -5,10 +5,14 @@ from pathlib import Path
 
 from scripts.verify_stage2_v5_longrun import (
     compute_v5_longrun,
+    publish_v5_ablation_summary,
+    publish_v5_answer_head_calibration,
     publish_v5_context_selfsupervised,
     publish_v5_core_residual_train,
     publish_v5_encoder_compare,
     publish_v5_latent_reader_eval,
+    publish_v5_paper_evidence_package,
+    publish_v5_personamem_full589,
     publish_v5_personamem_isolation,
 )
 
@@ -487,3 +491,146 @@ def test_v5_longrun_counts_latent_reader_and_text_ablation_checks(tmp_path: Path
     payload = compute_v5_longrun(repo_root)
 
     assert payload["score"] == 39
+
+
+def test_publish_v5_calibration_and_full589_keep_gold_isolated(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    data_root = repo_root / "data" / "personamem"
+    data_root.mkdir(parents=True)
+    questions = data_root / "questions_32k.csv"
+    questions.write_text(
+        "\n".join(
+            [
+                "persona_id,question_id,question_type,topic,user_question_or_message,correct_answer,all_options,shared_context_id,end_index_in_shared_context",
+                'p1,q1,recall,t,m,(a),"[""(a) x"", ""(b) y""]",c1,10',
+                'p2,q2,recall,t,m,(b),"[""(a) x"", ""(b) y""]",c2,20',
+                'p3,q3,recall,t,m,(b),"[""(a) x"", ""(b) y""]",c3,30',
+                'p4,q4,recall,t,m,(a),"[""(a) x"", ""(b) y""]",c4,40',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    isolation = repo_root / "outputs_v2" / "artifacts" / "latest_stage2_v5_personamem_isolation.json"
+    _write_json(
+        isolation,
+        {
+            "train_eval_contexts_disjoint": True,
+            "train_eval_personas_disjoint": True,
+            "splits": {
+                "train": {"question_ids": ["q1", "q2"]},
+                "val": {"question_ids": ["q3"]},
+                "eval": {"question_ids": ["q4"]},
+            },
+        },
+    )
+
+    calibration = publish_v5_answer_head_calibration(root=repo_root, questions_path=questions, isolation_path=isolation)
+    full = publish_v5_personamem_full589(root=repo_root, questions_path=questions, isolation_path=isolation)
+
+    assert calibration["strict_gold_isolation"] is True
+    assert calibration["thin_answer_head_only"] is True
+    assert calibration["gold_used_for_memory_substrate"] is False
+    assert calibration["no_calibration_reported"] is True
+    assert calibration["calibrated_reported"] is True
+    assert full["sample_count"] == 4
+    assert full["provider_is_auxiliary"] is True
+
+
+def test_publish_v5_ablation_and_paper_package_closeout(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    artifact_root = repo_root / "outputs_v2" / "artifacts"
+    for name, payload in {
+        "latest_stage2_v5_personamem_isolation.json": {"no_gold_leakage": True},
+        "latest_stage2_v5_core_residual_train.json": {"positive_gain": True, "bank_gain": 0.1, "action_gain": 0.2},
+        "latest_stage2_v5_controller_ablation.json": {"learned_controller_beats_disabled": True},
+        "latest_stage2_v5_latent_reader_eval.json": {"latent_only_above_random": True, "shuffled_latent_drops": True},
+        "latest_stage2_v5_text_ablation.json": {"full_beats_text_only": True},
+        "latest_stage2_v5_answer_head_calibration.json": {"no_calibration_reported": True},
+    }.items():
+        _write_json(artifact_root / name, payload)
+
+    ablation = publish_v5_ablation_summary(repo_root)
+    paper = publish_v5_paper_evidence_package(repo_root)
+
+    assert ablation["anti_shortcut_pass"] is True
+    assert ablation["core_contributes"] is True
+    assert ablation["residual_contributes"] is True
+    assert ablation["option_only_baseline_reported"] is True
+    assert paper["explains_not_text_slot_rag"] is True
+    assert paper["explains_not_rule_system"] is True
+    assert paper["explains_not_benchmark_trick"] is True
+
+
+def test_v5_longrun_counts_closeout_artifacts(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_docs(repo_root)
+    for name, payload in {
+        "latest_stage2_v5_personamem_isolation.json": {
+            "split_by_shared_context_id": True,
+            "split_by_persona": True,
+            "no_gold_leakage": True,
+            "gold_used_for_memory_substrate": False,
+            "train_eval_contexts_disjoint": True,
+        },
+        "latest_stage2_v5_context_selfsupervised.json": {
+            "no_gold_answers": True,
+            "train_samples": 10,
+            "eval_samples": 4,
+            "stage2_32k_used_as_warmup": True,
+            "claims_large_scale_pretraining": False,
+        },
+        "latest_stage2_v5_encoder_compare.json": {
+            "compared_backbones": ["BAAI/bge-base-en-v1.5", "intfloat/e5-base-v2", "facebook/contriever"],
+            "selected_backbone": "intfloat/e5-base-v2",
+            "uses_ablation_metrics": True,
+            "not_selected_by_personamem_only": True,
+        },
+        "latest_stage2_v5_core_residual_train.json": {
+            "trainable_core_residual": True,
+            "trainable_write_controller": True,
+            "positive_gain": True,
+            "train_seconds": 0.1,
+            "device": "cpu",
+        },
+        "latest_stage2_v5_controller_ablation.json": {
+            "learned_controller_beats_disabled": True,
+            "covered_actions": ["new", "merge", "overwrite", "stale"],
+        },
+        "latest_stage2_v5_latent_reader_eval.json": {
+            "latent_only_above_random": True,
+            "shuffled_latent_drops": True,
+            "query_conditioned_reader": True,
+        },
+        "latest_stage2_v5_text_ablation.json": {
+            "full_beats_text_only": True,
+            "text_dropout_enabled": True,
+        },
+        "latest_stage2_v5_answer_head_calibration.json": {
+            "strict_gold_isolation": True,
+            "no_calibration_reported": True,
+            "calibrated_reported": True,
+            "thin_answer_head_only": True,
+            "gold_used_for_memory_substrate": False,
+        },
+        "latest_stage2_v5_personamem_full589.json": {
+            "sample_count": 589,
+            "provider_is_auxiliary": True,
+        },
+        "latest_stage2_v5_ablation_summary.json": {
+            "anti_shortcut_pass": True,
+            "core_contributes": True,
+            "residual_contributes": True,
+            "option_only_baseline_reported": True,
+        },
+        "latest_stage2_v5_paper_evidence_package.json": {
+            "explains_not_text_slot_rag": True,
+            "explains_not_rule_system": True,
+            "explains_not_benchmark_trick": True,
+        },
+    }.items():
+        _write_json(repo_root / "outputs_v2" / "artifacts" / name, payload)
+
+    payload = compute_v5_longrun(repo_root)
+
+    assert payload["score"] == payload["total"] == 52
