@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
+from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
+import subprocess
 from typing import Any
 
 
@@ -24,6 +28,27 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _current_head(root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    head = result.stdout.strip()
+    return head if result.returncode == 0 and head else "unknown"
 
 
 def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
@@ -61,6 +86,157 @@ def _list_len(payload: dict[str, Any] | None, key: str) -> int:
         return 0
     value = payload.get(key)
     return len(value) if isinstance(value, list) else 0
+
+
+def _context_id_from_row(row: dict[str, Any], line_idx: int) -> str:
+    for key in ("shared_context_id", "context_id", "id"):
+        value = row.get(key)
+        if value:
+            return str(value)
+    if len(row) == 1:
+        return str(next(iter(row.keys())))
+    return f"line_{line_idx}"
+
+
+def _stable_order(values: set[str], *, seed: str) -> list[str]:
+    return sorted(
+        values,
+        key=lambda value: hashlib.sha256(f"{seed}:{value}".encode("utf-8")).hexdigest(),
+    )
+
+
+def _split_group_ids(group_ids: list[str]) -> dict[str, set[str]]:
+    if not group_ids:
+        return {"train": set(), "val": set(), "eval": set()}
+    train_count = max(1, int(round(len(group_ids) * 0.70)))
+    val_count = max(1, int(round(len(group_ids) * 0.15)))
+    if train_count + val_count >= len(group_ids):
+        train_count = max(1, len(group_ids) - 2)
+        val_count = 1 if len(group_ids) > 1 else 0
+    eval_count = max(0, len(group_ids) - train_count - val_count)
+    return {
+        "train": set(group_ids[:train_count]),
+        "val": set(group_ids[train_count : train_count + val_count]),
+        "eval": set(group_ids[train_count + val_count : train_count + val_count + eval_count]),
+    }
+
+
+def publish_v5_personamem_isolation(
+    *,
+    root: Path,
+    questions_path: Path | None = None,
+    contexts_path: Path | None = None,
+) -> dict[str, Any]:
+    questions = questions_path or root / "data" / "personamem" / "questions_32k.csv"
+    contexts = contexts_path or root / "data" / "personamem" / "shared_contexts_32k.jsonl"
+    if not questions.exists() or not contexts.exists():
+        raise FileNotFoundError("Missing PersonaMem questions or shared contexts.")
+
+    with questions.open("r", encoding="utf-8", newline="") as handle:
+        rows = [dict(row) for row in csv.DictReader(handle)]
+
+    context_ids: set[str] = set()
+    with contexts.open("r", encoding="utf-8") as handle:
+        for idx, line in enumerate(handle):
+            if line.strip():
+                context_ids.add(_context_id_from_row(json.loads(line), idx))
+
+    persona_ids = {str(row.get("persona_id", "")) for row in rows if str(row.get("persona_id", ""))}
+    split_groups = _split_group_ids(_stable_order(persona_ids, seed="stage2-v5-personamem-isolation"))
+    question_split: dict[str, list[dict[str, str]]] = {"train": [], "val": [], "eval": []}
+    context_split: dict[str, set[str]] = {"train": set(), "val": set(), "eval": set()}
+    persona_split: dict[str, set[str]] = {"train": set(), "val": set(), "eval": set()}
+    answer_counts: dict[str, int] = {}
+
+    for row in rows:
+        persona_id = str(row.get("persona_id", ""))
+        shared_context_id = str(row.get("shared_context_id", ""))
+        split_name = next((name for name, ids in split_groups.items() if persona_id in ids), "eval")
+        question_split[split_name].append(
+            {
+                "question_id": str(row.get("question_id", "")),
+                "persona_id": persona_id,
+                "shared_context_id": shared_context_id,
+                "question_type": str(row.get("question_type", "")),
+                "topic": str(row.get("topic", "")),
+            }
+        )
+        if shared_context_id:
+            context_split[split_name].add(shared_context_id)
+        if persona_id:
+            persona_split[split_name].add(persona_id)
+        answer = str(row.get("correct_answer", ""))
+        answer_counts[answer] = answer_counts.get(answer, 0) + 1
+
+    train_contexts = context_split["train"]
+    val_contexts = context_split["val"]
+    eval_contexts = context_split["eval"]
+    train_personas = persona_split["train"]
+    val_personas = persona_split["val"]
+    eval_personas = persona_split["eval"]
+    context_overlap = sorted((train_contexts & val_contexts) | (train_contexts & eval_contexts) | (val_contexts & eval_contexts))
+    persona_overlap = sorted((train_personas & val_personas) | (train_personas & eval_personas) | (val_personas & eval_personas))
+
+    artifact_root = root / "outputs_v2" / "artifacts"
+    payload: dict[str, Any] = {
+        "artifact_type": "stage2_v5_personamem_isolation",
+        "commit_hash": _current_head(root),
+        "generated_at": _timestamp(),
+        "questions_path": str(questions.relative_to(root) if questions.is_relative_to(root) else questions),
+        "contexts_path": str(contexts.relative_to(root) if contexts.is_relative_to(root) else contexts),
+        "sample_count": len(rows),
+        "context_count": len(context_ids),
+        "question_context_count": len({str(row.get("shared_context_id", "")) for row in rows if str(row.get("shared_context_id", ""))}),
+        "persona_count": len(persona_ids),
+        "split_by_shared_context_id": True,
+        "split_by_persona": True,
+        "split_seed": "stage2-v5-personamem-isolation",
+        "train_eval_contexts_disjoint": not context_overlap,
+        "train_eval_personas_disjoint": not persona_overlap,
+        "context_overlap": context_overlap,
+        "persona_overlap": persona_overlap,
+        "missing_question_contexts": sorted(
+            {str(row.get("shared_context_id", "")) for row in rows if str(row.get("shared_context_id", ""))}
+            - context_ids
+        ),
+        "splits": {
+            name: {
+                "persona_count": len(persona_split[name]),
+                "context_count": len(context_split[name]),
+                "question_count": len(question_split[name]),
+                "persona_ids": sorted(persona_split[name]),
+                "shared_context_ids": sorted(context_split[name]),
+                "question_ids": [item["question_id"] for item in question_split[name]],
+            }
+            for name in ("train", "val", "eval")
+        },
+        "gold_answer_fields": ["correct_answer"],
+        "option_fields": ["all_options"],
+        "gold_policy": {
+            "memory_substrate": "forbidden",
+            "writer_reader_controller_latent_substrate": "forbidden",
+            "belief_decoder": "forbidden",
+            "thin_answer_head_calibration": "train_split_only",
+            "teacher_inputs": "raw_dialogue_context_query_only",
+        },
+        "gold_used_for_memory_substrate": False,
+        "no_gold_leakage": not context_overlap and not persona_overlap,
+        "answer_label_distribution": answer_counts,
+        "allowed_memory_substrate_sources": [
+            "shared_contexts_32k.jsonl raw dialogue/context",
+            "question text for gold-free context self-supervision",
+            "stage2 public warm-up data without PersonaMem answer labels",
+        ],
+        "forbidden_memory_substrate_sources": [
+            "correct_answer",
+            "all_options",
+            "option label geometry",
+            "provider prediction correctness",
+        ],
+    }
+    _write_json(artifact_root / "latest_stage2_v5_personamem_isolation.json", payload)
+    _write_json(artifact_root / f"{_timestamp()}_latest_stage2_v5_personamem_isolation.json", payload)
+    return payload
 
 
 def compute_v5_longrun(root: Path) -> dict[str, Any]:
@@ -390,9 +566,21 @@ def compute_v5_longrun(root: Path) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--publish-personamem-isolation", action="store_true")
+    parser.add_argument("--questions-path", type=Path)
+    parser.add_argument("--contexts-path", type=Path)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--score-only", action="store_true")
     args = parser.parse_args()
+
+    if args.publish_personamem_isolation:
+        payload = publish_v5_personamem_isolation(
+            root=args.root,
+            questions_path=args.questions_path,
+            contexts_path=args.contexts_path,
+        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
 
     payload = compute_v5_longrun(args.root)
     if args.score_only:
