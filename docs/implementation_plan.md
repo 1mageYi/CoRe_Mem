@@ -11,7 +11,21 @@
 
 - **Stage-2 是当前主线**
 - **Stage-1 formal benchmark 作为 baseline / acceptance 相关的 pending 项保留，直到用户明确要求 AI 去跑**
-- **当前 active research run 是 `TD-045 / WS-031 / v4 Persona-first learned memory`**（`TD-045`、`v4`、Persona-first）：本轮 managed run 已达到 `38/38` 机械 stop condition。主结果是 `PersonaMem 512` learned local / option-scorer replay 从 v33 `196/512` 提到 `219/512`；`LongMemEval-S 500` 作为 non-catastrophic guard 保持 `14/500`。后续仍需把该完成态解释为 option-scorer replay + inherited learned latent/belief evidence，不能写成 provider-side improvement。
+- **当前 active research plan 是 `TD-046 / WS-032 / v5 Core-Residual Latent Substrate`**：本轮目标从局部 benchmark 修补前推到顶会级 learned latent memory。下一步先建立 pretrained encoder comparison、PersonaMem context-level self-supervision、strict gold calibration isolation、latent-only / shuffled-latent ablation，而不是继续用规则、provider prompt 或 PersonaMem option trick 做主收益。
+- **上一轮 retained run 是 `TD-045 / WS-031 / v4 Persona-first learned memory`**（`TD-045`、`v4`、Persona-first）：本轮 managed run 已达到 `38/38` 机械 stop condition。主结果是 `PersonaMem 512` learned local / option-scorer replay 从 v33 `196/512` 提到 `219/512`；`LongMemEval-S 500` 作为 non-catastrophic guard 保持 `14/500`。后续仍需把该完成态解释为 option-scorer replay + inherited learned latent/belief evidence，不能写成 provider-side improvement。
+
+### 当前 `v5` 执行锚点
+
+`v5` 采用 core-residual latent substrate 路线：
+
+- 使用 pretrained encoder 作为感知底座，首批比较 `BGE / E5 / Contriever`。
+- 训练 learned write controller，把 stable persona traits 写入 core，把 episodic / update-sensitive facts 写入 residual。
+- 训练 query-conditioned latent reader，使 latent-only path 在 text ablation 下仍能恢复 personalization evidence。
+- 使用 stage2 `32k` 作为 domain warm-up，而不是从零预训练。
+- 使用 PersonaMem raw context 构造 gold-answer-free self-supervised tasks。
+- PersonaMem gold 只用于严格隔离 split 上的薄 answer head calibration，并且必须与 no-calibration 结果分开报告。
+
+完整计划：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
 
 ## 第一阶段总策略
 

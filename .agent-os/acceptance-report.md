@@ -214,3 +214,19 @@
     - 当前能诚实声明的是：`v33` learned-authoritative runtime 已机械成立，且 current-line 两条 full holdout 都已完成并发布 compare
     - 当前不能声称 `v33` 已满足 keep / acceptance，因为两条 gain flag 仍都是 `false`；LongMemEval 仍是 `provider -1 / local tie`，Persona 仍是 `provider -1 / local +21`
     - 因此当前最诚实状态是 completed full-measurement mixed search result，而不是 acceptance met / keep closeout
+
+- `EV-018` -> `WS-032 / TD-046` `v5` plan / contract lock
+  - Status: planned
+  - Evidence:
+    - `docs/v5_plan.md` 已创建，明确 core-residual latent substrate 的目标架构、训练数据、训练目标、anti-shortcut 评估和里程碑
+    - `scripts/verify_stage2_v5_longrun.py --score-only` 已提供 v5 mechanical score，当前文档/contract baseline 为 `13/52`
+    - `.agent-os/project-index.md` 已把 active workstream 前推到 `TD-046 / WS-032 / v5`
+    - `.agent-os/change-decisions.md` 已记录 PersonaMem gold calibration isolation、pretrained backbone comparison、MiniMax teacher 边界
+    - `.agent-os/todo.md` 与 `docs/todo.md` 已同步 `TD-046`
+  - Acceptance pending:
+    - pretrained encoder comparison harness 尚未实现
+    - PersonaMem gold-isolation checker 尚未实现
+    - latent-only / shuffled-latent ablation scaffold 尚未实现
+    - 当前没有新的训练 gain 或 benchmark gain
+  - Boundary:
+    - `EV-018` 只证明 v5 文档与执行契约已锁定，不代表 latent substrate 已实现

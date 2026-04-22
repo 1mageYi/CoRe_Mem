@@ -2,6 +2,23 @@
 
 ## Doing
 
+- `TD-046` `[planned]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成真正可训练、可消融、可发表的 latent memory system。
+  - Current workstream: `WS-032`
+  - Current retained baselines: `v32` symbolic authoritative full benchmark、`v33` learned-authoritative runtime/full-holdout evidence、`v4` Persona-first learned option replay。
+  - Immediate scope:
+    - compare pretrained encoders `BGE / E5 / Contriever`
+    - build PersonaMem context-level self-supervised episode data without gold answers
+    - implement strict persona/context grouped gold calibration split
+    - train/evaluate core-residual latent writer, latent reader, and thin answer/readout head
+    - report latent-only / text-only / shuffled-latent / core-only / residual-only / no-controller ablations
+  - Hard constraints:
+    - no fallback
+    - no shortcut
+    - no benchmark-specific heuristic
+    - no benchmark leakage
+    - PersonaMem gold can calibrate only a thin answer/readout head, never the memory writer/reader/controller/latent substrate
+  - Plan: [docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
+
 - `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `Persona-first`），在**不改 `core / residual` 双银行结构**的前提下，主攻 `PersonaMem 512` 的 learned latent / belief / option-scorer 能力。
   - Primary benchmark: `PersonaMem 512`
   - Guard benchmark: `LongMemEval-S 500` non-catastrophic local guard

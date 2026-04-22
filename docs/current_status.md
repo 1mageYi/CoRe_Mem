@@ -1,5 +1,14 @@
 # Current Status
 
+## 当前最新状态：v5 顶会级 latent substrate 计划
+
+- 当前 active 主线已从 `TD-045 / WS-031 / v4` 前推到 `TD-046 / WS-032 / v5`。
+- `v5` 的目标不是继续靠规则、parser patch、provider prompt 或 option-scorer trick 提升 benchmark，而是训练并验证真正的 `core + residual` latent memory substrate。
+- 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay。
+- 当前 v5 尚无新训练 gain；本轮完成的是 plan / contract / documentation lock。
+- 核心新约束：PersonaMem gold 允许但严格隔离，只能训练薄 answer/readout head，不能训练 memory writer / reader / controller / latent substrate；必须报告 no-calibration 与 calibrated 两条线。
+- 当前计划文档：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
+
 ## 当前结论
 
 - 第一阶段方法已锁定为 `vanilla CoRe Memory`，第一阶段 benchmark 已锁定为：
@@ -13,7 +22,7 @@
 
 ## 当前状态
 
-- 当前 active 主线 `TD-045 / WS-031 / v4`（`TD-045`、`v4`、Persona-first）已在本轮 managed run 中达到机械 stop condition：`scripts/verify_stage2_v4_longrun.py --score-only = 38/38`。关键行为变化是 direct-user reason-update option rescoring；基于现有 learned-authoritative PersonaMem 512 beliefs/evidence 的 full replay，learned local / option-scorer exact 从 v33 的 `196/512` 提到 `219/512`，provider 仍只作为辅助证据。`LongMemEval-S 500` non-catastrophic guard 保持 local `14/500`。
+- Retained `TD-045 / WS-031 / v4`（`TD-045`、`v4`、Persona-first）已在本轮 managed run 中达到机械 stop condition：`scripts/verify_stage2_v4_longrun.py --score-only = 38/38`。关键行为变化是 direct-user reason-update option rescoring；基于现有 learned-authoritative PersonaMem 512 beliefs/evidence 的 full replay，learned local / option-scorer exact 从 v33 的 `196/512` 提到 `219/512`，provider 仍只作为辅助证据。`LongMemEval-S 500` non-catastrophic guard 保持 local `14/500`。
 - 文档状态：`docs/requirements.md` 已重建并细化为 stage-1 + stage-2 双阶段真源；`docs/v2_design.md` 已同步到实现级规格
 - 第一阶段代码状态：platform ready + acceptance verifier landed + resumable benchmark runner landed + embedding-backed memory interface landed + Gemini-compatible retry/backoff / pacing / supervisor path landed + real 1-sample benchmark runs verified
 - 第一阶段 memory 接入状态：`VanillaCoreMemory` 最小原型已实现并经单测验证，但当前正式 benchmark runner 仍采用 full-context prompt 主链路，尚未把 memory write/read 接入正式推理闭环

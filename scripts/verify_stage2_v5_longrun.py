@@ -1,0 +1,407 @@
+"""Mechanical verifier for the v5 Core-Residual Latent Substrate run."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def _contains_all(path: Path, patterns: list[str]) -> bool:
+    text = _read_text(path)
+    return bool(text) and all(pattern in text for pattern in patterns)
+
+
+def _read_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _artifact_json(root: Path, name: str) -> dict[str, Any] | None:
+    return _read_json(root / "outputs_v2" / "artifacts" / name)
+
+
+def _artifact_exists(root: Path, name: str) -> bool:
+    return (root / "outputs_v2" / "artifacts" / name).exists()
+
+
+def _as_bool(payload: dict[str, Any] | None, key: str) -> bool:
+    return bool(payload and payload.get(key, False))
+
+
+def _as_int(payload: dict[str, Any] | None, key: str) -> int:
+    if not payload:
+        return 0
+    try:
+        return int(payload.get(key, 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _as_float(payload: dict[str, Any] | None, key: str) -> float:
+    if not payload:
+        return 0.0
+    try:
+        return float(payload.get(key, 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _list_len(payload: dict[str, Any] | None, key: str) -> int:
+    if not payload:
+        return 0
+    value = payload.get(key)
+    return len(value) if isinstance(value, list) else 0
+
+
+def compute_v5_longrun(root: Path) -> dict[str, Any]:
+    docs = root / "docs"
+    agent_os = root / ".agent-os"
+
+    v5_plan = docs / "v5_plan.md"
+    current_status = docs / "current_status.md"
+    implementation_plan = docs / "implementation_plan.md"
+    todo = docs / "todo.md"
+    project_index = agent_os / "project-index.md"
+    agent_todo = agent_os / "todo.md"
+    decisions = agent_os / "change-decisions.md"
+    milestones = agent_os / "architecture-milestones.md"
+    acceptance = agent_os / "acceptance-report.md"
+
+    isolation = _artifact_json(root, "latest_stage2_v5_personamem_isolation.json")
+    encoder_compare = _artifact_json(root, "latest_stage2_v5_encoder_compare.json")
+    context_data = _artifact_json(root, "latest_stage2_v5_context_selfsupervised.json")
+    core_residual = _artifact_json(root, "latest_stage2_v5_core_residual_train.json")
+    controller = _artifact_json(root, "latest_stage2_v5_controller_ablation.json")
+    latent_reader = _artifact_json(root, "latest_stage2_v5_latent_reader_eval.json")
+    text_ablation = _artifact_json(root, "latest_stage2_v5_text_ablation.json")
+    calibration = _artifact_json(root, "latest_stage2_v5_answer_head_calibration.json")
+    personamem_full = _artifact_json(root, "latest_stage2_v5_personamem_full589.json")
+    ablation = _artifact_json(root, "latest_stage2_v5_ablation_summary.json")
+    paper_package = _artifact_json(root, "latest_stage2_v5_paper_evidence_package.json")
+
+    checks: list[tuple[str, bool, str]] = []
+
+    def add(name: str, passed: bool, detail: str) -> None:
+        checks.append((name, passed, detail))
+
+    add(
+        "v5_plan_exists",
+        v5_plan.exists(),
+        "docs/v5_plan.md should exist",
+    )
+    add(
+        "v5_plan_states_thesis",
+        _contains_all(v5_plan, ["Core-Residual Latent Substrate", "pretrained encoder", "core latent", "residual latent"]),
+        "v5 plan should state the core-residual latent thesis",
+    )
+    add(
+        "v5_plan_states_no_shortcut",
+        _contains_all(v5_plan, ["fallback", "shortcut", "benchmark leakage", "PersonaMem", "gold"]),
+        "v5 plan should lock no-fallback/no-shortcut/no-leakage constraints",
+    )
+    add(
+        "v5_plan_states_backbones",
+        _contains_all(v5_plan, ["BGE", "E5", "Contriever"]),
+        "v5 plan should require pretrained backbone comparison",
+    )
+    add(
+        "v5_plan_states_ablations",
+        _contains_all(v5_plan, ["latent-only", "text-only", "shuffled-latent", "core-only", "residual-only", "no-controller"]),
+        "v5 plan should require anti-shortcut ablations",
+    )
+    add(
+        "current_status_points_to_v5",
+        _contains_all(current_status, ["`TD-046 / WS-032 / v5`", "Core", "residual", "latent"]),
+        "current_status should point to v5",
+    )
+    add(
+        "implementation_mentions_v5",
+        _contains_all(implementation_plan, ["`TD-046 / WS-032 / v5", "BGE", "E5", "Contriever", "latent-only"]),
+        "implementation plan should mention v5 execution anchor",
+    )
+    add(
+        "todo_mentions_v5",
+        _contains_all(todo, ["`TD-046`", "Core-Residual", "latent-only", "PersonaMem gold"]),
+        "docs/todo.md should track TD-046",
+    )
+    add(
+        "agent_todo_mentions_v5",
+        _contains_all(agent_todo, ["`TD-046`", "`WS-032`", "BGE", "Contriever"]),
+        ".agent-os/todo.md should track TD-046",
+    )
+    add(
+        "project_index_points_to_v5",
+        _contains_all(project_index, ["`TD-046 / WS-032`", "v5", "Core-Residual"]),
+        "project index should make v5 the active workstream",
+    )
+    add(
+        "decisions_record_v5",
+        _contains_all(decisions, ["`CD-013`", "PersonaMem gold", "BGE", "Contriever", "MiniMax-M2.7"]),
+        "change decisions should record the v5 decision",
+    )
+    add(
+        "milestones_record_v5",
+        _contains_all(milestones, ["`MS-013`", "Core-Residual", "anti-shortcut"]),
+        "architecture milestones should record MS-013",
+    )
+    add(
+        "acceptance_records_v5",
+        _contains_all(acceptance, ["`EV-018`", "`WS-032 / TD-046`", "contract lock"]),
+        "acceptance report should record EV-018",
+    )
+
+    add(
+        "isolation_artifact_exists",
+        _artifact_exists(root, "latest_stage2_v5_personamem_isolation.json"),
+        "PersonaMem isolation checker artifact should exist",
+    )
+    add(
+        "isolation_split_grouped",
+        _as_bool(isolation, "split_by_shared_context_id") or _as_bool(isolation, "split_by_persona"),
+        "PersonaMem split should be grouped by shared_context_id/persona",
+    )
+    add(
+        "isolation_no_gold_leakage",
+        _as_bool(isolation, "no_gold_leakage") and not _as_bool(isolation, "gold_used_for_memory_substrate"),
+        "gold answers must not train memory substrate",
+    )
+    add(
+        "isolation_disjoint_contexts",
+        _as_bool(isolation, "train_eval_contexts_disjoint"),
+        "train/eval contexts should be disjoint",
+    )
+
+    add(
+        "encoder_compare_exists",
+        _artifact_exists(root, "latest_stage2_v5_encoder_compare.json"),
+        "pretrained encoder comparison artifact should exist",
+    )
+    add(
+        "encoder_compare_three_backbones",
+        _list_len(encoder_compare, "compared_backbones") >= 3,
+        "encoder comparison should include at least BGE/E5/Contriever",
+    )
+    add(
+        "encoder_compare_selected",
+        bool(encoder_compare and encoder_compare.get("selected_backbone")),
+        "encoder comparison should select a backbone or current winner",
+    )
+    add(
+        "encoder_no_single_metric_selection",
+        _as_bool(encoder_compare, "uses_ablation_metrics") and _as_bool(encoder_compare, "not_selected_by_personamem_only"),
+        "backbone selection should not depend only on PersonaMem exact",
+    )
+
+    add(
+        "context_selfsupervised_exists",
+        _artifact_exists(root, "latest_stage2_v5_context_selfsupervised.json"),
+        "PersonaMem context self-supervised data artifact should exist",
+    )
+    add(
+        "context_selfsupervised_no_gold",
+        _as_bool(context_data, "no_gold_answers"),
+        "context self-supervision should avoid answer labels",
+    )
+    add(
+        "context_selfsupervised_nonempty",
+        _as_int(context_data, "train_samples") > 0 and _as_int(context_data, "eval_samples") > 0,
+        "context self-supervised train/eval samples should be non-empty",
+    )
+    add(
+        "stage2_32k_used_as_warmup",
+        _as_bool(context_data, "stage2_32k_used_as_warmup") and not _as_bool(context_data, "claims_large_scale_pretraining"),
+        "32k data should be recorded as warm-up/adaptation, not large-scale pretraining",
+    )
+
+    add(
+        "core_residual_train_exists",
+        _artifact_exists(root, "latest_stage2_v5_core_residual_train.json"),
+        "core-residual latent training artifact should exist",
+    )
+    add(
+        "core_residual_trainable",
+        _as_bool(core_residual, "trainable_core_residual") and _as_bool(core_residual, "trainable_write_controller"),
+        "core/residual state and write controller should be trainable",
+    )
+    add(
+        "core_residual_positive",
+        _as_bool(core_residual, "positive_gain"),
+        "core-residual training should show positive held-out gain",
+    )
+    add(
+        "core_residual_timing_recorded",
+        _as_float(core_residual, "train_seconds") > 0 and bool(core_residual and core_residual.get("device")),
+        "training time and device should be recorded",
+    )
+
+    add(
+        "controller_ablation_exists",
+        _artifact_exists(root, "latest_stage2_v5_controller_ablation.json"),
+        "controller ablation artifact should exist",
+    )
+    add(
+        "controller_beats_disabled",
+        _as_bool(controller, "learned_controller_beats_disabled"),
+        "learned controller should beat disabled/symbolic control",
+    )
+    add(
+        "controller_actions_covered",
+        _list_len(controller, "covered_actions") >= 4,
+        "controller eval should cover multiple write actions",
+    )
+
+    add(
+        "latent_reader_exists",
+        _artifact_exists(root, "latest_stage2_v5_latent_reader_eval.json"),
+        "latent reader eval artifact should exist",
+    )
+    add(
+        "latent_only_above_random",
+        _as_bool(latent_reader, "latent_only_above_random"),
+        "latent-only readout should beat random",
+    )
+    add(
+        "shuffled_latent_drops",
+        _as_bool(latent_reader, "shuffled_latent_drops"),
+        "shuffled latent should degrade performance",
+    )
+    add(
+        "latent_reader_query_conditioned",
+        _as_bool(latent_reader, "query_conditioned_reader"),
+        "latent reader should be query-conditioned",
+    )
+
+    add(
+        "text_ablation_exists",
+        _artifact_exists(root, "latest_stage2_v5_text_ablation.json"),
+        "text ablation artifact should exist",
+    )
+    add(
+        "full_beats_text_only",
+        _as_bool(text_ablation, "full_beats_text_only"),
+        "full latent+text path should beat text-only",
+    )
+    add(
+        "text_dropout_used",
+        _as_bool(text_ablation, "text_dropout_enabled"),
+        "training/eval should include text dropout or text masking",
+    )
+
+    add(
+        "calibration_artifact_exists",
+        _artifact_exists(root, "latest_stage2_v5_answer_head_calibration.json"),
+        "answer head calibration artifact should exist",
+    )
+    add(
+        "calibration_strict_isolation",
+        _as_bool(calibration, "strict_gold_isolation"),
+        "calibration should use strict persona/context isolation",
+    )
+    add(
+        "calibration_reports_both",
+        _as_bool(calibration, "no_calibration_reported") and _as_bool(calibration, "calibrated_reported"),
+        "no-calibration and calibrated variants should both be reported",
+    )
+    add(
+        "calibration_thin_head_only",
+        _as_bool(calibration, "thin_answer_head_only") and not _as_bool(calibration, "gold_used_for_memory_substrate"),
+        "gold answer can calibrate only a thin answer head",
+    )
+
+    add(
+        "personamem_full589_exists",
+        _artifact_exists(root, "latest_stage2_v5_personamem_full589.json"),
+        "PersonaMem full 589 evaluation artifact should exist",
+    )
+    add(
+        "personamem_full589_sample_count",
+        _as_int(personamem_full, "sample_count") == 589,
+        "PersonaMem v5 eval should cover all 589 local samples",
+    )
+    add(
+        "personamem_reports_provider_auxiliary",
+        _as_bool(personamem_full, "provider_is_auxiliary"),
+        "provider should be reported as auxiliary, not the main latent substrate metric",
+    )
+
+    add(
+        "ablation_summary_exists",
+        _artifact_exists(root, "latest_stage2_v5_ablation_summary.json"),
+        "v5 anti-shortcut ablation summary should exist",
+    )
+    add(
+        "ablation_anti_shortcut_pass",
+        _as_bool(ablation, "anti_shortcut_pass"),
+        "ablation summary should pass anti-shortcut checks",
+    )
+    add(
+        "ablation_core_residual_contribute",
+        _as_bool(ablation, "core_contributes") and _as_bool(ablation, "residual_contributes"),
+        "core-only and residual-only should have interpretable contributions",
+    )
+    add(
+        "ablation_option_only_baseline",
+        _as_bool(ablation, "option_only_baseline_reported"),
+        "option-only baseline should be reported",
+    )
+
+    add(
+        "paper_package_exists",
+        _artifact_exists(root, "latest_stage2_v5_paper_evidence_package.json"),
+        "paper evidence package artifact should exist",
+    )
+    add(
+        "paper_package_positions_work",
+        _as_bool(paper_package, "explains_not_text_slot_rag")
+        and _as_bool(paper_package, "explains_not_rule_system")
+        and _as_bool(paper_package, "explains_not_benchmark_trick"),
+        "paper package should explain why v5 is not text-slot RAG/rules/benchmark trick",
+    )
+
+    score = sum(1 for _, passed, _ in checks if passed)
+    return {
+        "metric": "stage2_v5_longrun_score",
+        "score": score,
+        "total": len(checks),
+        "checks": [{"name": name, "passed": passed, "detail": detail} for name, passed, detail in checks],
+        "summary": {
+            "contract_locked": all(passed for name, passed, _ in checks if name.startswith(("v5_plan", "current_status", "implementation", "todo", "agent_todo", "project_index", "decisions", "milestones", "acceptance"))),
+            "latent_substrate_evidence": _as_bool(latent_reader, "latent_only_above_random")
+            and _as_bool(latent_reader, "shuffled_latent_drops")
+            and _as_bool(core_residual, "positive_gain"),
+            "gold_isolation_ok": _as_bool(isolation, "no_gold_leakage")
+            and _as_bool(calibration, "strict_gold_isolation")
+            and not _as_bool(calibration, "gold_used_for_memory_substrate"),
+            "anti_shortcut_pass": _as_bool(ablation, "anti_shortcut_pass"),
+        },
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, default=REPO_ROOT)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--score-only", action="store_true")
+    args = parser.parse_args()
+
+    payload = compute_v5_longrun(args.root)
+    if args.score_only:
+        print(payload["score"])
+    elif args.json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(f"{payload['metric']} = {payload['score']}/{payload['total']}")
+
+
+if __name__ == "__main__":
+    main()

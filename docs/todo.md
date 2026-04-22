@@ -2,6 +2,13 @@
 
 ## Doing
 
+- `TD-046` `[planned]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成真正可训练、可消融、可发表的 latent memory system。
+  - 当前锚点：retained `v32 / v33 / v4` baselines 继续保留，v5 尚未产生新训练 gain。
+  - 当前重点：pretrained encoder comparison、learned write controller、core/residual latent state、query-conditioned latent reader、latent-only / shuffled-latent ablation、strict PersonaMem gold calibration isolation。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no benchmark leakage；PersonaMem gold 不得训练 memory substrate，只能隔离训练薄 answer/readout head。
+  - Success boundary：必须证明 latent 本身在 text ablation / shuffled latent / core-only / residual-only / no-controller 等 ablation 下有真实贡献，不能只报告 option exact。
+  - 计划：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
+
 - `TD-045` `[done]` 以 `v4 Persona-first learned memory` 为目标（`TD-045` / `v4` / `PersonaMem 512`），在**不改 `core / residual` 双银行结构**的前提下，暂时把主优化目标收敛到 `PersonaMem 512`，让 learned latent / belief / option scorer 成为 finite-option personalization 的主能力来源。
   - 当前锚点：retained `v32` full `PersonaMem 512` 为 `provider/local = 183/175`；current `v33` learned-authoritative full 为 `provider/local = 182/196`。
   - 当前诊断：`v33` 在 Persona local 上已有 `+21`，但 provider exact 反而 `-1`；`LongMemEval-S` 与 Persona 的任务形态差别太大，短期同时优化会拉扯方向。

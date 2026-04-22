@@ -11,6 +11,7 @@
 - `WS-007`: Stage-2 `V2.0 structured latent-slot memory` 主线模型实现
 - `WS-008`: Stage-2 数据、parser 与训练管线
 - `WS-009`: Stage-2 本地 intrinsic evaluation 与 canary 协议
+- `WS-032`: Stage-2 `v5 Core-Residual Latent Substrate` 顶会级 latent memory 路线
 
 ## Current Architecture Route
 
@@ -41,6 +42,19 @@
 - 训练数据策略为 `public-datasets-first, synthetic-minimal`
 - benchmark 保持 evaluation source 地位，不作为 primary training source
 - 第二阶段输出统一沉淀到 `outputs_v2/`
+
+### Stage-2 V5 路线
+
+`v5` 将第二阶段从 text-centered latent-slot system 推进到 core-residual latent substrate：
+
+- pretrained encoder backbone 首批比较 `BGE / E5 / Contriever`
+- learned write controller 决定 `new / merge / overwrite / stale / promote_to_core / keep_residual`
+- stable persona traits 写入 core latent memory
+- episodic / recent / conflict / update-sensitive facts 写入 residual latent slots
+- query-conditioned latent reader 直接读取 core + residual latent state
+- belief decoder 作为 interpretable bottleneck，而不是唯一 memory substrate
+- PersonaMem gold 只允许在 persona/context 隔离 split 上校准薄 answer head
+- 必须报告 latent-only、text-only、shuffled-latent、core-only、residual-only、no-controller 等 anti-shortcut ablations
 
 ## Milestones
 
@@ -136,3 +150,12 @@
     - canary 输出、表格与日志可追溯
   - Notes:
     - canary manifest 生成器与固定 `64` 子集已落地；后续只需在主线模型版本稳定后补齐运行记录与结果表
+
+- `MS-013` `[planned]` Stage-2 `v5 Core-Residual Latent Substrate` 计划与执行契约
+  - Acceptance:
+    - `docs/v5_plan.md` 固定目标架构、数据隔离、训练目标、反 shortcut 评估协议
+    - `.agent-os` index / todo / decisions / acceptance / run-log 同步 `TD-046 / WS-032`
+    - 后续实现必须先建立 pretrained encoder comparison、PersonaMem gold-isolation checker、latent-only / shuffled-latent ablation scaffold
+  - Boundary:
+    - 当前只是 plan/contract milestone，不代表已有新的训练或 benchmark gain
+    - `v5` 不允许把规则修补、provider prompt trick、PersonaMem option geometry 当作主贡献

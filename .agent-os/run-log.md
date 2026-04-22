@@ -3337,3 +3337,29 @@
   - current work has moved from “prepare a rerun” to “an authoritative full rerun is live and advancing”
 - Next likely action:
   - keep monitoring `20260422T162229Z_stage2_memory_canary_longmemeval/` to completion, then publish a fresh `latest_stage2_v33_*` compare and rerun verifier/guard
+
+## 2026-04-22 Session 047
+
+- Worked on: 根据用户确认的新方向，把 `v5 Core-Residual Latent Substrate` 顶会级 latent memory plan 写入项目文档系统
+- State changed:
+  - active project truth 从 `TD-045 / WS-031 / v4` 前推到 `TD-046 / WS-032 / v5`
+  - `v5` 当前状态固定为 plan/contract locked，尚无新训练 gain
+  - PersonaMem gold 使用边界被明确锁定为“允许但严格隔离”：只训练薄 answer/readout head，不训练 memory substrate
+- Evidence / docs:
+  - `docs/v5_plan.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/todo.md`
+  - `.agent-os/change-decisions.md`
+  - `.agent-os/architecture-milestones.md`
+  - `.agent-os/acceptance-report.md`
+  - `.agent-os/lessons-learned.md`
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+  - `docs/todo.md`
+- Verification:
+  - documentation-only update plus v5 verifier scaffold; no training or benchmark was run in this session
+  - `scripts/verify_stage2_v5_longrun.py --score-only` current baseline is `13/52`
+  - next implementation must start from encoder harness, PersonaMem isolation checker, and latent-only / shuffled-latent ablation scaffold
+- Notes:
+  - this session intentionally does not claim model gain
+  - retained `v32 / v33 / v4` evidence remains baseline/context, while `v5` becomes the next research plan

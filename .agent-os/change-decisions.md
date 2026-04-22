@@ -87,3 +87,16 @@
   - 指标家族视图
   - 模块视图
   - budget sweep 视图
+
+## `CD-013` 2026-04-22
+
+- 用户确认下一阶段进入 `v5 Core-Residual Latent Substrate` 路线，目标是顶会级 learned latent memory system，而不是继续围绕 benchmark 做规则修补或 provider prompt trick。
+- `v5` 允许下载和使用 HuggingFace pretrained backbones，首批由 agent 比较 `BGE / E5 / Contriever`。
+- `32k` stage2 数据只能称为 domain warm-up / adaptation，不能声称为充分的大规模预训练。
+- PersonaMem gold 允许但必须严格隔离：
+  - 只允许训练薄 answer/readout head
+  - split 必须按 `shared_context_id` / persona 分组
+  - memory writer / reader / controller / latent substrate 不得使用 gold answer
+  - 最终必须分别报告 no-calibration 与 calibrated 结果
+- MiniMax-M2.7 teacher 允许继续用于 raw-dialogue memory/belief/update supervision，但 teacher 不能以 silver label 为条件，也不能看到 PersonaMem gold answer。
+- `v5` 的验收必须包含 anti-shortcut ablations：latent-only、text-only、shuffled-latent、shuffled-memory/persona、core-only、residual-only、no-controller、option-only baseline、answer-label permutation、option paraphrase。
