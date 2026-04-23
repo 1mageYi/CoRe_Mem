@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from scripts.publish_stage2_v6_persistent_memory import publish_v6_persistent_memory
 from scripts.verify_stage2_v6_persistent_latent_memory import compute_v6_persistent_latent_memory
 
 
@@ -269,3 +270,62 @@ def test_v6_full_persistent_system_can_reach_stop_ready(tmp_path: Path) -> None:
 
     assert payload["score"] == 100
     assert payload["stop_ready"] is True
+
+
+def test_v6_publisher_builds_checkpointed_persistent_banks(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "docs" / "v6_plan.md").write_text(
+        "Persistent Core-Residual Latent Memory\nanswer-time confidence routing is disabled\n",
+        encoding="utf-8",
+    )
+    contexts_path = repo / "data" / "personamem" / "shared_contexts_32k.jsonl"
+    questions_path = repo / "data" / "personamem" / "questions_32k.csv"
+    contexts_path.parent.mkdir(parents=True)
+    contexts_path.write_text(
+        json.dumps(
+            {
+                "ctx_1": [
+                    {"role": "system", "content": "Current user persona: Mira is a librarian who loves tea and jazz music."},
+                    {"role": "user", "content": "User: I love tea and usually prefer quiet bookstores."},
+                    {"role": "user", "content": "User: I recently stopped attending structured book clubs."},
+                    {"role": "user", "content": "User: I started volunteering at the local library."},
+                    {"role": "user", "content": "User: I want to write emotional book reviews."},
+                    {"role": "user", "content": "User: I enjoy jazz music during relaxed evenings."},
+                    {"role": "user", "content": "User: I am a library assistant."},
+                    {"role": "user", "content": "User: I cannot attend crowded festivals."},
+                    {"role": "user", "content": "User: I prefer calm reading spaces."},
+                    {"role": "user", "content": "User: I love pasta after long shifts."},
+                    {"role": "user", "content": "User: I usually enjoy classical music."},
+                    {"role": "user", "content": "User: I recently started a small book blog."},
+                    {"role": "user", "content": "User: I used to shop at downtown bookstores."},
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    questions_path.write_text(
+        "\n".join(
+            [
+                "persona_id,question_id,question_type,topic,context_length_in_tokens,context_length_in_letters,distance_to_ref_in_blocks,distance_to_ref_in_tokens,num_irrelevant_tokens,distance_to_ref_proportion_in_context,user_question_or_message,correct_answer,all_options,shared_context_id,end_index_in_shared_context",
+                '0,q1,recall_user_shared_facts,drink,10,10,0,0,0,0%,What drink fits me?,(a),"[\'(a) Tea is a good fit.\', \'(b) Espresso is better.\']",ctx_1,8',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    publish_v6_persistent_memory(
+        root=repo,
+        questions_path=questions_path,
+        contexts_path=contexts_path,
+        max_stream_observations=64,
+    )
+    payload = compute_v6_persistent_latent_memory(repo)
+
+    assert payload["checks"]["persistent_core_bank"] is True
+    assert payload["checks"]["persistent_residual_bank"] is True
+    assert payload["checks"]["persistent_state_checkpoint"] is True
+    assert payload["checks"]["stream_write_trace"] is True
+    assert payload["checks"]["authoritative_uses_persistent_state"] is True
+    assert payload["checks"]["raw_context_retrieval_disabled"] is True

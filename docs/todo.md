@@ -11,6 +11,11 @@
   - 新增硬边界：answer-time confidence routing 不允许作为 authoritative path；raw full-context retrieval 不允许作为 v6 authoritative eval 主语义路径。
   - Success gate：persistent bank checkpoint、write trace、learned write-time routing、raw-context retrieval disabled、answer-time routing disabled、真实 architecture ablation drops、PersonaMem full589 no-calibration meaningful margin。
   - Meaningful margin：默认至少 `+30` correct over text-only，或预先声明的显著性 artifact。
+  - 当前 v6 baseline：fresh run 已初始化，baseline `16`。
+  - 当前 v6 partial：已发布 persistent `core_bank=95` / `residual_bank=483`、state checkpoint、write trace `745` writes、learned write-time router eval accuracy `0.9799` vs disabled controller `0.6644`。
+  - 当前 v6 verifier：`scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 75`。
+  - 当前 v6 negative truth：PersonaMem full589 no-routing `147/589`，text-only `205/589`，margin `-58`；meaningful margin 未达成。
+  - 下一步：训练/接入 v6 query-conditioned reader + belief/readout，并修正 true core/residual disabled ablation drop；不得回到 answer-time routing。
 
 - `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - 当前 workstream: `WS-034`
