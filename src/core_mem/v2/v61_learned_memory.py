@@ -157,30 +157,6 @@ def _query_semantic_features(query: str) -> list[float]:
     ]
 
 
-def _encode_query_token_keys(query: str, *, dimension: int, limit: int = 6) -> list[list[float]]:
-    query_encoder = QueryEncoder(dimension=dimension)
-    tokens = [token for token in _tokenize(query) if token not in _STOPWORDS]
-    if not tokens:
-        return [query_encoder.encode(query)]
-    ranked_tokens = sorted(set(tokens), key=lambda token: (len(token), token), reverse=True)[:limit]
-    return [query_encoder.encode(token) for token in ranked_tokens]
-
-
-def _late_interaction_features(query_token_keys: list[list[float]], slot: SlotRecord) -> list[float]:
-    if not query_token_keys or not slot.latent_tokens:
-        return [0.0, 0.0, 0.0]
-    per_token_max = [
-        max(vector_dot(query_key, token_key) for token_key in slot.latent_tokens)
-        for query_key in query_token_keys
-    ]
-    positives = [score for score in per_token_max if score > 0.0]
-    return [
-        max(per_token_max),
-        sum(per_token_max) / len(per_token_max),
-        len(positives) / len(per_token_max),
-    ]
-
-
 def _slot_semantic_features(slot: SlotRecord) -> list[float]:
     return [
         float(slot.bank == "core"),
@@ -196,16 +172,10 @@ def _slot_semantic_features(slot: SlotRecord) -> list[float]:
     ]
 
 
-def _reader_pair_features(
-    query: str,
-    query_key: list[float],
-    query_token_keys: list[list[float]],
-    slot: SlotRecord,
-) -> list[float]:
+def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) -> list[float]:
     slot_key = slot.retrieval_key
     query_semantics = _query_semantic_features(query)
     slot_semantics = _slot_semantic_features(slot)
-    late_interaction = _late_interaction_features(query_token_keys, slot)
     slot_value = slot.canonical_gloss.split("=", 1)[-1]
     relation_text = slot.relation.replace("_", " ")
     alignment = [
@@ -226,7 +196,6 @@ def _reader_pair_features(
         _token_overlap(query, slot.canonical_gloss),
         _token_overlap(query, slot_value),
         _token_overlap(query, relation_text),
-        *late_interaction,
         *query_semantics,
         *slot_semantics,
         *alignment,
@@ -415,8 +384,7 @@ def train_v61_reader_readout(
             continue
         for query in _synthetic_queries_for_observation(observation):
             query_key = QueryEncoder(dimension=len(positive_slot.retrieval_key)).encode(query)
-            query_token_keys = _encode_query_token_keys(query, dimension=len(positive_slot.latent_tokens[0]))
-            feature_rows.append(_reader_pair_features(query, query_key, query_token_keys, positive_slot))
+            feature_rows.append(_reader_pair_features(query, query_key, positive_slot))
             labels.append(1.0)
             ranked_negatives = sorted(
                 negatives,
@@ -428,7 +396,7 @@ def train_v61_reader_readout(
                 reverse=True,
             )
             for negative_slot in ranked_negatives[:3]:
-                feature_rows.append(_reader_pair_features(query, query_key, query_token_keys, negative_slot))
+                feature_rows.append(_reader_pair_features(query, query_key, negative_slot))
                 labels.append(0.0)
     if len(feature_rows) < 16:
         raise ValueError("v6.1 reader/readout training requires at least 16 synthetic pairs.")
@@ -499,9 +467,8 @@ def _read_with_model(
         return {"query_key": [], "selected": [], "composed_key": [], "belief_items": []}
     query_encoder = QueryEncoder(dimension=len(slots[0].retrieval_key))
     query_key = query_encoder.encode(query)
-    query_token_keys = _encode_query_token_keys(query, dimension=len(slots[0].latent_tokens[0]))
     features = torch.tensor(
-        [_reader_pair_features(query, query_key, query_token_keys, slot) for slot in slots],
+        [_reader_pair_features(query, query_key, slot) for slot in slots],
         dtype=torch.float32,
     )
     with torch.no_grad():
