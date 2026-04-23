@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
+  - Current workstream: `WS-037`
+  - Plan: [docs/v62_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v62_plan.md)
+  - Verifier: [scripts/verify_stage2_v62_write_quality.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v62_write_quality.py)
+  - Required structure: keep the v6.1 persistent substrate, learned reader, and learned decision path, but make authoritative writing depend on learned write-worthiness and learned attribute-validity before entries reach the bank.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
+  - New required evidence: learned write-worthiness in authoritative write path, learned attribute-validity / relation-validity before write, hard write-quality eval on raw dialogue, persistent-state cleanliness evidence, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
+  - Current baseline: `scripts/verify_stage2_v62_write_quality.py --score-only = 60`
+  - Current reason for launch: `v6.1` already proved persistent substrate + learned reader/decision and reached PersonaMem full589 no-routing `191/589 > text-only 180/589`, but it still lost to option-only `235/589`. The next run must strengthen write-side memory quality rather than more narrow readout/parser tweaks.
+
 - `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 推进到真正 learned authoritative read/decision path。
   - Current workstream: `WS-036`
   - Plan: [docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
@@ -13,7 +23,8 @@
   - Current partial: current HEAD 已发布 learned reader/decision artifacts，`scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 85`
   - Current partial: authoritative learned reader / learned decision head、semantic slot matching / bank compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof 已成立；当前 latest keep 又用 generic low-information slot filtering 把 PersonaMem full589 no-routing 从 `182` 提到 `191`
   - Current negative truth: PersonaMem full589 no-routing `191/589` vs text-only `180/589` vs option-only `235/589`，margin `+11`
-  - Current reason for launch: v6 already proved persistent storage, but failed on no-routing PersonaMem (`146/589` vs text-only `205/589`). The next run must strengthen reading/decision rather than storage.
+  - Current soft blocker: fresh managed run 已把 narrow decision tweak、bank simplification、post-hoc fragment suppression 与 parser self-state precision 全部试过；最新 parser trial 虽把 absolute no-routing 拉到 `197/589`，但 text-only 同步升到 `194/589`，主 verifier 仍是 `85`
+  - Next action after handoff: 已切到 `TD-051 / WS-037 / v6.2`；当前这一条线保留为 blocked baseline / handoff truth
 
 - `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。
   - Current workstream: `WS-035`

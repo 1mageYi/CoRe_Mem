@@ -1,20 +1,24 @@
 # Current Status
 
-## 当前最新状态：v6.1 learned reader/decision over persistent memory 已成为新主线
+## 当前最新状态：v6.2 learned write-worthiness / attribute-validity 已成为新主线
 
-- `TD-050 / WS-036 / v6.1` 已锁定为下一轮 long run 主线：目标不是继续堆 persistent substrate，而是让 learned reader 和 learned decision/readout 真正接管 authoritative path。
-- v6.1 新计划：[docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
-- v6.1 新 verifier：[scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
-- v6 的 structural gain 继续继承：persistent `core_bank` / `residual_bank`、state checkpoint、write trace、learned write-time routing、raw-context retrieval disabled、answer-time routing disabled、true architecture ablation 与 no-gold substrate proof 都已成立。
-- v6.1 hard gate 明确要求：authoritative read path 必须使用 learned reader；authoritative answer path 必须使用 learned decision/readout head；不得再用 `vector_dot + bank_prior` 和 handcrafted option scoring 充当主路径。
-- 新增硬要求：semantic slot matching / bank compaction、typed residuals、harder internal eval（natural-language query + hard negatives）必须成为 retained evidence。
-- 当前 v6 blocked truth 仍保留：PersonaMem full589 no-routing `146/589`，text-only `205/589`，option-only `235/589`；说明 persistent memory 已经存下来了，但 learned readout/decision 还没有足够强。
-- fresh v6.1 baseline 已初始化为 `stage2_v61_learned_reader_decision_score = 45`；current HEAD 已把 verifier 从 `80` 继续推到 `85`
-- 当前已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，真实把 authoritative `read()` 从 `dot-product + bank_prior` 切到 learned query-slot scorer，并把 decision path 切到 learned answer head
-- 当前 v6.1 新证据：`latest_stage2_v61_reader_decision_train.json`、`latest_stage2_v61_persistent_state.json`、`latest_stage2_v61_internal_eval.json`、`latest_stage2_v61_personamem_no_routing.json`、`latest_stage2_v61_arch_ablation.json` 与 `latest_stage2_v61_decision.json`
-- 当前 structural gain：persistent `core_bank=64` / `residual_bank=510`、checkpoint、`712`-write trace、semantic slot compaction、typed residuals、hard internal eval 均已成立；latest keep 又把 generic low-information slot filtering 接进 v6.1 substrate，进一步压掉了 `hobby=myself` / `goal=evolve` 一类噪声槽位
-- 当前负结果：PersonaMem full589 no-routing `191/589`，text-only `180/589`，option-only `235/589`；当前已经真实超过 text-only，但仍未超过 option-only，也没有 meaningful margin，因此当前可诚实声明的是 v6.1 结构性升级成立、主路径质量继续提升，但 benchmark gain 仍未成立
-- v6.1 stop condition 仍未触发；新的 stop condition 只在 learned reader/decision 真超过 text-only 与 option-only 且保留 meaningful margin 时才允许收口
+- `TD-051 / WS-037 / v6.2` 已锁定为下一轮 long run 主线：目标不是继续修 decision 小头或 parser/filter heuristic，而是把 learned write-worthiness / attribute-validity 接进 authoritative write path，在 extraction / write 前提升 memory 质量。
+- v6.2 新计划：[docs/v62_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v62_plan.md)
+- v6.2 新 verifier：[scripts/verify_stage2_v62_write_quality.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v62_write_quality.py)
+- v6.2 继承 v6.1 已成立的结构事实：persistent `core_bank` / `residual_bank`、state checkpoint、write trace、learned write-time routing、authoritative learned reader、authoritative learned decision、semantic slot compaction、typed residuals、hard internal eval、raw-context retrieval disabled、answer-time routing disabled 与 no-gold substrate proof。
+- v6.2 hard gate 明确要求：authoritative write path 必须使用 learned write-worthiness；authoritative pre-write path 必须使用 learned attribute-validity / relation-validity；必须新增 hard write-quality eval 与 persistent-state cleanliness evidence；不得回到 answer-time routing、raw-context retrieval 或 broad heuristic cleanup。
+- fresh v6.2 baseline 已初始化为 `stage2_v62_write_quality_score = 60`；这说明当前 v6.1 结构证据会被继承，但由于 authoritative write-worthiness / attribute-validity 尚未成立，当前不能误判成 closeout 态。
+- 当前最诚实的 handoff 结论是：`v6.1` 已把 PersonaMem full589 no-routing 提到 `191/589`，高于 text-only `180/589`，但仍低于 option-only `235/589`。soft blocker 的根因不再是 persistent substrate 或 learned reader/decision 缺失，而是 write side 的数据进入质量仍不够强。
+- 新 long-run 的目标是：先提升 write-side memory quality，再重训/刷新 reader 与 decision，并在 full589 no-routing 下真正超过 option-only 且保留 meaningful margin。
+
+## 当前并行保留状态：v6.1 learned reader/decision 仍是 v6.2 的 blocked baseline
+
+- `TD-050 / WS-036 / v6.1` 当前作为 v6.2 的 blocked baseline 保留：它已经证明 persistent substrate + learned reader/decision 主路径成立，但还未形成足够强的 benchmark gain。
+- v6.1 计划：[docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
+- v6.1 verifier：[scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
+- 当前 retained truth：fresh managed run 结束在 verifier `85`；PersonaMem full589 no-routing `191/589`，text-only `180/589`，option-only `235/589`。
+- 当前已成立的结构证据：authoritative learned reader、authoritative learned decision head、semantic slot matching / bank compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof。
+- 当前 soft blocker：post-hoc `profile_trait` fragment suppression、bank simplification、option-conditioned reread、thin calibrator 与 parser self-state precision 都已试过，但没有产出新的 retained keep。后续继续做窄 parser/filter cleanup 的性价比已很低，因此切换到 v6.2 write-worthiness / attribute-validity 路线。
 
 ## 当前并行保留状态：v6 persistent core-residual latent memory 仍是 blocked baseline
 

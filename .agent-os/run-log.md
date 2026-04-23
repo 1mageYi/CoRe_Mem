@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-23 Session 142
+
+- Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` scaffold / launch
+- State changed:
+  - Added the `v6.2` plan, verifier, and tests to force the next managed run to optimize write-side memory quality rather than more narrow parser/readout tweaks
+  - Repointed active status docs from `TD-050 / WS-036 / v6.1` to `TD-051 / WS-037 / v6.2`
+  - Preserved `v6.1` as the blocked baseline / handoff truth: retained verifier `85`, PersonaMem full589 no-routing `191/589` vs text-only `180/589` vs option-only `235/589`
+- Evidence:
+  - `docs/v62_plan.md`
+  - `scripts/verify_stage2_v62_write_quality.py`
+  - `tests/test_stage2_v62_write_quality.py`
+- Verification:
+  - `conda run -n core_mem python scripts/verify_stage2_v62_write_quality.py --score-only`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v62_write_quality.py`
+- Boundary:
+  - This session only establishes the next long-run gate and handoff. It does not claim a new benchmark gain.
+
 # 2026-04-23 Session 140
 
 - Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` low-information substrate cleanup keep
@@ -18,6 +35,26 @@
 - Boundary:
   - This keep proves that substrate value quality, not only reader loss, still materially affects no-routing outcome.
   - v6.1 still cannot claim success because it remains `44` correct below option-only and far below the meaningful-margin gate.
+
+# 2026-04-23 Session 141
+
+- Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` write-side cleanup exhaustion / soft-blocker handoff
+- State changed:
+  - Repaired an artifact/state mismatch first: code had already been reverted to retained line, but `latest_stage2_v61_*` still pointed at a discarded trial; republishing restored truthful retained artifacts and verifier `85`
+  - Iteration `15 discard`: post-hoc `profile_trait` fragment suppression over-pruned the substrate (`stream_observations_written = 487`, `residual_bank_size = 289`) and dropped PersonaMem full589 no-routing to `170/589`
+  - Iteration `16 search`: reviewed recent failures plus dialogue attribute-extraction literature; the strongest external cue is that false-positive fact extraction often needs a separate write-worthiness / fact-validity classifier before extraction
+  - Iteration `17 discard`: parser self-state precision improved internal eval and raised PersonaMem full589 no-routing to `197/589`, but text-only also rose to `194/589`, verifier stayed `85`, and the trial was discarded
+  - Iteration `18 pivot`: formally abandoned the current write-side cleanup family (`bank caps`, post-hoc fragment suppression, parser self-state precision)
+- Evidence:
+  - Retained truth after restore remains `latest_stage2_v61_personamem_no_routing.json = 191/589` vs text-only `180/589` vs option-only `235/589`
+  - Discarded parser-precision trial proved a real but non-retainable tradeoff: `197/589` absolute no-routing, but only `+3` over text-only and no verifier gain
+  - `research-results.tsv` now records rows `15 discard`, `16 search`, `17 discard`, `18 pivot`
+- Verification:
+  - Retained restore guard: `git diff --check` -> passed; `conda run -n core_mem python scripts/verify_stage2_v61_learned_reader_decision.py --score-only` -> `85`; `conda run -n core_mem pytest -q tests/test_stage2_v61_learned_reader_decision.py` -> passed
+  - Discarded parser-precision trial guard: `git diff --check` -> passed; verifier remained `85`; `conda run -n core_mem pytest -q tests/test_stage2_parser.py tests/test_stage2_v61_learned_memory.py tests/test_stage2_v61_learned_reader_decision.py` -> passed
+- Boundary:
+  - This session does not claim a new keep or benchmark success.
+  - Current runtime truth is a soft blocker handoff: three strategy families after the retained `85` line still did not produce a keep, so further progress likely needs a broader learned write-worthiness / attribute-validity approach rather than another narrow heuristic cleanup.
 
 # 2026-04-23 Session 139
 
