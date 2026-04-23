@@ -20,7 +20,6 @@ from core_mem.v2.v6_persistent_memory import (
     V6ReaderTrainingResult,
     relation_family,
     route_observation,
-    stable_timestamp,
     train_write_router,
     vector_dot,
 )
@@ -351,6 +350,43 @@ def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
     return [query for query in queries if query]
 
 
+def _current_vs_past_queries(observation: Observation) -> list[str]:
+    relation_text = observation.relation.replace("_", " ")
+    queries = {"Which option best matches the user's current state rather than an earlier one?"}
+    if observation.relation.endswith("preference") or observation.relation == "hobby":
+        queries.add("Which option best reflects the user's current preference after the recent change?")
+        queries.add("How did the user's preference evolve most recently?")
+    elif observation.relation == "reason_fact":
+        queries.add("Which reason best matches the user's latest explanation?")
+        queries.add("Which reason reflects the user's current update instead of an earlier one?")
+    elif observation.relation in {"goal", "temporal_fact", "social_fact", "environment_fact"}:
+        queries.add(f"Which {relation_text} detail is current now rather than earlier?")
+    elif observation.relation == "profile_trait":
+        queries.add("Which tendency best describes the user right now rather than earlier?")
+    else:
+        queries.add(f"Which {relation_text} statement is current now rather than earlier?")
+    return [query for query in queries if query]
+
+
+def _ordered_distinct_history(observations: list[Observation]) -> list[Observation]:
+    ordered = sorted(
+        observations,
+        key=lambda item: (
+            int(item.source_turn_id) if item.source_turn_id.isdigit() else 0,
+            item.obs_id,
+        ),
+    )
+    history: list[Observation] = []
+    seen: set[tuple[str, str]] = set()
+    for observation in ordered:
+        signature = (observation.relation, observation.value)
+        if signature in seen:
+            continue
+        seen.add(signature)
+        history.append(observation)
+    return history
+
+
 def train_v61_reader_readout(
     observations: list[Observation],
     memory: PersistentCoreResidualMemory,
@@ -599,6 +635,36 @@ def train_decision_head(
                 continue
             option_groups.append(features)
             labels.append(0)
+    histories: dict[tuple[str, str], list[Observation]] = defaultdict(list)
+    for observation in observations:
+        histories[(observation.source_dialogue_id, observation.relation)].append(observation)
+    for history in histories.values():
+        ordered_history = _ordered_distinct_history(history)
+        if len(ordered_history) < 2:
+            continue
+        for current_idx in range(1, len(ordered_history)):
+            current = ordered_history[current_idx]
+            turn_index = int(current.source_turn_id) if current.source_turn_id.isdigit() else None
+            slots = memory.active_slots(context_id=current.source_dialogue_id, max_turn_index=turn_index)
+            if not slots:
+                continue
+            negatives = list(reversed(ordered_history[:current_idx]))[:2]
+            for candidate in _select_hard_negatives(current, observations):
+                if any(candidate.value == item.value for item in negatives):
+                    continue
+                negatives.append(candidate)
+                if len(negatives) >= 3:
+                    break
+            if len(negatives) < 3:
+                continue
+            options = [observation_option_statement(current), *[observation_option_statement(negative) for negative in negatives[:3]]]
+            for query in _current_vs_past_queries(current):
+                readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
+                features = [_option_features(readout, query, option) for option in options]
+                if any(not feature for feature in features):
+                    continue
+                option_groups.append(features)
+                labels.append(0)
     if len(option_groups) < 16:
         raise ValueError("v6.1 decision-head training requires at least 16 synthetic examples.")
     x = torch.tensor(option_groups, dtype=torch.float32)
