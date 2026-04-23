@@ -119,6 +119,84 @@ _LOW_INFORMATION_VALUE_TERMS = {
     "trying",
     "visit",
 }
+_SCENARIO_AXES = (
+    {
+        "clarity",
+        "deadline",
+        "deadlines",
+        "expectation",
+        "expectations",
+        "obligation",
+        "obligations",
+        "pressure",
+        "pressured",
+        "review",
+        "reviews",
+        "rigid",
+        "script",
+        "scripting",
+        "structured",
+        "structure",
+    },
+    {
+        "casual",
+        "creative",
+        "creativity",
+        "expressive",
+        "flexible",
+        "flexibility",
+        "flow",
+        "improv",
+        "improvised",
+        "relaxed",
+        "spontaneous",
+        "spontaneity",
+    },
+    {
+        "busy",
+        "bustling",
+        "chaotic",
+        "city",
+        "crowded",
+        "festival",
+        "intense",
+        "lively",
+        "nightlife",
+        "overwhelming",
+    },
+    {
+        "calm",
+        "calmer",
+        "downtime",
+        "intimate",
+        "peaceful",
+        "personal",
+        "quiet",
+        "quieter",
+        "relaxed",
+        "serene",
+        "small",
+        "smaller",
+        "solitary",
+    },
+    {
+        "audience",
+        "author",
+        "authors",
+        "collaboration",
+        "collaborative",
+        "community",
+        "feedback",
+        "friend",
+        "friends",
+        "group",
+        "peer",
+        "peers",
+        "reader",
+        "readers",
+        "social",
+    },
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -157,6 +235,11 @@ def _query_semantic_features(query: str) -> list[float]:
     ]
 
 
+def _scenario_axis_features(text: str) -> list[float]:
+    tokens = set(_tokenize(text))
+    return [float(bool(tokens & axis_terms)) for axis_terms in _SCENARIO_AXES]
+
+
 def _slot_semantic_features(slot: SlotRecord) -> list[float]:
     return [
         float(slot.bank == "core"),
@@ -178,6 +261,8 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
     slot_semantics = _slot_semantic_features(slot)
     slot_value = slot.canonical_gloss.split("=", 1)[-1]
     relation_text = slot.relation.replace("_", " ")
+    query_axes = _scenario_axis_features(query)
+    slot_axes = _scenario_axis_features(slot.canonical_gloss)
     alignment = [
         query_semantics[0] * slot.soft_role_scores.preference,
         query_semantics[1] * float(slot.relation == "reason_fact"),
@@ -198,7 +283,10 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
         _token_overlap(query, relation_text),
         *query_semantics,
         *slot_semantics,
+        *query_axes,
+        *slot_axes,
         *alignment,
+        *[left * right for left, right in zip(query_axes, slot_axes)],
     ]
 
 
@@ -348,6 +436,17 @@ def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
         queries.add("What kind of tendency best describes the user?")
     else:
         queries.add(f"What detail best matches the user's {relation_text}?")
+    axes = _scenario_axis_features(f"{observation.value} {observation.evidence_text}")
+    if axes[0]:
+        queries.add("What kind of structured, high-pressure, or obligation-heavy situation affects the user?")
+    if axes[1]:
+        queries.add("What kind of spontaneous, flexible, or creativity-friendly style suits the user?")
+    if axes[2]:
+        queries.add("What crowded, intense, or high-energy setting might overwhelm the user?")
+    if axes[3]:
+        queries.add("What calmer, quieter, or more personal setting suits the user?")
+    if axes[4]:
+        queries.add("What community, audience, or feedback dynamic matters to the user?")
     return [query for query in queries if query]
 
 
