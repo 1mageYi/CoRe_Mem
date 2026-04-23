@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 152
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` search-derived relation-pooled belief-composer discard and restore
+- State changed:
+  - Iteration `12 discard`: replaced direct top-slot belief items with relation-pooled belief composition so the learned path consumed merged support per relation instead of raw top-3 slots
+  - Trial improved internal training/eval signals (`reader_eval_accuracy = 0.8856`, `decision_eval_accuracy = 0.5126`, `reader_support_accuracy = 0.5078`, `full_accuracy = 0.5508`), but PersonaMem full589 no-routing still degraded from retained `179/589` to `160/589` vs text-only `180/589` and option-only `235/589`
+  - Reverted the trial commit with `git revert --no-edit`, re-published retained v6.3 artifacts, and restored current negative-result truth at `179/589` vs text-only `180/589` vs option-only `235/589`
+- Evidence:
+  - `research-results.tsv` now records row `12 discard`
+  - `autoresearch-state.json` now records iteration `12`, retained metric `85`, and the retained labels unchanged
+  - `latest_stage2_v63_personamem_no_routing.json` remains the retained truth at `179/589`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration and rollback only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 151
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` second pivot family discard set and search escalation

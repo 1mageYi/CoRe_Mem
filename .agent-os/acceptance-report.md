@@ -25,10 +25,11 @@
     - discarded scenario-aware reader-semantics trial degraded to `162/589`
     - discarded question-conditioned belief-selector trial degraded to `176/589`
     - discarded query-relation-router trial degraded to `163/589`
+    - discarded relation-pooled belief-composer trial degraded to `160/589`
   - Boundary:
     - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。
     - 当前不能声明 benchmark gain、significant PersonaMem margin、acceptance met 或 reproducible closeout。
-    - 第二次 `pivot` 与 `search` 已成立，说明当前 selected-slot rerank / routing 家族也没有形成 retainable gain；下一条线必须比现有 question-conditioned read-path 更结构性。
+    - 第二次 `pivot` 与 `search` 已成立，但 search-derived 第一条 pooled-belief trial 也没有形成 retainable gain；下一条线必须比现有 question-conditioned read-path 与 relation-pooling 更结构性。
 
 ## Stage 2 V6.2 Learned Write-Quality Evidence
 
