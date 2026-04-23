@@ -119,34 +119,6 @@ _LOW_INFORMATION_VALUE_TERMS = {
     "trying",
     "visit",
 }
-_PROFILE_FRAGMENT_LEAD_TOKENS = {
-    "as",
-    "by",
-    "for",
-    "in",
-    "on",
-    "through",
-    "to",
-    "toward",
-    "towards",
-    "with",
-    "while",
-}
-_PROFILE_FRAGMENT_AFFECT_TOKENS = {
-    "curious",
-    "eager",
-    "excited",
-    "hopeful",
-    "interested",
-    "thrilled",
-}
-_PROFILE_FRAGMENT_MODIFIER_TOKENS = {
-    "always",
-    "especially",
-    "genuinely",
-    "particularly",
-    "really",
-}
 
 
 def _tokenize(text: str) -> list[str]:
@@ -233,37 +205,12 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
 def _is_low_information_value(observation: Observation) -> bool:
     if observation.relation not in {"goal", "hobby", "profile_trait"}:
         return False
-    raw_tokens = _tokenize(observation.value)
-    if not raw_tokens:
-        return True
-    if (
-        observation.relation == "profile_trait"
-        and observation.value_type == "other"
-        and _looks_like_profile_fragment(raw_tokens)
-    ):
-        return True
-    tokens = [token for token in raw_tokens if token not in _STOPWORDS]
+    tokens = [token for token in _tokenize(observation.value) if token not in _STOPWORDS]
     if not tokens:
         return True
     if len(tokens) > 2:
         return False
     return set(tokens) <= _LOW_INFORMATION_VALUE_TERMS
-
-
-def _looks_like_profile_fragment(tokens: list[str]) -> bool:
-    first = tokens[0]
-    second = tokens[1] if len(tokens) > 1 else ""
-    if first in _PROFILE_FRAGMENT_LEAD_TOKENS or first.endswith("ing"):
-        return True
-    if first in _PROFILE_FRAGMENT_AFFECT_TOKENS and second in {"about", "for", "to"}:
-        return True
-    if first in _PROFILE_FRAGMENT_MODIFIER_TOKENS and (
-        second.endswith("ing")
-        or second in _PROFILE_FRAGMENT_AFFECT_TOKENS
-        or second in _PROFILE_FRAGMENT_LEAD_TOKENS
-    ):
-        return True
-    return first == "always" and second.endswith("ing")
 
 
 def filter_v61_observations(observations: list[Observation]) -> list[Observation]:
