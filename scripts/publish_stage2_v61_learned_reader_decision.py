@@ -24,13 +24,7 @@ for candidate in (REPO_ROOT, SRC_ROOT):
 
 from core_mem.v2.parser import Stage2ObservationParser
 from core_mem.v2.schemas import Observation, SlotRecord
-from core_mem.v2.v61_learned_memory import (
-    build_v61_memory,
-    evaluate_internal_v61,
-    natural_language_query,
-    score_options_with_head,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import build_v61_memory, evaluate_internal_v61, score_options_with_head
 from core_mem.v2.v6_persistent_memory import option_label
 
 
@@ -247,8 +241,8 @@ def _evaluate_personamem(
 
             readout = _read_with_model(question, slots=slots, reader=reader, top_k=8)
         pred_idx, option_scores = score_options_with_head(readout, question, options, decision_head)
-        text_idx = max(range(len(options)), key=lambda idx: _token_overlap(question, options[idx])) if options else 0
-        option_idx = max(range(len(options)), key=lambda idx: _token_overlap(" ".join(options), options[idx])) if options else 0
+        text_idx = _text_only_prediction(question, options, slots)
+        option_idx = max(range(len(options)), key=lambda idx: _token_overlap(question, options[idx])) if options else 0
         prediction = labels[pred_idx] if labels else ""
         text_prediction = labels[text_idx] if labels else ""
         option_prediction = labels[option_idx] if labels else ""
@@ -319,6 +313,21 @@ def _token_overlap(left: str, right: str) -> float:
     if not left_tokens or not right_tokens:
         return 0.0
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
+
+
+def _text_only_prediction(question: str, options: list[str], slots: list[SlotRecord]) -> int:
+    if not options:
+        return 0
+    if not slots:
+        return 0
+    query_text = " ".join(re.findall(r"[a-z0-9']+", question.lower()))
+    scores: list[float] = []
+    for option in options:
+        option_text = " ".join(re.findall(r"[a-z0-9']+", option.lower()))
+        score = max(_token_overlap(option_text, slot.canonical_gloss) for slot in slots)
+        score += 0.1 * _token_overlap(query_text, option_text)
+        scores.append(score)
+    return max(range(len(scores)), key=lambda idx: scores[idx])
 
 
 def publish_v61_learned_reader_decision(

@@ -14,7 +14,7 @@
   - 当前 v6.1 baseline：fresh `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`；说明 v6 structural evidence 已被继承，但 learned reader/decision 主路径仍是当前主缺口。
   - 当前 partial：current HEAD 已新增 `scripts/publish_stage2_v61_learned_reader_decision.py` 与 `src/core_mem/v2/v61_learned_memory.py`，并把 verifier 推到 `80`
   - 当前 partial：authoritative learned reader / learned decision head、semantic slot compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof 已成立
-  - 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `235/589`，option-only `293/589`，对 text-only margin `-95`
+  - 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `182/589`，option-only `235/589`，对 text-only margin `-42`
 
 - `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 learned latent prototype 升级为真正 persistent memory substrate。
   - 当前 workstream: `WS-035`

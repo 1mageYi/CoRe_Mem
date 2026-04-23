@@ -37,9 +37,10 @@
     - `latest_stage2_v61_arch_ablation.json` 记录 true disabled architecture reruns，当前 writer / reader / decision ablation drops 为真
   - Negative result:
     - PersonaMem full589 no-routing `140/589`
-    - text-only `235/589`
-    - option-only `293/589`
-    - margin vs text-only `-95`
+    - text-only `182/589`
+    - option-only `235/589`
+    - margin vs text-only `-42`
+    - margin vs option-only `-95`
     - `latest_stage2_v61_decision.json` 记录 `result_type = negative_result`
   - Boundary:
     - 当前只证明 v6.1 的 authoritative learned reader / learned decision、semantic slot compaction、typed residuals 与 hard internal eval 已成立。

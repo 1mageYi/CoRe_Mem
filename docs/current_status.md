@@ -13,12 +13,12 @@
 - 当前已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，真实把 authoritative `read()` 从 `dot-product + bank_prior` 切到 learned query-slot scorer，并把 decision path 切到 learned answer head
 - 当前 v6.1 新证据：`latest_stage2_v61_reader_decision_train.json`、`latest_stage2_v61_persistent_state.json`、`latest_stage2_v61_internal_eval.json`、`latest_stage2_v61_personamem_no_routing.json`、`latest_stage2_v61_arch_ablation.json` 与 `latest_stage2_v61_decision.json`
 - 当前 structural gain：persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、semantic slot compaction、typed residuals、hard internal eval 均已成立；internal eval 当前记录 `full_accuracy = 0.47265625`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
-- 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `235/589`，option-only `293/589`；因此当前可诚实声明的是 v6.1 结构性升级成立，但 benchmark gain 仍未成立
+- 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `182/589`，option-only `235/589`；对 text-only margin 为 `-42`，因此当前可诚实声明的是 v6.1 结构性升级成立，但 benchmark gain 仍未成立
 - v6.1 stop condition 仍未触发；新的 stop condition 只在 learned reader/decision 真超过 text-only 与 option-only 且保留 meaningful margin 时才允许收口
 
-## 当前最新状态：v6 persistent core-residual latent memory 已成为新主线
+## 当前并行保留状态：v6 persistent core-residual latent memory 仍是 blocked baseline
 
-- `TD-049 / WS-035 / v6` 已锁定为下一轮 long run 主线：目标不是继续优化 v5.2 的 answer-time routing，而是实现 persistent core/residual latent memory state。
+- `TD-049 / WS-035 / v6` 当前作为 v6.1 的 blocked substrate baseline 保留：它说明 persistent core/residual latent memory state 已成立，但 no-routing benchmark gain 仍未成立。
 - v6 新计划：[docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
 - v6 新 verifier：[scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
 - v6 hard gate 明确禁止把 answer-time text-vs-latent confidence routing 作为 authoritative path；write-time routing 才是要加强的核心 memory routing。

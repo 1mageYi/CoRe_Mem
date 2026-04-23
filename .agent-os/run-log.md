@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-23 Session 138
+
+- Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` measurement-baseline alignment refine
+- State changed:
+  - Corrected `scripts/publish_stage2_v61_learned_reader_decision.py` so `text-only` / `option-only` baselines align with v6 semantics instead of using the earlier misaligned scoring rule
+  - Re-ran publisher and confirmed v6.1 verifier stays at `80`; this change affects benchmark comparison truth, not the retained structural score
+  - Updated v6.1 state docs so runtime truth now reflects the corrected comparison numbers and `TD-050` remains the top next action
+- Evidence:
+  - `latest_stage2_v61_personamem_no_routing.json` now records PersonaMem full589 no-routing `140/589`, text-only `182/589`, option-only `235/589`, margin vs text-only `-42`, margin vs option-only `-95`
+  - `latest_stage2_v61_decision.json` still records `result_type = negative_result` and `significant_margin_confirmed = false`
+  - The retained benchmark boundary is still honest: v6.1 structural keep stands, but no meaningful PersonaMem margin exists
+- Verification:
+  - `git diff --check` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v61_learned_reader_decision.py --score-only` -> passed, score `80`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v61_learned_reader_decision.py` -> passed
+- Boundary:
+  - This refine corrects measurement semantics only; it is not a capability gain.
+  - v6.1 remains partial / negative_result until no-routing PersonaMem beats both corrected baselines with meaningful margin.
+
 # 2026-04-23 Session 137
 
 - Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` managed autoresearch fresh baseline and first focused keep

@@ -31,7 +31,7 @@
   - Current baseline: `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`
   - Current retained partial: current HEAD 已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，并发布 `latest_stage2_v61_{reader_decision_train,persistent_state,internal_eval,personamem_no_routing,arch_ablation,decision}.json`；当前 verifier `= 80`
   - Current retained partial: persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、learned write-time routing、authoritative learned reader、authoritative learned decision head、semantic slot compaction、typed residuals 与 hard internal eval 已成立；internal eval `full_accuracy = 0.4727`、`disabled_reader_accuracy = 0.2461`、`disabled_decision_accuracy = 0.3594`
-  - Current negative truth: PersonaMem full589 no-routing `140/589`，text-only `235/589`，option-only `293/589`，margin vs text-only `-95`；`latest_stage2_v61_decision.json` 记录 `negative_result`
+  - Current negative truth: PersonaMem full589 no-routing `140/589`，text-only `182/589`，option-only `235/589`，margin vs text-only `-42`；`latest_stage2_v61_decision.json` 记录 `negative_result`
   - Truth boundary: v6.1 结构性升级已成立，但当前仍不能 claim benchmark gain、acceptance met 或 reproducible success；closeout 仍取决于 no-routing PersonaMem meaningful margin
 
 - `WS-035` `[blocked]`: Stage-2 `v6 Persistent Core-Residual Latent Memory`，目标是实现真正 persistent `core_bank` / `residual_bank` latent state，训练 write-time memory routing，并用 query-conditioned latent reader + belief/readout 在不使用 answer-time confidence routing 的情况下超过 text-only。
@@ -233,12 +233,12 @@
 
 ## Top Next Action
 
-- `TD-049 / WS-035 / v6` 当前 blocked。当前 top next action 是人工/下一轮研究重新选择 persistent memory/readout 方向；不得把 query-option shortcut、answer-time routing 或 raw full-context retrieval 当作 closeout。
-  - Runtime truth: fresh baseline `16`，current partial score `80`。
-  - Current evidence truth: persistent banks/checkpoint/write trace/learned write-router/reader/belief-readout/persistent-state eval/ablation drops 已发布；PersonaMem no-routing 是 negative_result，不能 claim。
+- `TD-050 / WS-036 / v6.1` 当前是 active top next action。当前结构性缺口已补齐到 verifier `80`，接下来必须提升 PersonaMem full589 no-routing，而不是继续补结构分。
+  - Runtime truth: fresh baseline `45`，current retained score `80`。
+  - Current evidence truth: authoritative learned reader、learned decision head、semantic slot compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof 已发布；当前 PersonaMem no-routing 仍是 `140/589` vs text-only `182/589` vs option-only `235/589`，negative_result 仍成立。
   - Next focus:
-    - 若继续，必须提出新的 persistent-bank readout or memory-state quality hypothesis。
-    - PersonaMem margin 若无法达到 `+30`，继续保持 negative_result / blocked，不得回到 v5.2 confidence routing。
+    - 继续提出新的 persistent-bank readout / decision-quality hypothesis，但不得回到 query-option shortcut、answer-time routing 或 raw full-context retrieval。
+    - 若 PersonaMem margin 仍无法达到 `+30`，继续诚实保持 negative_result，不得把 structural keep 写成 benchmark success。
 
 ## Active Blockers
 
