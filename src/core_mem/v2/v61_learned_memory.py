@@ -202,6 +202,39 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
     ]
 
 
+def _belief_selector_features(
+    query: str,
+    query_key: list[float],
+    slot: SlotRecord,
+    *,
+    reader_score: float,
+) -> list[float]:
+    query_semantics = _query_semantic_features(query)
+    slot_semantics = _slot_semantic_features(slot)
+    slot_value = slot.canonical_gloss.split("=", 1)[-1]
+    relation_text = slot.relation.replace("_", " ")
+    alignment = [
+        query_semantics[0] * slot.soft_role_scores.preference,
+        query_semantics[1] * float(slot.relation == "reason_fact"),
+        query_semantics[2] * slot.soft_role_scores.temporal,
+        query_semantics[3] * slot.soft_role_scores.social,
+        query_semantics[4] * slot.soft_role_scores.constraint,
+        query_semantics[5] * slot.soft_role_scores.goal,
+        query_semantics[6] * float(slot.relation == "profile_trait"),
+        query_semantics[7] * slot.soft_role_scores.stable,
+    ]
+    return [
+        reader_score,
+        slot.confidence,
+        _token_overlap(query, slot.canonical_gloss),
+        _token_overlap(query, slot_value),
+        _token_overlap(query, relation_text),
+        *query_semantics,
+        *slot_semantics,
+        *alignment,
+    ]
+
+
 def _is_low_information_value(observation: Observation) -> bool:
     if observation.relation not in {"goal", "hobby", "profile_trait"}:
         return False
@@ -406,30 +439,106 @@ def train_v61_reader_readout(
     split = min(split, len(x) - 4)
     train_x, eval_x = x[:split], x[split:]
     train_y, eval_y = y[:split], y[split:]
-    reader = V6ReaderReadout(input_dim=x.shape[1], hidden_dim=48)
-    optimizer = torch.optim.AdamW(reader.parameters(), lr=learning_rate, weight_decay=1e-4)
-    loss_curve: list[dict[str, float]] = []
+    probe_reader = V6ReaderReadout(input_dim=x.shape[1], hidden_dim=48)
+    optimizer = torch.optim.AdamW(probe_reader.parameters(), lr=learning_rate, weight_decay=1e-4)
+    reader_loss_curve: list[dict[str, float]] = []
     for epoch in range(epochs):
-        logits = reader(train_x)
+        logits = probe_reader(train_x)
         loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
         if epoch in {0, epochs - 1}:
-            loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
-    with torch.no_grad():
-        eval_predictions = (torch.sigmoid(reader(eval_x)) >= 0.5).float()
-    eval_accuracy = float((eval_predictions == eval_y).float().mean().item())
-    majority = 1.0 if float(train_y.mean().item()) >= 0.5 else 0.0
-    disabled = torch.full_like(eval_y, majority)
-    disabled_accuracy = float((disabled == eval_y).float().mean().item())
+            reader_loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
+    selector_input_dim = len(
+        _belief_selector_features(
+            "query",
+            [0.0 for _ in range(len(memory.active_slots()[0].retrieval_key))],
+            memory.active_slots()[0],
+            reader_score=0.0,
+        )
+    )
+    read_path = V61QuestionConditionedReadPath(
+        reader_input_dim=x.shape[1],
+        selector_input_dim=selector_input_dim,
+    )
+    read_path.reader.load_state_dict(probe_reader.state_dict())
+    selector_examples: list[_BeliefSelectorExample] = []
+    for observation in observations:
+        turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else None
+        slots = memory.active_slots(context_id=observation.source_dialogue_id, max_turn_index=turn_index)
+        if len(slots) < 2:
+            continue
+        positive_slot = _best_matching_slot(observation, slots)
+        if positive_slot is None:
+            continue
+        for query in _synthetic_queries_for_observation(observation):
+            query_key = QueryEncoder(dimension=len(positive_slot.retrieval_key)).encode(query)
+            candidate_x = torch.tensor(
+                [_reader_pair_features(query, query_key, slot) for slot in slots],
+                dtype=torch.float32,
+            )
+            with torch.no_grad():
+                reader_scores = torch.sigmoid(read_path.reader(candidate_x)).tolist()
+            ranked = sorted(zip(reader_scores, slots), key=lambda item: item[0], reverse=True)
+            shortlist = ranked[:8]
+            if positive_slot.slot_id not in {slot.slot_id for _, slot in shortlist}:
+                positive_reader_score = next(
+                    float(reader_score)
+                    for reader_score, slot in ranked
+                    if slot.slot_id == positive_slot.slot_id
+                )
+                shortlist = [(positive_reader_score, positive_slot), *shortlist[:7]]
+            positive_index = next((idx for idx, (_, slot) in enumerate(shortlist) if slot.slot_id == positive_slot.slot_id), None)
+            if positive_index is None:
+                continue
+            selector_examples.append(
+                _BeliefSelectorExample(
+                    feature_rows=[
+                        _belief_selector_features(query, query_key, slot, reader_score=float(reader_score))
+                        for reader_score, slot in shortlist
+                    ],
+                    positive_index=positive_index,
+                    reader_scores=[float(reader_score) for reader_score, _ in shortlist],
+                )
+            )
+    if len(selector_examples) < 16:
+        raise ValueError("v6.1 belief-selector training requires at least 16 grouped examples.")
+    selector_split = max(8, int(len(selector_examples) * 0.8))
+    selector_split = min(selector_split, len(selector_examples) - 4)
+    train_groups = selector_examples[:selector_split]
+    eval_groups = selector_examples[selector_split:]
+    selector_optimizer = torch.optim.AdamW(read_path.belief_selector.parameters(), lr=learning_rate, weight_decay=1e-4)
+    selector_loss_curve: list[dict[str, float]] = []
+    for epoch in range(epochs):
+        losses: list[torch.Tensor] = []
+        for example in train_groups:
+            selector_x = torch.tensor(example.feature_rows, dtype=torch.float32)
+            logits = read_path.belief_selector(selector_x)
+            losses.append(nn.functional.cross_entropy(logits.unsqueeze(0), torch.tensor([example.positive_index], dtype=torch.long)))
+        selector_loss = torch.stack(losses).mean()
+        selector_optimizer.zero_grad(set_to_none=True)
+        selector_loss.backward()
+        selector_optimizer.step()
+        if epoch in {0, epochs - 1}:
+            selector_loss_curve.append({"epoch": float(epoch + 1), "loss": float(selector_loss.item())})
+    selector_hits = 0
+    disabled_hits = 0
+    for example in eval_groups:
+        selector_x = torch.tensor(example.feature_rows, dtype=torch.float32)
+        with torch.no_grad():
+            selector_logits = read_path.belief_selector(selector_x)
+        selector_hits += int(int(selector_logits.argmax().item()) == example.positive_index)
+        disabled_hits += int(max(range(len(example.reader_scores)), key=lambda idx: example.reader_scores[idx]) == example.positive_index)
+    eval_accuracy = selector_hits / max(len(eval_groups), 1)
+    disabled_accuracy = disabled_hits / max(len(eval_groups), 1)
     return V6ReaderTrainingResult(
-        reader=reader,
+        reader=read_path,
         eval_accuracy=eval_accuracy,
         disabled_readout_accuracy=disabled_accuracy,
-        train_pairs=len(train_y),
-        eval_pairs=len(eval_y),
-        loss_curve=loss_curve,
+        train_pairs=sum(len(example.feature_rows) for example in train_groups),
+        eval_pairs=sum(len(example.feature_rows) for example in eval_groups),
+        loss_curve=[*reader_loss_curve, *selector_loss_curve],
     )
 
 
@@ -446,6 +555,32 @@ class V61DecisionHead(nn.Module):
         return self.net(features).squeeze(-1)
 
 
+class V61BeliefSelector(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int = 48) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        return self.net(features).squeeze(-1)
+
+
+class V61QuestionConditionedReadPath(nn.Module):
+    def __init__(
+        self,
+        *,
+        reader_input_dim: int,
+        selector_input_dim: int,
+        hidden_dim: int = 48,
+    ) -> None:
+        super().__init__()
+        self.reader = V6ReaderReadout(input_dim=reader_input_dim, hidden_dim=hidden_dim)
+        self.belief_selector = V61BeliefSelector(input_dim=selector_input_dim, hidden_dim=hidden_dim)
+
+
 @dataclass(frozen=True)
 class V61DecisionTrainingResult:
     head: V61DecisionHead
@@ -454,6 +589,13 @@ class V61DecisionTrainingResult:
     train_examples: int
     eval_examples: int
     loss_curve: list[dict[str, float]]
+
+
+@dataclass(frozen=True)
+class _BeliefSelectorExample:
+    feature_rows: list[list[float]]
+    positive_index: int
+    reader_scores: list[float]
 
 
 def _read_with_model(
@@ -467,14 +609,37 @@ def _read_with_model(
         return {"query_key": [], "selected": [], "composed_key": [], "belief_items": []}
     query_encoder = QueryEncoder(dimension=len(slots[0].retrieval_key))
     query_key = query_encoder.encode(query)
+    read_path = reader if isinstance(reader, V61QuestionConditionedReadPath) else None
+    reader_model = read_path.reader if read_path is not None else reader
     features = torch.tensor(
         [_reader_pair_features(query, query_key, slot) for slot in slots],
         dtype=torch.float32,
     )
     with torch.no_grad():
-        scores = torch.sigmoid(reader(features)).tolist()
+        scores = torch.sigmoid(reader_model(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
-    selected = ranked[:top_k]
+    shortlist = ranked[: max(top_k, 8)]
+    if read_path is None:
+        selected = shortlist[:top_k]
+    else:
+        selector_x = torch.tensor(
+            [
+                _belief_selector_features(query, query_key, slot, reader_score=float(reader_score))
+                for reader_score, slot in shortlist
+            ],
+            dtype=torch.float32,
+        )
+        with torch.no_grad():
+            selector_scores = torch.sigmoid(read_path.belief_selector(selector_x)).tolist()
+        reranked = sorted(
+            (
+                (0.35 * float(reader_score) + 0.65 * float(selector_score), slot)
+                for (reader_score, slot), selector_score in zip(shortlist, selector_scores)
+            ),
+            key=lambda item: item[0],
+            reverse=True,
+        )
+        selected = reranked[:top_k]
     total_score = sum(score for score, _ in selected) or 1.0
     composed = [
         sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score
