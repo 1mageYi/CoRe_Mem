@@ -1,5 +1,25 @@
 # Run Log
 
+# 2026-04-23 Session 139
+
+- Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` reader/query alignment and grouped decision training keep
+- State changed:
+  - Replaced the inherited `v6` reader training with a `v6.1`-specific reader objective that trains on natural-language synthetic queries, relation-aware hard negatives, and richer query-slot alignment features
+  - Replaced independent binary option scoring with grouped four-way decision-head training so the learned decision path is optimized for actual option selection rather than per-option BCE
+  - Added focused unit coverage in `tests/test_stage2_v61_learned_memory.py`
+  - Re-ran `scripts/publish_stage2_v61_learned_reader_decision.py`; verifier remains `80`, but no-routing PersonaMem improved from `140/589` to `182/589`
+- Evidence:
+  - `latest_stage2_v61_internal_eval.json` now records `reader_support_accuracy = 0.33203125` and `full_accuracy = 0.4921875`, up from `0.2109375 / 0.47265625`
+  - `latest_stage2_v61_personamem_no_routing.json` now records full589 no-routing `182/589`, text-only `182/589`, option-only `235/589`, margin vs text-only `0`, margin vs option-only `-53`
+  - `latest_stage2_v61_decision.json` remains `negative_result`; the stop gate is still blocked by option-only and meaningful-margin requirements
+- Verification:
+  - `git diff --check` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v61_learned_reader_decision.py --score-only` -> passed, score `80`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v61_learned_reader_decision.py tests/test_stage2_v61_learned_memory.py` -> passed
+- Boundary:
+  - This keep proves the query/readout mismatch was a real bottleneck and that fixing the learned path can materially improve no-routing quality.
+  - This is still not a v6.1 success claim because the run only ties corrected text-only and still trails option-only by `53`.
+
 # 2026-04-23 Session 138
 
 - Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` measurement-baseline alignment refine

@@ -30,20 +30,20 @@
   - Status: partial / negative_result
   - Evidence:
     - `scripts/verify_stage2_v61_learned_reader_decision.py --score-only` 当前返回 `80`
-    - `latest_stage2_v61_reader_decision_train.json` 记录 learned write-time router、query-conditioned learned reader、learned decision head、semantic slot matching / slot compaction 全部已训练；decision eval accuracy `0.7585616707801819`
+    - `latest_stage2_v61_reader_decision_train.json` 记录 learned write-time router、query-conditioned learned reader、learned decision head、semantic slot matching / slot compaction 全部已训练；reader eval accuracy `0.9613375067710876`、decision eval accuracy `0.460567831993103`
     - `latest_stage2_v61_persistent_state.json` 记录 persistent `core_bank_size = 67`、`residual_bank_size = 540`、checkpoint、write trace、bank compaction、typed residual relations 与 `other_fact_share = 0.0`
-    - `latest_stage2_v61_internal_eval.json` 记录 authoritative reader path `learned_query_slot_reader`、natural-language queries、hard negatives、`full_accuracy = 0.47265625`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
+    - `latest_stage2_v61_internal_eval.json` 记录 authoritative reader path `learned_query_slot_reader`、natural-language queries、hard negatives、`reader_support_accuracy = 0.33203125`、`full_accuracy = 0.4921875`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
     - `latest_stage2_v61_personamem_no_routing.json` 记录 `sample_count = 589`、`score_mode = learned_decision_head`、`decision_mode = learned_answer_head`、`handcrafted_option_scoring_used = false`、`lexical_jaccard_used = false`
     - `latest_stage2_v61_arch_ablation.json` 记录 true disabled architecture reruns，当前 writer / reader / decision ablation drops 为真
   - Negative result:
-    - PersonaMem full589 no-routing `140/589`
+    - PersonaMem full589 no-routing `182/589`
     - text-only `182/589`
     - option-only `235/589`
-    - margin vs text-only `-42`
-    - margin vs option-only `-95`
+    - margin vs text-only `0`
+    - margin vs option-only `-53`
     - `latest_stage2_v61_decision.json` 记录 `result_type = negative_result`
   - Boundary:
-    - 当前只证明 v6.1 的 authoritative learned reader / learned decision、semantic slot compaction、typed residuals 与 hard internal eval 已成立。
+    - 当前只证明 v6.1 的 authoritative learned reader / learned decision、semantic slot compaction、typed residuals 与 hard internal eval 已成立，并且 no-routing PersonaMem 已从 `140` 提到 `182`。
     - 当前不能声明 benchmark gain、acceptance met 或 significant PersonaMem margin。
 
 ## Stage 2 V5.2 Full Learned Latent System Evidence

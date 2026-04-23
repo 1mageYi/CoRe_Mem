@@ -12,8 +12,8 @@
 - fresh v6.1 baseline 已初始化为 `stage2_v61_learned_reader_decision_score = 45`；current HEAD 第一轮 keep 已把 verifier 推到 `80`
 - 当前已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，真实把 authoritative `read()` 从 `dot-product + bank_prior` 切到 learned query-slot scorer，并把 decision path 切到 learned answer head
 - 当前 v6.1 新证据：`latest_stage2_v61_reader_decision_train.json`、`latest_stage2_v61_persistent_state.json`、`latest_stage2_v61_internal_eval.json`、`latest_stage2_v61_personamem_no_routing.json`、`latest_stage2_v61_arch_ablation.json` 与 `latest_stage2_v61_decision.json`
-- 当前 structural gain：persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、semantic slot compaction、typed residuals、hard internal eval 均已成立；internal eval 当前记录 `full_accuracy = 0.47265625`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
-- 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `182/589`，option-only `235/589`；对 text-only margin 为 `-42`，因此当前可诚实声明的是 v6.1 结构性升级成立，但 benchmark gain 仍未成立
+- 当前 structural gain：persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、semantic slot compaction、typed residuals、hard internal eval 均已成立；本轮 keep 又把 `reader_support_accuracy` 提到 `0.33203125`、`full_accuracy` 提到 `0.4921875`
+- 当前负结果：PersonaMem full589 no-routing `182/589`，text-only `182/589`，option-only `235/589`；当前已经追平 text-only，但仍未超过 option-only，也没有 meaningful margin，因此当前可诚实声明的是 v6.1 结构性升级成立、主路径质量真实提升，但 benchmark gain 仍未成立
 - v6.1 stop condition 仍未触发；新的 stop condition 只在 learned reader/decision 真超过 text-only 与 option-only 且保留 meaningful margin 时才允许收口
 
 ## 当前并行保留状态：v6 persistent core-residual latent memory 仍是 blocked baseline

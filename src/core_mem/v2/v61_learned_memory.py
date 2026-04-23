@@ -18,12 +18,9 @@ from core_mem.v2.v6_persistent_memory import (
     V6ReaderReadout,
     V6RouterTrainingResult,
     V6ReaderTrainingResult,
-    reader_pair_features,
     relation_family,
     route_observation,
-    silver_action_for_observation,
     stable_timestamp,
-    train_reader_readout,
     train_write_router,
     vector_dot,
 )
@@ -63,6 +60,26 @@ _STOPWORDS = {
 _ENVIRONMENT_TERMS = {"crowded", "chaotic", "quiet", "peaceful", "atmosphere", "festival", "library", "libraries"}
 _SOCIAL_TERMS = {"peer", "peers", "friend", "friends", "group", "community", "collaboration", "collaborations"}
 _REASON_TERMS = {"because", "feedback", "pressured", "rush", "step", "stopped", "opted", "decided", "avoid"}
+_PREFERENCE_QUERY_TERMS = {
+    "favorite",
+    "favorites",
+    "idea",
+    "ideas",
+    "like",
+    "love",
+    "prefer",
+    "preference",
+    "preferences",
+    "recommend",
+    "recommendation",
+    "suggest",
+}
+_REASON_QUERY_TERMS = {"because", "caused", "explain", "reason", "reasons", "why"}
+_TEMPORAL_QUERY_TERMS = {"before", "change", "changed", "current", "now", "past", "previous", "recent", "recently", "update"}
+_SOCIAL_QUERY_TERMS = {"community", "dating", "family", "friend", "friends", "group", "partner", "relationship", "social"}
+_CONSTRAINT_QUERY_TERMS = {"avoid", "cannot", "can't", "constraint", "limit", "must", "restrict", "restriction"}
+_GOAL_QUERY_TERMS = {"aim", "goal", "goals", "plan", "planning", "trying", "want", "wants", "working"}
+_PROFILE_QUERY_TERMS = {"kind", "person", "personality", "style", "tendency", "trait", "traits"}
 
 
 def _tokenize(text: str) -> list[str]:
@@ -85,6 +102,65 @@ def _mean_vector(vectors: Iterable[list[float]]) -> list[float]:
     merged = [sum(row[idx] for row in rows) / len(rows) for idx in range(dim)]
     norm = math.sqrt(sum(value * value for value in merged)) or 1.0
     return [value / norm for value in merged]
+
+
+def _query_semantic_features(query: str) -> list[float]:
+    tokens = set(_tokenize(query))
+    return [
+        float(bool(tokens & _PREFERENCE_QUERY_TERMS)),
+        float(bool(tokens & _REASON_QUERY_TERMS)),
+        float(bool(tokens & _TEMPORAL_QUERY_TERMS)),
+        float(bool(tokens & _SOCIAL_QUERY_TERMS)),
+        float(bool(tokens & _CONSTRAINT_QUERY_TERMS)),
+        float(bool(tokens & _GOAL_QUERY_TERMS)),
+        float(bool(tokens & _PROFILE_QUERY_TERMS)),
+        float("?" in query or bool(tokens & {"what", "which", "who", "where", "when", "why", "how"})),
+    ]
+
+
+def _slot_semantic_features(slot: SlotRecord) -> list[float]:
+    return [
+        float(slot.bank == "core"),
+        float(slot.bank == "residual"),
+        float(slot.soft_role_scores.stable),
+        float(slot.soft_role_scores.preference),
+        float(slot.soft_role_scores.constraint),
+        float(slot.soft_role_scores.goal),
+        float(slot.soft_role_scores.temporal),
+        float(slot.soft_role_scores.social),
+        float(slot.relation == "reason_fact"),
+        float(slot.relation == "profile_trait"),
+    ]
+
+
+def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) -> list[float]:
+    slot_key = slot.retrieval_key
+    query_semantics = _query_semantic_features(query)
+    slot_semantics = _slot_semantic_features(slot)
+    slot_value = slot.canonical_gloss.split("=", 1)[-1]
+    relation_text = slot.relation.replace("_", " ")
+    alignment = [
+        query_semantics[0] * slot.soft_role_scores.preference,
+        query_semantics[1] * float(slot.relation == "reason_fact"),
+        query_semantics[2] * slot.soft_role_scores.temporal,
+        query_semantics[3] * slot.soft_role_scores.social,
+        query_semantics[4] * slot.soft_role_scores.constraint,
+        query_semantics[5] * slot.soft_role_scores.goal,
+        query_semantics[6] * float(slot.relation == "profile_trait"),
+        query_semantics[7] * slot.soft_role_scores.stable,
+    ]
+    return [
+        *query_key,
+        *slot_key,
+        *[abs(left - right) for left, right in zip(query_key, slot_key)],
+        *[left * right for left, right in zip(query_key, slot_key)],
+        _token_overlap(query, slot.canonical_gloss),
+        _token_overlap(query, slot_value),
+        _token_overlap(query, relation_text),
+        *query_semantics,
+        *slot_semantics,
+        *alignment,
+    ]
 
 
 def infer_typed_relation(observation: Observation) -> str:
@@ -188,6 +264,121 @@ def compact_memory(memory: PersistentCoreResidualMemory) -> dict[str, Any]:
     }
 
 
+def _best_matching_slot(observation: Observation, slots: list[SlotRecord]) -> SlotRecord | None:
+    candidates = [slot for slot in slots if relation_family(slot.relation) == relation_family(observation.relation)]
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda slot: (
+            _token_overlap(slot.canonical_gloss, observation.canonical_gloss),
+            _token_overlap(slot.canonical_gloss, observation.value),
+            slot.confidence,
+            1 if slot.bank == "core" else 0,
+        ),
+    )
+
+
+def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
+    relation_text = observation.relation.replace("_", " ")
+    queries = {natural_language_query(observation)}
+    if observation.relation.endswith("preference") or observation.relation == "hobby":
+        queries.add(f"Which {relation_text} best matches the user?")
+        queries.add("What would the user most likely prefer right now?")
+    elif observation.relation == "reason_fact":
+        queries.add("Why did the user's situation change?")
+        queries.add("Which reason best explains the user's recent update?")
+    elif observation.relation in {"temporal_fact", "environment_fact", "social_fact"}:
+        queries.add(f"What recent {relation_text} detail best fits the user?")
+    elif observation.relation == "profile_trait":
+        queries.add("What kind of tendency best describes the user?")
+    else:
+        queries.add(f"What detail best matches the user's {relation_text}?")
+    return [query for query in queries if query]
+
+
+def train_v61_reader_readout(
+    observations: list[Observation],
+    memory: PersistentCoreResidualMemory,
+    *,
+    epochs: int = 80,
+    learning_rate: float = 0.02,
+    seed: int = 607,
+) -> V6ReaderTrainingResult:
+    if len(observations) < 8:
+        raise ValueError("v6.1 reader/readout training requires at least 8 observations.")
+    torch.manual_seed(seed)
+    feature_rows: list[list[float]] = []
+    labels: list[float] = []
+    for observation in observations:
+        turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else None
+        slots = memory.active_slots(context_id=observation.source_dialogue_id, max_turn_index=turn_index)
+        if len(slots) < 2:
+            continue
+        positive_slot = _best_matching_slot(observation, slots)
+        if positive_slot is None:
+            continue
+        negatives = [
+            slot
+            for slot in slots
+            if slot.slot_id != positive_slot.slot_id
+            and relation_family(slot.relation) != relation_family(observation.relation)
+        ]
+        if not negatives:
+            negatives = [slot for slot in slots if slot.slot_id != positive_slot.slot_id]
+        if not negatives:
+            continue
+        for query in _synthetic_queries_for_observation(observation):
+            query_key = QueryEncoder(dimension=len(positive_slot.retrieval_key)).encode(query)
+            feature_rows.append(_reader_pair_features(query, query_key, positive_slot))
+            labels.append(1.0)
+            ranked_negatives = sorted(
+                negatives,
+                key=lambda slot: (
+                    _token_overlap(query, slot.canonical_gloss),
+                    _token_overlap(observation.value, slot.canonical_gloss),
+                    slot.confidence,
+                ),
+                reverse=True,
+            )
+            for negative_slot in ranked_negatives[:3]:
+                feature_rows.append(_reader_pair_features(query, query_key, negative_slot))
+                labels.append(0.0)
+    if len(feature_rows) < 16:
+        raise ValueError("v6.1 reader/readout training requires at least 16 synthetic pairs.")
+    x = torch.tensor(feature_rows, dtype=torch.float32)
+    y = torch.tensor(labels, dtype=torch.float32)
+    split = max(8, int(len(x) * 0.8))
+    split = min(split, len(x) - 4)
+    train_x, eval_x = x[:split], x[split:]
+    train_y, eval_y = y[:split], y[split:]
+    reader = V6ReaderReadout(input_dim=x.shape[1], hidden_dim=48)
+    optimizer = torch.optim.AdamW(reader.parameters(), lr=learning_rate, weight_decay=1e-4)
+    loss_curve: list[dict[str, float]] = []
+    for epoch in range(epochs):
+        logits = reader(train_x)
+        loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        if epoch in {0, epochs - 1}:
+            loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
+    with torch.no_grad():
+        eval_predictions = (torch.sigmoid(reader(eval_x)) >= 0.5).float()
+    eval_accuracy = float((eval_predictions == eval_y).float().mean().item())
+    majority = 1.0 if float(train_y.mean().item()) >= 0.5 else 0.0
+    disabled = torch.full_like(eval_y, majority)
+    disabled_accuracy = float((disabled == eval_y).float().mean().item())
+    return V6ReaderTrainingResult(
+        reader=reader,
+        eval_accuracy=eval_accuracy,
+        disabled_readout_accuracy=disabled_accuracy,
+        train_pairs=len(train_y),
+        eval_pairs=len(eval_y),
+        loss_curve=loss_curve,
+    )
+
+
 class V61DecisionHead(nn.Module):
     def __init__(self, input_dim: int, hidden_dim: int = 48) -> None:
         super().__init__()
@@ -223,7 +414,7 @@ def _read_with_model(
     query_encoder = QueryEncoder(dimension=len(slots[0].retrieval_key))
     query_key = query_encoder.encode(query)
     features = torch.tensor(
-        [reader_pair_features(query_key, slot.retrieval_key) for slot in slots],
+        [_reader_pair_features(query, query_key, slot) for slot in slots],
         dtype=torch.float32,
     )
     with torch.no_grad():
@@ -260,9 +451,22 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         return []
     option_key = QueryEncoder(dimension=len(composed)).encode(option)
     belief_text = " ".join(f"{item['relation']} {item['value']}" for item in readout.get("belief_items", []))
+    selected_slots = [item["slot"] for item in readout.get("selected", [])[:3] if isinstance(item.get("slot"), SlotRecord)]
     selected_scores = [float(item["score"]) for item in readout.get("selected", [])[:3]]
     slot_score_max = max(selected_scores) if selected_scores else 0.0
     slot_score_mean = sum(selected_scores) / len(selected_scores) if selected_scores else 0.0
+    belief_overlaps = [_token_overlap(option, f"{item['relation']} {item['value']}") for item in readout.get("belief_items", [])]
+    belief_overlap_max = max(belief_overlaps) if belief_overlaps else 0.0
+    belief_overlap_mean = sum(belief_overlaps) / len(belief_overlaps) if belief_overlaps else 0.0
+    selected_core_ratio = (
+        sum(1 for slot in selected_slots if slot.bank == "core") / len(selected_slots) if selected_slots else 0.0
+    )
+    selected_preference_ratio = (
+        sum(slot.soft_role_scores.preference for slot in selected_slots) / len(selected_slots) if selected_slots else 0.0
+    )
+    selected_temporal_ratio = (
+        sum(slot.soft_role_scores.temporal for slot in selected_slots) / len(selected_slots) if selected_slots else 0.0
+    )
     return [
         *query_key,
         *composed,
@@ -272,8 +476,13 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         vector_dot(composed, option_key),
         _token_overlap(option, belief_text),
         _token_overlap(option, query),
+        belief_overlap_max,
+        belief_overlap_mean,
         slot_score_max,
         slot_score_mean,
+        selected_core_ratio,
+        selected_preference_ratio,
+        selected_temporal_ratio,
     ]
 
 
@@ -318,47 +527,53 @@ def train_decision_head(
     seed: int = 611,
 ) -> V61DecisionTrainingResult:
     torch.manual_seed(seed)
-    examples: list[list[float]] = []
-    labels: list[float] = []
+    option_groups: list[list[list[float]]] = []
+    labels: list[int] = []
     for observation in observations:
         turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else None
         slots = memory.active_slots(context_id=observation.source_dialogue_id, max_turn_index=turn_index)
         if not slots:
             continue
-        query = natural_language_query(observation)
-        readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
-        positive_features = _option_features(readout, query, observation_option_statement(observation))
-        if not positive_features:
+        negatives = _select_hard_negatives(observation, observations)
+        if len(negatives) < 3:
             continue
-        examples.append(positive_features)
-        labels.append(1.0)
-        for negative in _select_hard_negatives(observation, observations):
-            examples.append(_option_features(readout, query, observation_option_statement(negative)))
-            labels.append(0.0)
-    if len(examples) < 16:
+        options = [observation_option_statement(observation), *[observation_option_statement(negative) for negative in negatives[:3]]]
+        for query in _synthetic_queries_for_observation(observation):
+            readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
+            features = [_option_features(readout, query, option) for option in options]
+            if any(not feature for feature in features):
+                continue
+            option_groups.append(features)
+            labels.append(0)
+    if len(option_groups) < 16:
         raise ValueError("v6.1 decision-head training requires at least 16 synthetic examples.")
-    x = torch.tensor(examples, dtype=torch.float32)
-    y = torch.tensor(labels, dtype=torch.float32)
+    x = torch.tensor(option_groups, dtype=torch.float32)
+    y = torch.tensor(labels, dtype=torch.long)
     split = max(8, int(len(x) * 0.8))
     split = min(split, len(x) - 4)
     train_x, eval_x = x[:split], x[split:]
     train_y, eval_y = y[:split], y[split:]
-    head = V61DecisionHead(input_dim=x.shape[1])
+    head = V61DecisionHead(input_dim=x.shape[-1], hidden_dim=64)
     optimizer = torch.optim.AdamW(head.parameters(), lr=learning_rate, weight_decay=1e-4)
     loss_curve: list[dict[str, float]] = []
     for epoch in range(epochs):
-        logits = head(train_x)
-        loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
+        logits = head(train_x.reshape(-1, train_x.shape[-1])).reshape(train_x.shape[0], train_x.shape[1])
+        loss = nn.functional.cross_entropy(logits, train_y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
         if epoch in {0, epochs - 1}:
             loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
     with torch.no_grad():
-        eval_predictions = (torch.sigmoid(head(eval_x)) >= 0.5).float()
+        eval_logits = head(eval_x.reshape(-1, eval_x.shape[-1])).reshape(eval_x.shape[0], eval_x.shape[1])
+        eval_predictions = eval_logits.argmax(dim=1)
     eval_accuracy = float((eval_predictions == eval_y).float().mean().item())
-    disabled_predictions = torch.full_like(eval_y, 0.0)
-    disabled_option_only_accuracy = float((disabled_predictions == eval_y).float().mean().item())
+    disabled_predictions: list[int] = []
+    for eval_group in eval_x:
+        overlaps = [float(feature[-8]) for feature in eval_group]
+        disabled_predictions.append(max(range(len(overlaps)), key=lambda idx: overlaps[idx]))
+    disabled_tensor = torch.tensor(disabled_predictions, dtype=torch.long)
+    disabled_option_only_accuracy = float((disabled_tensor == eval_y).float().mean().item())
     return V61DecisionTrainingResult(
         head=head,
         eval_accuracy=eval_accuracy,
@@ -382,7 +597,8 @@ def score_options_with_head(
         return 0, [0.0 for _ in options]
     tensor = torch.tensor(features, dtype=torch.float32)
     with torch.no_grad():
-        scores = torch.sigmoid(head(tensor)).tolist()
+        logits = head(tensor)
+        scores = torch.softmax(logits, dim=0).tolist()
     best = max(range(len(scores)), key=lambda idx: scores[idx])
     return best, [float(score) for score in scores]
 
@@ -401,13 +617,13 @@ def build_v61_memory(
     typed_observations = [typed_observation(observation) for observation in observations]
     training_slice = typed_observations[: max(max_stream_observations, 200)]
     router_result = train_write_router(training_slice)
-    reader_result = train_reader_readout(training_slice)
     memory = PersistentCoreResidualMemory()
     for idx, observation in enumerate(typed_observations[:max_stream_observations]):
         action = route_observation(router_result.router, observation)
         turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else idx
         memory.write(observation, action, turn_index=turn_index, obs_index=idx)
     compaction_stats = compact_memory(memory)
+    reader_result = train_v61_reader_readout(training_slice, memory)
     decision_result = train_decision_head(typed_observations, memory, reader_result.reader)
     return memory, router_result, reader_result, decision_result, compaction_stats
 
