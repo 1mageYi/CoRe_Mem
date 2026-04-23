@@ -115,3 +115,44 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
+
+
+def test_filter_v61_observations_removes_fragmentary_profile_traits_from_other_fact_typing() -> None:
+    kept_trait = _observation(
+        obs_id="obs-keep-trait",
+        relation="profile_trait",
+        value="curious and methodical in conversations",
+        value_type="other",
+        time_scope="current",
+        canonical_gloss="profile_trait=curious and methodical in conversations",
+    )
+    kept_profile_value = _observation(
+        obs_id="obs-keep-profile",
+        relation="profile_trait",
+        value="excited about collaborative projects",
+        value_type="profile",
+        time_scope="current",
+        canonical_gloss="profile_trait=excited about collaborative projects",
+    )
+    dropped_fragment = _observation(
+        obs_id="obs-drop-fragment",
+        relation="profile_trait",
+        value="looking forward to the fun",
+        value_type="other",
+        time_scope="current",
+        canonical_gloss="profile_trait=looking forward to the fun",
+    )
+    dropped_preposition = _observation(
+        obs_id="obs-drop-preposition",
+        relation="profile_trait",
+        value="as an artist",
+        value_type="other",
+        time_scope="current",
+        canonical_gloss="profile_trait=as an artist",
+    )
+
+    filtered = filter_v61_observations(
+        [kept_trait, kept_profile_value, dropped_fragment, dropped_preposition]
+    )
+
+    assert [item.obs_id for item in filtered] == ["obs-keep-trait", "obs-keep-profile"]
