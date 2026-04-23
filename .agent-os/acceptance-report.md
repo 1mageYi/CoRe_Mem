@@ -13,11 +13,11 @@
     - `latest_stage2_v63_personamem_no_routing.json` 记录 answer-time routing disabled、raw-context retrieval disabled、PersonaMem gold 未用于 memory substrate
     - `latest_stage2_v63_error_attribution.json` 记录 full589 failure attribution counts
   - Negative result:
-    - PersonaMem full589 no-routing `179/589`
+    - PersonaMem full589 no-routing `180/589`
     - text-only `180/589`
     - option-only `235/589`
-    - margin vs text-only `-1`
-    - margin vs option-only `-56`
+    - margin vs text-only `0`
+    - margin vs option-only `-55`
     - `latest_stage2_v63_decision.json` 记录 `result_type = negative_result`
   - Boundary:
     - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。

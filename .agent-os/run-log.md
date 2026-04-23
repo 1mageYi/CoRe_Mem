@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 147
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` durable-fact core-promotion discard and restore
+- State changed:
+  - Iteration `2 discard`: expanded v6.3 `core-worthy` promotion for moderate durable facts so more `hobby / music_preference / stable profile` observations moved into `core`
+  - Trial did not improve the retained metric: verifier stayed `85`, but the bank shifted to `core=40 / residual=435` and full589 no-routing worsened from retained `180/589` line to `152/589` vs text-only `181/589`
+  - Reverted the trial commit with `git revert --no-edit` and re-published retained v6.3 artifacts so `latest_stage2_v63_*` once again match the non-collapse keep line
+- Evidence:
+  - `research-results.tsv` now records row `2 discard`
+  - Retained truth after restore is `latest_stage2_v63_personamem_no_routing.json = 180/589` vs text-only `180/589` vs option-only `235/589`
+  - `.agent-os/lessons-learned.md` now records that broader durable-fact core promotion over-rotates the write policy and is not the right path to benchmark gain
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration and rollback only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 146
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` first focused keep

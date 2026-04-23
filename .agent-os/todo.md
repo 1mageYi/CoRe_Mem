@@ -12,7 +12,8 @@
   - Current baseline: `scripts/verify_stage2_v63_write_policy.py --score-only = 56`
   - Current partial: current HEAD added [scripts/publish_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v63_write_policy.py) and [src/core_mem/v2/v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v63_write_policy.py); current verifier `= 85`
   - Current partial: `latest_stage2_v63_write_policy_eval.json` records authoritative four-way policy plus `support_coverage_recall = 1.0 > disabled 0.0625` and `write_recall = 1.0 > disabled 0.0769`; `latest_stage2_v63_persistent_state.json` records non-collapsing `core=22 / residual=476 / writes=652` and `weak_but_keep_residual_count = 12`
-  - Current negative truth: `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `179/589`, text-only `180/589`, option-only `235/589`; margin vs text-only `-1`, margin vs option-only `-56`
+  - Current negative truth: `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `180/589`, text-only `180/589`, option-only `235/589`; margin vs text-only `0`, margin vs option-only `-55`
+  - Latest discard: the durable-fact core-promotion trial raised the bank to `core=40 / residual=435` but degraded full589 no-routing to `152/589`; that line has been reverted and should not be retried without a different support/readout hypothesis
   - Current top next action: preserve the current non-collapse write-policy line and improve support alignment / decision quality; do not regress to tiny clean banks, answer-time routing, or raw-context retrieval.
 
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
