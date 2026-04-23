@@ -30,10 +30,9 @@ from core_mem.v2.v6_persistent_memory import (
     observation_features,
     option_label,
     route_observation,
-    score_options_with_projection,
+    score_options_from_persistent_read,
     silver_action_for_observation,
     stable_slot_fingerprint,
-    train_projection_weights_from_observations,
     train_reader_readout,
     train_write_router,
     vector_dot,
@@ -137,7 +136,6 @@ def _state_from_observations(
 ) -> tuple[PersistentCoreResidualMemory, dict[str, Any], dict[str, Any]]:
     train_result = train_write_router(observations[: max(max_stream_observations, 200)])
     reader_result = train_reader_readout(observations[: max(max_stream_observations, 200)])
-    projection_result = train_projection_weights_from_observations(observations[: max(max_stream_observations, 200)])
     memory = PersistentCoreResidualMemory()
     observed_actions: set[str] = set()
     for idx, observation in enumerate(observations[:max_stream_observations]):
@@ -192,7 +190,6 @@ def _state_from_observations(
         "disabled_readout_accuracy": reader_result.disabled_readout_accuracy,
         "reader_train_pairs": reader_result.train_pairs,
         "reader_eval_pairs": reader_result.eval_pairs,
-        "answer_projection_training": projection_result,
         "learned_update_actions": sorted(observed_actions | set(train_result.learned_update_actions)),
         "trained_modules": ["learned_write_time_router", "latent_reader", "query_conditioned_reader", "belief_readout"],
         "loss_curve": train_result.loss_curve,
@@ -258,7 +255,6 @@ def _evaluate_personamem(
     generated_at: str,
     questions: list[dict[str, str]],
     limit_questions: int | None,
-    projection_weights: dict[str, float] | None,
 ) -> dict[str, Any]:
     selected_questions = questions[:limit_questions] if limit_questions is not None else questions
     predictions: list[dict[str, Any]] = []
@@ -273,11 +269,7 @@ def _evaluate_personamem(
         labels = [option_label(option) for option in options]
         slots = _slots_for_context(memory, context_id, end_index)
         readout = memory.read(question, slots=slots, top_k=8)
-        pred_idx, option_scores = score_options_with_projection(
-            readout,
-            options,
-            projection_weights=projection_weights,
-        )
+        pred_idx, option_scores = score_options_from_persistent_read(readout, options)
         text_idx = _text_only_prediction(question, options, slots)
         option_idx = max(range(len(options)), key=lambda idx: _token_overlap(question, options[idx])) if options else 0
         prediction = labels[pred_idx] if labels else ""
@@ -327,8 +319,6 @@ def _evaluate_personamem(
         "raw_context_retrieval_disabled": True,
         "answer_time_routing_used": False,
         "score_mode": "persistent_latent_readout",
-        "answer_projection_mode": "gold_free_observation_option_recovery_weights",
-        "answer_projection_weights": projection_weights or {},
         "gold_used_for_memory_substrate": False,
         "gold_used_for_no_calibration_prediction": False,
         "prediction_path": str(prediction_path.relative_to(root)),
@@ -435,7 +425,6 @@ def publish_v6_persistent_memory(
         generated_at=generated_at,
         questions=questions,
         limit_questions=limit_questions,
-        projection_weights=train_payload.get("answer_projection_training", {}).get("projection_weights"),
     )
     margin = int(personamem_payload["margin_correct_vs_text_only"])
     decision_payload = {

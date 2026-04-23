@@ -363,7 +363,6 @@ class PersistentCoreResidualMemory:
         composed = mean_vector(slot.retrieval_key for _, slot in selected)
         return {
             "query_key": query_key,
-            "query_text": query,
             "selected": [{"score": score, "slot": slot} for score, slot in selected],
             "composed_key": composed,
             "belief_items": [
@@ -493,90 +492,19 @@ def option_label(option: str) -> str:
 
 
 def score_options_from_persistent_read(readout: dict[str, Any], options: list[str]) -> tuple[int, list[float]]:
-    return score_options_with_projection(readout, options, projection_weights=None)
-
-
-def score_options_with_projection(
-    readout: dict[str, Any],
-    options: list[str],
-    *,
-    projection_weights: dict[str, float] | None,
-) -> tuple[int, list[float]]:
     composed = readout.get("composed_key") or []
     if not composed:
         return 0, [0.0 for _ in options]
     option_encoder = QueryEncoder(dimension=len(composed))
     belief_text = " ".join(f"{item['relation']} {item['value']}" for item in readout.get("belief_items", []))
-    query_text = str(readout.get("query_text") or "")
-    weights = projection_weights or {
-        "memory_semantic": 0.75,
-        "query_semantic": 0.0,
-        "belief_lexical": 0.25,
-        "query_lexical": 0.0,
-    }
     scores: list[float] = []
     for option in options:
         option_key = option_encoder.encode(option)
-        memory_semantic = vector_dot(composed, option_key)
-        query_semantic = vector_dot(readout.get("query_key") or [], option_key)
-        belief_lexical = _jaccard(belief_text, option)
-        query_lexical = _jaccard(query_text, option)
-        scores.append(
-            weights.get("memory_semantic", 0.0) * memory_semantic
-            + weights.get("query_semantic", 0.0) * query_semantic
-            + weights.get("belief_lexical", 0.0) * belief_lexical
-            + weights.get("query_lexical", 0.0) * query_lexical
-        )
+        semantic_score = vector_dot(composed, option_key)
+        lexical_score = _jaccard(belief_text, option)
+        scores.append(0.75 * semantic_score + 0.25 * lexical_score)
     best = max(range(len(scores)), key=lambda idx: scores[idx]) if scores else 0
     return best, scores
-
-
-def train_projection_weights_from_observations(
-    observations: list[Observation],
-    *,
-    max_examples: int = 512,
-) -> dict[str, Any]:
-    rows = observations[:max_examples]
-    if len(rows) < 8:
-        raise ValueError("v6 projection weight training requires at least 8 observations.")
-    candidates = [
-        {"memory_semantic": 0.50, "query_semantic": 0.0, "belief_lexical": 0.50, "query_lexical": 0.0},
-        {"memory_semantic": 0.35, "query_semantic": 0.0, "belief_lexical": 0.35, "query_lexical": 0.30},
-        {"memory_semantic": 0.25, "query_semantic": 0.0, "belief_lexical": 0.25, "query_lexical": 0.50},
-        {"memory_semantic": 0.25, "query_semantic": 0.10, "belief_lexical": 0.25, "query_lexical": 0.40},
-        {"memory_semantic": 0.15, "query_semantic": 0.10, "belief_lexical": 0.20, "query_lexical": 0.55},
-    ]
-    values = [obs.value for obs in rows]
-    query_encoder = QueryEncoder(dimension=8)
-    best_payload: dict[str, Any] | None = None
-    for weights in candidates:
-        correct = 0
-        for idx, obs in enumerate(rows):
-            query = f"{obs.relation} {obs.value}"
-            readout = {
-                "query_text": query,
-                "query_key": query_encoder.encode(query),
-                "composed_key": query_encoder.encode(obs.canonical_gloss),
-                "belief_items": [{"relation": obs.relation, "value": obs.value}],
-            }
-            options = [
-                f"(a) {obs.value}",
-                f"(b) {values[(idx + 17) % len(values)]}",
-                f"(c) {values[(idx + 37) % len(values)]}",
-                f"(d) {values[(idx + 71) % len(values)]}",
-            ]
-            pred_idx, _ = score_options_with_projection(readout, options, projection_weights=weights)
-            correct += int(pred_idx == 0)
-        accuracy = correct / len(rows)
-        if best_payload is None or accuracy > best_payload["synthetic_accuracy"]:
-            best_payload = {
-                "projection_weights": weights,
-                "synthetic_accuracy": accuracy,
-                "synthetic_examples": len(rows),
-                "source": "gold_free_observation_option_recovery",
-            }
-    assert best_payload is not None
-    return best_payload
 
 
 def _jaccard(left: str, right: str) -> float:
