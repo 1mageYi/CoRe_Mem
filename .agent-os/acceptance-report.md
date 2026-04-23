@@ -24,6 +24,27 @@
     - This is not v6 completion and not a superiority claim.
     - Current caps remain active because PersonaMem no-routing does not beat text-only and meaningful margin is absent.
 
+## Stage 2 V6.1 Learned Reader/Decision Evidence
+
+- `EV-V61-001` -> `TD-050 / WS-036` learned reader/decision over persistent memory
+  - Status: partial / negative_result
+  - Evidence:
+    - `scripts/verify_stage2_v61_learned_reader_decision.py --score-only` 当前返回 `80`
+    - `latest_stage2_v61_reader_decision_train.json` 记录 learned write-time router、query-conditioned learned reader、learned decision head、semantic slot matching / slot compaction 全部已训练；decision eval accuracy `0.7585616707801819`
+    - `latest_stage2_v61_persistent_state.json` 记录 persistent `core_bank_size = 67`、`residual_bank_size = 540`、checkpoint、write trace、bank compaction、typed residual relations 与 `other_fact_share = 0.0`
+    - `latest_stage2_v61_internal_eval.json` 记录 authoritative reader path `learned_query_slot_reader`、natural-language queries、hard negatives、`full_accuracy = 0.47265625`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
+    - `latest_stage2_v61_personamem_no_routing.json` 记录 `sample_count = 589`、`score_mode = learned_decision_head`、`decision_mode = learned_answer_head`、`handcrafted_option_scoring_used = false`、`lexical_jaccard_used = false`
+    - `latest_stage2_v61_arch_ablation.json` 记录 true disabled architecture reruns，当前 writer / reader / decision ablation drops 为真
+  - Negative result:
+    - PersonaMem full589 no-routing `140/589`
+    - text-only `235/589`
+    - option-only `293/589`
+    - margin vs text-only `-95`
+    - `latest_stage2_v61_decision.json` 记录 `result_type = negative_result`
+  - Boundary:
+    - 当前只证明 v6.1 的 authoritative learned reader / learned decision、semantic slot compaction、typed residuals 与 hard internal eval 已成立。
+    - 当前不能声明 benchmark gain、acceptance met 或 significant PersonaMem margin。
+
 ## Stage 2 V5.2 Full Learned Latent System Evidence
 
 - `EV-V52-001` -> `TD-048 / WS-034` real multi-backbone compare

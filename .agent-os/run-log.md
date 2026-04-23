@@ -1,5 +1,27 @@
 # Run Log
 
+# 2026-04-23 Session 137
+
+- Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` managed autoresearch fresh baseline and first focused keep
+- State changed:
+  - Fresh baseline initialized at `stage2_v61_learned_reader_decision_score = 45`
+  - Iteration `1 keep`: added real v6.1 learned reader/decision implementation and publisher via `src/core_mem/v2/v61_learned_memory.py` and `scripts/publish_stage2_v61_learned_reader_decision.py`
+  - Published `latest_stage2_v61_reader_decision_train.json`, `latest_stage2_v61_persistent_state.json`, `latest_stage2_v61_internal_eval.json`, `latest_stage2_v61_personamem_no_routing.json`, `latest_stage2_v61_arch_ablation.json`, and `latest_stage2_v61_decision.json`
+  - Current verifier improved from `45` to `80`
+- Evidence:
+  - Authoritative reader path now records `authoritative_reader_path = learned_query_slot_reader` and `authoritative_reader_uses_dot_product_only = false`
+  - Authoritative decision path now records `score_mode = learned_decision_head`, `decision_mode = learned_answer_head`, `handcrafted_option_scoring_used = false`, `lexical_jaccard_used = false`
+  - Persistent state now records semantic compaction, typed residuals, `other_fact_share = 0.0`, and checkpoint-backed persistent banks `67 / 540`
+  - Hard internal eval now records natural-language queries, hard negatives, `full_accuracy = 0.47265625`, `disabled_reader_accuracy = 0.24609375`, `disabled_decision_accuracy = 0.359375`
+  - PersonaMem full589 no-routing remains a negative result at `140/589` vs text-only `235/589` and option-only `293/589`
+- Verification:
+  - `git diff --check` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v61_learned_reader_decision.py --score-only` -> passed, score `80`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v61_learned_reader_decision.py` -> passed
+- Boundary:
+  - This keep closes the structural v6.1 gaps, not the benchmark gain gap.
+  - v6.1 remains partial / negative_result until PersonaMem no-routing beats both text-only and option-only with meaningful margin.
+
 # 2026-04-23 Session 136
 
 - Worked on: `TD-049 / WS-035 / v6 Persistent Core-Residual Latent Memory` managed autoresearch run

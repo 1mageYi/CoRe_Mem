@@ -9,8 +9,12 @@
 - v6.1 hard gate 明确要求：authoritative read path 必须使用 learned reader；authoritative answer path 必须使用 learned decision/readout head；不得再用 `vector_dot + bank_prior` 和 handcrafted option scoring 充当主路径。
 - 新增硬要求：semantic slot matching / bank compaction、typed residuals、harder internal eval（natural-language query + hard negatives）必须成为 retained evidence。
 - 当前 v6 blocked truth 仍保留：PersonaMem full589 no-routing `146/589`，text-only `205/589`，option-only `235/589`；说明 persistent memory 已经存下来了，但 learned readout/decision 还没有足够强。
-- fresh v6.1 baseline 已初始化为 `stage2_v61_learned_reader_decision_score = 45`：当前能继承 v6 的 persistent substrate 结构分，但 authoritative learned reader、authoritative learned decision、typed residuals、semantic slot matching 与 harder internal eval 仍未成立。
-- v6.1 baseline 目标是继承 v6 的 substrate 进度，而不是从零开始；新的 stop condition 只在 learned reader/decision 真超过 text-only 与 option-only 时才允许收口。
+- fresh v6.1 baseline 已初始化为 `stage2_v61_learned_reader_decision_score = 45`；current HEAD 第一轮 keep 已把 verifier 推到 `80`
+- 当前已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，真实把 authoritative `read()` 从 `dot-product + bank_prior` 切到 learned query-slot scorer，并把 decision path 切到 learned answer head
+- 当前 v6.1 新证据：`latest_stage2_v61_reader_decision_train.json`、`latest_stage2_v61_persistent_state.json`、`latest_stage2_v61_internal_eval.json`、`latest_stage2_v61_personamem_no_routing.json`、`latest_stage2_v61_arch_ablation.json` 与 `latest_stage2_v61_decision.json`
+- 当前 structural gain：persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、semantic slot compaction、typed residuals、hard internal eval 均已成立；internal eval 当前记录 `full_accuracy = 0.47265625`、`disabled_reader_accuracy = 0.24609375`、`disabled_decision_accuracy = 0.359375`
+- 当前负结果：PersonaMem full589 no-routing `140/589`，text-only `235/589`，option-only `293/589`；因此当前可诚实声明的是 v6.1 结构性升级成立，但 benchmark gain 仍未成立
+- v6.1 stop condition 仍未触发；新的 stop condition 只在 learned reader/decision 真超过 text-only 与 option-only 且保留 meaningful margin 时才允许收口
 
 ## 当前最新状态：v6 persistent core-residual latent memory 已成为新主线
 

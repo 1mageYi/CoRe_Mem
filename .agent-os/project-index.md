@@ -3,7 +3,7 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-050 / WS-036 / v6.1` learned reader/decision long run。当前 persistent substrate 已成立，但 authoritative reader/decision 仍弱；下一步必须让 learned reader 和 learned decision head 真接管 persistent-memory 主路径，不能回到 answer-time routing、raw retrieval 或 handcrafted scorer。
+- Top next action: `TD-050 / WS-036 / v6.1` learned reader/decision long run。当前已把 authoritative learned reader、learned decision head、semantic slot compaction、typed residuals 与 hard internal eval 做成真实 v6.1 artifact，verifier 已到 `80`；下一步不再补结构分，而是必须提升 PersonaMem full589 no-routing，不能回到 answer-time routing、raw retrieval 或 handcrafted scorer。
 - Active workstreams: `WS-036`
 - Active workstream label: `TD-050 / WS-036`
 - Active workstream version: `v6.1`
@@ -29,8 +29,10 @@
   - Verifier: [scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
   - Hard gates: authoritative learned reader、authoritative learned decision head、semantic slot matching / bank compaction、typed residuals、hard internal eval、no answer-time routing、no raw-context retrieval、no gold leakage、PersonaMem meaningful margin over both text-only and option-only。
   - Current baseline: `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`
-  - Baseline truth: v6 already proved persistent banks/checkpoint/write trace/write routing/raw-context disable/no-routing/true ablation, but PersonaMem no-routing remained `146/589` vs text-only `205/589` and option-only `235/589`; the missing capability is learned reading/decision over persistent memory.
-  - Truth boundary: the next run may reuse v6 substrate evidence, but it cannot close out unless learned reader/decision truly becomes the authoritative path and produces benchmark gain without shortcut.
+  - Current retained partial: current HEAD 已新增 [scripts/publish_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v61_learned_reader_decision.py) 与 [src/core_mem/v2/v61_learned_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v61_learned_memory.py)，并发布 `latest_stage2_v61_{reader_decision_train,persistent_state,internal_eval,personamem_no_routing,arch_ablation,decision}.json`；当前 verifier `= 80`
+  - Current retained partial: persistent `core_bank=67` / `residual_bank=540`、checkpoint、`745`-write trace、learned write-time routing、authoritative learned reader、authoritative learned decision head、semantic slot compaction、typed residuals 与 hard internal eval 已成立；internal eval `full_accuracy = 0.4727`、`disabled_reader_accuracy = 0.2461`、`disabled_decision_accuracy = 0.3594`
+  - Current negative truth: PersonaMem full589 no-routing `140/589`，text-only `235/589`，option-only `293/589`，margin vs text-only `-95`；`latest_stage2_v61_decision.json` 记录 `negative_result`
+  - Truth boundary: v6.1 结构性升级已成立，但当前仍不能 claim benchmark gain、acceptance met 或 reproducible success；closeout 仍取决于 no-routing PersonaMem meaningful margin
 
 - `WS-035` `[blocked]`: Stage-2 `v6 Persistent Core-Residual Latent Memory`，目标是实现真正 persistent `core_bank` / `residual_bank` latent state，训练 write-time memory routing，并用 query-conditioned latent reader + belief/readout 在不使用 answer-time confidence routing 的情况下超过 text-only。
   - Current task: `TD-049`

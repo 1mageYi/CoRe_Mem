@@ -10,6 +10,9 @@
   - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
   - New required evidence: semantic slot matching / bank compaction, typed residuals, harder internal eval with natural-language queries and hard negatives, PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
   - Current baseline: `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`
+  - Current partial: current HEAD 已发布 learned reader/decision artifacts，`scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 80`
+  - Current partial: authoritative learned reader / learned decision head、semantic slot matching / bank compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof 已成立
+  - Current negative truth: PersonaMem full589 no-routing `140/589` vs text-only `235/589` vs option-only `293/589`，margin `-95`
   - Current reason for launch: v6 already proved persistent storage, but failed on no-routing PersonaMem (`146/589` vs text-only `205/589`). The next run must strengthen reading/decision rather than storage.
 
 - `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。

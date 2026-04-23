@@ -23,6 +23,9 @@ DEFAULT_RELATION_SET = {
     "episodic_event",
     "recent_change",
     "temporal_fact",
+    "reason_fact",
+    "environment_fact",
+    "social_fact",
     "profile_trait",
     "other_fact",
 }
@@ -57,6 +60,9 @@ RELATION_ALIASES = {
     "event": "episodic_event",
     "change": "recent_change",
     "time": "temporal_fact",
+    "reason": "reason_fact",
+    "environment": "environment_fact",
+    "social": "social_fact",
     "trait": "profile_trait",
 }
 
