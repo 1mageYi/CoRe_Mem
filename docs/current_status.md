@@ -6,8 +6,9 @@
 - Fresh baseline `stage2_v52_full_latent_system_score = 4`。
 - Iteration `1 keep` 已发布 `latest_stage2_v52_backbone_compare.json`：真实加载并比较 `BAAI/bge-base-en-v1.5` 与 `intfloat/e5-base-v2`，attempted backbones 覆盖 `BGE / E5 / Contriever`。
 - Iteration `2 keep` 已发布 `latest_stage2_v52_multitask_training.json`：四任务训练 `24500` samples，训练模块覆盖 encoder/projection、latent reader/resampler、write controller、belief decoder/graph，并写出真实 checkpoint。
-- 当前 verifier：`scripts/verify_stage2_v52_full_latent_system.py --score-only = 30`；guard `git diff --check && ... && pytest -q tests/test_stage2_v52_full_latent_system.py` 通过。
-- 边界：`facebook/contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；当前只是 multi-backbone + multi-task training partial evidence，不是 full learned system。v5.2 latent eval、ablation 与 PersonaMem no-calibration > text-only 仍未完成。
+- Iteration `3 keep` 已发布 `latest_stage2_v52_personamem_full589.json`：no-calibration `185/589`，option-only `168/589`，text-only `227/589`；`latest_stage2_v52_decision.json` 为 `negative_result`。
+- 当前 verifier：`scripts/verify_stage2_v52_full_latent_system.py --score-only = 65`；guard `git diff --check && ... && pytest -q tests/test_stage2_v52_full_latent_system.py` 通过。
+- 边界：`facebook/contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；当前只是 partial evidence，不是 full learned system。v5.2 latent eval、ablation 与 PersonaMem no-calibration > text-only 仍未完成。
 - v5.2 的 hard gate 要求 multi-backbone、multi-task、trainable reader/controller/belief、multi-task > retrieval-only，并且 PersonaMem full589 no-calibration 必须超过 text-only `214/589`。
 - `TD-047 / WS-033 / v5.1` background autoresearch 已达到配置 stop condition：`scripts/verify_stage2_v51_real_training.py --score-only = 100`。
 - 本轮真实加载 `BAAI/bge-base-en-v1.5`，backend 为 `sentence_transformers`，`pretrained_weights_loaded = true`，并在 stage2 32k gold-free data 上完成 12k-sample 训练，产出真实 checkpoint。

@@ -27,6 +27,20 @@
     - 尚未发布 v5.2 full latent eval、ablation drops 或 PersonaMem full589 no-calibration text-only gain。
     - 当前 verifier 仍被 gold-isolation / PersonaMem / eval gates 限制，不能写成 acceptance met。
 
+- `EV-V52-003` -> `TD-048 / WS-034` PersonaMem full589 no-calibration evaluation
+  - Status: negative_result
+  - Evidence:
+    - `latest_stage2_v52_personamem_full589.json` 记录 `sample_count = 589`
+    - no-calibration `185/589 = 31.41%`
+    - option-only `168/589 = 28.52%`
+    - text-only `227/589 = 38.54%`
+    - `gold_used_for_memory_substrate = false`
+    - `latest_stage2_v52_decision.json` 记录 `result_type = negative_result`
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `65`
+  - Boundary:
+    - 当前 no-calibration 高于 option-only，但未超过 text-only，也未超过 v5.2 hard gate 的 `214/589` floor。
+    - 必须继续标注为 partial / negative evidence；不得声称 `beats-text-only` 或 no-calibration success。
+
 ## Stage 2 V5.1 Real Training Evidence
 
 - `EV-V51-001` -> `TD-047 / WS-033` real pretrained training

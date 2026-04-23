@@ -39,6 +39,27 @@
   - This is partial training/checkpoint evidence only.
   - The low score is expected because v5.2 full latent eval, ablations, and PersonaMem no-calibration > text-only are not yet published.
 
+# 2026-04-23 Session 133
+
+- Worked on: `TD-048 / WS-034 / v5.2` PersonaMem full589 no-calibration evaluation
+- State changed:
+  - Added `scripts/eval_stage2_v52_personamem_no_calibration.py`
+  - Published `latest_stage2_v52_personamem_full589.json`
+  - Published `latest_stage2_v52_decision.json`
+  - Updated v5.2 docs with no-calibration negative-result truth
+- Evidence:
+  - PersonaMem full589 no-calibration: `185/589`
+  - Option-only: `168/589`
+  - Text-only: `227/589`
+  - Gold was not used for memory substrate or no-calibration prediction
+  - Verifier after this focused change: `scripts/verify_stage2_v52_full_latent_system.py --score-only = 65`
+- Verification:
+  - `conda run -n core_mem python -m py_compile scripts/eval_stage2_v52_personamem_no_calibration.py` -> passed
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed, score `65`
+- Boundary:
+  - This is a retained negative-result artifact, not no-calibration success.
+  - The active blocker is now explicit: v5.2 no-calibration still trails text-only by `42` correct answers.
+
 # 2026-04-23 Session 130
 
 - Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak
