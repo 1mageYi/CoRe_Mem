@@ -506,24 +506,12 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
     option_key = QueryEncoder(dimension=len(composed)).encode(option)
     belief_text = " ".join(f"{item['relation']} {item['value']}" for item in readout.get("belief_items", []))
     selected_slots = [item["slot"] for item in readout.get("selected", [])[:3] if isinstance(item.get("slot"), SlotRecord)]
-    selected_gloss_text = " ".join(slot.canonical_gloss for slot in selected_slots)
-    selected_value_text = " ".join(slot.canonical_gloss.split("=", 1)[-1] for slot in selected_slots)
     selected_scores = [float(item["score"]) for item in readout.get("selected", [])[:3]]
     slot_score_max = max(selected_scores) if selected_scores else 0.0
     slot_score_mean = sum(selected_scores) / len(selected_scores) if selected_scores else 0.0
     belief_overlaps = [_token_overlap(option, f"{item['relation']} {item['value']}") for item in readout.get("belief_items", [])]
     belief_overlap_max = max(belief_overlaps) if belief_overlaps else 0.0
     belief_overlap_mean = sum(belief_overlaps) / len(belief_overlaps) if belief_overlaps else 0.0
-    selected_gloss_overlaps = [_token_overlap(option, slot.canonical_gloss) for slot in selected_slots]
-    selected_value_overlaps = [_token_overlap(option, slot.canonical_gloss.split("=", 1)[-1]) for slot in selected_slots]
-    selected_gloss_overlap_max = max(selected_gloss_overlaps) if selected_gloss_overlaps else 0.0
-    selected_gloss_overlap_mean = (
-        sum(selected_gloss_overlaps) / len(selected_gloss_overlaps) if selected_gloss_overlaps else 0.0
-    )
-    selected_value_overlap_max = max(selected_value_overlaps) if selected_value_overlaps else 0.0
-    selected_value_overlap_mean = (
-        sum(selected_value_overlaps) / len(selected_value_overlaps) if selected_value_overlaps else 0.0
-    )
     selected_core_ratio = (
         sum(1 for slot in selected_slots if slot.bank == "core") / len(selected_slots) if selected_slots else 0.0
     )
@@ -542,15 +530,8 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         vector_dot(composed, option_key),
         _token_overlap(option, belief_text),
         _token_overlap(option, query),
-        _token_overlap(option, selected_gloss_text),
-        _token_overlap(option, selected_value_text),
-        _token_overlap(query, selected_gloss_text),
         belief_overlap_max,
         belief_overlap_mean,
-        selected_gloss_overlap_max,
-        selected_gloss_overlap_mean,
-        selected_value_overlap_max,
-        selected_value_overlap_mean,
         slot_score_max,
         slot_score_mean,
         selected_core_ratio,

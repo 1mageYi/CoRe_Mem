@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _best_matching_slot, _option_features, filter_v61_observations, typed_observation
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -115,20 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-def test_option_features_include_selected_slot_gloss_signal() -> None:
-    slot = _slot("slot-music-a", "music_preference", "music_preference=producing music with software", bank="core")
-    readout = {
-        "query_key": [0.1] * 8,
-        "composed_key": [0.2] * 8,
-        "belief_items": [{"relation": "music_preference", "value": "unique sound", "support_slot_id": slot.slot_id, "confidence": 0.7, "bank": "core"}],
-        "selected": [{"score": 0.7, "slot": slot}],
-    }
-
-    matching = _option_features(readout, "What music setup fits the user?", "(a) Producing music with software.")
-    mismatching = _option_features(readout, "What music setup fits the user?", "(b) Restoring antique cars.")
-
-    assert len(matching) == len(mismatching)
-    option_selected_gloss_overlap_index = 36
-    assert matching[option_selected_gloss_overlap_index] > mismatching[option_selected_gloss_overlap_index]
