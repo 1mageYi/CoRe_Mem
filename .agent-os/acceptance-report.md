@@ -3,7 +3,7 @@
 ## Stage 2 V6 Persistent Core-Residual Latent Memory Evidence
 
 - `EV-V6-001` -> `TD-049 / WS-035` persistent substrate partial evidence
-  - Status: partial / negative_result
+  - Status: partial / blocked / negative_result
   - Evidence:
     - Fresh v6 baseline was `stage2_v6_persistent_latent_memory_score = 16`
     - Current verifier returns `80`
@@ -18,6 +18,8 @@
     - text-only `205/589`
     - margin `-59`
     - `latest_stage2_v6_decision.json` records `result_type = negative_result`
+    - query-option blend trial degraded no-routing to `133/589`
+    - no-gold synthetic projection weights reached `157/589` but did not improve verifier score
   - Boundary:
     - This is not v6 completion and not a superiority claim.
     - Current caps remain active because PersonaMem no-routing does not beat text-only and meaningful margin is absent.

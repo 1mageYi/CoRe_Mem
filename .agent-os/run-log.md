@@ -1,5 +1,26 @@
 # Run Log
 
+# 2026-04-23 Session 136
+
+- Worked on: `TD-049 / WS-035 / v6 Persistent Core-Residual Latent Memory` managed autoresearch run
+- State changed:
+  - Fresh baseline initialized at `stage2_v6_persistent_latent_memory_score = 16`
+  - Iteration `1 keep`: added persistent core/residual bank substrate, checkpoint, write trace, learned write-time router, persistent-state eval, and no-routing PersonaMem negative artifact; score `75`
+  - Iteration `2 keep`: trained v6 query-conditioned reader / belief-readout and replaced split ablation with true single-bank reruns; score `80`
+  - Iteration `3 discard`: query-option blend degraded PersonaMem no-routing from `146` to `133`
+  - Iteration `4 discard`: no-gold synthetic projection weights improved no-routing to `157` but did not improve verifier score or beat text-only
+- Evidence:
+  - `latest_stage2_v6_persistent_state.json`: `core_bank_size = 95`, `residual_bank_size = 483`, write trace `745`
+  - `latest_stage2_v6_persistent_memory_train.json`: write-router accuracy `0.9799` vs disabled `0.6644`; reader accuracy `0.7584` vs disabled `0.5`
+  - `latest_stage2_v6_personamem_no_routing.json`: retained no-routing `146/589`, text-only `205/589`, margin `-59`
+  - `latest_stage2_v6_decision.json`: `negative_result`
+- Verification:
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v6_persistent_latent_memory.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v6_persistent_latent_memory.py` -> passed, score `80`
+- Boundary:
+  - v6 is partial and blocked, not complete.
+  - No superiority claim is allowed.
+  - Further progress requires a new persistent memory/readout hypothesis, not answer-time routing or benchmark-specific option scoring.
+
 # 2026-04-23 Session 131
 
 - Worked on: `TD-048 / WS-034 / v5.2` managed autoresearch fresh baseline and first focused keep

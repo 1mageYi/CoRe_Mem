@@ -7,6 +7,9 @@
 ## Entries
 
 - 2026-04-23:
+  - `v6` persistent substrate 已能机械证明 core/residual banks、checkpoint、write trace、learned write-time router、reader/readout 与 no-routing eval 都存在，但 PersonaMem no-routing 仍只有 `146/589`，低于 text-only `205/589`；因此当前瓶颈不是 verifier plumbing，而是 persistent memory readout 质量本身。
+  - `v6` 中直接把 query-option lexical compatibility 混进 answer projection 会形成高风险 shortcut：gold-based sweep 能看到更高 PersonaMem exact，但这类权重选择使用了 `correct_answer` 诊断，不能进入 no-calibration / no-gold claim。后续若要训练 answer projection，必须使用独立 public/synthetic no-gold validation，并显式报告 query-only / option-only 对照。
+  - `v6` no-gold synthetic projection weights 虽然把 PersonaMem no-routing 从 `146/589` 提到 `157/589`，但 verifier score 仍是 `80` 且没有超过 text-only；这种低于主 metric 的复杂化应按 discard 处理，而不是为了局部 correct 数保留。
   - `v5.1` 的训练 / eval 脚本如果需要从 repo root import `scripts.*`，不能假设 `python scripts/foo.py` 会自动把 repo root 放进 `sys.path`；直接执行脚本时 `sys.path[0]` 是 `scripts/`，需要显式插入 repo root，或避免跨 script 私有 import。
   - PersonaMem no-calibration evaluator 不能按 question 重复编码同一个 long shared context prefix；37 个 context、589 个问题会把 embedding 开销放大到数分钟甚至更久。更稳的做法是按 context 预编码 full message chunks 和 latent vectors，再按 `end_index_in_shared_context` 做 prefix mask。
   - 首次 Hugging Face 权重加载必须显式使用 repo-local `HF_HOME=outputs_v2/hf_cache`，否则会违反“外部目录写入需确认”的项目契约。后续训练 / eval command 应继续带这个 env。

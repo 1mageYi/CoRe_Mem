@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-049` `[doing]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。
+- `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。
   - Current workstream: `WS-035`
   - Plan: [docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
   - Verifier: [scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
@@ -14,7 +14,7 @@
   - Current partial evidence: v6 query-conditioned reader / belief-readout is trained; true disabled architecture ablation drops now pass.
   - Current score: `scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 80`.
   - Current negative result: PersonaMem full589 no-routing `146/589` vs text-only `205/589`, margin `-59`; no claim allowed.
-  - Current blocker/gap: significant PersonaMem no-routing margin absent.
+  - Current blocker/gap: significant PersonaMem no-routing margin absent. Query-option blend degraded to `133/589`; no-gold synthetic projection weights reached only `157/589` and did not improve verifier score. Further progress requires a new persistent-memory/readout direction, not answer-time routing.
 
 - `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - Current workstream: `WS-034`

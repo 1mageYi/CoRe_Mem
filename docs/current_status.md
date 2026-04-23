@@ -14,6 +14,7 @@
 - 当前 verifier：`scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 80`。已满足 persistent banks、checkpoint、write trace、learned write-time routing、trainable query-conditioned reader、belief/readout、persistent-state eval、raw-context retrieval disabled、answer-time routing disabled、true disabled-architecture ablation drops 与 no-gold substrate proof。
 - 当前负结果：PersonaMem full589 no-routing `146/589`，text-only `205/589`，margin `-59`；`latest_stage2_v6_decision.json` 记录 `negative_result`，不得声明 v6 superiority。
 - 当前缺口：PersonaMem no-routing 未超过 text-only，meaningful margin 未达成。
+- 当前 run 状态：blocked / negative_result。已试过 query-option blend 与 no-gold synthetic projection weights；前者退化到 `133/589`，后者只到 `157/589` 且 verifier 不提升。若继续推进，需要新的 persistent memory/readout 研究方向，而不是 answer-time routing 或 benchmark-specific option scoring。
 
 ## 上一轮状态：v5.2 full learned latent system 机械 stop condition 已达到
 
