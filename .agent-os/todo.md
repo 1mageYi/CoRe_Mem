@@ -10,7 +10,8 @@
     - attempted `facebook/contriever`，但当前 `torch 2.5.1` 被 `transformers` 安全限制挡住；artifact 已记录 failure，不能写成三 backbone 完成
     - iteration `2 keep`: v5.2 四任务 multi-task training，`24500` samples，checkpoint `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`，score 到 `30`
     - iteration `3 keep`: v5.2 PersonaMem full589 no-calibration evaluation，`185/589`；text-only `227/589`；decision `negative_result`；score 到 `65`
-    - 当前仍被 PersonaMem no-calibration > text-only、latent eval 与 ablation gates 限制，不能写成 full system complete
+    - iteration `4 keep`: v5.2 full latent eval + ablation，trained > frozen、multi-task > retrieval-only、latent-only > shuffled、full > text-only composite，三项 ablation drops；score 到 `80`
+    - 当前仍被 PersonaMem no-calibration > text-only gate 限制，不能写成 full system complete
   - Hard gates:
     - at least 2 real pretrained backbones loaded/compared
     - non-retrieval-only multi-task training over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`

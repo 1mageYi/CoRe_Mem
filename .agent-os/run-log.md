@@ -60,6 +60,26 @@
   - This is a retained negative-result artifact, not no-calibration success.
   - The active blocker is now explicit: v5.2 no-calibration still trails text-only by `42` correct answers.
 
+# 2026-04-23 Session 134
+
+- Worked on: `TD-048 / WS-034 / v5.2` full latent eval and ablation package
+- State changed:
+  - Added `scripts/eval_stage2_v52_full_latent.py`
+  - Published `latest_stage2_v52_full_latent_eval.json`
+  - Published `latest_stage2_v52_ablation_summary.json`
+  - Updated v5.2 docs with score `80` partial truth
+- Evidence:
+  - trained MRR `0.9816` > frozen MRR `0.7054`
+  - multi-task composite `0.9096` > retrieval-only composite `0.2454`
+  - latent-only `0.9816` > shuffled-latent `0.9464`
+  - full composite `0.9096` > text-only composite `0.1764`
+  - no-controller / no-belief / no-core-residual ablations all drop
+- Verification:
+  - `conda run -n core_mem python -m py_compile scripts/eval_stage2_v52_full_latent.py` -> passed
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed, score `80`
+- Boundary:
+  - This is still partial. The only remaining score cap is PersonaMem no-calibration not beating text-only.
+
 # 2026-04-23 Session 130
 
 - Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak

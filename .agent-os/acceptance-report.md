@@ -41,6 +41,19 @@
     - 当前 no-calibration 高于 option-only，但未超过 text-only，也未超过 v5.2 hard gate 的 `214/589` floor。
     - 必须继续标注为 partial / negative evidence；不得声称 `beats-text-only` 或 no-calibration success。
 
+- `EV-V52-004` -> `TD-048 / WS-034` full latent eval and ablation
+  - Status: partial
+  - Evidence:
+    - `latest_stage2_v52_full_latent_eval.json` 记录 trained MRR `0.9816` > frozen MRR `0.7054`
+    - multi-task composite `0.9096` > retrieval-only composite `0.2454`
+    - latent-only `0.9816` > shuffled-latent `0.9464`
+    - full composite `0.9096` > text-only composite `0.1764`
+    - `latest_stage2_v52_ablation_summary.json` 记录 no-controller、no-belief、no-core-residual ablation 全部下降
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `80`
+  - Boundary:
+    - 当前 latent / ablation gates 已满足，但 PersonaMem no-calibration 仍未超过 text-only。
+    - `80/100` 是 verifier cap，不是 stop condition。
+
 ## Stage 2 V5.1 Real Training Evidence
 
 - `EV-V51-001` -> `TD-047 / WS-033` real pretrained training

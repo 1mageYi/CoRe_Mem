@@ -7,7 +7,8 @@
   - 当前 partial：fresh baseline `4`；iteration `1 keep` 已发布 v5.2 real multi-backbone compare，真实加载 `BGE + E5`，score 到 `20`。
   - 当前 partial：iteration `2 keep` 已发布四任务 multi-task training，`24500` samples，真实 checkpoint 写入 `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`，score 到 `30`。
   - 当前 partial：iteration `3 keep` 已发布 PersonaMem full589 no-calibration evaluation，no-calibration `185/589`，text-only `227/589`，decision 为 `negative_result`，score 到 `65`。
-  - 边界：`Contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；latent eval、ablation 与 PersonaMem no-calibration > text-only gate 尚未完成。
+  - 当前 partial：iteration `4 keep` 已发布 full latent eval + ablation，score 到 `80`。
+  - 边界：`Contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；PersonaMem no-calibration > text-only gate 尚未完成。
   - 硬门槛：至少 2 个真实 backbone、四任务 multi-task training、真实 checkpoint、trainable encoder/projection + latent reader/resampler + write controller + belief decoder/graph。
   - 质量门槛：multi-task > retrieval-only、trained > frozen、latent-only > shuffled、full > text-only、ablation drops、PersonaMem no-calibration > text-only `214/589`。
   - 禁止：fallback、shortcut、provider prompt trick、benchmark-specific option trick、PersonaMem gold leakage into substrate。
