@@ -292,3 +292,29 @@ def test_stage2_parser_uses_context_for_coupon_redemption_event():
     assert len(observations) == 1
     assert observations[0].relation == "episodic_event"
     assert observations[0].value == "redeemed a $5 coupon on coffee creamer last sunday at target"
+
+
+def test_stage2_parser_ignores_transient_im_hoping_self_state():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I'm hoping to make the most of my interactions and possibly find a meaningful relationship despite the obstacles I may face.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
+
+
+def test_stage2_parser_does_not_extract_embedded_i_am_tail_fragment():
+    parser = Stage2ObservationParser()
+    observations = parser.parse_turn(
+        "I hope to not only develop my skills but also share my passion with the world in a way that reflects who I am as an artist.",
+        source_dataset="synthetic",
+        source_dialogue_id="dlg",
+        source_turn_id="turn",
+        session_id="sess",
+    )
+
+    assert observations == []
