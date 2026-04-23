@@ -119,9 +119,6 @@ _LOW_INFORMATION_VALUE_TERMS = {
     "trying",
     "visit",
 }
-_RESIDUAL_RELATION_CAPS = {
-    "profile_trait": 6,
-}
 
 
 def _tokenize(text: str) -> list[str]:
@@ -306,7 +303,6 @@ def compact_memory(memory: PersistentCoreResidualMemory) -> dict[str, Any]:
                 continue
             memory._replace_slot(slot, active=False)
             duplicates_removed += 1
-    cap_pruned, capped_clusters = _apply_residual_relation_caps(memory)
     active_after = [slot for slot in [*memory.core_bank, *memory.residual_bank] if slot.active_flag]
     residual_relations = [slot.relation for slot in active_after if slot.bank == "residual"]
     other_fact_count = sum(relation == "other_fact" for relation in residual_relations)
@@ -315,47 +311,11 @@ def compact_memory(memory: PersistentCoreResidualMemory) -> dict[str, Any]:
         "duplicate_relation_clusters_reduced": duplicate_clusters > 0 and duplicates_removed > 0,
         "duplicate_relation_cluster_count": duplicate_clusters,
         "duplicates_removed": duplicates_removed,
-        "residual_relation_caps_applied": cap_pruned > 0,
-        "residual_relation_cap_cluster_count": capped_clusters,
-        "residual_slots_pruned": cap_pruned,
         "dedup_ratio": duplicates_removed / max(len(active_before), 1),
         "typed_residual_relations": sorted({relation for relation in residual_relations}),
         "other_fact_share": other_fact_count / max(len(residual_relations), 1),
         "revision_chain_enabled": any(slot.revision_parent for slot in active_after),
     }
-
-
-def _apply_residual_relation_caps(memory: PersistentCoreResidualMemory) -> tuple[int, int]:
-    groups: dict[tuple[str, str], list[SlotRecord]] = defaultdict(list)
-    for slot in memory.residual_bank:
-        if not slot.active_flag:
-            continue
-        cap = _RESIDUAL_RELATION_CAPS.get(slot.relation)
-        if cap is None:
-            continue
-        metadata = memory._slot_metadata(slot)
-        dialogue_id = str(metadata.get("source_dialogue_id") or "")
-        groups[(dialogue_id, slot.relation)].append(slot)
-    pruned = 0
-    capped_clusters = 0
-    for (_, relation), slots in groups.items():
-        cap = _RESIDUAL_RELATION_CAPS[relation]
-        if len(slots) <= cap:
-            continue
-        capped_clusters += 1
-        ordered = sorted(
-            slots,
-            key=lambda slot: (
-                slot.last_update_ts,
-                slot.confidence,
-                slot.revision_count,
-            ),
-            reverse=True,
-        )
-        for slot in ordered[cap:]:
-            memory._replace_slot(slot, active=False)
-            pruned += 1
-    return pruned, capped_clusters
 
 
 def _best_matching_slot(observation: Observation, slots: list[SlotRecord]) -> SlotRecord | None:
