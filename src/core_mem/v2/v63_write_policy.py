@@ -127,19 +127,10 @@ def classify_write_policy(
     typed = typed_observation(observation)
     if not _weak_keep_eligible(typed):
         return "drop"
-    if observation_attribute_valid_label(typed):
-        durable_promotion = (
-            _durable_observation(typed)
-            and not _volatile_observation(typed)
-            and typed.confidence >= 0.6
-            and validity_score >= 0.62
-            and turn_score >= 0.4
-        )
-        strong_promotion = validity_score >= 0.78 and turn_score >= 0.52
-        if durable_promotion or strong_promotion:
+    if observation_attribute_valid_label(typed) and validity_score >= 0.78 and turn_score >= 0.52:
+        if _durable_observation(typed) and not _volatile_observation(typed) and typed.confidence >= 0.72:
             return "core-worthy"
-        if validity_score >= 0.62 and turn_score >= 0.4:
-            return "residual-worthy"
+        return "residual-worthy"
     combined = 0.55 * validity_score + 0.45 * turn_score
     if validity_score >= 0.62 or combined >= 0.54:
         return "residual-worthy"
