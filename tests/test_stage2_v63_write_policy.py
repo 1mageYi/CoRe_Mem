@@ -52,6 +52,23 @@ def test_v63_policy_can_route_strong_durable_fact_to_core() -> None:
     ) in {"merge_core", "promote_to_core"}
 
 
+def test_v63_policy_promotes_moderate_durable_fact_to_core() -> None:
+    label = classify_write_policy(
+        turn_score=0.46,
+        validity_score=0.66,
+        observation=_observation(
+            relation="hobby",
+            value_type="preference",
+            value="gentle yoga flows at home",
+            canonical_gloss="hobby=gentle yoga flows at home",
+            evidence_text="I keep returning to gentle yoga flows at home.",
+            confidence=0.68,
+        ),
+    )
+
+    assert label == "core-worthy"
+
+
 def test_v63_policy_preserves_weak_but_keep_in_residual() -> None:
     observation = _observation(
         relation="reason_fact",
