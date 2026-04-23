@@ -8,9 +8,7 @@ from typing import Any
 
 from core_mem.v2.schemas import Observation
 from core_mem.v2.v61_learned_memory import (
-    _best_matching_slot,
     compact_memory,
-    filter_v61_observations,
     train_decision_head,
     train_v61_reader_readout,
     typed_observation,
@@ -259,36 +257,6 @@ def evaluate_confidence_aware_write_policy(
     }
 
 
-def build_v63_support_supervision(
-    policy_observations: list[Observation],
-    candidate_pool: list[CandidateObservation],
-    memory: PersistentCoreResidualMemory,
-) -> tuple[list[Observation], dict[str, int]]:
-    supervision = filter_v61_observations([typed_observation(observation) for observation in policy_observations])
-    seen_obs_ids = {observation.obs_id for observation in supervision}
-    added_from_candidate_pool = 0
-    for candidate in candidate_pool:
-        if candidate.turn.speaker not in {"user", "system"}:
-            continue
-        typed = typed_observation(candidate.observation)
-        if typed.obs_id in seen_obs_ids or not _weak_keep_eligible(typed):
-            continue
-        turn_index = int(typed.source_turn_id) if typed.source_turn_id.isdigit() else None
-        slots = memory.active_slots(context_id=typed.source_dialogue_id, max_turn_index=turn_index)
-        if not slots:
-            continue
-        positive_slot = _best_matching_slot(typed, slots)
-        if positive_slot is None:
-            continue
-        supervision.append(typed)
-        seen_obs_ids.add(typed.obs_id)
-        added_from_candidate_pool += 1
-    return supervision, {
-        "reader_decision_support_examples": len(supervision),
-        "reader_decision_support_examples_from_candidate_pool": added_from_candidate_pool,
-    }
-
-
 def build_v63_memory(
     turns: list[DialogueTurn],
     turn_candidates: dict[str, list[Observation]],
@@ -390,13 +358,8 @@ def build_v63_memory(
             }
         )
     compaction_stats = compact_memory(memory)
-    support_supervision, support_supervision_metrics = build_v63_support_supervision(
-        policy_observations,
-        candidate_pool,
-        memory,
-    )
-    reader_result = train_v61_reader_readout(support_supervision, memory)
-    decision_result = train_decision_head(support_supervision, memory, reader_result.reader)
+    reader_result = train_v61_reader_readout(training_slice, memory)
+    decision_result = train_decision_head(policy_observations, memory, reader_result.reader)
     policy_eval = evaluate_confidence_aware_write_policy(
         turns,
         turn_candidates,
@@ -407,7 +370,6 @@ def build_v63_memory(
     state_metrics = {
         **compaction_stats,
         **estimate_state_cleanliness(memory),
-        **support_supervision_metrics,
         "candidate_observation_count": len(candidate_pool),
         "policy_retained_observation_count": len(policy_observations),
         "weak_but_keep_residual_count": weak_but_keep_residual_count,
