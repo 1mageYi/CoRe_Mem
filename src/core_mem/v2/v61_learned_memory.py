@@ -464,7 +464,7 @@ def _read_with_model(
     top_k: int = 8,
 ) -> dict[str, Any]:
     if not slots:
-        return {"query_key": [], "selected": [], "composed_key": [], "belief_items": []}
+        return {"query_key": [], "selected": [], "composed_key": [], "belief_items": [], "reader": reader, "slots": []}
     query_encoder = QueryEncoder(dimension=len(slots[0].retrieval_key))
     query_key = query_encoder.encode(query)
     features = torch.tensor(
@@ -495,6 +495,8 @@ def _read_with_model(
         "selected": [{"score": float(score), "slot": slot} for score, slot in selected],
         "composed_key": composed,
         "belief_items": belief_items,
+        "reader": reader,
+        "slots": slots,
     }
 
 
@@ -538,6 +540,18 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         selected_preference_ratio,
         selected_temporal_ratio,
     ]
+
+
+def _option_conditioned_readout(
+    question: str,
+    option: str,
+    *,
+    slots: list[SlotRecord],
+    reader: V6ReaderReadout,
+    top_k: int = 6,
+) -> dict[str, Any]:
+    conditioned_query = f"{question}\nOption: {option}"
+    return _read_with_model(conditioned_query, slots=slots, reader=reader, top_k=top_k)
 
 
 def _select_hard_negatives(observation: Observation, pool: list[Observation]) -> list[Observation]:
@@ -593,8 +607,14 @@ def train_decision_head(
             continue
         options = [observation_option_statement(observation), *[observation_option_statement(negative) for negative in negatives[:3]]]
         for query in _synthetic_queries_for_observation(observation):
-            readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
-            features = [_option_features(readout, query, option) for option in options]
+            features = [
+                _option_features(
+                    _option_conditioned_readout(query, option, slots=slots, reader=reader, top_k=6),
+                    query,
+                    option,
+                )
+                for option in options
+            ]
             if any(not feature for feature in features):
                 continue
             option_groups.append(features)
@@ -646,7 +666,14 @@ def score_options_with_head(
 ) -> tuple[int, list[float]]:
     if not options:
         return 0, []
-    features = [_option_features(readout, query, option) for option in options]
+    slots = [slot for slot in readout.get("slots", []) if isinstance(slot, SlotRecord)]
+    conditioned_reader = readout.get("reader")
+    features = []
+    for option in options:
+        option_readout = readout
+        if isinstance(conditioned_reader, V6ReaderReadout) and slots:
+            option_readout = _option_conditioned_readout(query, option, slots=slots, reader=conditioned_reader, top_k=6)
+        features.append(_option_features(option_readout, query, option))
     if not features or not features[0]:
         return 0, [0.0 for _ in options]
     tensor = torch.tensor(features, dtype=torch.float32)
