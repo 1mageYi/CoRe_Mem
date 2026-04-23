@@ -1,5 +1,33 @@
 # Run Log
 
+# 2026-04-23 Session 129
+
+- Worked on: `TD-047 / WS-033 / v5.1 Real Pretrained Training` managed background run from fresh baseline to configured stop condition
+- State changed:
+  - fresh baseline `scripts/verify_stage2_v51_real_training.py --score-only = 10`
+  - iteration `1 keep`: commit `92dc809` added real backbone publisher and published `latest_stage2_v51_real_backbone_compare.json`; real `BAAI/bge-base-en-v1.5` loaded through `sentence_transformers`, score `30`
+  - iteration `2 keep`: commit `45f298b` added real stage2 training script, trained BGE-frozen latent projections / reader / bank controller on `12000` gold-free stage2 retrieval samples, wrote checkpoint `outputs_v2/checkpoints/20260423T013123Z_stage2_v51_real_training/latent_retriever.pt`, score `85`
+  - iteration `3 keep`: commit `89ba929` added PersonaMem full589 no-calibration evaluator and decision artifact; score `100`, supervisor decision `stop / goal_reached`
+- Evidence / artifacts:
+  - `research-results.tsv` iteration `3 keep`
+  - `autoresearch-state.json` current metric `100`
+  - `outputs_v2/artifacts/latest_stage2_v51_real_backbone_compare.json`
+  - `outputs_v2/artifacts/latest_stage2_v51_real_training.json`
+  - `outputs_v2/artifacts/latest_stage2_v51_latent_eval.json`
+  - `outputs_v2/artifacts/latest_stage2_v51_personamem_full589.json`
+  - `outputs_v2/artifacts/latest_stage2_v51_real_training_decision.json`
+- Key metrics:
+  - stage2 held-out test trained MRR `0.9792` > frozen `0.7054`
+  - latent-only `0.9792` > shuffled-latent `0.9592`
+  - PersonaMem no-calibration `184/589 = 31.24%` > option-only `167/589 = 28.35%` > random `25%`
+- Verification:
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v51_real_training.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v51_real_training.py` -> passed, score `100`
+  - `python3 /home/mingjing/.codex/skills/codex-autoresearch/scripts/autoresearch_supervisor_status.py --repo /media/storage/mingjing/workspace/CoRe_Mem` -> `decision = stop`, `reason = goal_reached`
+- Truth boundary:
+  - 当前是 local mechanical verifier + gold-free/no-calibration positive result
+  - only BGE was loaded/trained; E5/Contriever comparison remains future work
+  - PersonaMem no-calibration beats option-only/random but remains below text-only `214/589`; do not claim provider-side or formal benchmark superiority
+
 # 2026-04-22 Session 128
 
 - Worked on: `TD-047 / WS-033 / v5.1` background launch prep

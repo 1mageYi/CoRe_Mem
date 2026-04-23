@@ -12,7 +12,7 @@
 - `WS-008`: Stage-2 数据、parser 与训练管线
 - `WS-009`: Stage-2 本地 intrinsic evaluation 与 canary 协议
 - `WS-032`: Stage-2 `v5 Core-Residual Latent Substrate` 顶会级 latent memory 路线
-- `WS-033`: Stage-2 `v5.1 Real Pretrained Training`，把 v5 scaffold 前推成真实 pretrained backbone + real data + real checkpoint + held-out eval 的 scientific result 路线
+- `WS-033`: Stage-2 `v5.1 Real Pretrained Training`，把 v5 scaffold 前推成真实 pretrained backbone + real data + real checkpoint + held-out eval 的 scientific result 路线（本轮 managed stop 已达成）
 
 ## Current Architecture Route
 
@@ -67,6 +67,7 @@
 - 必须产出真实 checkpoint、train log、device、train/eval sample counts、loss curve 与 run metadata
 - 必须比较 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only、core-only、residual-only、no-controller
 - PersonaMem full589 no-calibration 必须显著超过 random / option-only baseline；否则只能记录 `negative_result`，不能用 calibrated-only improvement 或 provider prompt trick 伪装成 latent gain
+- Current retained implementation: current HEAD `89ba929` 已真实加载 `BAAI/bge-base-en-v1.5`，训练 BGE-frozen latent projections / reader / bank controller，发布 real checkpoint，并在 stage2 held-out 与 PersonaMem no-calibration 上达到 verifier stop condition `100/100`。边界是三 backbone 比较尚未完成，PersonaMem no-calibration 仍低于 text-only score。
 
 ## Milestones
 

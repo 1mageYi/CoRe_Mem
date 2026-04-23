@@ -6,6 +6,12 @@
 
 ## Entries
 
+- 2026-04-23:
+  - `v5.1` 的训练 / eval 脚本如果需要从 repo root import `scripts.*`，不能假设 `python scripts/foo.py` 会自动把 repo root 放进 `sys.path`；直接执行脚本时 `sys.path[0]` 是 `scripts/`，需要显式插入 repo root，或避免跨 script 私有 import。
+  - PersonaMem no-calibration evaluator 不能按 question 重复编码同一个 long shared context prefix；37 个 context、589 个问题会把 embedding 开销放大到数分钟甚至更久。更稳的做法是按 context 预编码 full message chunks 和 latent vectors，再按 `end_index_in_shared_context` 做 prefix mask。
+  - 首次 Hugging Face 权重加载必须显式使用 repo-local `HF_HOME=outputs_v2/hf_cache`，否则会违反“外部目录写入需确认”的项目契约。后续训练 / eval command 应继续带这个 env。
+  - `v5.1` 当前 no-calibration 能超过 option-only/random，但同一 artifact 的 text-only score 更高；因此结论必须写成“positive against configured no-calibration gate”，不能扩写成 PersonaMem 上 latent full 已全面超过 text-only。
+
 - 2026-04-22:
   - `v4` option-scorer replay 只能在与真实 runner payload 等价的条件下解释。把最终 label 人工塞回所有样本的 `answer_text` 做全量 replay 会得到无效的大幅退化；正确做法是只复算本轮实际新增的 direct-user reason-update rescore gate，并显式记录 `replay_uses_gold_answers = false`、`improved/degraded` 计数。
   - 对 `recalling_the_reasons_behind_previous_updates`，直接用户更新形态与 advice-style query 不能混在一起处理。未加 `User:` gate 的 reason-update query-overlap rescore 会打坏 movie/advice 样本；加上 direct-user gate 后，Persona full replay 显示 `+23` 且 `degraded = 0`。

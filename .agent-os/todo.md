@@ -2,27 +2,26 @@
 
 ## Doing
 
-- `TD-047` `[planned]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
+- `TD-047` `[done]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
   - Current workstream: `WS-033`
-  - Failure carried forward:
-    - v5 reached `52/52` but used `deterministic_hashing_proxy`
-    - `pretrained_weights_loaded = false`
-    - core/residual train was toy-scale `200 train / 96 eval`
-    - PersonaMem full589 no-calibration stayed near random
-  - Hard gates:
-    - real HF pretrained weights loaded
-    - backend is not proxy/hash/lexical-only
-    - real checkpoint exists
-    - train samples >= `10000`
-    - trained > frozen on held-out gold-free metric
-    - latent-only > shuffled-latent
-    - full > text-only
-    - PersonaMem no-calibration > random / option-only by meaningful margin
-    - PersonaMem gold never trains substrate
-  - Allowed closeout states:
-    - `positive_gain`
-    - `negative_result`
-    - `blocked`
+  - Final retained state:
+    - baseline `stage2_v51_real_training_score = 10`
+    - iteration `1 keep`: real BGE pretrained load / sentence-transformers backend，score `30`
+    - iteration `2 keep`: 12k stage2 gold-free training、real checkpoint、held-out trained > frozen / latent > shuffled / full > text-only，score `85`
+    - iteration `3 keep`: PersonaMem full589 no-calibration `184/589 = 31.24%`，超过 option-only `167/589 = 28.35%` 与 random `25%`，score `100`
+  - Stop labels retained: `real-pretrained`、`real-checkpoint`、`heldout-gain`、`anti-shortcut`、`no-calibration`
+  - Evidence:
+    - `outputs_v2/artifacts/latest_stage2_v51_real_backbone_compare.json`
+    - `outputs_v2/artifacts/latest_stage2_v51_real_training.json`
+    - `outputs_v2/artifacts/latest_stage2_v51_latent_eval.json`
+    - `outputs_v2/artifacts/latest_stage2_v51_personamem_full589.json`
+    - `outputs_v2/artifacts/latest_stage2_v51_real_training_decision.json`
+    - `research-results.tsv` iteration `3 keep`
+  - Truth boundary:
+    - 当前完成态是 local mechanical verifier + gold-free/no-calibration positive result
+    - 三 backbone 比较尚未完成；当前只真实加载并训练 `BAAI/bge-base-en-v1.5`
+    - PersonaMem no-calibration 高于 option-only/random，但仍低于同 artifact 的 text-only score `214/589`
+    - 不得写成 provider-side superiority、formal benchmark superiority，或 broader architecture 已充分验证
   - Plan: [docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
 
 - `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。

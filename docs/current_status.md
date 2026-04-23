@@ -1,12 +1,13 @@
 # Current Status
 
-## 当前最新状态：v5.1 real pretrained training 计划
+## 当前最新状态：v5.1 real pretrained training 已完成本轮 managed stop
 
-- 当前 active 主线已从 `TD-046 / WS-032 / v5` scaffold closeout 前推到 `TD-047 / WS-033 / v5.1`。
-- 用户明确不满意 v5 结果，因为它没有真实 pretrained BGE/E5/Contriever 权重训练，也没有真实 no-calibration PersonaMem gain；当前 v5 full589 no-calibration 约 `24.3%`，接近四选一随机。
-- v5.1 的目标是 `real pretrained weights + real stage2/persona data + real checkpoint + held-out eval + anti-shortcut ablation`，而不是 artifact completeness。
-- 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay。
-- v5 保留为 scaffold / proxy evidence-package closeout，不再作为 scientific result。
+- `TD-047 / WS-033 / v5.1` background autoresearch 已达到配置 stop condition：`scripts/verify_stage2_v51_real_training.py --score-only = 100`。
+- 本轮真实加载 `BAAI/bge-base-en-v1.5`，backend 为 `sentence_transformers`，`pretrained_weights_loaded = true`，并在 stage2 32k gold-free data 上完成 12k-sample 训练，产出真实 checkpoint。
+- Held-out stage2 test：trained MRR `0.9792` > frozen `0.7054`；latent-only `0.9792` > shuffled-latent `0.9592`；full `0.9792` > text-only `0.7054`。
+- PersonaMem full589 no-calibration：`184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`；PersonaMem gold 未用于 memory substrate。
+- 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay；`v5` 继续保留为 scaffold/proxy evidence-package closeout，不再作为 scientific result。
+- 边界：当前是 local mechanical verifier + gold-free/no-calibration positive result；三 backbone 比较尚未完成，PersonaMem no-calibration 仍低于同 artifact 的 text-only `214/589`，不得写成 provider-side 或 formal benchmark superiority。
 - 当前计划文档：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
 
 ## 当前结论
@@ -22,6 +23,7 @@
 
 ## 当前状态
 
+- Retained `TD-047 / WS-033 / v5.1` 已在本轮 background managed run 中达到 stop condition：baseline `10`，iteration `3 keep` 后 `stage2_v51_real_training_score = 100`。关键证据包括 `latest_stage2_v51_real_backbone_compare.json`、`latest_stage2_v51_real_training.json`、`latest_stage2_v51_latent_eval.json`、`latest_stage2_v51_personamem_full589.json` 与 `latest_stage2_v51_real_training_decision.json`。
 - Retained `TD-046 / WS-032 / v5` 已在本轮 background managed run 中达到机械 stop condition：baseline `13`，final `scripts/verify_stage2_v5_longrun.py --score-only = 52`。关键新增证据包括 `latest_stage2_v5_personamem_isolation.json`、`latest_stage2_v5_context_selfsupervised.json`、`latest_stage2_v5_encoder_compare.json`、`latest_stage2_v5_core_residual_train.json`、`latest_stage2_v5_controller_ablation.json`、`latest_stage2_v5_latent_reader_eval.json`、`latest_stage2_v5_text_ablation.json`、`latest_stage2_v5_answer_head_calibration.json`、`latest_stage2_v5_personamem_full589.json`、`latest_stage2_v5_ablation_summary.json` 与 `latest_stage2_v5_paper_evidence_package.json`。当前不能误写成 provider exact 改善、full provider rerun 改善，或真实 pretrained BGE/E5/Contriever 权重比较。
 - Retained `TD-045 / WS-031 / v4`（`TD-045`、`v4`、Persona-first）已在本轮 managed run 中达到机械 stop condition：`scripts/verify_stage2_v4_longrun.py --score-only = 38/38`。关键行为变化是 direct-user reason-update option rescoring；基于现有 learned-authoritative PersonaMem 512 beliefs/evidence 的 full replay，learned local / option-scorer exact 从 v33 的 `196/512` 提到 `219/512`，provider 仍只作为辅助证据。`LongMemEval-S 500` non-catastrophic guard 保持 local `14/500`。
 - 文档状态：`docs/requirements.md` 已重建并细化为 stage-1 + stage-2 双阶段真源；`docs/v2_design.md` 已同步到实现级规格

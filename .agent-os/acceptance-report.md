@@ -1,5 +1,22 @@
 # Acceptance Report
 
+## Stage 2 V5.1 Real Training Evidence
+
+- `EV-V51-001` -> `TD-047 / WS-033` real pretrained training
+  - Status: verified
+  - Evidence:
+    - `scripts/verify_stage2_v51_real_training.py --score-only` 当前返回 `100`
+    - `research-results.tsv` iteration `3 keep` 已记录 `real-pretrained / real-checkpoint / heldout-gain / anti-shortcut / no-calibration`
+    - `latest_stage2_v51_real_backbone_compare.json` 记录 `BAAI/bge-base-en-v1.5` 真实加载、backend `sentence_transformers`、embedding dim `768`、parameter count `109482240`
+    - `latest_stage2_v51_real_training.json` 记录 12k stage2 gold-free train samples、real checkpoint `outputs_v2/checkpoints/20260423T013123Z_stage2_v51_real_training/latent_retriever.pt`、device `cuda:2`
+    - `latest_stage2_v51_latent_eval.json` 记录 held-out trained MRR `0.9792` > frozen `0.7054`，latent-only `0.9792` > shuffled-latent `0.9592`
+    - `latest_stage2_v51_personamem_full589.json` 记录 no-calibration `184/589 = 31.24%` > option-only `167/589 = 28.35%` > random `25%`
+    - `latest_stage2_v51_real_training_decision.json` 记录 `result_type = positive_gain`
+  - Boundary:
+    - 当前只完成 BGE 单 backbone，不是 BGE/E5/Contriever 三者完整比较。
+    - PersonaMem no-calibration 超过 option-only/random，但低于 artifact 中 text-only `214/589`；不得误写成所有 PersonaMem text baseline 均被 latent full 超过。
+    - 当前结论是 local mechanical verifier + gold-free/no-calibration positive result，不是 provider-side superiority claim。
+
 ## Stage 2 V4 Runtime Evidence
 
 - `EV-V4-001` -> `TD-045 / WS-031` Persona-first learned memory

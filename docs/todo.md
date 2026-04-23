@@ -2,10 +2,12 @@
 
 ## Doing
 
-- `TD-047` `[planned]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
-  - 当前锚点：v5 `52/52` 被重新定性为 scaffold closeout；`pretrained_weights_loaded=false` 和 PersonaMem no-calibration 约随机不能作为成功。
-  - 硬门槛：真实 HF pretrained weights、非 proxy backend、真实 checkpoint、train samples >= `10000`、trained > frozen、latent-only > shuffled-latent、full > text-only、PersonaMem no-calibration > random/option-only。
-  - 允许结果：positive gain、negative result、blocked 三者之一；不允许 artifact completeness 或 calibrated-only improvement 伪装成 latent substrate gain。
+- `TD-047` `[done]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
+  - 当前结果：`scripts/verify_stage2_v51_real_training.py --score-only = 100`，`research-results.tsv` iteration `3 keep` 已带齐 stop labels。
+  - 关键证据：真实加载 `BAAI/bge-base-en-v1.5`，使用 `sentence_transformers` backend；stage2 32k retrieval_alignment 上训练 12k samples；checkpoint 写入 `outputs_v2/checkpoints/20260423T013123Z_stage2_v51_real_training/latent_retriever.pt`。
+  - Held-out：test trained MRR `0.9792` > frozen `0.7054`；latent-only `0.9792` > shuffled-latent `0.9592`；full `0.9792` > text-only `0.7054`。
+  - PersonaMem no-calibration：full589 `184/589 = 31.24%`，超过 option-only `167/589 = 28.35%` 与 random `25%`。
+  - 边界：当前只完成 BGE 单 backbone；PersonaMem no-calibration 高于 option-only/random，但低于 artifact 里的 text-only `214/589`；不得写成 provider-side 或 formal benchmark superiority。
   - 计划：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
 
 - `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。

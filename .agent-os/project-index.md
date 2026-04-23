@@ -3,17 +3,17 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-047 / WS-033 / v5.1` 进入 real pretrained training 计划。用户明确不接受 v5 proxy / placeholder closeout；下一轮必须把真实 pretrained weights、真实 stage2 32k / PersonaMem raw-context 数据、真实 checkpoint、held-out eval 与 PersonaMem full589 no-calibration 作为目标。`pretrained_weights_loaded=false`、`deterministic_hashing_proxy`、toy `200/96` training、PersonaMem 约随机 `25%` 都不能再 closeout。
-- Active workstreams: `WS-033`
+- Top next action: `TD-047 / WS-033 / v5.1` 已达到 managed stop condition；下一步若继续 v5.1，应做更强外部确认（例如三 backbone 比较、更严格 PersonaMem memory construction / no-calibration rerun），但当前不再需要继续本轮 background loop。
+- Active workstreams: none
 - Active workstream label: `TD-047 / WS-033`
 - Active workstream version: `v5.1`
-- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 现被重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。v5.1 计划已锁定为 real-training line：真实加载 BGE/E5/Contriever 至少一个 backbone，使用 stage2 32k train split 与 PersonaMem gold-free raw contexts，训练 adapter/projector/controller/latent reader，产出真实 checkpoint，并用 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only、PersonaMem full589 no-calibration-vs-random/option-only 做主验收。
+- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。`v5.1` current HEAD `89ba929` 已完成真实 BGE pretrained load、12k stage2 gold-free training、真实 checkpoint、held-out trained-vs-frozen / latent-vs-shuffled / full-vs-text-only gain，以及 PersonaMem full589 no-calibration `184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`。`scripts/verify_stage2_v51_real_training.py --score-only = 100`，supervisor 判定 `goal_reached`。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
 - Current v32 holdout truth: clean authoritative `timeout45` runs 已完成并发布。`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 当前固定为 `provider/local = 21/14`，`outputs_v2/runs/v32_full_personamem_512_timeout45/` 当前固定为 `provider/local = 183/175`；它们是 `v33` 的 external compare baseline。
 - Current v32 clean-holdout truth: current HEAD `34943df` 的 resumable provider commit + run-dir lock 与 `7377c29` 的 timeout/backoff 配置，是 `v32` authoritative full holdout 能收口的关键 runtime 修复；但 artifact 里仍然记录 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`。
 - Carried-forward v33 truth: `TD-044 / WS-030` 当前已不再是“必须先切 provider/interface 才能继续”的硬 blocker；current HEAD `2d3e59c` 证明在同一 `gpt-agent.cc/v1` 代理下，把 stored `provider_raw_prediction` 重新做协议层 `<think>` / fenced-reasoning 清洗，能把 Persona partial learned-authoritative holdout 从 `provider exact = 5/66` 回收到 `15/77`，而后续扩大到 `99/512` 时 provider/local 为 `18/99`、`42/99`。最新 analysis artifact 已把剩余失败拆成 `projection = 54`、`provider = 27`，并显示 `other_fact` 主导 `70` 个失败 relation、`suggest_new_ideas` 是最弱 question type。当前 targeted line 也已进一步证实 broader local gain 真实存在：generic morphology normalization 先把 broader Persona local-only gate 从 `12/16` 提到 `14/16`，support-slot-only gloss 收紧又把它从 `14/16` 提到 `15/16`。但最新 discard rows `52`、`61` 与 `69` 也一起划清了边界：parser widening + belief-prompt reorder 会在 broader slice 上立刻回退；generic parser-noise narrowing 会把 `6142...` 拉坏；更精确的 parser-precision specialization 虽然能修 `6142 / a40d / acd742` cheap singles，却在 wider symbolic-slot smoke16 上仍只做到 `13/16`，剩余 miss 重新收敛到 `d71 / 32b / 0adf`。`v33` 因此保留为 retained diagnostic / unfinished measurement truth，而不是当前 v5 的 keep closeout。
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030`、`TD-045 / WS-031` 与 `TD-046 / WS-032` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前 active 主线已经前推到 `TD-047 / WS-033 / v5.1`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030`、`TD-045 / WS-031`、`TD-046 / WS-032` 与 `TD-047 / WS-033` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前暂无新的 active managed workstream。
 
 ## Objective Summary
 
@@ -23,11 +23,13 @@
 
 ## Active Workstreams
 
-- `WS-033` `[planned]`: Stage-2 `v5.1 Real Pretrained Training`，目标是把 v5 scaffold 前推成真实 pretrained backbone + real data + real training + held-out eval 的科学结论。
+- `WS-033` `[done]`: Stage-2 `v5.1 Real Pretrained Training`，目标是把 v5 scaffold 前推成真实 pretrained backbone + real data + real training + held-out eval 的科学结论。
   - Current task: `TD-047`
   - Plan: [docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
+  - Final retained state: `scripts/verify_stage2_v51_real_training.py --score-only = 100`；`research-results.tsv` iteration `3 keep` 已带 `real-pretrained / real-checkpoint / heldout-gain / anti-shortcut / no-calibration` stop labels
+  - Evidence: `latest_stage2_v51_real_backbone_compare.json`、`latest_stage2_v51_real_training.json`、`latest_stage2_v51_latent_eval.json`、`latest_stage2_v51_personamem_full589.json`、`latest_stage2_v51_real_training_decision.json`
   - Hard gates: `pretrained_weights_loaded=true`、非 proxy backend、real checkpoint exists、train samples >= `10000`、trained > frozen、latent-only > shuffled-latent、full > text-only、PersonaMem no-calibration > random/option-only
-  - Truth boundary: 若真实训练后仍接近随机，必须记录 `negative_result`，不能用 artifact completeness 或 calibrated-only improvement 伪装成 latent substrate gain
+  - Truth boundary: 当前是本地 mechanical verifier + gold-free eval positive result；PersonaMem no-calibration margin 为 `+17` correct over option-only，不应夸写成 provider-side superiority、三 backbone comparison 已完成，或 full text-only PersonaMem 已被超越（artifact 里 text-only 为 `214/589`，高于 no-calibration `184/589`）。
 - `WS-032` `[done]`: Stage-2 `v5 Core-Residual Latent Substrate` managed run 已达到机械 stop condition，目标是把 CoRe_Mem 从 text-centered slot/belief system 推进到可训练、可消融的 core-residual latent memory substrate evidence package。
   - Current task: `TD-046`
   - Plan: [docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
