@@ -2,6 +2,29 @@
 
 ## Doing
 
+- `TD-047` `[planned]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
+  - Current workstream: `WS-033`
+  - Failure carried forward:
+    - v5 reached `52/52` but used `deterministic_hashing_proxy`
+    - `pretrained_weights_loaded = false`
+    - core/residual train was toy-scale `200 train / 96 eval`
+    - PersonaMem full589 no-calibration stayed near random
+  - Hard gates:
+    - real HF pretrained weights loaded
+    - backend is not proxy/hash/lexical-only
+    - real checkpoint exists
+    - train samples >= `10000`
+    - trained > frozen on held-out gold-free metric
+    - latent-only > shuffled-latent
+    - full > text-only
+    - PersonaMem no-calibration > random / option-only by meaningful margin
+    - PersonaMem gold never trains substrate
+  - Allowed closeout states:
+    - `positive_gain`
+    - `negative_result`
+    - `blocked`
+  - Plan: [docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
+
 - `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。
   - Current workstream: `WS-032`
   - Current retained baselines: `v32` symbolic authoritative full benchmark、`v33` learned-authoritative runtime/full-holdout evidence、`v4` Persona-first learned option replay。

@@ -3,17 +3,17 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-046 / WS-032 / v5` managed run 已达到配置 stop condition：`scripts/verify_stage2_v5_longrun.py --score-only = 52`，`stage2_v5_longrun_score >= 52`。本轮不再继续自动开新实验；下一步应先人工审阅 v5 evidence package / artifacts，或由用户明确给出新的 stage-2 研究线。
-- Active workstreams: `WS-032` retained closeout
-- Active workstream label: `TD-046 / WS-032`
-- Active workstream version: `v5`
-- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已在 managed run 中从 baseline `13` 推到 `52/52`。最新真相是：v5 已落地 PersonaMem persona/context gold-isolation checker、gold-free context self-supervised data、BGE/E5/Contriever deterministic encoder comparison harness、core-residual latent substrate / write-controller train artifact、query-conditioned latent reader ablations、thin answer-head calibration、PersonaMem full-589 local report、anti-shortcut summary 与 paper evidence package。边界是：encoder harness 当前显式记录 `pretrained_weights_loaded = false`、使用 deterministic hashing proxy；provider 只作为 auxiliary；不得把当前机械完成态写成 provider-side superiority、真实 HF pretrained comparison，或正式 benchmark superiority claim。
+- Top next action: `TD-047 / WS-033 / v5.1` 进入 real pretrained training 计划。用户明确不接受 v5 proxy / placeholder closeout；下一轮必须把真实 pretrained weights、真实 stage2 32k / PersonaMem raw-context 数据、真实 checkpoint、held-out eval 与 PersonaMem full589 no-calibration 作为目标。`pretrained_weights_loaded=false`、`deterministic_hashing_proxy`、toy `200/96` training、PersonaMem 约随机 `25%` 都不能再 closeout。
+- Active workstreams: `WS-033`
+- Active workstream label: `TD-047 / WS-033`
+- Active workstream version: `v5.1`
+- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 现被重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。v5.1 计划已锁定为 real-training line：真实加载 BGE/E5/Contriever 至少一个 backbone，使用 stage2 32k train split 与 PersonaMem gold-free raw contexts，训练 adapter/projector/controller/latent reader，产出真实 checkpoint，并用 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only、PersonaMem full589 no-calibration-vs-random/option-only 做主验收。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
 - Current v32 holdout truth: clean authoritative `timeout45` runs 已完成并发布。`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 当前固定为 `provider/local = 21/14`，`outputs_v2/runs/v32_full_personamem_512_timeout45/` 当前固定为 `provider/local = 183/175`；它们是 `v33` 的 external compare baseline。
 - Current v32 clean-holdout truth: current HEAD `34943df` 的 resumable provider commit + run-dir lock 与 `7377c29` 的 timeout/backoff 配置，是 `v32` authoritative full holdout 能收口的关键 runtime 修复；但 artifact 里仍然记录 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`。
 - Carried-forward v33 truth: `TD-044 / WS-030` 当前已不再是“必须先切 provider/interface 才能继续”的硬 blocker；current HEAD `2d3e59c` 证明在同一 `gpt-agent.cc/v1` 代理下，把 stored `provider_raw_prediction` 重新做协议层 `<think>` / fenced-reasoning 清洗，能把 Persona partial learned-authoritative holdout 从 `provider exact = 5/66` 回收到 `15/77`，而后续扩大到 `99/512` 时 provider/local 为 `18/99`、`42/99`。最新 analysis artifact 已把剩余失败拆成 `projection = 54`、`provider = 27`，并显示 `other_fact` 主导 `70` 个失败 relation、`suggest_new_ideas` 是最弱 question type。当前 targeted line 也已进一步证实 broader local gain 真实存在：generic morphology normalization 先把 broader Persona local-only gate 从 `12/16` 提到 `14/16`，support-slot-only gloss 收紧又把它从 `14/16` 提到 `15/16`。但最新 discard rows `52`、`61` 与 `69` 也一起划清了边界：parser widening + belief-prompt reorder 会在 broader slice 上立刻回退；generic parser-noise narrowing 会把 `6142...` 拉坏；更精确的 parser-precision specialization 虽然能修 `6142 / a40d / acd742` cheap singles，却在 wider symbolic-slot smoke16 上仍只做到 `13/16`，剩余 miss 重新收敛到 `d71 / 32b / 0adf`。`v33` 因此保留为 retained diagnostic / unfinished measurement truth，而不是当前 v5 的 keep closeout。
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030` 与 `TD-045 / WS-031` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前 active 主线已经前推到 `TD-046 / WS-032 / v5`
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030`、`TD-045 / WS-031` 与 `TD-046 / WS-032` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前 active 主线已经前推到 `TD-047 / WS-033 / v5.1`
 
 ## Objective Summary
 
@@ -23,6 +23,11 @@
 
 ## Active Workstreams
 
+- `WS-033` `[planned]`: Stage-2 `v5.1 Real Pretrained Training`，目标是把 v5 scaffold 前推成真实 pretrained backbone + real data + real training + held-out eval 的科学结论。
+  - Current task: `TD-047`
+  - Plan: [docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
+  - Hard gates: `pretrained_weights_loaded=true`、非 proxy backend、real checkpoint exists、train samples >= `10000`、trained > frozen、latent-only > shuffled-latent、full > text-only、PersonaMem no-calibration > random/option-only
+  - Truth boundary: 若真实训练后仍接近随机，必须记录 `negative_result`，不能用 artifact completeness 或 calibrated-only improvement 伪装成 latent substrate gain
 - `WS-032` `[done]`: Stage-2 `v5 Core-Residual Latent Substrate` managed run 已达到机械 stop condition，目标是把 CoRe_Mem 从 text-centered slot/belief system 推进到可训练、可消融的 core-residual latent memory substrate evidence package。
   - Current task: `TD-046`
   - Plan: [docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)

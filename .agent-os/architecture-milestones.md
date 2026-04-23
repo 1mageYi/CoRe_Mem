@@ -12,6 +12,7 @@
 - `WS-008`: Stage-2 数据、parser 与训练管线
 - `WS-009`: Stage-2 本地 intrinsic evaluation 与 canary 协议
 - `WS-032`: Stage-2 `v5 Core-Residual Latent Substrate` 顶会级 latent memory 路线
+- `WS-033`: Stage-2 `v5.1 Real Pretrained Training`，把 v5 scaffold 前推成真实 pretrained backbone + real data + real checkpoint + held-out eval 的 scientific result 路线
 
 ## Current Architecture Route
 
@@ -55,6 +56,17 @@
 - belief decoder 作为 interpretable bottleneck，而不是唯一 memory substrate
 - PersonaMem gold 只允许在 persona/context 隔离 split 上校准薄 answer head
 - 必须报告 latent-only、text-only、shuffled-latent、core-only、residual-only、no-controller 等 anti-shortcut ablations
+
+### Stage-2 V5.1 路线
+
+`v5.1` 继承 `v5` 的 core-residual latent substrate 目标，但把验收从 scaffold / artifact evidence 收紧为真实训练证据：
+
+- deterministic hash / proxy encoder 只能作为 code scaffold，不允许作为 scientific closeout
+- 至少一个 `BGE / E5 / Contriever` 类 HuggingFace pretrained backbone 必须真实加载，artifact 必须记录 `pretrained_weights_loaded = true`
+- stage2 `32k` train split 与 PersonaMem gold-free raw contexts 作为 real adaptation 数据；PersonaMem gold answer 不进入 writer / reader / controller / latent substrate
+- 必须产出真实 checkpoint、train log、device、train/eval sample counts、loss curve 与 run metadata
+- 必须比较 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only、core-only、residual-only、no-controller
+- PersonaMem full589 no-calibration 必须显著超过 random / option-only baseline；否则只能记录 `negative_result`，不能用 calibrated-only improvement 或 provider prompt trick 伪装成 latent gain
 
 ## Milestones
 
@@ -161,3 +173,17 @@
     - 当前是本地 mechanical stop condition 达成，不代表 provider-side benchmark superiority
     - encoder comparison 当前是 deterministic proxy，artifact 显式记录 `pretrained_weights_loaded = false`
     - `v5` 不允许把规则修补、provider prompt trick、PersonaMem option geometry 当作主贡献
+
+- `MS-014` `[planned]` Stage-2 `v5.1 Real Pretrained Training`
+  - Acceptance:
+    - 新 verifier 必须禁止 proxy / deterministic hashing 被写成 closeout，并对 `pretrained_weights_loaded = false` 设硬性 score cap
+    - 至少一个真实 pretrained backbone 被加载并训练，backend 为 `sentence_transformers` / `transformers` / HuggingFace stack，而不是 proxy
+    - train samples 至少 `10000`，并使用独立 held-out eval split
+    - 真实 checkpoint、train log、device、sample counts、loss curve 与 config snapshot 完整落地
+    - held-out trained checkpoint 必须优于 frozen pretrained baseline
+    - latent-only 必须优于 shuffled-latent，full core-residual 必须优于 text-only
+    - PersonaMem full589 no-calibration 必须优于 random / option-only baseline，或明确记录为 `negative_result`
+  - Boundary:
+    - artifact completeness 不能算成功
+    - calibrated-only improvement 不能算 latent substrate gain
+    - provider/API prompt following 不能替代 learned memory capability

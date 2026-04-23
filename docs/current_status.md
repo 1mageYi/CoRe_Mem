@@ -1,14 +1,13 @@
 # Current Status
 
-## 当前最新状态：v5 Core-Residual Latent Substrate 机械 closeout
+## 当前最新状态：v5.1 real pretrained training 计划
 
-- 当前 `TD-046 / WS-032 / v5` background autoresearch managed run 已达到配置 stop condition：`scripts/verify_stage2_v5_longrun.py --score-only = 52`，满足 `stage2_v5_longrun_score >= 52`。
-- `v5` 的目标不是继续靠规则、parser patch、provider prompt 或 option-scorer trick 提升 benchmark，而是训练并验证 `core + residual` latent memory substrate 的本地 evidence package。
+- 当前 active 主线已从 `TD-046 / WS-032 / v5` scaffold closeout 前推到 `TD-047 / WS-033 / v5.1`。
+- 用户明确不满意 v5 结果，因为它没有真实 pretrained BGE/E5/Contriever 权重训练，也没有真实 no-calibration PersonaMem gain；当前 v5 full589 no-calibration 约 `24.3%`，接近四选一随机。
+- v5.1 的目标是 `real pretrained weights + real stage2/persona data + real checkpoint + held-out eval + anti-shortcut ablation`，而不是 artifact completeness。
 - 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay。
-- 当前 v5 已发布 gold-isolation、gold-free context self-supervision、encoder proxy comparison、core-residual train、controller ablation、latent reader / text ablation、thin answer-head calibration、PersonaMem full-589 local report、ablation summary 与 paper evidence package。
-- 核心约束已在 artifacts 中显式记录：PersonaMem gold 只能训练薄 answer/readout head，不能训练 memory writer / reader / controller / latent substrate；同时报告 no-calibration 与 calibrated 两条线。
-- Truth boundary：当前完成态是本地机械 verifier + artifacts 达标；encoder comparison 是 deterministic proxy 且显式记录 `pretrained_weights_loaded = false`，provider 仍是 auxiliary，不能写成 provider-side superiority 或真实 pretrained-weight comparison。
-- 当前计划文档：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
+- v5 保留为 scaffold / proxy evidence-package closeout，不再作为 scientific result。
+- 当前计划文档：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
 
 ## 当前结论
 

@@ -1,5 +1,7 @@
 # V5 Plan: Core-Residual Latent Substrate
 
+> 2026-04-22 update: v5 managed run 已完成 scaffold / evidence-package closeout，但没有完成真实 pretrained backbone training。后续真实训练目标以 [docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md) 为准；`pretrained_weights_loaded=false` 的 proxy harness 不能再作为 scientific closeout。
+
 ## 0. 版本定位
 
 `v5` 的目标不是继续围绕 benchmark 做局部修补，而是把 CoRe_Mem 推进成一个真正可训练、可验证、可发表的 personalized latent memory system。

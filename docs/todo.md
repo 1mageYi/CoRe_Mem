@@ -2,6 +2,12 @@
 
 ## Doing
 
+- `TD-047` `[planned]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
+  - 当前锚点：v5 `52/52` 被重新定性为 scaffold closeout；`pretrained_weights_loaded=false` 和 PersonaMem no-calibration 约随机不能作为成功。
+  - 硬门槛：真实 HF pretrained weights、非 proxy backend、真实 checkpoint、train samples >= `10000`、trained > frozen、latent-only > shuffled-latent、full > text-only、PersonaMem no-calibration > random/option-only。
+  - 允许结果：positive gain、negative result、blocked 三者之一；不允许 artifact completeness 或 calibrated-only improvement 伪装成 latent substrate gain。
+  - 计划：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
+
 - `TD-046` `[done]` 以 `v5 Core-Residual Latent Substrate` 为目标，把当前 text-centered slot/belief system 推进成可训练、可消融的 latent memory system evidence package。
   - 当前锚点：retained `v32 / v33 / v4` baselines 继续保留；v5 managed run 已从 baseline `13` 推到 `52/52`。
   - 已完成重点：PersonaMem gold-isolation、gold-free context self-supervision、encoder proxy comparison、learned write controller、core/residual latent state、query-conditioned latent reader、latent-only / text-only / shuffled-latent / no-controller ablation、strict PersonaMem gold calibration isolation。

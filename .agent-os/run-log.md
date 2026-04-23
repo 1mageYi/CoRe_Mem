@@ -1,5 +1,30 @@
 # Run Log
 
+# 2026-04-22 Session 127
+
+- Worked on: 将用户对 `v5` proxy/scaffold 结果的不满意转成 `TD-047 / WS-033 / v5.1 Real Pretrained Training` 计划锁定
+- State changed:
+  - `v5` retained truth 被明确重分类为 scaffold / proxy evidence-package closeout，而不是 scientific result
+  - 新增 `docs/v51_plan.md`，把下一轮目标锁定为真实 pretrained weights、真实 stage2 32k / PersonaMem gold-free raw-context 数据、真实 checkpoint、held-out eval 与 anti-shortcut ablation
+  - `.agent-os/project-index.md`、`.agent-os/todo.md`、`docs/todo.md`、`docs/current_status.md`、`docs/implementation_plan.md`、`.agent-os/architecture-milestones.md`、`.agent-os/change-decisions.md` 与 `.agent-os/acceptance-report.md` 已同步 `TD-047 / WS-033`
+- Evidence / docs:
+  - `docs/v51_plan.md`
+  - `docs/v5_plan.md`
+  - `.agent-os/project-index.md`
+  - `.agent-os/architecture-milestones.md`
+  - `.agent-os/change-decisions.md`
+  - `.agent-os/acceptance-report.md`
+  - `.agent-os/todo.md`
+  - `docs/todo.md`
+  - `docs/current_status.md`
+  - `docs/implementation_plan.md`
+- Verification:
+  - 本 session 只做 planning / documentation lock，没有启动新训练或 background autoresearch
+  - 当前环境审阅显示 `core_mem` 已有 `torch` CUDA、`transformers`、`sentence_transformers`、`peft`、`datasets`、`accelerate`，因此 v5.1 的真实 pretrained training 目标不应再默认走 proxy
+- Next likely action:
+  - 实现 `scripts/verify_stage2_v51_real_training.py` 与对应 tests，让 verifier 对 proxy / pretrained false / no checkpoint / train samples < `10000` / random no-calibration 设硬性 score cap
+  - 用户批准后，再按 `docs/v51_plan.md` 启动 fresh v5.1 background autoresearch
+
 # 2026-04-22 Session 126
 
 - Worked on: `TD-046 / WS-032 / v5 Core-Residual Latent Substrate` background autoresearch managed run，从 fresh baseline 推进到 configured stop condition

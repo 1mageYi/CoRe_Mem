@@ -240,3 +240,20 @@
     - `EV-018` 证明 v5 本地 mechanical evidence package 已达到 configured stop condition
     - 当前不能写成 provider-side superiority claim；provider 仍是 auxiliary
     - 当前 encoder comparison harness 显式记录 `pretrained_weights_loaded = false`，因此不能写成真实 pretrained HF weights 的模型优劣结论
+
+- `EV-019` -> `WS-033 / TD-047` `v5.1 Real Pretrained Training` plan lock
+  - Status: planned
+  - Evidence:
+    - `docs/v51_plan.md` 已创建，明确把 v5 proxy/scaffold 失败转成真实 pretrained training 主线
+    - `.agent-os/project-index.md` 已把 active workstream 前推到 `TD-047 / WS-033 / v5.1`
+    - `.agent-os/change-decisions.md` 已记录用户拒绝 placeholder closeout、接受 negative result、要求 verifier 对 proxy / pretrained false / toy training 设硬门槛
+    - `docs/v5_plan.md` 已加注：v5 retained artifact 是 scaffold/evidence-package closeout，不是 scientific closeout
+    - `docs/current_status.md`、`docs/implementation_plan.md`、`.agent-os/todo.md` 与 `docs/todo.md` 已同步 v5.1 next action
+  - Pending acceptance:
+    - `scripts/verify_stage2_v51_real_training.py` 尚未实现
+    - 真实 pretrained backbone 尚未重新加载并训练
+    - 真实 checkpoint / train log / held-out eval 尚未产出
+    - trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only 与 PersonaMem full589 no-calibration 结果尚未刷新
+  - Boundary:
+    - `EV-019` 目前只证明计划与验收边界已锁定
+    - 不能把它写成 v5.1 training 已完成，也不能写成已有真实 pretrained model gain

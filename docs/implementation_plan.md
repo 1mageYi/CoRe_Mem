@@ -11,6 +11,7 @@
 
 - **Stage-2 是当前主线**
 - **Stage-1 formal benchmark 作为 baseline / acceptance 相关的 pending 项保留，直到用户明确要求 AI 去跑**
+- **当前 active research plan 是 `TD-047 / WS-033 / v5.1 Real Pretrained Training`**：修正 v5 verifier 允许 proxy closeout 的问题，下一轮必须真实加载 pretrained BGE/E5/Contriever 至少一个 backbone，使用 stage2 32k / PersonaMem raw-context 数据进行真实训练，产出 checkpoint，并用 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only、PersonaMem full589 no-calibration-vs-random/option-only 做主验收。
 - **当前 retained closeout 是 `TD-046 / WS-032 / v5 Core-Residual Latent Substrate`**：本轮 background managed run 已从 baseline `13` 推到 `scripts/verify_stage2_v5_longrun.py --score-only = 52`，达到配置 stop condition。当前没有未记录的新实验；后续若继续，应先审阅 v5 evidence package / truth boundary，再由用户明确选择新的 stage-2 line 或要求扩大 v5 实验。
 - **上一轮 retained run 是 `TD-045 / WS-031 / v4 Persona-first learned memory`**（`TD-045`、`v4`、Persona-first）：本轮 managed run 已达到 `38/38` 机械 stop condition。主结果是 `PersonaMem 512` learned local / option-scorer replay 从 v33 `196/512` 提到 `219/512`；`LongMemEval-S 500` 作为 non-catastrophic guard 保持 `14/500`。后续仍需把该完成态解释为 option-scorer replay + inherited learned latent/belief evidence，不能写成 provider-side improvement。
 
@@ -27,6 +28,19 @@
 - Truth boundary：当前完成态是本地 verifier / artifacts 达标，provider 仍是 auxiliary，不能写成 provider-side benchmark superiority。
 
 完整计划：[docs/v5_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v5_plan.md)
+
+### 当前 `v5.1` 执行锚点
+
+`v5.1` 是对 v5 proxy closeout 的纠偏：
+
+- `pretrained_weights_loaded=false` 直接触发 verifier cap，不能再 closeout。
+- `deterministic_hashing_proxy` 只能作为 scaffold baseline，不能作为 encoder comparison 结论。
+- 真实训练必须使用 stage2 32k split，主训练样本不少于 `10000`，目标使用 full `24k` train。
+- 必须产出真实 checkpoint、train log、device、sample count、loss curve。
+- 必须报告 trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only。
+- PersonaMem full589 no-calibration 若仍接近 `25%`，必须写成 negative result，而不是成功。
+
+完整计划：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
 
 ## 第一阶段总策略
 

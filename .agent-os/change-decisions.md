@@ -100,3 +100,10 @@
   - 最终必须分别报告 no-calibration 与 calibrated 结果
 - MiniMax-M2.7 teacher 允许继续用于 raw-dialogue memory/belief/update supervision，但 teacher 不能以 silver label 为条件，也不能看到 PersonaMem gold answer。
 - `v5` 的验收必须包含 anti-shortcut ablations：latent-only、text-only、shuffled-latent、shuffled-memory/persona、core-only、residual-only、no-controller、option-only baseline、answer-label permutation、option paraphrase。
+
+## `CD-014` 2026-04-22
+
+- 用户明确拒绝把 `v5` 的 proxy / placeholder / scaffold 结果当成满意结论；下一轮必须以真实训练、真实数据、真实 eval 得到真实结论为目标。
+- `deterministic_hashing_proxy`、`pretrained_weights_loaded = false`、toy `200/96` training、PersonaMem no-calibration 约随机水平，都只能作为失败边界或 scaffold evidence，不能作为 scientific success。
+- `v5.1` verifier 必须把真实 pretrained weights、真实 checkpoint、足量 train samples、held-out trained-vs-frozen、latent anti-shortcut ablation 写成硬门槛，而不是只检查 artifact 是否齐全。
+- negative result 是允许且可信的 closeout；如果真实 pretrained training 仍没有超过 frozen / shuffled / random baseline，必须如实记录，不允许靠 calibrated-only answer head、provider prompt following、benchmark-specific option trick 把它包装成 latent system gain。
