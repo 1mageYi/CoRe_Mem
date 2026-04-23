@@ -13,11 +13,11 @@
     - `latest_stage2_v63_personamem_no_routing.json` 记录 answer-time routing disabled、raw-context retrieval disabled、PersonaMem gold 未用于 memory substrate
     - `latest_stage2_v63_error_attribution.json` 记录 full589 failure attribution counts
   - Negative result:
-    - PersonaMem full589 no-routing `179/589`
+    - PersonaMem full589 no-routing `180/589`
     - text-only `180/589`
     - option-only `235/589`
-    - margin vs text-only `-1`
-    - margin vs option-only `-56`
+    - margin vs text-only `0`
+    - margin vs option-only `-55`
     - `latest_stage2_v63_decision.json` 记录 `result_type = negative_result`
     - discarded durable-fact core-promotion trial degraded to `152/589`
     - discarded selected-support-gloss decision-feature trial degraded to `173/589`
@@ -26,10 +26,12 @@
     - discarded question-conditioned belief-selector trial degraded to `176/589`
     - discarded query-relation-router trial degraded to `163/589`
     - discarded relation-pooled belief-composer trial degraded to `160/589`
+    - discarded late-interaction reader-features trial degraded to `156/589`
   - Boundary:
     - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。
     - 当前不能声明 benchmark gain、significant PersonaMem margin、acceptance met 或 reproducible closeout。
-    - 第二次 `pivot` 与 `search` 已成立，但 search-derived 第一条 pooled-belief trial 也没有形成 retainable gain；下一条线必须比现有 question-conditioned read-path 与 relation-pooling 更结构性。
+    - 第三次 `pivot` 已成立，当前 run 进入 soft blocker handoff：search-derived 的 pooled-belief 与 late-interaction 两条结构线都没有形成 retainable gain。
+    - 若后续还要继续推进，必须比现有 question-conditioned read-path、relation-pooling 和 late-interaction reader 更广。
 
 ## Stage 2 V6.2 Learned Write-Quality Evidence
 

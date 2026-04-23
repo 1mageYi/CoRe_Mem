@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-23 Session 153
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` late-interaction reader-feature discard and third-pivot soft-blocker handoff
+- State changed:
+  - Iteration `13 discard`: added query-token to slot-latent-token late-interaction features to the learned reader
+  - Trial again improved local reader metrics but degraded PersonaMem full589 no-routing from the current line to `156/589`
+  - Reverted the trial commit with `git revert --no-edit`, re-published retained v6.3 artifacts, and restored current negative-result truth at `180/589` vs text-only `180/589` vs option-only `235/589`
+  - Because this exhausted the current search-derived representation-tweak family after two strong negative trials, iteration `14` was logged as `[PIVOT]`; this is the third pivot without a keep, so the run now enters protocol-defined soft blocker handoff
+- Evidence:
+  - `research-results.tsv` now records rows `13 discard` and `14 pivot`
+  - `autoresearch-state.json` now records iteration `14`, `pivot_count = 3`, retained metric `85`, and unchanged retained labels
+  - `latest_stage2_v63_personamem_no_routing.json` now records the current restore truth at `180/589`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration, rollback, and soft-blocker handoff only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 152
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` search-derived relation-pooled belief-composer discard and restore

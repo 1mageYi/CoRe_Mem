@@ -7,6 +7,7 @@
 ## Entries
 
 - 2026-04-23:
+  - `v6.3` 里把 query-token -> slot-latent-token late interaction 接进 reader feature，也不能形成 retained gain。虽然这条线更接近 multi-vector retrieval 的直觉，reader eval accuracy 会到 `0.8884`，但 full589 no-routing 反而会从 current line 掉到 `156/589`。这说明当前 slot latent tokens 在这一代 substrate 上还不足以支撑直接的 search-derived late-interaction tweak；后续如果真要走 multi-vector retrieval，不能再只是把 token interaction 当成 reader side feature 增补。
   - `v6.3` 里把 top selected slots 组合成 relation-pooled belief items，也不能形成 retained gain。虽然这条线会把 internal `reader_support_accuracy` 拉到 `0.5078`、`full_accuracy` 拉到 `0.5508`，看起来比 retained line 的内部指标更强，但 full589 no-routing 反而会从 retained `179/589` 掉到 `160/589`。这说明当前瓶颈不是“belief text 还不够聚合”，而是 internal synthetic gains 与真实 benchmark support alignment 仍严重错位；后续不要再把 pooled-belief / merged-support 文本本身当作 gain proxy。
   - `v6.3` 里把 question-conditioned belief selector 接在现有 reader 后面，也不能形成 retained gain。虽然这条线已经不再是纯 decision-only tweak，而是显式让 learned selector 重排 shortlist，但 full589 no-routing 仍会从 retained `179/589` 掉到 `176/589`。这说明当前剩余 gap 不是“再加一个 learned reranker”就能解决；若继续沿 read path 推进，必须改变 belief representation / projection 本身，而不是继续在同一 selected-slot 集合上做二次排序。
   - `v6.3` 里把 query relation router 接进现有 reader/belief path 也不是正确方向。虽然 routed top-1 accuracy 与 internal eval 有轻微变化，看起来像在做更结构化的 question-conditioned routing，但 full589 no-routing 仍会从 retained `179/589` 掉到 `163/589`。这说明当前问题不是缺一个 relation-family gate，而是现有 belief carrier 本身不足以把更大的 memory state 投影成答案增益；后续不应继续沿 relation-router / selected-slot rerank 家族重试。
