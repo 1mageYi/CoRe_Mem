@@ -2,6 +2,21 @@
 
 ## Doing
 
+- `TD-048` `[planned]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
+  - Current workstream: `WS-034`
+  - Hard gates:
+    - at least 2 real pretrained backbones loaded/compared
+    - non-retrieval-only multi-task training over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`
+    - real checkpoint exists
+    - trainable encoder/projection, latent reader/resampler, write controller, belief decoder/graph
+    - multi-task latent > retrieval-only latent
+    - trained > frozen
+    - latent-only > shuffled-latent
+    - full > text-only
+    - no-controller / no-belief / no-core-residual ablations drop
+    - PersonaMem no-calibration > text-only `214/589`
+  - Plan: [docs/v52_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v52_plan.md)
+
 - `TD-047` `[done]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
   - Current workstream: `WS-033`
   - Final retained state:

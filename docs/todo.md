@@ -2,6 +2,13 @@
 
 ## Doing
 
+- `TD-048` `[planned]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
+  - 当前 workstream: `WS-034`
+  - 硬门槛：至少 2 个真实 backbone、四任务 multi-task training、真实 checkpoint、trainable encoder/projection + latent reader/resampler + write controller + belief decoder/graph。
+  - 质量门槛：multi-task > retrieval-only、trained > frozen、latent-only > shuffled、full > text-only、ablation drops、PersonaMem no-calibration > text-only `214/589`。
+  - 禁止：fallback、shortcut、provider prompt trick、benchmark-specific option trick、PersonaMem gold leakage into substrate。
+  - 计划：[docs/v52_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v52_plan.md)
+
 - `TD-047` `[done]` 以 `v5.1 Real Pretrained Training` 为目标，把 v5 scaffold/proxy evidence package 改造成真实 pretrained backbone、真实数据、真实训练和真实 eval 的研究结论。
   - 当前结果：`scripts/verify_stage2_v51_real_training.py --score-only = 100`，`research-results.tsv` iteration `3 keep` 已带齐 stop labels。
   - 关键证据：真实加载 `BAAI/bge-base-en-v1.5`，使用 `sentence_transformers` backend；stage2 32k retrieval_alignment 上训练 12k samples；checkpoint 写入 `outputs_v2/checkpoints/20260423T013123Z_stage2_v51_real_training/latent_retriever.pt`。

@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-23 Session 130
+
+- Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak
+- State changed:
+  - Added `docs/v52_plan.md`
+  - Added `scripts/verify_stage2_v52_full_latent_system.py`
+  - Added `tests/test_stage2_v52_full_latent_system.py`
+  - Updated current status / todo / project index to make v5.2 the active line
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only` -> `4`
+- Boundary:
+  - v5.2 verifier intentionally caps v5.1-style single-backbone retrieval-only training
+  - PersonaMem no-calibration must exceed text-only `214/589`, not merely random / option-only
+- Next action:
+  - Fresh-start background autoresearch for `stage2_v52_full_latent_system_score`
+
 # 2026-04-23 Session 129
 
 - Worked on: `TD-047 / WS-033 / v5.1 Real Pretrained Training` managed background run from fresh baseline to configured stop condition

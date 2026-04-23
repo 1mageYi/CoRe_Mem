@@ -1,14 +1,16 @@
 # Current Status
 
-## 当前最新状态：v5.1 real pretrained training 已完成本轮 managed stop
+## 当前最新状态：v5.2 full learned latent system 正在启动
 
+- `TD-048 / WS-034 / v5.2` 已锁定为下一轮主线：不再接受 v5.1 式 real-training bootstrap，目标改为 full learned latent memory system。
+- v5.2 的 hard gate 要求 multi-backbone、multi-task、trainable reader/controller/belief、multi-task > retrieval-only，并且 PersonaMem full589 no-calibration 必须超过 text-only `214/589`。
 - `TD-047 / WS-033 / v5.1` background autoresearch 已达到配置 stop condition：`scripts/verify_stage2_v51_real_training.py --score-only = 100`。
 - 本轮真实加载 `BAAI/bge-base-en-v1.5`，backend 为 `sentence_transformers`，`pretrained_weights_loaded = true`，并在 stage2 32k gold-free data 上完成 12k-sample 训练，产出真实 checkpoint。
 - Held-out stage2 test：trained MRR `0.9792` > frozen `0.7054`；latent-only `0.9792` > shuffled-latent `0.9592`；full `0.9792` > text-only `0.7054`。
 - PersonaMem full589 no-calibration：`184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`；PersonaMem gold 未用于 memory substrate。
 - 当前 retained baselines 仍保留：`v32` 的 symbolic authoritative full benchmark、`v33` 的 learned-authoritative runtime/full-holdout evidence、`v4` 的 Persona-first learned option replay；`v5` 继续保留为 scaffold/proxy evidence-package closeout，不再作为 scientific result。
 - 边界：当前是 local mechanical verifier + gold-free/no-calibration positive result；三 backbone 比较尚未完成，PersonaMem no-calibration 仍低于同 artifact 的 text-only `214/589`，不得写成 provider-side 或 formal benchmark superiority。
-- 当前计划文档：[docs/v51_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v51_plan.md)
+- 当前计划文档：[docs/v52_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v52_plan.md)
 
 ## 当前结论
 
