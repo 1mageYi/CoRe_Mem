@@ -211,13 +211,10 @@ def _train_binary_classifier(
     train_y, eval_y = y[:split], y[split:]
     model = V62BinaryClassifier(input_dim=x.shape[-1])
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
-    positive_count = float(train_y.sum().item())
-    negative_count = float(len(train_y) - positive_count)
-    pos_weight = torch.tensor([negative_count / max(positive_count, 1.0)], dtype=torch.float32)
     loss_curve: list[dict[str, float]] = []
     for epoch in range(epochs):
         logits = model(train_x)
-        loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y, pos_weight=pos_weight)
+        loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
@@ -225,31 +222,18 @@ def _train_binary_classifier(
             loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
     with torch.no_grad():
         eval_probs = torch.sigmoid(model(eval_x))
+    eval_predictions = (eval_probs >= 0.5).to(dtype=torch.int64).tolist()
     eval_labels = eval_y.to(dtype=torch.int64).tolist()
-    best_threshold = 0.5
-    best_predictions = (eval_probs >= best_threshold).to(dtype=torch.int64).tolist()
-    best_f1 = _binary_f1(best_predictions, eval_labels)
-    best_accuracy = sum(int(pred == gold) for pred, gold in zip(best_predictions, eval_labels)) / max(len(eval_labels), 1)
-    for threshold in [step / 20.0 for step in range(2, 19)]:
-        predictions = (eval_probs >= threshold).to(dtype=torch.int64).tolist()
-        current_f1 = _binary_f1(predictions, eval_labels)
-        current_accuracy = sum(int(pred == gold) for pred, gold in zip(predictions, eval_labels)) / max(len(eval_labels), 1)
-        if current_f1 > best_f1 or (math.isclose(current_f1, best_f1) and current_accuracy > best_accuracy):
-            best_threshold = threshold
-            best_predictions = predictions
-            best_f1 = current_f1
-            best_accuracy = current_accuracy
-    eval_predictions = best_predictions
     accuracy = sum(int(pred == gold) for pred, gold in zip(eval_predictions, eval_labels)) / max(len(eval_labels), 1)
     majority = 1 if float(train_y.mean().item()) >= 0.5 else 0
     disabled_predictions = [majority for _ in eval_labels]
     disabled_accuracy = sum(int(pred == gold) for pred, gold in zip(disabled_predictions, eval_labels)) / max(len(eval_labels), 1)
     return V62BinaryTrainingResult(
         model=model,
-        threshold=best_threshold,
+        threshold=0.5,
         accuracy=accuracy,
         disabled_accuracy=disabled_accuracy,
-        f1=best_f1,
+        f1=_binary_f1(eval_predictions, eval_labels),
         disabled_f1=_binary_f1(disabled_predictions, eval_labels),
         train_examples=len(train_y),
         eval_examples=len(eval_y),
