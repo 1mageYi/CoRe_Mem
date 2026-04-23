@@ -80,6 +80,45 @@ _SOCIAL_QUERY_TERMS = {"community", "dating", "family", "friend", "friends", "gr
 _CONSTRAINT_QUERY_TERMS = {"avoid", "cannot", "can't", "constraint", "limit", "must", "restrict", "restriction"}
 _GOAL_QUERY_TERMS = {"aim", "goal", "goals", "plan", "planning", "trying", "want", "wants", "working"}
 _PROFILE_QUERY_TERMS = {"kind", "person", "personality", "style", "tendency", "trait", "traits"}
+_LOW_INFORMATION_VALUE_TERMS = {
+    "about",
+    "again",
+    "analyzing",
+    "as",
+    "be",
+    "better",
+    "check",
+    "direct",
+    "do",
+    "doing",
+    "evolve",
+    "excited",
+    "exploring",
+    "feeling",
+    "go",
+    "going",
+    "grow",
+    "improve",
+    "it",
+    "learn",
+    "learning",
+    "myself",
+    "ourself",
+    "ourselves",
+    "out",
+    "passionate",
+    "read",
+    "really",
+    "requests",
+    "self",
+    "spending",
+    "studying",
+    "that",
+    "there",
+    "to",
+    "trying",
+    "visit",
+}
 
 
 def _tokenize(text: str) -> list[str]:
@@ -161,6 +200,21 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
         *slot_semantics,
         *alignment,
     ]
+
+
+def _is_low_information_value(observation: Observation) -> bool:
+    if observation.relation not in {"goal", "hobby", "profile_trait"}:
+        return False
+    tokens = [token for token in _tokenize(observation.value) if token not in _STOPWORDS]
+    if not tokens:
+        return True
+    if len(tokens) > 2:
+        return False
+    return set(tokens) <= _LOW_INFORMATION_VALUE_TERMS
+
+
+def filter_v61_observations(observations: list[Observation]) -> list[Observation]:
+    return [observation for observation in observations if not _is_low_information_value(observation)]
 
 
 def infer_typed_relation(observation: Observation) -> str:
@@ -614,7 +668,7 @@ def build_v61_memory(
     V61DecisionTrainingResult,
     dict[str, Any],
 ]:
-    typed_observations = [typed_observation(observation) for observation in observations]
+    typed_observations = filter_v61_observations([typed_observation(observation) for observation in observations])
     training_slice = typed_observations[: max(max_stream_observations, 200)]
     router_result = train_write_router(training_slice)
     memory = PersistentCoreResidualMemory()

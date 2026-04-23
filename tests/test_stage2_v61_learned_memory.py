@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _best_matching_slot, typed_observation
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -84,3 +84,34 @@ def test_best_matching_slot_prefers_same_relation_family_and_overlap() -> None:
 
     assert matched is not None
     assert matched.slot_id == "slot-music-a"
+
+
+def test_filter_v61_observations_removes_low_information_goal_and_hobby_values() -> None:
+    kept = _observation(
+        obs_id="obs-keep",
+        relation="goal",
+        value="avoid technical jargon",
+        value_type="goal",
+        time_scope="current",
+        canonical_gloss="goal=avoid technical jargon",
+    )
+    dropped_goal = _observation(
+        obs_id="obs-drop-goal",
+        relation="goal",
+        value="check out",
+        value_type="goal",
+        time_scope="future",
+        canonical_gloss="goal=check out",
+    )
+    dropped_hobby = _observation(
+        obs_id="obs-drop-hobby",
+        relation="hobby",
+        value="myself",
+        value_type="preference",
+        time_scope="current",
+        canonical_gloss="hobby=myself",
+    )
+
+    filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
+
+    assert [item.obs_id for item in filtered] == ["obs-keep"]

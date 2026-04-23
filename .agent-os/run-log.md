@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-23 Session 140
+
+- Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` low-information substrate cleanup keep
+- State changed:
+  - Added generic low-information value filtering for `goal / hobby / profile_trait` observations before v6.1 substrate write
+  - Re-ran `scripts/publish_stage2_v61_learned_reader_decision.py`; verifier improved from `80` to `85`
+  - v6.1 no-routing PersonaMem improved from `182/589` to `191/589`, and now exceeds current text-only baseline
+- Evidence:
+  - `latest_stage2_v61_persistent_state.json` now records a cleaner substrate with `core_bank_size = 64`, `residual_bank_size = 510`, and `stream_observations_written = 712`
+  - `latest_stage2_v61_personamem_no_routing.json` now records full589 no-routing `191/589`, text-only `180/589`, option-only `235/589`, margin vs text-only `+11`, margin vs option-only `-44`
+  - `latest_stage2_v61_decision.json` remains `negative_result`; the option-only and meaningful-margin gates still block closeout
+- Verification:
+  - `git diff --check` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v61_learned_reader_decision.py --score-only` -> passed, score `85`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v61_learned_reader_decision.py tests/test_stage2_v61_learned_memory.py` -> passed
+- Boundary:
+  - This keep proves that substrate value quality, not only reader loss, still materially affects no-routing outcome.
+  - v6.1 still cannot claim success because it remains `44` correct below option-only and far below the meaningful-margin gate.
+
 # 2026-04-23 Session 139
 
 - Worked on: `TD-050 / WS-036 / v6.1 Learned Reader/Decision over Persistent Memory` reader/query alignment and grouped decision training keep
