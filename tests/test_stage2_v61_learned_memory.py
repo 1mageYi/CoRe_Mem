@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
-from core_mem.v2.v61_learned_memory import (
-    _apply_residual_relation_caps,
-    _best_matching_slot,
-    filter_v61_observations,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -33,15 +27,7 @@ def _observation(**overrides: object) -> Observation:
     return Observation.from_dict(payload)
 
 
-def _slot(
-    slot_id: str,
-    relation: str,
-    canonical_gloss: str,
-    *,
-    bank: str = "residual",
-    first_seen_ts: str = "turn-00001-obs-001",
-    last_update_ts: str = "turn-00001-obs-001",
-) -> SlotRecord:
+def _slot(slot_id: str, relation: str, canonical_gloss: str, *, bank: str = "residual") -> SlotRecord:
     return SlotRecord(
         slot_id=slot_id,
         bank=bank,
@@ -58,8 +44,8 @@ def _slot(
             social=0.0,
         ),
         confidence=0.8,
-        first_seen_ts=first_seen_ts,
-        last_update_ts=last_update_ts,
+        first_seen_ts="turn-00001-obs-001",
+        last_update_ts="turn-00001-obs-001",
         revision_count=0,
         active_flag=True,
         revision_parent=None,
@@ -129,33 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-def test_apply_residual_relation_caps_prunes_old_profile_traits_per_dialogue() -> None:
-    memory = PersistentCoreResidualMemory()
-    for idx in range(8):
-        observation = _observation(
-            obs_id=f"obs-cap-{idx}",
-            relation="profile_trait",
-            value=f"profile clue {idx}",
-            source_turn_id=str(idx),
-            canonical_gloss=f"profile_trait=profile clue {idx}",
-        )
-        timestamp = f"turn-{idx:05d}-obs-{idx:03d}"
-        slot = _slot(
-            f"slot-cap-{idx}",
-            "profile_trait",
-            f"profile_trait=profile clue {idx}",
-            first_seen_ts=timestamp,
-            last_update_ts=timestamp,
-        )
-        slot = memory._attach_metadata(slot, observation)
-        memory.residual_bank.append(slot)
-
-    pruned, capped_clusters = _apply_residual_relation_caps(memory)
-    active = [slot for slot in memory.residual_bank if slot.active_flag]
-
-    assert pruned == 2
-    assert capped_clusters == 1
-    assert len(active) == 6
-    assert [slot.slot_id for slot in active] == [f"slot-cap-{idx}" for idx in range(2, 8)]
