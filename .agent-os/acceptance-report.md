@@ -14,6 +14,19 @@
     - multi-task training、real v5.2 checkpoint、trainable belief/controller/resampler、ablation drops 与 PersonaMem no-calibration > text-only `214/589` 尚未完成。
     - 不得把当前 `20/100` 写成 full learned latent system verified。
 
+- `EV-V52-002` -> `TD-048 / WS-034` four-task multi-task checkpoint
+  - Status: partial
+  - Evidence:
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `30`
+    - `latest_stage2_v52_multitask_training.json` 记录四任务训练：`retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`
+    - 同一 artifact 记录 `train_samples = 24500`，`retrieval_only = false`，`uses_personamem_gold = false`
+    - checkpoint 写入 `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`
+    - trained modules 覆盖 `encoder_adapter / query_projection / slot_projection / latent_reader / latent_resampler / write_controller / lifecycle_head / belief_decoder / belief_graph`
+  - Boundary:
+    - 当前只证明 multi-task training 和真实 checkpoint 已存在。
+    - 尚未发布 v5.2 full latent eval、ablation drops 或 PersonaMem full589 no-calibration text-only gain。
+    - 当前 verifier 仍被 gold-isolation / PersonaMem / eval gates 限制，不能写成 acceptance met。
+
 ## Stage 2 V5.1 Real Training Evidence
 
 - `EV-V51-001` -> `TD-047 / WS-033` real pretrained training

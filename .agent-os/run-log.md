@@ -19,6 +19,26 @@
   - This is partial multi-backbone evidence only, not v5.2 completion.
   - Next action is full multi-task training / checkpoint over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`.
 
+# 2026-04-23 Session 132
+
+- Worked on: `TD-048 / WS-034 / v5.2` multi-task training checkpoint
+- State changed:
+  - Added `scripts/train_stage2_v52_multitask.py`
+  - Published `latest_stage2_v52_multitask_training.json`
+  - Wrote checkpoint `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`
+  - Updated v5.2 docs with iteration `2` partial truth
+- Evidence:
+  - Four trained tasks: `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`
+  - Effective train samples: `24500`
+  - Trained modules include encoder adapter/projections, latent reader/resampler, write controller, lifecycle head, belief decoder and belief graph
+  - Verifier after this focused change: `scripts/verify_stage2_v52_full_latent_system.py --score-only = 30`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed, score `30`
+- Boundary:
+  - This is partial training/checkpoint evidence only.
+  - The low score is expected because v5.2 full latent eval, ablations, and PersonaMem no-calibration > text-only are not yet published.
+
 # 2026-04-23 Session 130
 
 - Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak

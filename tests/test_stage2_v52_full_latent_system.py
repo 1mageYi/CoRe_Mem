@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from scripts.publish_stage2_v52_backbone_compare import publish_v52_backbone_compare
+from scripts.train_stage2_v52_multitask import train_v52_multitask
 from scripts.verify_stage2_v52_full_latent_system import compute_v52_full_latent_system
 
 
@@ -274,3 +275,118 @@ def test_v52_backbone_publisher_records_multiple_gold_free_real_backbones(
     assert payload["evaluation_backend"] == "sentence_transformers"
     assert payload["loaded_backbones"] == ["fake/bge", "fake/e5", "fake/contriever"]
     assert payload["results"][0]["metrics"]["top1_accuracy"] == 1.0
+
+
+def test_v52_multitask_trainer_publishes_checkpoint_and_all_task_contracts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    artifact_root = repo / "outputs_v2" / "artifacts"
+    _write_json(
+        artifact_root / "latest_stage2_v52_backbone_compare.json",
+        {
+            "selected_backbone": "fake/bge",
+            "loaded_backbones": ["fake/bge", "fake/e5"],
+        },
+    )
+    data_root = artifact_root / "stage2_v27_32k"
+    for split in ("train", "val"):
+        (data_root / split).mkdir(parents=True)
+    retrieval_row = {
+        "query": "What food does the user prefer?",
+        "positive_slot": {"bank": "residual", "relation": "food_preference", "canonical_gloss": "food_preference=breakfast"},
+        "negative_slots": [{"relation": "location", "canonical_gloss": "location=Denver"}],
+    }
+    slot_row = {
+        "input_observation": {
+            "relation": "food_preference",
+            "value": "breakfast",
+            "canonical_gloss": "food_preference=breakfast",
+        },
+        "target_record": {
+            "relation": "food_preference",
+            "value": "breakfast",
+            "status": "active",
+            "time_scope": "current",
+        },
+    }
+    composition_row = {
+        "query": "What food does the user prefer?",
+        "memory_slots": [
+            {"slot_id": "slot_food", "relation": "food_preference", "canonical_gloss": "food_preference=breakfast"},
+            {"slot_id": "slot_loc", "relation": "location", "canonical_gloss": "location=Denver"},
+        ],
+        "retrieved_slot_ids": ["slot_food"],
+        "target_belief_json": {
+            "belief_items": [
+                {
+                    "relation": "food_preference",
+                    "value": "breakfast",
+                    "status": "active",
+                    "time_scope": "current",
+                }
+            ]
+        },
+    }
+    lifecycle_row = {
+        "memory_context": [{"relation": "food_preference", "canonical_gloss": "food_preference=toast"}],
+        "new_observation": {
+            "relation": "food_preference",
+            "value": "breakfast",
+            "canonical_gloss": "food_preference=breakfast",
+        },
+        "target_action": "overwrite",
+    }
+    for split in ("train", "val"):
+        (data_root / split / "retrieval_alignment.jsonl").write_text(json.dumps(retrieval_row) + "\n", encoding="utf-8")
+        (data_root / split / "slot_autoencoding.jsonl").write_text(json.dumps(slot_row) + "\n", encoding="utf-8")
+        (data_root / split / "composition_to_belief.jsonl").write_text(json.dumps(composition_row) + "\n", encoding="utf-8")
+        (data_root / split / "lifecycle_prediction.jsonl").write_text(json.dumps(lifecycle_row) + "\n", encoding="utf-8")
+
+    class FakeSentenceTransformer:
+        def __init__(self, model_id: str, device: str, cache_folder: str) -> None:
+            self.model_id = model_id
+
+        def encode(self, texts, **kwargs):
+            vectors = []
+            for text in texts:
+                lowered = str(text).lower()
+                if "breakfast" in lowered or "food" in lowered:
+                    vectors.append([1.0, 0.0, 0.0, 0.0])
+                elif "denver" in lowered or "location" in lowered:
+                    vectors.append([0.0, 1.0, 0.0, 0.0])
+                else:
+                    vectors.append([0.0, 0.0, 1.0, 0.0])
+            return np.asarray(vectors, dtype=np.float32)
+
+    fake_module = types.SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_module)
+
+    payload = train_v52_multitask(
+        root=repo,
+        data_root=data_root,
+        backbone_artifact=artifact_root / "latest_stage2_v52_backbone_compare.json",
+        retrieval_samples=1,
+        slot_samples=1,
+        composition_samples=1,
+        lifecycle_samples=1,
+        val_samples=1,
+        epochs=1,
+        batch_size=1,
+        encode_batch_size=1,
+        latent_dim=8,
+        device_name="cpu",
+    )
+
+    assert payload["artifact_type"] == "stage2_v52_multitask_training"
+    assert payload["checkpoint_exists"] is True
+    assert set(payload["trained_tasks"]) == {
+        "retrieval_alignment",
+        "slot_autoencoding",
+        "composition_to_belief",
+        "lifecycle_prediction",
+    }
+    assert payload["retrieval_only"] is False
+    assert payload["uses_personamem_gold"] is False
+    assert "latent_resampler" in payload["trained_modules"]
+    assert "belief_decoder" in payload["trained_modules"]
