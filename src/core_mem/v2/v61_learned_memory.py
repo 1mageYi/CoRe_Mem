@@ -119,6 +119,16 @@ _LOW_INFORMATION_VALUE_TERMS = {
     "trying",
     "visit",
 }
+_BELIEF_RELATION_BUCKETS = (
+    "preference",
+    "reason",
+    "temporal",
+    "social",
+    "environment",
+    "goal",
+    "constraint",
+    "profile",
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -199,6 +209,32 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
         *query_semantics,
         *slot_semantics,
         *alignment,
+    ]
+
+
+def belief_relation_bucket(relation: str) -> str:
+    family = relation_family(relation)
+    if relation.endswith("preference") or family in {"hobby"}:
+        return "preference"
+    if family == "reason_fact":
+        return "reason"
+    if family == "temporal_fact":
+        return "temporal"
+    if family == "social_fact":
+        return "social"
+    if family == "environment_fact":
+        return "environment"
+    if family == "goal":
+        return "goal"
+    if family == "constraint":
+        return "constraint"
+    return "profile"
+
+
+def _query_router_features(query: str, query_key: list[float]) -> list[float]:
+    return [
+        *query_key,
+        *_query_semantic_features(query),
     ]
 
 
@@ -406,30 +442,100 @@ def train_v61_reader_readout(
     split = min(split, len(x) - 4)
     train_x, eval_x = x[:split], x[split:]
     train_y, eval_y = y[:split], y[split:]
-    reader = V6ReaderReadout(input_dim=x.shape[1], hidden_dim=48)
-    optimizer = torch.optim.AdamW(reader.parameters(), lr=learning_rate, weight_decay=1e-4)
-    loss_curve: list[dict[str, float]] = []
+    probe_reader = V6ReaderReadout(input_dim=x.shape[1], hidden_dim=48)
+    optimizer = torch.optim.AdamW(probe_reader.parameters(), lr=learning_rate, weight_decay=1e-4)
+    reader_loss_curve: list[dict[str, float]] = []
     for epoch in range(epochs):
-        logits = reader(train_x)
+        logits = probe_reader(train_x)
         loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
         if epoch in {0, epochs - 1}:
-            loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
-    with torch.no_grad():
-        eval_predictions = (torch.sigmoid(reader(eval_x)) >= 0.5).float()
-    eval_accuracy = float((eval_predictions == eval_y).float().mean().item())
-    majority = 1.0 if float(train_y.mean().item()) >= 0.5 else 0.0
-    disabled = torch.full_like(eval_y, majority)
-    disabled_accuracy = float((disabled == eval_y).float().mean().item())
+            reader_loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
+    router_examples: list[tuple[list[float], int]] = []
+    grouped_eval_examples: list[tuple[list[float], list[tuple[float, str]], int]] = []
+    for observation in observations:
+        turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else None
+        slots = memory.active_slots(context_id=observation.source_dialogue_id, max_turn_index=turn_index)
+        if len(slots) < 2:
+            continue
+        positive_slot = _best_matching_slot(observation, slots)
+        if positive_slot is None:
+            continue
+        for query in _synthetic_queries_for_observation(observation):
+            query_key = QueryEncoder(dimension=len(positive_slot.retrieval_key)).encode(query)
+            router_examples.append(
+                (
+                    _query_router_features(query, query_key),
+                    _BELIEF_RELATION_BUCKETS.index(belief_relation_bucket(observation.relation)),
+                )
+            )
+            reader_features = torch.tensor(
+                [_reader_pair_features(query, query_key, slot) for slot in slots],
+                dtype=torch.float32,
+            )
+            with torch.no_grad():
+                reader_scores = torch.sigmoid(probe_reader(reader_features)).tolist()
+            shortlist = sorted(zip(reader_scores, slots), key=lambda item: item[0], reverse=True)[:8]
+            positive_index = next((idx for idx, (_, slot) in enumerate(shortlist) if slot.slot_id == positive_slot.slot_id), None)
+            if positive_index is None:
+                continue
+            grouped_eval_examples.append(
+                (
+                    _query_router_features(query, query_key),
+                    [(float(score), belief_relation_bucket(slot.relation)) for score, slot in shortlist],
+                    positive_index,
+                )
+            )
+    if len(router_examples) < 16:
+        raise ValueError("v6.1 query-router training requires at least 16 grouped examples.")
+    router_x = torch.tensor([item[0] for item in router_examples], dtype=torch.float32)
+    router_y = torch.tensor([item[1] for item in router_examples], dtype=torch.long)
+    router_split = max(8, int(len(router_x) * 0.8))
+    router_split = min(router_split, len(router_x) - 4)
+    router_train_x, router_eval_x = router_x[:router_split], router_x[router_split:]
+    router_train_y, router_eval_y = router_y[:router_split], router_y[router_split:]
+    read_path = V61QuestionConditionedReadPath(
+        reader_input_dim=x.shape[1],
+        router_input_dim=router_x.shape[1],
+    )
+    read_path.reader.load_state_dict(probe_reader.state_dict())
+    router_optimizer = torch.optim.AdamW(read_path.query_router.parameters(), lr=learning_rate, weight_decay=1e-4)
+    router_loss_curve: list[dict[str, float]] = []
+    for epoch in range(epochs):
+        router_logits = read_path.query_router(router_train_x)
+        router_loss = nn.functional.cross_entropy(router_logits, router_train_y)
+        router_optimizer.zero_grad(set_to_none=True)
+        router_loss.backward()
+        router_optimizer.step()
+        if epoch in {0, epochs - 1}:
+            router_loss_curve.append({"epoch": float(epoch + 1), "loss": float(router_loss.item())})
+    eval_accuracy = 0.0
+    disabled_accuracy = 0.0
+    if grouped_eval_examples:
+        routed_hits = 0
+        disabled_hits = 0
+        for router_feature_row, shortlist, positive_index in grouped_eval_examples:
+            router_feature = torch.tensor([router_feature_row], dtype=torch.float32)
+            with torch.no_grad():
+                router_probs = torch.softmax(read_path.query_router(router_feature), dim=1).squeeze(0).tolist()
+            routed_index = max(
+                range(len(shortlist)),
+                key=lambda idx: 0.7 * shortlist[idx][0] + 0.3 * router_probs[_BELIEF_RELATION_BUCKETS.index(shortlist[idx][1])],
+            )
+            disabled_index = max(range(len(shortlist)), key=lambda idx: shortlist[idx][0])
+            routed_hits += int(routed_index == positive_index)
+            disabled_hits += int(disabled_index == positive_index)
+        eval_accuracy = routed_hits / len(grouped_eval_examples)
+        disabled_accuracy = disabled_hits / len(grouped_eval_examples)
     return V6ReaderTrainingResult(
-        reader=reader,
+        reader=read_path,
         eval_accuracy=eval_accuracy,
         disabled_readout_accuracy=disabled_accuracy,
-        train_pairs=len(train_y),
-        eval_pairs=len(eval_y),
-        loss_curve=loss_curve,
+        train_pairs=len(router_train_y),
+        eval_pairs=len(router_eval_y),
+        loss_curve=[*reader_loss_curve, *router_loss_curve],
     )
 
 
@@ -444,6 +550,32 @@ class V61DecisionHead(nn.Module):
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         return self.net(features).squeeze(-1)
+
+
+class V61QueryRelationRouter(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int = 48) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, len(_BELIEF_RELATION_BUCKETS)),
+        )
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        return self.net(features)
+
+
+class V61QuestionConditionedReadPath(nn.Module):
+    def __init__(
+        self,
+        *,
+        reader_input_dim: int,
+        router_input_dim: int,
+        hidden_dim: int = 48,
+    ) -> None:
+        super().__init__()
+        self.reader = V6ReaderReadout(input_dim=reader_input_dim, hidden_dim=hidden_dim)
+        self.query_router = V61QueryRelationRouter(input_dim=router_input_dim, hidden_dim=hidden_dim)
 
 
 @dataclass(frozen=True)
@@ -467,14 +599,35 @@ def _read_with_model(
         return {"query_key": [], "selected": [], "composed_key": [], "belief_items": []}
     query_encoder = QueryEncoder(dimension=len(slots[0].retrieval_key))
     query_key = query_encoder.encode(query)
+    read_path = reader if isinstance(reader, V61QuestionConditionedReadPath) else None
+    reader_model = read_path.reader if read_path is not None else reader
     features = torch.tensor(
         [_reader_pair_features(query, query_key, slot) for slot in slots],
         dtype=torch.float32,
     )
     with torch.no_grad():
-        scores = torch.sigmoid(reader(features)).tolist()
+        scores = torch.sigmoid(reader_model(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
-    selected = ranked[:top_k]
+    shortlist = ranked[: max(top_k, 8)]
+    if read_path is None:
+        selected = shortlist[:top_k]
+    else:
+        router_feature = torch.tensor([_query_router_features(query, query_key)], dtype=torch.float32)
+        with torch.no_grad():
+            router_probs = torch.softmax(read_path.query_router(router_feature), dim=1).squeeze(0).tolist()
+        reranked = sorted(
+            (
+                (
+                    0.7 * float(reader_score)
+                    + 0.3 * router_probs[_BELIEF_RELATION_BUCKETS.index(belief_relation_bucket(slot.relation))],
+                    slot,
+                )
+                for reader_score, slot in shortlist
+            ),
+            key=lambda item: item[0],
+            reverse=True,
+        )
+        selected = reranked[:top_k]
     total_score = sum(score for score, _ in selected) or 1.0
     composed = [
         sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score

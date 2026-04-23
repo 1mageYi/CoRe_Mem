@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
+from core_mem.v2.v61_learned_memory import _best_matching_slot, _query_router_features, belief_relation_bucket, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -115,3 +115,17 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
+
+
+def test_belief_relation_bucket_and_query_router_features() -> None:
+    assert belief_relation_bucket("reason_fact") == "reason"
+    assert belief_relation_bucket("music_preference") == "preference"
+    assert belief_relation_bucket("profile_trait") == "profile"
+
+    features = _query_router_features(
+        "Why did the user's situation change?",
+        [0.1] * 8,
+    )
+
+    assert len(features) == 16
+    assert max(features[-8:]) > 0.0
