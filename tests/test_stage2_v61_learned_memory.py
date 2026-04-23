@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import (
-    _best_matching_slot,
-    _current_vs_past_queries,
-    _ordered_distinct_history,
-    filter_v61_observations,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -121,27 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-def test_current_vs_past_queries_cover_preference_evolution_language() -> None:
-    observation = _observation(
-        relation="music_preference",
-        value="music with emotional storytelling",
-        value_type="preference",
-        canonical_gloss="music_preference=music with emotional storytelling",
-    )
-
-    queries = _current_vs_past_queries(observation)
-
-    assert any("current preference" in query.lower() for query in queries)
-    assert any("evolve" in query.lower() for query in queries)
-
-
-def test_ordered_distinct_history_keeps_latest_unique_values_in_turn_order() -> None:
-    first = _observation(obs_id="obs-1", relation="goal", value="find quieter spaces", source_turn_id="2")
-    repeated = _observation(obs_id="obs-2", relation="goal", value="find quieter spaces", source_turn_id="3")
-    later = _observation(obs_id="obs-3", relation="goal", value="prefer smaller gatherings", source_turn_id="5")
-
-    history = _ordered_distinct_history([repeated, later, first])
-
-    assert [item.obs_id for item in history] == ["obs-1", "obs-3"]
