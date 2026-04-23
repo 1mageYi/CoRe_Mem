@@ -24,14 +24,7 @@ for candidate in (REPO_ROOT, SRC_ROOT):
 
 from core_mem.v2.parser import Stage2ObservationParser
 from core_mem.v2.schemas import Observation, SlotRecord
-from core_mem.v2.v61_learned_memory import (
-    V61DecisionHead,
-    _option_features,
-    _read_with_model,
-    build_v61_memory,
-    evaluate_internal_v61,
-    score_options_with_head,
-)
+from core_mem.v2.v61_learned_memory import build_v61_memory, evaluate_internal_v61, score_options_with_head
 from core_mem.v2.v6_persistent_memory import option_label
 
 
@@ -230,7 +223,6 @@ def _evaluate_personamem(
     option_only_correct = 0
     improved_vs_text = 0
     degraded_vs_text = 0
-    selected_rows: list[dict[str, Any]] = []
     for row in selected_questions:
         context_id = str(row["shared_context_id"])
         end_index = int(row.get("end_index_in_shared_context") or 0)
@@ -243,10 +235,10 @@ def _evaluate_personamem(
             "selected": [],
             "composed_key": [],
             "belief_items": [],
-            "reader": reader,
-            "slots": [],
         }
         if slots:
+            from core_mem.v2.v61_learned_memory import _read_with_model  # local import to keep script surface small
+
             readout = _read_with_model(question, slots=slots, reader=reader, top_k=8)
         pred_idx, option_scores = score_options_with_head(readout, question, options, decision_head)
         text_idx = _text_only_prediction(question, options, slots)
@@ -262,21 +254,6 @@ def _evaluate_personamem(
         option_only_correct += int(option_prediction == gold)
         improved_vs_text += int(current_correct and not text_correct)
         degraded_vs_text += int(text_correct and not current_correct)
-        selected_rows.append(
-            {
-                "row": row,
-                "question": question,
-                "options": options,
-                "labels": labels,
-                "gold": gold,
-                "readout": readout,
-                "slots": slots,
-                "base_prediction_index": pred_idx,
-                "base_option_scores": option_scores,
-                "text_prediction": text_prediction,
-                "option_prediction": option_prediction,
-            }
-        )
         predictions.append(
             {
                 "question_id": row["question_id"],
@@ -297,14 +274,6 @@ def _evaluate_personamem(
                 "option_scores": option_scores,
             }
         )
-    calibrated_payload = _evaluate_personamem_oof_calibrated(
-        root=root,
-        generated_at=generated_at,
-        selected_rows=selected_rows,
-        decision_head=decision_head,
-    )
-    if calibrated_payload["no_calibration_correct"] > no_cal_correct:
-        return calibrated_payload
     sample_count = len(selected_questions)
     prediction_path = root / "outputs_v2" / "artifacts" / "latest_stage2_v61_personamem_no_routing_predictions.jsonl"
     _write_jsonl(prediction_path, predictions)
@@ -335,145 +304,6 @@ def _evaluate_personamem(
         "text_only_improved_count": improved_vs_text,
         "text_only_degraded_count": degraded_vs_text,
         "claim_boundary": "Authoritative predictions consume only persistent slots available before the question end index through a learned reader and learned decision head; correct_answer is used only for scoring.",
-    }
-
-
-def _train_grouped_calibrator(
-    train_groups: list[list[list[float]]],
-    train_labels: list[int],
-    eval_groups: list[list[list[float]]],
-    *,
-    epochs: int = 40,
-    learning_rate: float = 0.01,
-    seed: int = 615,
-) -> V61DecisionHead:
-    torch.manual_seed(seed)
-    x = torch.tensor(train_groups, dtype=torch.float32)
-    y = torch.tensor(train_labels, dtype=torch.long)
-    head = V61DecisionHead(input_dim=x.shape[-1], hidden_dim=48)
-    optimizer = torch.optim.AdamW(head.parameters(), lr=learning_rate, weight_decay=1e-4)
-    for _ in range(epochs):
-        logits = head(x.reshape(-1, x.shape[-1])).reshape(x.shape[0], x.shape[1])
-        loss = torch.nn.functional.cross_entropy(logits, y)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
-    return head
-
-
-def _evaluate_personamem_oof_calibrated(
-    *,
-    root: Path,
-    generated_at: str,
-    selected_rows: list[dict[str, Any]],
-    decision_head,
-) -> dict[str, Any]:
-    if len(selected_rows) < 32:
-        return {"no_calibration_correct": -1}
-    groups: list[list[list[float]]] = []
-    labels: list[int] = []
-    base_scores_by_row: list[list[float]] = []
-    for item in selected_rows:
-        readout = item["readout"]
-        question = item["question"]
-        options = item["options"]
-        base_scores = item["base_option_scores"]
-        feature_group: list[list[float]] = []
-        for option_idx, option in enumerate(options):
-            feature = _option_features(readout, question, option)
-            if not feature:
-                feature_group = []
-                break
-            feature_group.append([*feature, float(base_scores[option_idx])])
-        if len(feature_group) != len(options) or not feature_group:
-            return {"no_calibration_correct": -1}
-        groups.append(feature_group)
-        labels.append(item["labels"].index(item["gold"]))
-        base_scores_by_row.append(base_scores)
-
-    fold_count = min(5, max(2, len(groups) // 80))
-    calibrated_predictions: list[dict[str, Any]] = []
-    no_cal_correct = 0
-    text_only_correct = 0
-    option_only_correct = 0
-    improved_vs_text = 0
-    degraded_vs_text = 0
-    for fold in range(fold_count):
-        train_groups = [groups[idx] for idx in range(len(groups)) if idx % fold_count != fold]
-        train_labels = [labels[idx] for idx in range(len(labels)) if idx % fold_count != fold]
-        eval_indices = [idx for idx in range(len(groups)) if idx % fold_count == fold]
-        if not train_groups or not eval_indices:
-            continue
-        head = _train_grouped_calibrator(train_groups, train_labels, [groups[idx] for idx in eval_indices], seed=615 + fold)
-        eval_tensor = torch.tensor([groups[idx] for idx in eval_indices], dtype=torch.float32)
-        with torch.no_grad():
-            logits = head(eval_tensor.reshape(-1, eval_tensor.shape[-1])).reshape(eval_tensor.shape[0], eval_tensor.shape[1])
-            probs = torch.softmax(logits, dim=1).tolist()
-        for local_idx, row_idx in enumerate(eval_indices):
-            item = selected_rows[row_idx]
-            scores = [float(value) for value in probs[local_idx]]
-            pred_idx = max(range(len(scores)), key=lambda idx: scores[idx]) if scores else 0
-            prediction = item["labels"][pred_idx] if item["labels"] else ""
-            current_correct = prediction == item["gold"]
-            text_correct = item["text_prediction"] == item["gold"]
-            no_cal_correct += int(current_correct)
-            text_only_correct += int(text_correct)
-            option_only_correct += int(item["option_prediction"] == item["gold"])
-            improved_vs_text += int(current_correct and not text_correct)
-            degraded_vs_text += int(text_correct and not current_correct)
-            calibrated_predictions.append(
-                {
-                    "question_id": item["row"]["question_id"],
-                    "persona_id": item["row"]["persona_id"],
-                    "shared_context_id": str(item["row"]["shared_context_id"]),
-                    "question_type": item["row"]["question_type"],
-                    "topic": item["row"]["topic"],
-                    "prediction": prediction,
-                    "text_only_prediction": item["text_prediction"],
-                    "option_only_prediction": item["option_prediction"],
-                    "correct_answer": item["gold"],
-                    "is_correct": current_correct,
-                    "score_mode": "learned_decision_head_oof_calibrated",
-                    "decision_mode": "learned_answer_head_oof_calibrated",
-                    "selected_slot_ids": [entry["slot"].slot_id for entry in item["readout"]["selected"][:5]],
-                    "selected_slot_banks": [entry["slot"].bank for entry in item["readout"]["selected"][:5]],
-                    "belief_items": item["readout"]["belief_items"],
-                    "option_scores": scores,
-                }
-            )
-    if len(calibrated_predictions) != len(selected_rows):
-        return {"no_calibration_correct": -1}
-    sample_count = len(selected_rows)
-    prediction_path = root / "outputs_v2" / "artifacts" / "latest_stage2_v61_personamem_no_routing_predictions.jsonl"
-    _write_jsonl(prediction_path, calibrated_predictions)
-    margin = no_cal_correct - text_only_correct
-    return {
-        "artifact_type": "stage2_v61_personamem_no_routing",
-        "commit_hash": _current_head(root),
-        "generated_at": generated_at,
-        "sample_count": sample_count,
-        "questions_path": str(DEFAULT_QUESTIONS.relative_to(root)),
-        "no_calibration_correct": no_cal_correct,
-        "no_calibration_accuracy": no_cal_correct / sample_count if sample_count else 0.0,
-        "text_only_correct": text_only_correct,
-        "text_only_accuracy": text_only_correct / sample_count if sample_count else 0.0,
-        "option_only_correct": option_only_correct,
-        "option_only_accuracy": option_only_correct / sample_count if sample_count else 0.0,
-        "margin_correct_vs_text_only": margin,
-        "bootstrap_significant_vs_text_only": margin >= 30,
-        "raw_context_retrieval_disabled": True,
-        "answer_time_routing_used": False,
-        "score_mode": "learned_decision_head_oof_calibrated",
-        "decision_mode": "learned_answer_head_oof_calibrated",
-        "handcrafted_option_scoring_used": False,
-        "lexical_jaccard_used": False,
-        "gold_used_for_memory_substrate": False,
-        "gold_used_for_no_calibration_prediction": True,
-        "prediction_path": str(prediction_path.relative_to(root)),
-        "text_only_improved_count": improved_vs_text,
-        "text_only_degraded_count": degraded_vs_text,
-        "decision_head_calibration_mode": "out_of_fold_personamem_thin_head",
-        "claim_boundary": "Authoritative predictions consume only persistent slots available before the question end index through a learned reader and learned decision head; PersonaMem gold is used only in an out-of-fold thin decision calibrator, never in substrate construction.",
     }
 
 
