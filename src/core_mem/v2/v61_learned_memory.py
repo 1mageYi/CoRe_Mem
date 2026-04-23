@@ -333,6 +333,30 @@ def _best_matching_slot(observation: Observation, slots: list[SlotRecord]) -> Sl
     )
 
 
+def _select_diverse_slots(ranked: list[tuple[float, SlotRecord]], *, top_k: int) -> list[tuple[float, SlotRecord]]:
+    selected: list[tuple[float, SlotRecord]] = []
+    residual_family_counts: Counter[str] = Counter()
+    for score, slot in ranked:
+        family = relation_family(slot.relation)
+        residual_cap = 1 if len(selected) < max(1, top_k // 2) else 2
+        if slot.bank == "residual" and residual_family_counts[family] >= residual_cap:
+            continue
+        selected.append((score, slot))
+        if slot.bank == "residual":
+            residual_family_counts[family] += 1
+        if len(selected) >= top_k:
+            break
+    if len(selected) < min(top_k, len(ranked)):
+        seen_slot_ids = {slot.slot_id for _, slot in selected}
+        for score, slot in ranked:
+            if slot.slot_id in seen_slot_ids:
+                continue
+            selected.append((score, slot))
+            if len(selected) >= min(top_k, len(ranked)):
+                break
+    return selected
+
+
 def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
     relation_text = observation.relation.replace("_", " ")
     queries = {natural_language_query(observation)}
@@ -474,7 +498,7 @@ def _read_with_model(
     with torch.no_grad():
         scores = torch.sigmoid(reader(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
-    selected = ranked[:top_k]
+    selected = _select_diverse_slots(ranked, top_k=top_k)
     total_score = sum(score for score, _ in selected) or 1.0
     composed = [
         sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score

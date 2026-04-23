@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
+from core_mem.v2.v61_learned_memory import (
+    _best_matching_slot,
+    _select_diverse_slots,
+    filter_v61_observations,
+    typed_observation,
+)
 
 
 def _observation(**overrides: object) -> Observation:
@@ -115,3 +120,17 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
+
+
+def test_select_diverse_slots_limits_early_residual_family_duplicates() -> None:
+    ranked = [
+        (0.99, _slot("slot-r1", "profile_trait", "profile_trait=calm", bank="residual")),
+        (0.98, _slot("slot-r2", "profile_trait", "profile_trait=reflective", bank="residual")),
+        (0.97, _slot("slot-r3", "profile_trait", "profile_trait=patient", bank="residual")),
+        (0.96, _slot("slot-c1", "music_preference", "music_preference=ambient", bank="core")),
+        (0.95, _slot("slot-r4", "reason_fact", "reason_fact=feedback felt rushed", bank="residual")),
+    ]
+
+    selected = _select_diverse_slots(ranked, top_k=4)
+
+    assert [slot.slot_id for _, slot in selected] == ["slot-r1", "slot-c1", "slot-r4", "slot-r2"]
