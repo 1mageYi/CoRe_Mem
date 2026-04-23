@@ -5,7 +5,14 @@ from pathlib import Path
 
 from scripts.verify_stage2_v63_write_policy import compute_v63_write_policy
 from core_mem.v2.schemas import Observation
-from core_mem.v2.v63_write_policy import classify_write_policy, materialize_policy_observation, policy_action_from_router
+from core_mem.v2.v62_write_memory import CandidateObservation, DialogueTurn
+from core_mem.v2.v63_write_policy import (
+    build_v63_support_supervision,
+    classify_write_policy,
+    materialize_policy_observation,
+    policy_action_from_router,
+)
+from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -97,6 +104,66 @@ def test_v63_policy_drops_tiny_low_information_fragment() -> None:
     )
 
     assert label == "drop"
+
+
+def test_v63_support_supervision_adds_state_anchored_candidate() -> None:
+    memory = PersistentCoreResidualMemory()
+    anchored = _observation(
+        obs_id="obs_anchor",
+        relation="reason_fact",
+        value_type="other",
+        value="felt overwhelmed by rigid deadlines",
+        canonical_gloss="reason_fact=felt overwhelmed by rigid deadlines",
+        evidence_text="I felt overwhelmed by rigid deadlines.",
+        confidence=0.72,
+    )
+    memory.write(anchored, "merge_residual", turn_index=0, obs_index=0)
+    candidate = CandidateObservation(
+        turn=DialogueTurn(
+            source_dialogue_id="dialogue",
+            source_turn_id="1",
+            session_id="dialogue",
+            speaker="user",
+            text="Deadlines felt too rigid, so I stepped back.",
+            context_text="",
+        ),
+        observation=_observation(
+            obs_id="obs_candidate",
+            source_turn_id="1",
+            relation="reason_fact",
+            value_type="other",
+            value="felt overwhelmed by rigid deadlines",
+            canonical_gloss="reason_fact=felt overwhelmed by rigid deadlines",
+            evidence_text="Deadlines felt too rigid, so I stepped back.",
+            confidence=0.41,
+        ),
+    )
+    unmatched = CandidateObservation(
+        turn=DialogueTurn(
+            source_dialogue_id="dialogue",
+            source_turn_id="1",
+            session_id="dialogue",
+            speaker="user",
+            text="I am training for a marathon.",
+            context_text="",
+        ),
+        observation=_observation(
+            obs_id="obs_unmatched",
+            source_turn_id="1",
+            relation="occupation",
+            value_type="other",
+            value="marathon training",
+            canonical_gloss="occupation=marathon training",
+            evidence_text="I am training for a marathon.",
+            confidence=0.44,
+        ),
+    )
+
+    supervision, metrics = build_v63_support_supervision([anchored], [candidate, unmatched], memory)
+
+    assert [observation.obs_id for observation in supervision] == ["obs_anchor", "obs_candidate"]
+    assert metrics["reader_decision_support_examples"] == 2
+    assert metrics["reader_decision_support_examples_from_candidate_pool"] == 1
 
 
 def test_v63_plan_only_is_low_score(tmp_path: Path) -> None:
