@@ -133,16 +133,6 @@ def _token_overlap(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
-def _turn_index_from_timestamp(value: str | None) -> float:
-    if not value:
-        return 0.0
-    match = re.search(r"turn-(\d+)", value)
-    if match:
-        return float(int(match.group(1)))
-    digits = re.findall(r"\d+", value)
-    return float(int(digits[0])) if digits else 0.0
-
-
 def _mean_vector(vectors: Iterable[list[float]]) -> list[float]:
     rows = [row for row in vectors if row]
     if not rows:
@@ -522,43 +512,6 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
     belief_overlaps = [_token_overlap(option, f"{item['relation']} {item['value']}") for item in readout.get("belief_items", [])]
     belief_overlap_max = max(belief_overlaps) if belief_overlaps else 0.0
     belief_overlap_mean = sum(belief_overlaps) / len(belief_overlaps) if belief_overlaps else 0.0
-    selected_value_overlaps = [_token_overlap(option, slot.canonical_gloss.split("=", 1)[-1]) for slot in selected_slots]
-    selected_gloss_overlaps = [_token_overlap(option, slot.canonical_gloss) for slot in selected_slots]
-    selected_overlap_scores = [
-        max(value_overlap, gloss_overlap)
-        for value_overlap, gloss_overlap in zip(selected_value_overlaps, selected_gloss_overlaps)
-    ]
-    selected_overlap_max = max(selected_overlap_scores) if selected_overlap_scores else 0.0
-    selected_overlap_mean = (
-        sum(selected_overlap_scores) / len(selected_overlap_scores) if selected_overlap_scores else 0.0
-    )
-    overlap_weight_total = sum(max(score, 0.0) for score in selected_scores)
-    overlap_weighted = (
-        sum(overlap * max(score, 0.0) for overlap, score in zip(selected_overlap_scores, selected_scores))
-        / overlap_weight_total
-        if selected_overlap_scores and overlap_weight_total > 0.0
-        else 0.0
-    )
-    selected_turns = [_turn_index_from_timestamp(slot.last_update_ts) for slot in selected_slots]
-    selected_revisions = [float(slot.revision_count) for slot in selected_slots]
-    if selected_overlap_scores:
-        best_idx = max(
-            range(len(selected_overlap_scores)),
-            key=lambda idx: (
-                selected_overlap_scores[idx],
-                selected_scores[idx] if idx < len(selected_scores) else 0.0,
-                selected_turns[idx] if idx < len(selected_turns) else 0.0,
-            ),
-        )
-        latest_turn = max(selected_turns) if selected_turns else 0.0
-        best_turn = selected_turns[best_idx] if best_idx < len(selected_turns) else 0.0
-        best_recency_ratio = best_turn / max(latest_turn, 1.0) if latest_turn > 0.0 else 0.0
-        best_is_latest = float(latest_turn > 0.0 and best_turn == latest_turn)
-        best_revision_count = selected_revisions[best_idx] if best_idx < len(selected_revisions) else 0.0
-    else:
-        best_recency_ratio = 0.0
-        best_is_latest = 0.0
-        best_revision_count = 0.0
     selected_core_ratio = (
         sum(1 for slot in selected_slots if slot.bank == "core") / len(selected_slots) if selected_slots else 0.0
     )
@@ -581,12 +534,6 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         belief_overlap_mean,
         slot_score_max,
         slot_score_mean,
-        selected_overlap_max,
-        selected_overlap_mean,
-        overlap_weighted,
-        best_recency_ratio,
-        best_is_latest,
-        best_revision_count,
         selected_core_ratio,
         selected_preference_ratio,
         selected_temporal_ratio,
@@ -635,7 +582,6 @@ def train_decision_head(
 ) -> V61DecisionTrainingResult:
     torch.manual_seed(seed)
     option_groups: list[list[list[float]]] = []
-    disabled_overlap_groups: list[list[float]] = []
     labels: list[int] = []
     for observation in observations:
         turn_index = int(observation.source_turn_id) if observation.source_turn_id.isdigit() else None
@@ -652,18 +598,15 @@ def train_decision_head(
             if any(not feature for feature in features):
                 continue
             option_groups.append(features)
-            disabled_overlap_groups.append([_token_overlap(query, option) for option in options])
             labels.append(0)
     if len(option_groups) < 16:
         raise ValueError("v6.1 decision-head training requires at least 16 synthetic examples.")
     x = torch.tensor(option_groups, dtype=torch.float32)
     y = torch.tensor(labels, dtype=torch.long)
-    disabled_x = disabled_overlap_groups
     split = max(8, int(len(x) * 0.8))
     split = min(split, len(x) - 4)
     train_x, eval_x = x[:split], x[split:]
     train_y, eval_y = y[:split], y[split:]
-    eval_disabled = disabled_x[split:]
     head = V61DecisionHead(input_dim=x.shape[-1], hidden_dim=64)
     optimizer = torch.optim.AdamW(head.parameters(), lr=learning_rate, weight_decay=1e-4)
     loss_curve: list[dict[str, float]] = []
@@ -680,7 +623,8 @@ def train_decision_head(
         eval_predictions = eval_logits.argmax(dim=1)
     eval_accuracy = float((eval_predictions == eval_y).float().mean().item())
     disabled_predictions: list[int] = []
-    for overlaps in eval_disabled:
+    for eval_group in eval_x:
+        overlaps = [float(feature[-8]) for feature in eval_group]
         disabled_predictions.append(max(range(len(overlaps)), key=lambda idx: overlaps[idx]))
     disabled_tensor = torch.tensor(disabled_predictions, dtype=torch.long)
     disabled_option_only_accuracy = float((disabled_tensor == eval_y).float().mean().item())

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import (
-    _best_matching_slot,
-    _turn_index_from_timestamp,
-    filter_v61_observations,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -120,8 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-def test_turn_index_from_timestamp_parses_turn_prefix() -> None:
-    assert _turn_index_from_timestamp("turn-00042-obs-003") == 42.0
-    assert _turn_index_from_timestamp("no-turn-here") == 0.0
