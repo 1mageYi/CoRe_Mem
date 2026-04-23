@@ -501,9 +501,8 @@ def score_options_from_persistent_read(readout: dict[str, Any], options: list[st
     for option in options:
         option_key = option_encoder.encode(option)
         semantic_score = vector_dot(composed, option_key)
-        query_score = vector_dot(readout.get("query_key") or [], option_key)
         lexical_score = _jaccard(belief_text, option)
-        scores.append(0.45 * semantic_score + 0.35 * query_score + 0.20 * lexical_score)
+        scores.append(0.75 * semantic_score + 0.25 * lexical_score)
     best = max(range(len(scores)), key=lambda idx: scores[idx]) if scores else 0
     return best, scores
 
