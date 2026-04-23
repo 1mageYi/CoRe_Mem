@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-23 Session 149
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` support-supervision discard and refine handoff
+- State changed:
+  - Iteration `4 discard`: kept the retained v6.3 memory state fixed but expanded reader/decision supervision using state-anchored raw candidates
+  - Trial did not improve the retained metric: verifier stayed `85`, but decision eval collapsed and full589 no-routing worsened from the retained line to `144/589` vs text-only `180/589`
+  - Reverted the trial commit with `git revert --no-edit`, re-published retained v6.3 artifacts, and restored current negative-result truth at `179/589` vs text-only `180/589` vs option-only `235/589`
+  - Because this created three consecutive discards, iteration `5` was logged as `[REFINE]`: abandon the current cluster of core-promotion / decision-only gloss features / support-supervision expansion, and shift the next hypothesis family toward relation-aware reader-query / belief-selection changes
+- Evidence:
+  - `research-results.tsv` now records row `4 discard` and row `5 refine`
+  - `latest_stage2_v63_personamem_no_routing.json` now records the current retained truth `179/589` vs text-only `180/589` vs option-only `235/589`
+  - `.agent-os/lessons-learned.md` now records that expanding reader/decision supervision from raw candidates is also a dead end for this retained line
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v61_learned_memory.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v61_learned_memory.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration, rollback, and refine decision only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 148
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` selected-support-gloss decision-feature discard and restore
