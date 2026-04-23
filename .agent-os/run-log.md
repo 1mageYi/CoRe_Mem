@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 144
+
+- Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` threshold-calibration discard and restore
+- State changed:
+  - Iteration `2 discard`: changed v6.2 write-quality classifiers to class-balanced BCE + validation threshold calibration
+  - Trial did not improve the retained metric: verifier stayed `85`, while full589 no-routing worsened from retained `160/589` to `132/589`
+  - Reverted the trial commit with `git revert --no-edit` and re-published v6.2 artifacts so `latest_stage2_v62_*` once again match the retained keep line
+- Evidence:
+  - `research-results.tsv` now records row `2 discard`
+  - Retained truth after restore remains `latest_stage2_v62_personamem_no_routing.json = 160/589` vs text-only `170/589` vs option-only `235/589`
+  - `.agent-os/lessons-learned.md` now records that threshold calibration alone worsens benchmark outcome and is not the right write-recall fix
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v62_write_quality.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v62_write_quality.py tests/test_stage2_v62_write_memory.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v62_write_quality.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v62_write_quality.py tests/test_stage2_v62_write_memory.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration and rollback only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 143
 
 - Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` first focused keep

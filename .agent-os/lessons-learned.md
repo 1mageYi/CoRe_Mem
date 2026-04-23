@@ -7,6 +7,7 @@
 ## Entries
 
 - 2026-04-23:
+  - `v6.2` 的 class-balanced BCE + validation threshold calibration 不能单独当作 write-quality recall 修复。它在本地 verifier 上维持 `85` 不变，但会把 full589 no-routing 从 retained `160/589` 进一步打坏到 `132/589`，对 text-only margin 从 `-10` 恶化到 `-38`。这说明当前瓶颈不是二分类阈值本身，而是 silver label/coverage 让 write-worthiness 把 turn-level recall 压得过低；后续若要继续修 write-side recall，优先检查 label space 与 accepted relation coverage，而不是继续堆 threshold calibration。
   - `v6` persistent substrate 已能机械证明 core/residual banks、checkpoint、write trace、learned write-time router、reader/readout 与 no-routing eval 都存在，但 PersonaMem no-routing 仍只有 `146/589`，低于 text-only `205/589`；因此当前瓶颈不是 verifier plumbing，而是 persistent memory readout 质量本身。
   - `v6` 中直接把 query-option lexical compatibility 混进 answer projection 会形成高风险 shortcut：gold-based sweep 能看到更高 PersonaMem exact，但这类权重选择使用了 `correct_answer` 诊断，不能进入 no-calibration / no-gold claim。后续若要训练 answer projection，必须使用独立 public/synthetic no-gold validation，并显式报告 query-only / option-only 对照。
   - `v6` no-gold synthetic projection weights 虽然把 PersonaMem no-routing 从 `146/589` 提到 `157/589`，但 verifier score 仍是 `80` 且没有超过 text-only；这种低于主 metric 的复杂化应按 discard 处理，而不是为了局部 correct 数保留。
