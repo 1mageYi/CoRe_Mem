@@ -22,6 +22,7 @@
     - discarded durable-fact core-promotion trial degraded to `152/589`
     - discarded selected-support-gloss decision-feature trial degraded to `173/589`
     - discarded state-anchored support-supervision expansion degraded to `144/589`
+    - discarded scenario-aware reader-semantics trial degraded to `162/589`
   - Boundary:
     - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。
     - 当前不能声明 benchmark gain、significant PersonaMem margin、acceptance met 或 reproducible closeout。

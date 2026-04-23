@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-23 Session 150
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` scenario-aware reader-semantics discard and pivot
+- State changed:
+  - Iteration `6 discard`: added scenario-aware reader semantics around structure/spontaneity/crowd/calm/community, but the trial still degraded full589 no-routing from retained `179/589` to `162/589`
+  - Reverted the trial commit with `git revert --no-edit`, re-published retained v6.3 artifacts, and restored current negative-result truth at `179/589` vs text-only `180/589` vs option-only `235/589`
+  - Because this was the fifth consecutive non-keep iteration since the last keep, iteration `7` was logged as `[PIVOT]`: abandon the current writer/readout-neighbor tweak family and switch to question-conditioned belief routing / selection
+- Evidence:
+  - `research-results.tsv` now records row `6 discard` and row `7 pivot`
+  - `latest_stage2_v63_personamem_no_routing.json` remains the retained truth at `179/589`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration, rollback, and pivot decision only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 149
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` support-supervision discard and refine handoff

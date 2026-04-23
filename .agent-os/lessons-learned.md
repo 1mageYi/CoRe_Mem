@@ -7,6 +7,7 @@
 ## Entries
 
 - 2026-04-23:
+  - `v6.3` 里把 scenario-aware reader semantics 接进 reader training 也不能形成 retained gain。虽然这条线会把 reader pairs 扩到 `3105/777`、decision eval accuracy 拉到 `0.5017`，说明内部 synthetic training metrics 确实改善，但 full589 no-routing 仍会从 retained `179/589` 掉到 `162/589`。这再次说明当前瓶颈不是“再给 reader 多一点语义 feature”就能解决；如果继续沿 read path 推进，必须换成真正改变 authoritative question-conditioned belief routing / selection 的结构性方案。
   - `v6.3` 里把 state-anchored raw candidate 扩进 reader/decision supervision 也不是正确方向。虽然这会让 reader training pairs 从 retained `2828/708` 扩到 `2996/750`，看起来更像“给 learned path 更多 support”，但 decision eval accuracy 会从 retained `0.4729` 掉到 `0.3931`，full589 no-routing 更会从 retained line `179-180/589` 崩到 `144/589`。这说明当前瓶颈不是 “reader/decision 看到的监督样本还不够多”；后续若继续修 read path，必须换到不同策略族，而不是继续扩大 supervision pool。
   - `v6.3` 里把 `selected_slot_glosses` overlap 直接追加进 learned decision head feature 不是正确方向。虽然这个想法试图让 option scoring 显式消费 selected support gloss，但 full589 no-routing 会从 retained `180/589` 掉到 `173/589`，而 persistent state、support coverage 与 verifier 都不改善。这说明当前 residual gap 不是“decision head 没看到 gloss token overlap”这么简单；后续若要继续修 support/readout，优先考虑 support selection / belief formation，而不是继续堆 decision-only gloss feature。
   - `v6.3` 里把 moderate durable facts 更积极地升入 `core` 不是正确方向。虽然这会把 bank 从 retained `core=22 / residual=476` 推到 `core=40 / residual=435`，看起来更像 `v6.1`，但 full589 no-routing 会从 retained line `180/589` 直接掉到 `152/589`。这说明当前瓶颈不是 “stable facts 进 core 还不够多”，而是更大的 state 如何在 question-time 被正确选中和投影；后续不应继续沿更激进 core promotion 线重试。
