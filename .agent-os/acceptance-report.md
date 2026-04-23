@@ -19,6 +19,8 @@
     - margin vs text-only `0`
     - margin vs option-only `-55`
     - `latest_stage2_v63_decision.json` 记录 `result_type = negative_result`
+    - discarded durable-fact core-promotion trial degraded to `152/589`
+    - discarded selected-support-gloss decision-feature trial degraded to `173/589`
   - Boundary:
     - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。
     - 当前不能声明 benchmark gain、significant PersonaMem margin、acceptance met 或 reproducible closeout。

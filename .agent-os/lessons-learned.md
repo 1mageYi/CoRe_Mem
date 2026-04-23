@@ -7,6 +7,7 @@
 ## Entries
 
 - 2026-04-23:
+  - `v6.3` 里把 `selected_slot_glosses` overlap 直接追加进 learned decision head feature 不是正确方向。虽然这个想法试图让 option scoring 显式消费 selected support gloss，但 full589 no-routing 会从 retained `180/589` 掉到 `173/589`，而 persistent state、support coverage 与 verifier 都不改善。这说明当前 residual gap 不是“decision head 没看到 gloss token overlap”这么简单；后续若要继续修 support/readout，优先考虑 support selection / belief formation，而不是继续堆 decision-only gloss feature。
   - `v6.3` 里把 moderate durable facts 更积极地升入 `core` 不是正确方向。虽然这会把 bank 从 retained `core=22 / residual=476` 推到 `core=40 / residual=435`，看起来更像 `v6.1`，但 full589 no-routing 会从 retained line `180/589` 直接掉到 `152/589`。这说明当前瓶颈不是 “stable facts 进 core 还不够多”，而是更大的 state 如何在 question-time 被正确选中和投影；后续不应继续沿更激进 core promotion 线重试。
   - `v6.3` 的 confidence-aware write policy 已经把 v6.2 的 collapse 明确修掉：当前 retained line 是 `core=22 / residual=476 / writes=652`，`support_coverage_recall = 1.0 > 0.0625`。但 full589 no-routing 目前也只到 `180/589`，只是打平 text-only `180/589`。这说明当前主瓶颈已经从“writer 把 memory 写空了”切换成“question-time support alignment / decision projection 还没把更大的 state 转成答案增益”；后续要保留当前 non-collapse writer，而不是再回去做更硬的过滤。
   - `v6.2` 的 class-balanced BCE + validation threshold calibration 不能单独当作 write-quality recall 修复。它在本地 verifier 上维持 `85` 不变，但会把 full589 no-routing 从 retained `160/589` 进一步打坏到 `132/589`，对 text-only margin 从 `-10` 恶化到 `-38`。这说明当前瓶颈不是二分类阈值本身，而是 silver label/coverage 让 write-worthiness 把 turn-level recall 压得过低；后续若要继续修 write-side recall，优先检查 label space 与 accepted relation coverage，而不是继续堆 threshold calibration。

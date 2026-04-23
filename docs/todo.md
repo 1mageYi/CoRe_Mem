@@ -15,8 +15,8 @@
   - 当前 partial：current HEAD 已新增 `scripts/publish_stage2_v63_write_policy.py` 与 `src/core_mem/v2/v63_write_policy.py`，把 authoritative write path 升级成真实 four-way confidence-aware policy；当前 verifier `= 85`
   - 当前 partial：`latest_stage2_v63_write_policy_eval.json` 记录 `support_coverage_recall = 1.0 > disabled 0.0625`、`write_recall = 1.0 > disabled 0.0769`；`latest_stage2_v63_persistent_state.json` 记录 non-collapse `core=22 / residual=476 / writes=652` 与 `weak_but_keep_residual_count = 12`
   - 当前负结果：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `180/589`，text-only `180/589`，option-only `235/589`；当前对 text-only `0`、对 option-only `-55`
-  - 最新 discard：durable-fact core-promotion trial 虽把 bank 推到 `core=40 / residual=435`，但 full589 no-routing 掉到 `152/589`；该线已回滚，不应继续沿“更激进 core promotion”推进
-  - 当前下一步：保留当前 non-collapse write-policy line，继续把 support selection / decision quality 推到真正确认的 no-routing margin；不得回到 tiny clean bank、answer-time routing 或 raw-context retrieval。
+  - 最新 discard：durable-fact core-promotion trial 虽把 bank 推到 `core=40 / residual=435`，但 full589 no-routing 掉到 `152/589`；selected-support-gloss decision-feature trial 也把 retained `180/589` 打坏到 `173/589`。这两条线都已回滚，不应继续沿“更激进 core promotion”或“纯 decision-only gloss feature”推进
+  - 当前下一步：保留当前 non-collapse write-policy line，继续把 support selection / belief quality 推到真正确认的 no-routing margin；不得回到 tiny clean bank、answer-time routing 或 raw-context retrieval。
 
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - 当前 workstream: `WS-037`

@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 148
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` selected-support-gloss decision-feature discard and restore
+- State changed:
+  - Iteration `3 discard`: added selected support gloss overlap features to the learned decision head in `v6.1` option features, attempting to let answer scoring consume `selected_slot_glosses` more directly
+  - Trial did not improve the retained metric: verifier stayed `85`, but full589 no-routing worsened from retained `180/589` to `173/589` vs text-only `180/589` and option-only `235/589`
+  - Reverted the trial commit with `git revert --no-edit` and re-published retained v6.3 artifacts so `latest_stage2_v63_*` once again match the non-collapse keep line
+- Evidence:
+  - `research-results.tsv` now records row `3 discard`
+  - Retained truth after restore is `latest_stage2_v63_personamem_no_routing.json = 180/589` vs text-only `180/589` vs option-only `235/589`
+  - `.agent-os/lessons-learned.md` now records that pure decision-only selected-support-gloss features are not the right path to benchmark gain
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v61_learned_memory.py` -> passed, score `85`
+  - Retained restore guard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v61_learned_memory.py` -> passed, score `85`
+- Boundary:
+  - This session records a failed exploration and rollback only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 147
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` durable-fact core-promotion discard and restore
