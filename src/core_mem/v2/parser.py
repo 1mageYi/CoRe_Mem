@@ -77,28 +77,6 @@ _WITHDRAWAL_PATTERNS = (
         re.IGNORECASE,
     ),
 )
-_NON_DURABLE_SELF_STATE_TOKENS = {
-    "always",
-    "beginning",
-    "being",
-    "committing",
-    "developing",
-    "eager",
-    "excited",
-    "feeling",
-    "focusing",
-    "genuinely",
-    "hopeful",
-    "hoping",
-    "imagining",
-    "interested",
-    "looking",
-    "making",
-    "participating",
-    "really",
-    "seeing",
-    "trying",
-}
 
 
 def _slugify(text: str) -> str:
@@ -157,17 +135,6 @@ def _normalize_feedback_value(value: str) -> str:
     about_match = re.search(r"\babout\s+([^,.!?]+)", lowered)
     about = f" about {about_match.group(1).strip()}" if about_match else ""
     return f"getting {positive}feedback{source}{about}".strip()
-
-
-def _looks_like_non_durable_self_state(value: str) -> bool:
-    tokens = re.findall(r"[a-z']+", value.lower())
-    if not tokens:
-        return False
-    first = tokens[0]
-    second = tokens[1] if len(tokens) > 1 else ""
-    if first in _NON_DURABLE_SELF_STATE_TOKENS:
-        return True
-    return first in {"curious", "eager", "excited", "hopeful", "interested", "thrilled"} and second in {"about", "for", "to"}
 
 
 def _infer_relation(text: str, value: str) -> tuple[str, str]:
@@ -413,7 +380,7 @@ class Stage2ObservationParser:
         patterns = [
             (r"\b(?:i like|i love|i prefer|my favorite(?: drink| food| music)? is)\s+(?P<value>.+)", "positive", 0.9),
             (r"\b(?:i don't like|i do not like|i hate|i can't stand)\s+(?P<value>.+)", "negative", 0.9),
-            (r"^(?:i am|i'm|i work as|my job is)\s+(?:an?\s+)?(?P<value>.+)", "neutral", 0.82),
+            (r"\b(?:i am|i'm|i work as|my job is)\s+(?:an?\s+)?(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i live in|i'm from|i am from)\s+(?P<value>.+)", "neutral", 0.82),
             (r"\b(?:i want to|i plan to|i'm going to)\s+(?P<value>.+)", "positive", 0.8),
             (r"\b(?:i can't eat|i cannot eat|i'm allergic to|i am allergic to)\s+(?P<value>.+)", "negative", 0.88),
@@ -424,8 +391,6 @@ class Stage2ObservationParser:
             match = re.search(pattern, lowered)
             if match:
                 value = match.group("value").strip(" .,!?\n\t")
-                if pattern.startswith("^(?:i am|i'm") and _looks_like_non_durable_self_state(value):
-                    continue
                 return value, polarity, confidence
         return "", "neutral", 0.0
 
