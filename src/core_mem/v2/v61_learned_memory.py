@@ -333,6 +333,72 @@ def _best_matching_slot(observation: Observation, slots: list[SlotRecord]) -> Sl
     )
 
 
+def _compose_relation_pools(
+    query: str,
+    selected: list[tuple[float, SlotRecord]],
+    *,
+    max_pools: int = 3,
+) -> tuple[list[dict[str, Any]], list[float]]:
+    if not selected:
+        return [], []
+    relation_groups: dict[str, list[tuple[float, SlotRecord]]] = defaultdict(list)
+    for score, slot in selected:
+        relation_groups[slot.relation].append((score, slot))
+    pooled_rows: list[dict[str, Any]] = []
+    for relation, group in relation_groups.items():
+        ordered = sorted(
+            group,
+            key=lambda item: (
+                item[0],
+                _token_overlap(query, item[1].canonical_gloss),
+                item[1].confidence,
+                1 if item[1].bank == "core" else 0,
+            ),
+            reverse=True,
+        )
+        top_group = ordered[:3]
+        pooled_score = sum(score * max(slot.confidence, 0.25) for score, slot in top_group) / len(top_group)
+        pooled_key = _mean_vector(slot.retrieval_key for _, slot in top_group)
+        values: list[str] = []
+        seen_values: set[str] = set()
+        for _, slot in top_group:
+            value = slot.canonical_gloss.split("=", 1)[-1].strip()
+            if not value or value in seen_values:
+                continue
+            seen_values.add(value)
+            values.append(value)
+        merged_value = "; ".join(values[:2]) if values else relation.replace("_", " ")
+        pooled_rows.append(
+            {
+                "relation": relation,
+                "value": merged_value,
+                "support_slot_id": top_group[0][1].slot_id,
+                "support_slot_ids": [slot.slot_id for _, slot in top_group],
+                "support_count": len(top_group),
+                "confidence": min(1.0, float(pooled_score)),
+                "bank": top_group[0][1].bank,
+                "pooled_key": pooled_key,
+            }
+        )
+    pooled_rows.sort(
+        key=lambda item: (
+            item["confidence"],
+            _token_overlap(query, f"{item['relation']} {item['value']}"),
+            item["support_count"],
+        ),
+        reverse=True,
+    )
+    belief_items = pooled_rows[:max_pools]
+    total_score = sum(float(item["confidence"]) for item in belief_items) or 1.0
+    composed = [
+        sum(float(item["confidence"]) * item["pooled_key"][idx] for item in belief_items) / total_score
+        for idx in range(len(belief_items[0]["pooled_key"]))
+    ]
+    for item in belief_items:
+        item.pop("pooled_key", None)
+    return belief_items, composed
+
+
 def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
     relation_text = observation.relation.replace("_", " ")
     queries = {natural_language_query(observation)}
@@ -475,21 +541,25 @@ def _read_with_model(
         scores = torch.sigmoid(reader(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
     selected = ranked[:top_k]
-    total_score = sum(score for score, _ in selected) or 1.0
-    composed = [
-        sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score
-        for idx in range(len(selected[0][1].retrieval_key))
-    ]
-    belief_items = [
-        {
-            "relation": slot.relation,
-            "value": slot.canonical_gloss.split("=", 1)[-1],
-            "support_slot_id": slot.slot_id,
-            "confidence": min(1.0, float(score)),
-            "bank": slot.bank,
-        }
-        for score, slot in selected[:3]
-    ]
+    belief_items, composed = _compose_relation_pools(query, selected, max_pools=3)
+    if not belief_items:
+        total_score = sum(score for score, _ in selected) or 1.0
+        composed = [
+            sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score
+            for idx in range(len(selected[0][1].retrieval_key))
+        ]
+        belief_items = [
+            {
+                "relation": slot.relation,
+                "value": slot.canonical_gloss.split("=", 1)[-1],
+                "support_slot_id": slot.slot_id,
+                "support_slot_ids": [slot.slot_id],
+                "support_count": 1,
+                "confidence": min(1.0, float(score)),
+                "bank": slot.bank,
+            }
+            for score, slot in selected[:3]
+        ]
     return {
         "query_key": query_key,
         "selected": [{"score": float(score), "slot": slot} for score, slot in selected],
