@@ -1,5 +1,25 @@
 # Run Log
 
+# 2026-04-23 Session 151
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` second pivot family discard set and search escalation
+- State changed:
+  - Iteration `8 discard`: the question-conditioned belief-selector trial changed the read path from direct reader->belief to reader retrieval plus a learned selector, but full589 no-routing still degraded from retained `179/589` to `176/589`
+  - Iteration `9 discard`: the query-relation-router trial changed question-conditioned routing again, but full589 no-routing degraded further to `163/589`
+  - Both trial commits were reverted with `git revert --no-edit`, retained v6.3 artifacts were re-published, and current negative-result truth was restored at `179/589` vs text-only `180/589` vs option-only `235/589`
+  - Because this completed a second stale strategy family after the last keep, iteration `10` was logged as `[PIVOT]`: abandon the first structural read-path family built around question-conditioned belief routing inside the existing learned reader
+  - Iteration `11` was then logged as `[SEARCH]`: targeted external search for a new v6.3 strategy family around late-interaction multi-vector retrieval and slot-pool style state inheritance, to source the next mechanically testable hypothesis
+- Evidence:
+  - `research-results.tsv` now records rows `8 discard`, `9 discard`, `10 pivot`, and `11 search`
+  - `autoresearch-state.json` now records iteration `11`, `pivot_count = 2`, `best_metric = 85`, and retained labels excluding `significant-personamem-margin`
+  - `latest_stage2_v63_personamem_no_routing.json` remains the retained truth at `179/589` vs text-only `180/589` vs option-only `235/589`
+- Verification:
+  - Trial guard before each discard: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+  - Retained restore guard after each revert: `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This session records failed explorations, rollback, a second pivot, and search escalation only.
+  - No new keep or benchmark success claim is allowed.
+
 # 2026-04-23 Session 150
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` scenario-aware reader-semantics discard and pivot
