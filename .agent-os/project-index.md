@@ -3,17 +3,17 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-049 / WS-035 / v6` blocked closeout。当前 persistent substrate partial score 为 `80`，但 PersonaMem no-routing meaningful margin 未达成；下一步需要新的 persistent memory/readout 研究方向，不能回到 answer-time routing 或 raw full-context retrieval。
-- Active workstreams: `WS-035`
-- Active workstream label: `TD-049 / WS-035`
-- Active workstream version: `v6`
+- Top next action: `TD-050 / WS-036 / v6.1` learned reader/decision long run。当前 persistent substrate 已成立，但 authoritative reader/decision 仍弱；下一步必须让 learned reader 和 learned decision head 真接管 persistent-memory 主路径，不能回到 answer-time routing、raw retrieval 或 handcrafted scorer。
+- Active workstreams: `WS-036`
+- Active workstream label: `TD-050 / WS-036`
+- Active workstream version: `v6.1`
 - Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。`v5.1` current HEAD `89ba929` 已完成真实 BGE pretrained load、12k stage2 gold-free training、真实 checkpoint、held-out trained-vs-frozen / latent-vs-shuffled / full-vs-text-only gain，以及 PersonaMem full589 no-calibration `184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`。`scripts/verify_stage2_v51_real_training.py --score-only = 100`，supervisor 判定 `goal_reached`。`v5.2` current run 已发布 real learned prototype evidence 且 `scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`，但 PersonaMem margin 只有 `+1` 且依赖 answer-time confidence routing，不能作为 v6 closeout。`v6` fresh baseline 为 `16`，当前 partial persistent substrate evidence 已把 score 推到 `80`：persistent `core_bank=95` / `residual_bank=483`、state checkpoint、`745`-write trace、learned write-time router、query-conditioned reader、belief/readout、persistent-state eval、raw-context retrieval disabled、true disabled architecture ablation drops 和 no-gold substrate proof 均成立；但 PersonaMem full589 no-routing 为 `146/589` vs text-only `205/589`，margin `-59`，decision 为 `negative_result`。后续 query-option blend 退化到 `133/589`，no-gold synthetic projection weights 只到 `157/589` 且 verifier 不提升，因此当前 run blocked。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
 - Current v32 holdout truth: clean authoritative `timeout45` runs 已完成并发布。`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 当前固定为 `provider/local = 21/14`，`outputs_v2/runs/v32_full_personamem_512_timeout45/` 当前固定为 `provider/local = 183/175`；它们是 `v33` 的 external compare baseline。
 - Current v32 clean-holdout truth: current HEAD `34943df` 的 resumable provider commit + run-dir lock 与 `7377c29` 的 timeout/backoff 配置，是 `v32` authoritative full holdout 能收口的关键 runtime 修复；但 artifact 里仍然记录 `memory_mode = symbolic`、`slot_assignment_mode = symbolic`。
 - Carried-forward v33 truth: `TD-044 / WS-030` 当前已不再是“必须先切 provider/interface 才能继续”的硬 blocker；current HEAD `2d3e59c` 证明在同一 `gpt-agent.cc/v1` 代理下，把 stored `provider_raw_prediction` 重新做协议层 `<think>` / fenced-reasoning 清洗，能把 Persona partial learned-authoritative holdout 从 `provider exact = 5/66` 回收到 `15/77`，而后续扩大到 `99/512` 时 provider/local 为 `18/99`、`42/99`。最新 analysis artifact 已把剩余失败拆成 `projection = 54`、`provider = 27`，并显示 `other_fact` 主导 `70` 个失败 relation、`suggest_new_ideas` 是最弱 question type。当前 targeted line 也已进一步证实 broader local gain 真实存在：generic morphology normalization 先把 broader Persona local-only gate 从 `12/16` 提到 `14/16`，support-slot-only gloss 收紧又把它从 `14/16` 提到 `15/16`。但最新 discard rows `52`、`61` 与 `69` 也一起划清了边界：parser widening + belief-prompt reorder 会在 broader slice 上立刻回退；generic parser-noise narrowing 会把 `6142...` 拉坏；更精确的 parser-precision specialization 虽然能修 `6142 / a40d / acd742` cheap singles，却在 wider symbolic-slot smoke16 上仍只做到 `13/16`，剩余 miss 重新收敛到 `d71 / 32b / 0adf`。`v33` 因此保留为 retained diagnostic / unfinished measurement truth，而不是当前 v5 的 keep closeout。
-- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030`、`TD-045 / WS-031`、`TD-046 / WS-032`、`TD-047 / WS-033` 与 `TD-048 / WS-034` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前 active 主线为 `TD-049 / WS-035 / v6`。
+- Verifier compatibility note: `TD-035 / WS-021`、`TD-036 / WS-022`、`TD-037 / WS-023`、`TD-038 / WS-024`、`TD-039 / WS-025`、`TD-040 / WS-026`、`TD-041 / WS-027`、`TD-042 / WS-028`、`TD-043 / WS-029`、`TD-044 / WS-030`、`TD-045 / WS-031`、`TD-046 / WS-032`、`TD-047 / WS-033`、`TD-048 / WS-034` 与 `TD-049 / WS-035` 的历史完成态/blocked/search truth 仍保留在文档与 artifact 中；当前 active 主线为 `TD-050 / WS-036 / v6.1`。
 
 ## Objective Summary
 
@@ -22,6 +22,15 @@
 - `OBJ-004`: 第二阶段具体实例为 `V2.0 structured latent-slot memory`，目标是在保留第一阶段 v1 baseline 参考价值的前提下，建立更强的 latent memory 研究主线。
 
 ## Active Workstreams
+
+- `WS-036` `[doing]`: Stage-2 `v6.1 Learned Reader/Decision over Persistent Memory`，目标是在保留 v6 persistent substrate 的前提下，让 authoritative inference 真正由 learned reader 和 learned decision/readout 主导。
+  - Current task: `TD-050`
+  - Plan: [docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
+  - Verifier: [scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
+  - Hard gates: authoritative learned reader、authoritative learned decision head、semantic slot matching / bank compaction、typed residuals、hard internal eval、no answer-time routing、no raw-context retrieval、no gold leakage、PersonaMem meaningful margin over both text-only and option-only。
+  - Current baseline: `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`
+  - Baseline truth: v6 already proved persistent banks/checkpoint/write trace/write routing/raw-context disable/no-routing/true ablation, but PersonaMem no-routing remained `146/589` vs text-only `205/589` and option-only `235/589`; the missing capability is learned reading/decision over persistent memory.
+  - Truth boundary: the next run may reuse v6 substrate evidence, but it cannot close out unless learned reader/decision truly becomes the authoritative path and produces benchmark gain without shortcut.
 
 - `WS-035` `[blocked]`: Stage-2 `v6 Persistent Core-Residual Latent Memory`，目标是实现真正 persistent `core_bank` / `residual_bank` latent state，训练 write-time memory routing，并用 query-conditioned latent reader + belief/readout 在不使用 answer-time confidence routing 的情况下超过 text-only。
   - Current task: `TD-049`

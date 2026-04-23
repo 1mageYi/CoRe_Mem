@@ -2,6 +2,17 @@
 
 ## Doing
 
+- `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 升级为真正由 learned reader/readout 主导的 authoritative memory system。
+  - 当前 workstream: `WS-036`
+  - 当前计划：[docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
+  - 当前 verifier：[scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
+  - 核心目标：`persistent banks -> learned authoritative reader -> learned decision/readout head -> answer`。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
+  - 新增硬边界：不允许回到 `vector_dot + bank_prior` 主读路径；不允许 handcrafted option scoring 作为 authoritative decision path；不允许 answer-time routing。
+  - 结构继承：v6 已成立的 persistent `core_bank` / `residual_bank`、checkpoint、write trace、write-time routing、raw-context retrieval disabled、answer-time routing disabled 与 true ablation drops 继续作为 baseline 继承。
+  - 新增成功门槛：authoritative learned reader、authoritative learned decision head、semantic slot matching / bank compaction、typed residuals、harder internal eval、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
+  - 当前 v6.1 baseline：fresh `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`；说明 v6 structural evidence 已被继承，但 learned reader/decision 主路径仍是当前主缺口。
+
 - `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 learned latent prototype 升级为真正 persistent memory substrate。
   - 当前 workstream: `WS-035`
   - 当前计划：[docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)

@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 推进到真正 learned authoritative read/decision path。
+  - Current workstream: `WS-036`
+  - Plan: [docs/v61_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v61_plan.md)
+  - Verifier: [scripts/verify_stage2_v61_learned_reader_decision.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v61_learned_reader_decision.py)
+  - Required structure: persistent substrate inherited from v6, but authoritative inference must now use a learned reader and a learned decision/readout head.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
+  - New required evidence: semantic slot matching / bank compaction, typed residuals, harder internal eval with natural-language queries and hard negatives, PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
+  - Current baseline: `scripts/verify_stage2_v61_learned_reader_decision.py --score-only = 45`
+  - Current reason for launch: v6 already proved persistent storage, but failed on no-routing PersonaMem (`146/589` vs text-only `205/589`). The next run must strengthen reading/decision rather than storage.
+
 - `TD-049` `[blocked]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。
   - Current workstream: `WS-035`
   - Plan: [docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
