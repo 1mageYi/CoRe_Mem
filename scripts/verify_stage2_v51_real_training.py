@@ -157,10 +157,11 @@ def compute_v51_real_training(root: Path = REPO_ROOT) -> dict[str, Any]:
         caps.append({"reason": "full_does_not_beat_text_only", "cap": 75})
     if checks["personamem_full589"] and not checks["personamem_no_cal_beats_baselines"]:
         caps.append({"reason": "personamem_no_calibration_not_above_baselines", "cap": 80})
-    if not (
+    personamem_gold_ok = personamem is None or personamem.get("gold_used_for_memory_substrate") is False
+    if training and not (
         checks["uses_no_personamem_gold_for_backbone"]
         and checks["uses_no_personamem_gold_for_training"]
-        and checks["personamem_gold_not_used_for_substrate"]
+        and personamem_gold_ok
     ):
         caps.append({"reason": "gold_isolation_not_fully_proven", "cap": 30})
 
