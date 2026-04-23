@@ -1,5 +1,22 @@
 # Run Log
 
+# 2026-04-23 Session 145
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` scaffold / launch
+- State changed:
+  - Added the `v6.3` plan, verifier, and tests to force the next managed run to optimize non-collapsing memory dynamics instead of cleaner hard filtering
+  - Repointed active status docs from `TD-051 / WS-037 / v6.2` to `TD-052 / WS-038 / v6.3`
+  - Preserved `v6.2` as the blocked baseline / handoff truth: retained verifier `85`, PersonaMem full589 no-routing `160/589` vs text-only `170/589` vs option-only `235/589`, and collapsed state `core=4 / residual=42 / writes=64`
+- Evidence:
+  - `docs/v63_plan.md`
+  - `scripts/verify_stage2_v63_write_policy.py`
+  - `tests/test_stage2_v63_write_policy.py`
+- Verification:
+  - `conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py`
+- Boundary:
+  - This session only establishes the next long-run gate and handoff. It does not claim a new benchmark gain.
+
 # 2026-04-23 Session 144
 
 - Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` threshold-calibration discard and restore

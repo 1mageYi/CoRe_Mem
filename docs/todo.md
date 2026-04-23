@@ -2,6 +2,17 @@
 
 ## Doing
 
+- `TD-052` `[doing]` 以 `v6.3 Recall-Preserving Confidence-Aware Write Policy` 为目标，把 v6.2 的 hard write filter 升级成真正的 confidence-aware memory policy。
+  - 当前 workstream: `WS-038`
+  - 当前计划：[docs/v63_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v63_plan.md)
+  - 当前 verifier：[scripts/verify_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v63_write_policy.py)
+  - 核心目标：`turn / observation -> core-worthy / residual-worthy / weak-but-keep / drop -> non-collapsed persistent state -> learned reader -> learned decision -> answer`。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
+  - 新增硬边界：不允许用 cleaner-but-emptier bank 冒充 gain；不允许 answer-time routing；不允许 raw-context retrieval 作为 authoritative path。
+  - 结构继承：v6.1 的 learned reader/decision 与 v6.2 的 write-quality 主链全部继续作为 baseline 继承。
+  - 新增成功门槛：confidence-aware 四分类 write policy、weak-but-keep residual buffer、support-coverage / write-recall 正增益、non-collapse state 证据、error attribution、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
+  - 当前 v6.3 baseline：fresh `scripts/verify_stage2_v63_write_policy.py --score-only = 56`；说明 v6.2 evidence 已继承，但 recall-preserving write dynamics 仍未成立。
+
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - 当前 workstream: `WS-037`
   - 当前计划：[docs/v62_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v62_plan.md)
@@ -16,7 +27,7 @@
   - 当前 partial：`latest_stage2_v62_write_quality_eval.json` 记录 write-worthiness eval accuracy `0.90625` > disabled `0.8984375`，attribute-validity F1 `0.9865` > disabled `0.9289`，hard negatives `68`，conflict negatives `382`
   - 当前 partial：`latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank=4` / `residual_bank=42`、checkpoint、write trace、`bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`
   - 当前负结果：`latest_stage2_v62_personamem_no_routing.json` 记录 full589 no-routing `160/589`，text-only `170/589`，option-only `235/589`；当前对 text-only `-10`、对 option-only `-75`
-  - 当前下一步：继续提高 write-side retained recall / precision，让 cleaner substrate 真正转化为 no-routing benchmark gain；不得回到 answer-time routing、raw-context retrieval 或 heuristic cleanup
+  - 当前下一步：已切到 `TD-052 / WS-038 / v6.3`，即 recall-preserving confidence-aware write policy；当前这一条线保留为 blocked baseline / handoff truth
 
 - `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 升级为真正由 learned reader/readout 主导的 authoritative memory system。
   - 当前 workstream: `WS-036`

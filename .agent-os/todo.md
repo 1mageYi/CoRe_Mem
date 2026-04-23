@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-052` `[doing]` 以 `v6.3 Recall-Preserving Confidence-Aware Write Policy` 为目标，把 v6.2 的 hard write filter 升级成真正的 confidence-aware memory policy。
+  - Current workstream: `WS-038`
+  - Plan: [docs/v63_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v63_plan.md)
+  - Verifier: [scripts/verify_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v63_write_policy.py)
+  - Required structure: keep the v6.1 learned reader/decision path and the v6.2 write-quality signal, but replace binary hard filtering with `core-worthy / residual-worthy / weak-but-keep / drop`, where weak-but-keep survives in residual memory.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
+  - New required evidence: confidence-aware four-way write policy, weak-but-keep residual buffer, support coverage / write recall, non-collapse state evidence, full589 error attribution, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
+  - Current baseline: `scripts/verify_stage2_v63_write_policy.py --score-only = 56`
+  - Current reason for launch: `v6.2` already proved learned write-quality can enter the authoritative path, but it collapsed the bank to `core=4 / residual=42 / writes=64` and regressed PersonaMem to `160/589`. The next run must make write-quality preserve recall rather than delete memory.
+
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - Current workstream: `WS-037`
   - Plan: [docs/v62_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v62_plan.md)
@@ -14,7 +24,7 @@
   - Current partial: `latest_stage2_v62_write_quality_eval.json` 记录 write-worthiness eval accuracy `0.90625` > disabled `0.8984375`，attribute-validity F1 `0.9865` > disabled `0.9289`，hard negatives `68`，conflict negatives `382`
   - Current partial: `latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank=4` / `residual_bank=42`、checkpoint、write trace、`bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`
   - Current negative truth: `latest_stage2_v62_personamem_no_routing.json` 记录 full589 no-routing `160/589`，text-only `170/589`，option-only `235/589`；当前对 text-only `-10`、对 option-only `-75`
-  - Current top next action: 继续提高 write-side retained recall / precision，让 cleaner substrate 真正转化为 no-routing benchmark gain；不得回到 answer-time routing、raw-context retrieval 或 heuristic cleanup
+  - Current top next action: 已切到 `TD-052 / WS-038 / v6.3`；当前这一条线保留为 blocked baseline / handoff truth
 
 - `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 推进到真正 learned authoritative read/decision path。
   - Current workstream: `WS-036`
