@@ -1,8 +1,12 @@
 # Current Status
 
-## 当前最新状态：v5.2 full learned latent system 正在启动
+## 当前最新状态：v5.2 full learned latent system 已进入 first keep
 
-- `TD-048 / WS-034 / v5.2` 已锁定为下一轮主线：不再接受 v5.1 式 real-training bootstrap，目标改为 full learned latent memory system。
+- `TD-048 / WS-034 / v5.2` 已锁定为当前主线：不再接受 v5.1 式 real-training bootstrap，目标改为 full learned latent memory system。
+- Fresh baseline `stage2_v52_full_latent_system_score = 4`。
+- Iteration `1 keep` 已发布 `latest_stage2_v52_backbone_compare.json`：真实加载并比较 `BAAI/bge-base-en-v1.5` 与 `intfloat/e5-base-v2`，attempted backbones 覆盖 `BGE / E5 / Contriever`。
+- 当前 verifier：`scripts/verify_stage2_v52_full_latent_system.py --score-only = 20`；guard `git diff --check && ... && pytest -q tests/test_stage2_v52_full_latent_system.py` 通过。
+- 边界：`facebook/contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；当前只是 multi-backbone partial evidence，不是 full learned system。
 - v5.2 的 hard gate 要求 multi-backbone、multi-task、trainable reader/controller/belief、multi-task > retrieval-only，并且 PersonaMem full589 no-calibration 必须超过 text-only `214/589`。
 - `TD-047 / WS-033 / v5.1` background autoresearch 已达到配置 stop condition：`scripts/verify_stage2_v51_real_training.py --score-only = 100`。
 - 本轮真实加载 `BAAI/bge-base-en-v1.5`，backend 为 `sentence_transformers`，`pretrained_weights_loaded = true`，并在 stage2 32k gold-free data 上完成 12k-sample 训练，产出真实 checkpoint。

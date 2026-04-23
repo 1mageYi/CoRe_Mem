@@ -2,8 +2,10 @@
 
 ## Doing
 
-- `TD-048` `[planned]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
+- `TD-048` `[doing]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - 当前 workstream: `WS-034`
+  - 当前 partial：fresh baseline `4`；iteration `1 keep` 已发布 v5.2 real multi-backbone compare，真实加载 `BGE + E5`，score 到 `20`。
+  - 边界：`Contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；multi-task training、checkpoint、ablation 与 PersonaMem text-only gate 尚未完成。
   - 硬门槛：至少 2 个真实 backbone、四任务 multi-task training、真实 checkpoint、trainable encoder/projection + latent reader/resampler + write controller + belief decoder/graph。
   - 质量门槛：multi-task > retrieval-only、trained > frozen、latent-only > shuffled、full > text-only、ablation drops、PersonaMem no-calibration > text-only `214/589`。
   - 禁止：fallback、shortcut、provider prompt trick、benchmark-specific option trick、PersonaMem gold leakage into substrate。

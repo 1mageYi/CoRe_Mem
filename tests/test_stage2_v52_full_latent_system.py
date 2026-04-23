@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
+import numpy as np
+
+from scripts.publish_stage2_v52_backbone_compare import publish_v52_backbone_compare
 from scripts.verify_stage2_v52_full_latent_system import compute_v52_full_latent_system
 
 
@@ -204,3 +209,68 @@ def test_v52_full_system_can_reach_stop_ready(tmp_path: Path) -> None:
 
     assert payload["score"] == 100
     assert payload["stop_ready"] is True
+
+
+def test_v52_backbone_publisher_records_multiple_gold_free_real_backbones(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    retrieval_file = repo / "outputs_v2" / "artifacts" / "stage2_v27_32k" / "val" / "retrieval_alignment.jsonl"
+    retrieval_file.parent.mkdir(parents=True)
+    retrieval_file.write_text(
+        json.dumps(
+            {
+                "query": "What food does the user currently prefer?",
+                "positive_slot": {"relation": "food_preference", "canonical_gloss": "food_preference=breakfast"},
+                "negative_slots": [
+                    {"relation": "location", "canonical_gloss": "location=Denver"},
+                    {"relation": "occupation", "canonical_gloss": "occupation=teacher"},
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class FakeSentenceTransformer:
+        def __init__(self, model_id: str, device: str, cache_folder: str) -> None:
+            self.model_id = model_id
+            self.device = device
+            self.cache_folder = cache_folder
+
+        def encode(self, texts, **kwargs):
+            vectors = []
+            for text in texts:
+                if "breakfast" in text or "food" in text:
+                    vectors.append([1.0, 0.0])
+                else:
+                    vectors.append([0.0, 1.0])
+            return np.asarray(vectors, dtype=np.float32)
+
+        def get_embedding_dimension(self) -> int:
+            return 2
+
+        def parameters(self):
+            return []
+
+        def modules(self):
+            return iter([self])
+
+    fake_module = types.SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake_module)
+
+    payload = publish_v52_backbone_compare(
+        root=repo,
+        retrieval_file=retrieval_file,
+        model_ids=("fake/bge", "fake/e5", "fake/contriever"),
+        eval_samples=1,
+        device="cpu",
+    )
+
+    assert payload["artifact_type"] == "stage2_v52_backbone_compare"
+    assert payload["pretrained_weights_loaded"] is True
+    assert payload["minimum_two_real_backbones_loaded"] is True
+    assert payload["uses_personamem_gold"] is False
+    assert payload["evaluation_backend"] == "sentence_transformers"
+    assert payload["loaded_backbones"] == ["fake/bge", "fake/e5", "fake/contriever"]
+    assert payload["results"][0]["metrics"]["top1_accuracy"] == 1.0

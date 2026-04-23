@@ -1,5 +1,19 @@
 # Acceptance Report
 
+## Stage 2 V5.2 Full Learned Latent System Evidence
+
+- `EV-V52-001` -> `TD-048 / WS-034` real multi-backbone compare
+  - Status: partial
+  - Evidence:
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `20`
+    - `latest_stage2_v52_backbone_compare.json` 记录 `BAAI/bge-base-en-v1.5` 与 `intfloat/e5-base-v2` 真实加载，backend 为 `sentence_transformers`
+    - 同一 artifact 记录 attempted backbones 为 `BAAI/bge-base-en-v1.5 / intfloat/e5-base-v2 / facebook/contriever`
+    - `facebook/contriever` 当前因 `torch 2.5.1` 安全版本限制未加载，artifact 已记录 failure
+  - Boundary:
+    - 当前只证明 v5.2 已达到 “at least two real pretrained backbones loaded/compared” 的 partial gate。
+    - multi-task training、real v5.2 checkpoint、trainable belief/controller/resampler、ablation drops 与 PersonaMem no-calibration > text-only `214/589` 尚未完成。
+    - 不得把当前 `20/100` 写成 full learned latent system verified。
+
 ## Stage 2 V5.1 Real Training Evidence
 
 - `EV-V51-001` -> `TD-047 / WS-033` real pretrained training

@@ -2,8 +2,12 @@
 
 ## Doing
 
-- `TD-048` `[planned]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
+- `TD-048` `[doing]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - Current workstream: `WS-034`
+  - Current retained partial:
+    - fresh baseline `stage2_v52_full_latent_system_score = 4`
+    - iteration `1 keep`: v5.2 real multi-backbone compare，真实加载 `BAAI/bge-base-en-v1.5` 与 `intfloat/e5-base-v2`，score 到 `20`
+    - attempted `facebook/contriever`，但当前 `torch 2.5.1` 被 `transformers` 安全限制挡住；artifact 已记录 failure，不能写成三 backbone 完成
   - Hard gates:
     - at least 2 real pretrained backbones loaded/compared
     - non-retrieval-only multi-task training over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`

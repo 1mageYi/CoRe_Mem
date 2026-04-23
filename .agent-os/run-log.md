@@ -1,5 +1,24 @@
 # Run Log
 
+# 2026-04-23 Session 131
+
+- Worked on: `TD-048 / WS-034 / v5.2` managed autoresearch fresh baseline and first focused keep
+- State changed:
+  - Initialized fresh `research-results.tsv` / `autoresearch-state.json` from baseline `stage2_v52_full_latent_system_score = 4`
+  - Added `scripts/publish_stage2_v52_backbone_compare.py`
+  - Published `latest_stage2_v52_backbone_compare.json`
+  - Updated v5.2 state docs to mark `TD-048 / WS-034` as doing with partial multi-backbone evidence
+- Evidence:
+  - Real loaded backbones: `BAAI/bge-base-en-v1.5`, `intfloat/e5-base-v2`
+  - Attempted but failed: `facebook/contriever`, blocked by current `torch 2.5.1` security version gate
+  - Verifier after this focused change: `scripts/verify_stage2_v52_full_latent_system.py --score-only = 20`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed, score `20`
+- Boundary:
+  - This is partial multi-backbone evidence only, not v5.2 completion.
+  - Next action is full multi-task training / checkpoint over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`.
+
 # 2026-04-23 Session 130
 
 - Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak
