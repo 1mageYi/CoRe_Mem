@@ -7,9 +7,12 @@
 - v6.2 新 verifier：[scripts/verify_stage2_v62_write_quality.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v62_write_quality.py)
 - v6.2 继承 v6.1 已成立的结构事实：persistent `core_bank` / `residual_bank`、state checkpoint、write trace、learned write-time routing、authoritative learned reader、authoritative learned decision、semantic slot compaction、typed residuals、hard internal eval、raw-context retrieval disabled、answer-time routing disabled 与 no-gold substrate proof。
 - v6.2 hard gate 明确要求：authoritative write path 必须使用 learned write-worthiness；authoritative pre-write path 必须使用 learned attribute-validity / relation-validity；必须新增 hard write-quality eval 与 persistent-state cleanliness evidence；不得回到 answer-time routing、raw-context retrieval 或 broad heuristic cleanup。
-- fresh v6.2 baseline 已初始化为 `stage2_v62_write_quality_score = 60`；这说明当前 v6.1 结构证据会被继承，但由于 authoritative write-worthiness / attribute-validity 尚未成立，当前不能误判成 closeout 态。
+- fresh v6.2 baseline 已初始化为 `stage2_v62_write_quality_score = 60`；当前第一轮结构 keep 已把 verifier 推到 `85`，说明 authoritative write-worthiness / attribute-validity / hard write-quality eval / clean persistent-state evidence 已接入真实主链。
+- 当前 v6.2 retained partial：`latest_stage2_v62_write_quality_eval.json` 记录 write-worthiness eval accuracy `0.90625` > disabled `0.8984375`，attribute-validity F1 `0.9865` > disabled `0.9289`，hard negatives `68`，conflict negatives `382`。
+- 当前 v6.2 retained partial：`latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank=4` / `residual_bank=42`、checkpoint、write trace，以及 `bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`。
+- 当前 v6.2 真实负结果：full589 no-routing `160/589`，text-only `170/589`，option-only `235/589`；因此 write-quality 结构升级已成立，但 cleaner substrate 还没有转化为 benchmark gain。
 - 当前最诚实的 handoff 结论是：`v6.1` 已把 PersonaMem full589 no-routing 提到 `191/589`，高于 text-only `180/589`，但仍低于 option-only `235/589`。soft blocker 的根因不再是 persistent substrate 或 learned reader/decision 缺失，而是 write side 的数据进入质量仍不够强。
-- 新 long-run 的目标是：先提升 write-side memory quality，再重训/刷新 reader 与 decision，并在 full589 no-routing 下真正超过 option-only 且保留 meaningful margin。
+- 新 long-run 的目标是：继续提升 write-side retained recall / precision，再重训/刷新 reader 与 decision，并在 full589 no-routing 下真正超过 text-only、option-only 并保留 meaningful margin。
 
 ## 当前并行保留状态：v6.1 learned reader/decision 仍是 v6.2 的 blocked baseline
 

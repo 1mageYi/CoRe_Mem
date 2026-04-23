@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 143
+
+- Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` first focused keep
+- State changed:
+  - Initialized fresh managed `research-results.tsv` / `autoresearch-state.json` from baseline `stage2_v62_write_quality_score = 60`
+  - Added `src/core_mem/v2/v62_write_memory.py` and `scripts/publish_stage2_v62_write_quality.py`, wiring message-level learned write-worthiness and observation-level attribute-validity / relation-validity into the authoritative write path
+  - Published `latest_stage2_v62_write_quality_train.json`, `latest_stage2_v62_write_quality_eval.json`, `latest_stage2_v62_persistent_state.json`, `latest_stage2_v62_internal_eval.json`, `latest_stage2_v62_personamem_no_routing.json`, `latest_stage2_v62_arch_ablation.json`, and `latest_stage2_v62_decision.json`
+  - Updated active runtime docs so `TD-051 / WS-037 / v6.2` now records retained verifier `85` and the current negative full589 benchmark truth
+- Evidence:
+  - `latest_stage2_v62_write_quality_eval.json` records authoritative learned write-worthiness / attribute-validity, raw-dialogue hard negatives `68`, conflict negatives `382`, held-out write-worthiness accuracy `0.90625` > disabled `0.8984375`, and attribute-validity F1 `0.9865` > disabled `0.9289`
+  - `latest_stage2_v62_persistent_state.json` records persistent `core_bank_size = 4`, `residual_bank_size = 42`, checkpoint, write trace, and explicit cleanliness metrics `bank_precision_estimate = 1.0`, `invalid_slot_rate = 0.0`, `low_information_slot_share = 0.0`
+  - `latest_stage2_v62_personamem_no_routing.json` records full589 no-routing `160/589`, text-only `170/589`, option-only `235/589`
+- Verification:
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v62_write_quality.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v62_write_quality.py tests/test_stage2_v62_write_memory.py` -> passed, score `85`
+- Boundary:
+  - This keep closes the structural v6.2 write-quality gaps, not the benchmark gain gap.
+  - Current runtime truth is partial / negative_result: PersonaMem no-routing is still below both text-only and option-only, so no success claim is allowed.
+
 # 2026-04-23 Session 142
 
 - Worked on: `TD-051 / WS-037 / v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` scaffold / launch

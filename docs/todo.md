@@ -12,7 +12,11 @@
   - 结构继承：v6.1 已成立的 persistent substrate、authoritative learned reader、authoritative learned decision、semantic slot compaction、typed residuals、hard internal eval、no-answer-routing 与 no-gold substrate proof 全部继续作为 baseline 继承。
   - 新增成功门槛：authoritative learned write-worthiness、authoritative attribute-validity / relation-validity、hard write-quality eval、clean persistent-state evidence、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
   - 当前 v6.2 baseline：fresh `scripts/verify_stage2_v62_write_quality.py --score-only = 60`；说明 v6.1 evidence 已继承，但当前最关键的 write-quality 主路径仍未成立。
-  - 当前 reason for launch：v6.1 已把 PersonaMem full589 no-routing 提到 `191/589`，高于 text-only `180/589`，但仍低于 option-only `235/589`；soft blocker 已明确指向 write-side quality，而不是 reader/decision wiring。
+  - 当前 partial：current HEAD 已新增 `scripts/publish_stage2_v62_write_quality.py` 与 `src/core_mem/v2/v62_write_memory.py`，把 message-level learned write-worthiness、observation-level attribute-validity / relation-validity、raw-dialogue hard write-quality eval 与 clean persistent-state metrics 接进真实 write path；当前 verifier `= 85`
+  - 当前 partial：`latest_stage2_v62_write_quality_eval.json` 记录 write-worthiness eval accuracy `0.90625` > disabled `0.8984375`，attribute-validity F1 `0.9865` > disabled `0.9289`，hard negatives `68`，conflict negatives `382`
+  - 当前 partial：`latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank=4` / `residual_bank=42`、checkpoint、write trace、`bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`
+  - 当前负结果：`latest_stage2_v62_personamem_no_routing.json` 记录 full589 no-routing `160/589`，text-only `170/589`，option-only `235/589`；当前对 text-only `-10`、对 option-only `-75`
+  - 当前下一步：继续提高 write-side retained recall / precision，让 cleaner substrate 真正转化为 no-routing benchmark gain；不得回到 answer-time routing、raw-context retrieval 或 heuristic cleanup
 
 - `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 升级为真正由 learned reader/readout 主导的 authoritative memory system。
   - 当前 workstream: `WS-036`

@@ -1,5 +1,29 @@
 # Acceptance Report
 
+## Stage 2 V6.2 Learned Write-Quality Evidence
+
+- `EV-V62-001` -> `TD-051 / WS-037` learned write-worthiness / attribute-validity before write
+  - Status: partial / negative_result
+  - Evidence:
+    - `scripts/verify_stage2_v62_write_quality.py --score-only` 当前返回 `85`
+    - `latest_stage2_v62_write_quality_train.json` 记录 message-level learned write-worthiness、observation-level attribute-validity / relation-validity、write-time router、learned reader、learned decision 全部已训练
+    - 同一 train artifact 记录 `write_worthiness_eval_accuracy = 0.8890` > disabled `0.8834`，`attribute_validity_f1 = 0.9728` > disabled `0.9203`
+    - `latest_stage2_v62_write_quality_eval.json` 记录 authoritative write path 使用 learned write-worthiness / attribute-validity，raw-dialogue hard negatives `68`、conflict negatives `382`，且 held-out `write_worthiness_eval_accuracy = 0.90625` > disabled `0.8984375`、`attribute_validity_f1 = 0.9865` > disabled `0.9289`
+    - `latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank_size = 4`、`residual_bank_size = 42`、checkpoint、write trace，以及 `bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`
+    - `latest_stage2_v62_internal_eval.json` 记录 authoritative reader path `learned_query_slot_reader`、raw-context retrieval disabled、typed residuals 与 `full_accuracy = 0.578125`
+    - `latest_stage2_v62_personamem_no_routing.json` 记录 answer-time routing disabled、raw-context retrieval disabled、PersonaMem gold 未用于 memory substrate
+    - `latest_stage2_v62_arch_ablation.json` 记录 true disabled architecture reruns
+  - Negative result:
+    - PersonaMem full589 no-routing `160/589`
+    - text-only `170/589`
+    - option-only `235/589`
+    - margin vs text-only `-10`
+    - margin vs option-only `-75`
+    - `latest_stage2_v62_decision.json` 记录 `result_type = negative_result`
+  - Boundary:
+    - 这一轮只证明 v6.2 的 authoritative learned write-quality 主路径、hard write-quality eval 与 clean persistent-state evidence 已成立。
+    - 当前不能声明 benchmark gain、acceptance met、significant PersonaMem margin，或 reproducible closeout。
+
 ## Stage 2 V6 Persistent Core-Residual Latent Memory Evidence
 
 - `EV-V6-001` -> `TD-049 / WS-035` persistent substrate partial evidence

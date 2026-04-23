@@ -10,7 +10,11 @@
   - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
   - New required evidence: learned write-worthiness in authoritative write path, learned attribute-validity / relation-validity before write, hard write-quality eval on raw dialogue, persistent-state cleanliness evidence, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
   - Current baseline: `scripts/verify_stage2_v62_write_quality.py --score-only = 60`
-  - Current reason for launch: `v6.1` already proved persistent substrate + learned reader/decision and reached PersonaMem full589 no-routing `191/589 > text-only 180/589`, but it still lost to option-only `235/589`. The next run must strengthen write-side memory quality rather than more narrow readout/parser tweaks.
+  - Current partial: current HEAD 已新增 `scripts/publish_stage2_v62_write_quality.py` 与 `src/core_mem/v2/v62_write_memory.py`，把 message-level learned write-worthiness、observation-level attribute-validity / relation-validity、raw-dialogue hard write-quality eval 与 clean persistent-state metrics 接进真实 write path；当前 verifier `= 85`
+  - Current partial: `latest_stage2_v62_write_quality_eval.json` 记录 write-worthiness eval accuracy `0.90625` > disabled `0.8984375`，attribute-validity F1 `0.9865` > disabled `0.9289`，hard negatives `68`，conflict negatives `382`
+  - Current partial: `latest_stage2_v62_persistent_state.json` 记录 persistent `core_bank=4` / `residual_bank=42`、checkpoint、write trace、`bank_precision_estimate = 1.0`、`invalid_slot_rate = 0.0`、`low_information_slot_share = 0.0`
+  - Current negative truth: `latest_stage2_v62_personamem_no_routing.json` 记录 full589 no-routing `160/589`，text-only `170/589`，option-only `235/589`；当前对 text-only `-10`、对 option-only `-75`
+  - Current top next action: 继续提高 write-side retained recall / precision，让 cleaner substrate 真正转化为 no-routing benchmark gain；不得回到 answer-time routing、raw-context retrieval 或 heuristic cleanup
 
 - `TD-050` `[doing]` 以 `v6.1 Learned Reader/Decision over Persistent Memory` 为目标，把 v6 的 persistent substrate 推进到真正 learned authoritative read/decision path。
   - Current workstream: `WS-036`
