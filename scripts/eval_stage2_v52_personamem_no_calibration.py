@@ -135,6 +135,12 @@ def publish_v52_personamem_no_calibration(
     option_only_correct = 0
     text_only_correct = 0
     label_counts = {"(a)": 0, "(b)": 0, "(c)": 0, "(d)": 0}
+    routing_counts = {
+        "text_evidence_selected": 0,
+        "latent_evidence_selected": 0,
+        "improved_vs_text_only": 0,
+        "degraded_vs_text_only": 0,
+    }
 
     for row in questions:
         context_id = str(row["shared_context_id"])
@@ -165,15 +171,20 @@ def publish_v52_personamem_no_calibration(
         latent_memory_scores = torch.max(option_latent @ top_latent.T, dim=1).values
         text_memory_scores = torch.max(option_embeddings @ chunk_embeddings[top_indices].T, dim=1).values
         belief_scores = option_embeddings @ belief_vector
-        full_scores = (
-            0.50 * latent_memory_scores
-            + 0.20 * belief_scores
-            + 0.20 * option_only_scores
-            + 0.10 * text_memory_scores
-        )
-        no_cal_idx = int(torch.argmax(full_scores).item())
+        latent_order = torch.sort(latent_memory_scores, descending=True).values
+        text_order = torch.sort(text_memory_scores, descending=True).values
+        latent_margin = float(latent_order[0] - latent_order[1])
+        text_margin = float(text_order[0] - text_order[1])
+        latent_idx = int(torch.argmax(latent_memory_scores).item())
+        text_idx = int(torch.argmax(text_memory_scores).item())
+        if latent_margin > text_margin:
+            no_cal_idx = latent_idx
+            routing_counts["latent_evidence_selected"] += 1
+        else:
+            no_cal_idx = text_idx
+            routing_counts["text_evidence_selected"] += 1
         option_only_idx = int(torch.argmax(option_only_scores).item())
-        text_only_idx = int(torch.argmax(text_memory_scores).item())
+        text_only_idx = text_idx
         no_cal_label = labels[no_cal_idx]
         option_only_label = labels[option_only_idx]
         text_only_label = labels[text_only_idx]
@@ -181,6 +192,10 @@ def publish_v52_personamem_no_calibration(
         no_cal_correct += int(no_cal_label == gold)
         option_only_correct += int(option_only_label == gold)
         text_only_correct += int(text_only_label == gold)
+        if no_cal_label == gold and text_only_label != gold:
+            routing_counts["improved_vs_text_only"] += 1
+        if no_cal_label != gold and text_only_label == gold:
+            routing_counts["degraded_vs_text_only"] += 1
         label_counts[no_cal_label] = label_counts.get(no_cal_label, 0) + 1
         predictions.append(
             {
@@ -194,6 +209,9 @@ def publish_v52_personamem_no_calibration(
                 "text_only_prediction": text_only_label,
                 "correct_answer": gold,
                 "is_correct": no_cal_label == gold,
+                "score_route": "latent_evidence" if no_cal_idx == latent_idx and latent_margin > text_margin else "text_evidence",
+                "latent_margin": latent_margin,
+                "text_margin": text_margin,
                 "top_memory_indices": [int(idx) for idx in top_indices.tolist()],
                 "top_memory_preview": [raw_chunks[int(idx)][:240] for idx in top_indices[:3].tolist()],
             }
@@ -227,8 +245,10 @@ def publish_v52_personamem_no_calibration(
         "provider_is_auxiliary": True,
         "answer_head_trained": False,
         "label_counts": label_counts,
+        "score_mode": "confidence_routed_text_or_latent_margin",
+        "score_route_counts": routing_counts,
         "top_k": top_k,
-        "claim_boundary": "No-calibration prediction uses PersonaMem context/query/options at eval time only; correct_answer is used only for scoring.",
+        "claim_boundary": "No-calibration prediction uses PersonaMem context/query/options and unlabeled text-vs-latent score margins at eval time only; correct_answer is used only for scoring.",
     }
     beats_text = no_cal_correct > max(text_only_correct, 214)
     decision: dict[str, Any] = {

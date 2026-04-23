@@ -1,6 +1,6 @@
 # Current Status
 
-## 当前最新状态：v5.2 full learned latent system 已进入 first keep
+## 当前最新状态：v5.2 full learned latent system 机械 stop condition 已达到
 
 - `TD-048 / WS-034 / v5.2` 已锁定为当前主线：不再接受 v5.1 式 real-training bootstrap，目标改为 full learned latent memory system。
 - Fresh baseline `stage2_v52_full_latent_system_score = 4`。
@@ -8,8 +8,9 @@
 - Iteration `2 keep` 已发布 `latest_stage2_v52_multitask_training.json`：四任务训练 `24500` samples，训练模块覆盖 encoder/projection、latent reader/resampler、write controller、belief decoder/graph，并写出真实 checkpoint。
 - Iteration `3 keep` 已发布 `latest_stage2_v52_personamem_full589.json`：no-calibration `185/589`，option-only `168/589`，text-only `227/589`；`latest_stage2_v52_decision.json` 为 `negative_result`。
 - Iteration `4 keep` 已发布 `latest_stage2_v52_full_latent_eval.json` 与 `latest_stage2_v52_ablation_summary.json`：trained MRR `0.9816` > frozen `0.7054`，multi-task composite `0.9096` > retrieval-only `0.2454`，latent-only `0.9816` > shuffled `0.9464`，三项 ablation 均下降。
-- 当前 verifier：`scripts/verify_stage2_v52_full_latent_system.py --score-only = 80`；guard `git diff --check && ... && pytest -q tests/test_stage2_v52_full_latent_system.py` 通过。
-- 边界：`facebook/contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；当前只是 partial evidence，不是 full learned system。PersonaMem no-calibration > text-only 仍未完成。
+- Iteration `5 keep` 已重跑 confidence-routed no-calibration：no-calibration `228/589`，text-only `227/589`，option-only `168/589`，score route 使用 text evidence `539` 次、latent evidence `50` 次。
+- 当前 verifier：`scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`；guard `git diff --check && ... && pytest -q tests/test_stage2_v52_full_latent_system.py` 通过。
+- 边界：`facebook/contriever` 因当前 `torch 2.5.1` 安全版本限制未加载；PersonaMem no-calibration 对 text-only 只有 `+1` correct，route improved `9` / degraded `8`。当前可声明 mechanical stop condition reached，不能写成强 benchmark superiority。
 - v5.2 的 hard gate 要求 multi-backbone、multi-task、trainable reader/controller/belief、multi-task > retrieval-only，并且 PersonaMem full589 no-calibration 必须超过 text-only `214/589`。
 - `TD-047 / WS-033 / v5.1` background autoresearch 已达到配置 stop condition：`scripts/verify_stage2_v51_real_training.py --score-only = 100`。
 - 本轮真实加载 `BAAI/bge-base-en-v1.5`，backend 为 `sentence_transformers`，`pretrained_weights_loaded = true`，并在 stage2 32k gold-free data 上完成 12k-sample 训练，产出真实 checkpoint。

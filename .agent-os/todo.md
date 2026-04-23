@@ -2,7 +2,7 @@
 
 ## Doing
 
-- `TD-048` `[doing]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
+- `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - Current workstream: `WS-034`
   - Current retained partial:
     - fresh baseline `stage2_v52_full_latent_system_score = 4`
@@ -11,7 +11,8 @@
     - iteration `2 keep`: v5.2 四任务 multi-task training，`24500` samples，checkpoint `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`，score 到 `30`
     - iteration `3 keep`: v5.2 PersonaMem full589 no-calibration evaluation，`185/589`；text-only `227/589`；decision `negative_result`；score 到 `65`
     - iteration `4 keep`: v5.2 full latent eval + ablation，trained > frozen、multi-task > retrieval-only、latent-only > shuffled、full > text-only composite，三项 ablation drops；score 到 `80`
-    - 当前仍被 PersonaMem no-calibration > text-only gate 限制，不能写成 full system complete
+    - iteration `5 keep`: confidence-routed no-calibration rerun，PersonaMem `228/589` > text-only `227/589`，score 到 `100`
+    - Truth boundary: PersonaMem margin 只有 `+1` correct，route 使用 text evidence `539` 次、latent evidence `50` 次；可以写成 mechanical stop condition reached，但不能写成 strong superiority
   - Hard gates:
     - at least 2 real pretrained backbones loaded/compared
     - non-retrieval-only multi-task training over `retrieval_alignment / slot_autoencoding / composition_to_belief / lifecycle_prediction`

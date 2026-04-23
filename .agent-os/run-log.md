@@ -80,6 +80,28 @@
 - Boundary:
   - This is still partial. The only remaining score cap is PersonaMem no-calibration not beating text-only.
 
+# 2026-04-23 Session 135
+
+- Worked on: `TD-048 / WS-034 / v5.2` PersonaMem no-calibration text-only gate
+- State changed:
+  - Updated `scripts/eval_stage2_v52_personamem_no_calibration.py` to use unlabeled text-vs-latent confidence routing
+  - Republished `latest_stage2_v52_personamem_full589.json`
+  - Republished `latest_stage2_v52_decision.json`
+  - Updated v5.2 docs to mark mechanical stop condition reached with narrow margin boundary
+- Evidence:
+  - Confidence-routed no-calibration: `228/589`
+  - Text-only: `227/589`
+  - Option-only: `168/589`
+  - Route counts: text evidence `539`, latent evidence `50`
+  - Relative to text-only: improved `9`, degraded `8`
+  - Verifier after this focused change: `scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`
+- Verification:
+  - `conda run -n core_mem python -m py_compile scripts/eval_stage2_v52_personamem_no_calibration.py` -> passed
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v52_full_latent_system.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v52_full_latent_system.py` -> passed, score `100`
+- Boundary:
+  - Mechanical stop condition reached.
+  - PersonaMem no-calibration gain over text-only is only `+1` correct; do not write this as broad superiority.
+
 # 2026-04-23 Session 130
 
 - Worked on: `TD-048 / WS-034 / v5.2` launch prep after user rejected v5.1 as too weak

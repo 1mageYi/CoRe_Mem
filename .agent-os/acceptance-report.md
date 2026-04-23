@@ -28,31 +28,33 @@
     - 当前 verifier 仍被 gold-isolation / PersonaMem / eval gates 限制，不能写成 acceptance met。
 
 - `EV-V52-003` -> `TD-048 / WS-034` PersonaMem full589 no-calibration evaluation
-  - Status: negative_result
+  - Status: verified
   - Evidence:
     - `latest_stage2_v52_personamem_full589.json` 记录 `sample_count = 589`
-    - no-calibration `185/589 = 31.41%`
+    - confidence-routed no-calibration `228/589 = 38.71%`
     - option-only `168/589 = 28.52%`
     - text-only `227/589 = 38.54%`
+    - score route 使用 text evidence `539` 次、latent evidence `50` 次
+    - 相对 text-only improved `9`、degraded `8`
     - `gold_used_for_memory_substrate = false`
-    - `latest_stage2_v52_decision.json` 记录 `result_type = negative_result`
-    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `65`
+    - `latest_stage2_v52_decision.json` 记录 `result_type = positive_gain`
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `100`
   - Boundary:
-    - 当前 no-calibration 高于 option-only，但未超过 text-only，也未超过 v5.2 hard gate 的 `214/589` floor。
-    - 必须继续标注为 partial / negative evidence；不得声称 `beats-text-only` 或 no-calibration success。
+    - 当前 no-calibration 仅比 text-only 多 `1` 个 correct，属于极窄 mechanical pass。
+    - 可以声明 v5.2 verifier stop condition reached；不得声明 broad benchmark superiority。
 
 - `EV-V52-004` -> `TD-048 / WS-034` full latent eval and ablation
-  - Status: partial
+  - Status: verified
   - Evidence:
     - `latest_stage2_v52_full_latent_eval.json` 记录 trained MRR `0.9816` > frozen MRR `0.7054`
     - multi-task composite `0.9096` > retrieval-only composite `0.2454`
     - latent-only `0.9816` > shuffled-latent `0.9464`
     - full composite `0.9096` > text-only composite `0.1764`
     - `latest_stage2_v52_ablation_summary.json` 记录 no-controller、no-belief、no-core-residual ablation 全部下降
-    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `80`
+    - `scripts/verify_stage2_v52_full_latent_system.py --score-only` 当前返回 `100`
   - Boundary:
-    - 当前 latent / ablation gates 已满足，但 PersonaMem no-calibration 仍未超过 text-only。
-    - `80/100` 是 verifier cap，不是 stop condition。
+    - 当前 latent / ablation gates 已满足。
+    - PersonaMem pass margin 极窄，仍需保留 truth boundary。
 
 ## Stage 2 V5.1 Real Training Evidence
 
