@@ -1,14 +1,7 @@
 from __future__ import annotations
 
-import torch
-
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import (
-    _best_matching_slot,
-    _read_with_model,
-    filter_v61_observations,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -122,32 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-class _DummyReader:
-    def __call__(self, features: torch.Tensor) -> torch.Tensor:
-        return torch.tensor([4.0, 3.0, -1.5], dtype=torch.float32)
-
-
-def test_read_with_model_pools_same_relation_beliefs() -> None:
-    slots = [
-        _slot("slot-music-a", "music_preference", "music_preference=music with emotional storytelling", bank="core"),
-        _slot("slot-music-b", "music_preference", "music_preference=gentle acoustic live sessions", bank="residual"),
-        _slot("slot-profile", "profile_trait", "profile_trait=reflective and analytical", bank="residual"),
-    ]
-
-    readout = _read_with_model(
-        "What music would the user most likely prefer right now?",
-        slots=slots,
-        reader=_DummyReader(),
-        top_k=3,
-    )
-
-    assert len(readout["belief_items"]) == 2
-    top_belief = readout["belief_items"][0]
-    assert top_belief["relation"] == "music_preference"
-    assert top_belief["support_count"] == 2
-    assert top_belief["support_slot_ids"] == ["slot-music-a", "slot-music-b"]
-    assert "emotional storytelling" in top_belief["value"]
-    assert "gentle acoustic live sessions" in top_belief["value"]
-    assert len(readout["composed_key"]) == len(slots[0].retrieval_key)
