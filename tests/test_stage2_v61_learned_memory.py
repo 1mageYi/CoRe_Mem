@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from core_mem.v2.encoder import QueryEncoder
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
+from core_mem.v2.v61_learned_memory import (
+    _best_matching_slot,
+    _late_interaction_features,
+    filter_v61_observations,
+    typed_observation,
+)
 
 
 def _observation(**overrides: object) -> Observation:
@@ -115,3 +121,28 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
+
+
+def test_late_interaction_prefers_slot_tokens_matching_query_tokens() -> None:
+    query_encoder = QueryEncoder(dimension=8)
+    query_tokens = [query_encoder.encode("deadlines"), query_encoder.encode("pressure")]
+    matching = _slot(
+        "slot-match",
+        "reason_fact",
+        "reason_fact=felt pressured by reading challenge deadlines",
+        bank="residual",
+    ).to_dict()
+    mismatching = _slot(
+        "slot-miss",
+        "social_fact",
+        "social_fact=received encouraging feedback from collaborators",
+        bank="residual",
+    ).to_dict()
+    matching["latent_tokens"] = [query_encoder.encode("deadlines"), query_encoder.encode("pressure")] * 4
+    mismatching["latent_tokens"] = [query_encoder.encode("podcast"), query_encoder.encode("collaboration")] * 4
+
+    match_features = _late_interaction_features(query_tokens, SlotRecord.from_dict(matching))
+    miss_features = _late_interaction_features(query_tokens, SlotRecord.from_dict(mismatching))
+
+    assert match_features[0] > miss_features[0]
+    assert match_features[1] > miss_features[1]
