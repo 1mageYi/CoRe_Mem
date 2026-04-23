@@ -4,11 +4,99 @@ import json
 from pathlib import Path
 
 from scripts.verify_stage2_v63_write_policy import compute_v63_write_policy
+from core_mem.v2.schemas import Observation
+from core_mem.v2.v63_write_policy import classify_write_policy, materialize_policy_observation, policy_action_from_router
 
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _observation(**overrides: object) -> Observation:
+    payload = {
+        "obs_id": "obs_test",
+        "source_dataset": "unit",
+        "source_dialogue_id": "dialogue",
+        "source_turn_id": "0",
+        "session_id": "dialogue",
+        "speaker": "user",
+        "entity": "user",
+        "relation": "music_preference",
+        "value": "gentle acoustic music in small venues",
+        "value_type": "preference",
+        "time_scope": "current",
+        "status_hint": "active",
+        "polarity": "positive",
+        "confidence": 0.82,
+        "evidence_text": "I am drawn to gentle acoustic music in small venues.",
+        "canonical_gloss": "music_preference=gentle acoustic music in small venues",
+        "metadata": {},
+    }
+    payload.update(overrides)
+    return Observation.from_dict(payload)
+
+
+def test_v63_policy_can_route_strong_durable_fact_to_core() -> None:
+    label = classify_write_policy(
+        turn_score=0.88,
+        validity_score=0.91,
+        observation=_observation(),
+    )
+
+    assert label == "core-worthy"
+    assert policy_action_from_router(
+        policy_label=label,
+        router_action="new_residual",
+        observation=_observation(),
+    ) in {"merge_core", "promote_to_core"}
+
+
+def test_v63_policy_preserves_weak_but_keep_in_residual() -> None:
+    observation = _observation(
+        relation="reason_fact",
+        value_type="other",
+        value="felt overwhelmed by rigid deadlines",
+        canonical_gloss="reason_fact=felt overwhelmed by rigid deadlines",
+        evidence_text="I felt overwhelmed by rigid deadlines.",
+        confidence=0.58,
+    )
+    label = classify_write_policy(
+        turn_score=0.36,
+        validity_score=0.33,
+        observation=observation,
+    )
+    materialized = materialize_policy_observation(
+        observation,
+        policy_label=label,
+        turn_score=0.36,
+        validity_score=0.33,
+    )
+
+    assert label == "weak-but-keep"
+    assert materialized.confidence < 0.6
+    assert policy_action_from_router(
+        policy_label=label,
+        router_action="new_core",
+        observation=materialized,
+    ) == "merge_residual"
+
+
+def test_v63_policy_drops_tiny_low_information_fragment() -> None:
+    label = classify_write_policy(
+        turn_score=0.41,
+        validity_score=0.4,
+        observation=_observation(
+            relation="profile_trait",
+            value_type="other",
+            value="about me",
+            canonical_gloss="profile_trait=about me",
+            evidence_text="It is about me.",
+            confidence=0.51,
+        ),
+    )
+
+    assert label == "drop"
 
 
 def test_v63_plan_only_is_low_score(tmp_path: Path) -> None:

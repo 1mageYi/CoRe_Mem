@@ -7,8 +7,10 @@
 - v6.3 新 verifier：[scripts/verify_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v63_write_policy.py)
 - v6.3 继承 v6.1 / v6.2 已成立的结构事实：persistent `core_bank` / `residual_bank`、state checkpoint、write trace、learned write-time routing、authoritative learned reader、authoritative learned decision、semantic slot compaction、typed residuals、hard internal eval、raw-context retrieval disabled、answer-time routing disabled 与 no-gold substrate proof。
 - v6.3 hard gate 明确要求：authoritative write path 必须使用 confidence-aware 四分类 policy：`core-worthy / residual-worthy / weak-but-keep / drop`；`weak-but-keep` 必须进入 residual 而不是直接丢弃；必须新增 support-coverage / write-recall 证据、non-collapse state 证据与 full589 error attribution artifact；不得回到 answer-time routing、raw-context retrieval 或 heuristic cleanup。
-- fresh v6.3 baseline 已初始化为 `stage2_v63_write_policy_score = 56`；这说明 v6.2 的 write-quality 结构证据会被继承，但当前最关键的 confidence-aware write policy 与 recall-preserving dynamics 仍未成立。
-- 新 long-run 的目标是：把 v6.2 的高 precision hard filter 变成更强的 memory-state dynamics，保留弱但有用的信息进入 residual，并最终在 full589 no-routing 下真正超过 text-only、option-only 并保留 meaningful margin。
+- 当前 retained keep 已发布 [scripts/publish_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v63_write_policy.py) 与 [src/core_mem/v2/v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v63_write_policy.py)，并把 `scripts/verify_stage2_v63_write_policy.py --score-only` 从 fresh baseline `56` 推到 `85`。
+- 当前已成立的 v6.3 结构证据：`latest_stage2_v63_write_policy_eval.json` 记录 authoritative four-way policy、`support_coverage_recall = 1.0 > disabled 0.0625`、`write_recall = 1.0 > disabled 0.0769`；`latest_stage2_v63_persistent_state.json` 记录 non-collapse `core_bank=22 / residual_bank=476 / writes=652` 与 `weak_but_keep_residual_count = 12`；`latest_stage2_v63_error_attribution.json` 已发布 full589 failure attribution artifact。
+- 当前最新 benchmark truth：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `179/589`，text-only `180/589`，option-only `235/589`；`latest_stage2_v63_decision.json` 记录 `negative_result`。因此 v6.3 当前只能写成 partial keep，不能写成 success claim。
+- 新 long-run 的下一步已收敛为：保留当前 non-collapse write-policy line，不再回到 tiny clean bank；重点改进 question-time support alignment / decision quality，让 full589 no-routing 真正超过 text-only 和 option-only，并保留 meaningful margin。
 
 ## 当前并行保留状态：v6.2 learned write-quality 仍是 v6.3 的 blocked baseline
 

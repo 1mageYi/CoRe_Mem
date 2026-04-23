@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 146
+
+- Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` first focused keep
+- State changed:
+  - Initialized fresh managed `research-results.tsv` / `autoresearch-state.json` from baseline `stage2_v63_write_policy_score = 56`
+  - Added `src/core_mem/v2/v63_write_policy.py` and `scripts/publish_stage2_v63_write_policy.py`, upgrading the authoritative write path from v6.2 hard filtering to `core-worthy / residual-worthy / weak-but-keep / drop`
+  - Published `latest_stage2_v63_write_policy_train.json`, `latest_stage2_v63_write_policy_eval.json`, `latest_stage2_v63_persistent_state.json`, `latest_stage2_v63_internal_eval.json`, `latest_stage2_v63_personamem_no_routing.json`, `latest_stage2_v63_error_attribution.json`, and `latest_stage2_v63_decision.json`
+  - Updated active status docs so `TD-052 / WS-038 / v6.3` now records retained verifier `85`, non-collapse state evidence, and the current full589 negative-result truth
+- Evidence:
+  - `latest_stage2_v63_write_policy_eval.json` records authoritative four-way policy, `support_coverage_recall = 1.0 > disabled 0.0625`, and `write_recall = 1.0 > disabled 0.0769`
+  - `latest_stage2_v63_persistent_state.json` records non-collapse `core_bank_size = 22`, `residual_bank_size = 476`, `stream_observations_written = 652`, and `weak_but_keep_residual_count = 12`
+  - `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `179/589`, text-only `180/589`, option-only `235/589`
+- Verification:
+  - `git diff --check && conda run -n core_mem python scripts/verify_stage2_v63_write_policy.py --score-only && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py` -> passed, score `85`
+- Boundary:
+  - This keep closes the structural v6.3 write-policy gaps, not the benchmark margin gate.
+  - Current runtime truth is partial / negative_result: PersonaMem no-routing is still below text-only and option-only, so no success claim is allowed.
+
 # 2026-04-23 Session 145
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` scaffold / launch

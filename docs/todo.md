@@ -12,6 +12,10 @@
   - 结构继承：v6.1 的 learned reader/decision 与 v6.2 的 write-quality 主链全部继续作为 baseline 继承。
   - 新增成功门槛：confidence-aware 四分类 write policy、weak-but-keep residual buffer、support-coverage / write-recall 正增益、non-collapse state 证据、error attribution、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
   - 当前 v6.3 baseline：fresh `scripts/verify_stage2_v63_write_policy.py --score-only = 56`；说明 v6.2 evidence 已继承，但 recall-preserving write dynamics 仍未成立。
+  - 当前 partial：current HEAD 已新增 `scripts/publish_stage2_v63_write_policy.py` 与 `src/core_mem/v2/v63_write_policy.py`，把 authoritative write path 升级成真实 four-way confidence-aware policy；当前 verifier `= 85`
+  - 当前 partial：`latest_stage2_v63_write_policy_eval.json` 记录 `support_coverage_recall = 1.0 > disabled 0.0625`、`write_recall = 1.0 > disabled 0.0769`；`latest_stage2_v63_persistent_state.json` 记录 non-collapse `core=22 / residual=476 / writes=652` 与 `weak_but_keep_residual_count = 12`
+  - 当前负结果：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `179/589`，text-only `180/589`，option-only `235/589`；当前对 text-only `-1`、对 option-only `-56`
+  - 当前下一步：保留当前 non-collapse write-policy line，继续把 support selection / decision quality 推到真正确认的 no-routing margin；不得回到 tiny clean bank、answer-time routing 或 raw-context retrieval。
 
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - 当前 workstream: `WS-037`

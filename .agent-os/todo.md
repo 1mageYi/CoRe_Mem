@@ -10,7 +10,10 @@
   - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
   - New required evidence: confidence-aware four-way write policy, weak-but-keep residual buffer, support coverage / write recall, non-collapse state evidence, full589 error attribution, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
   - Current baseline: `scripts/verify_stage2_v63_write_policy.py --score-only = 56`
-  - Current reason for launch: `v6.2` already proved learned write-quality can enter the authoritative path, but it collapsed the bank to `core=4 / residual=42 / writes=64` and regressed PersonaMem to `160/589`. The next run must make write-quality preserve recall rather than delete memory.
+  - Current partial: current HEAD added [scripts/publish_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v63_write_policy.py) and [src/core_mem/v2/v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v63_write_policy.py); current verifier `= 85`
+  - Current partial: `latest_stage2_v63_write_policy_eval.json` records authoritative four-way policy plus `support_coverage_recall = 1.0 > disabled 0.0625` and `write_recall = 1.0 > disabled 0.0769`; `latest_stage2_v63_persistent_state.json` records non-collapsing `core=22 / residual=476 / writes=652` and `weak_but_keep_residual_count = 12`
+  - Current negative truth: `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `179/589`, text-only `180/589`, option-only `235/589`; margin vs text-only `-1`, margin vs option-only `-56`
+  - Current top next action: preserve the current non-collapse write-policy line and improve support alignment / decision quality; do not regress to tiny clean banks, answer-time routing, or raw-context retrieval.
 
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - Current workstream: `WS-037`

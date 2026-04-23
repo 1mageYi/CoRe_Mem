@@ -1,5 +1,28 @@
 # Acceptance Report
 
+## Stage 2 V6.3 Confidence-Aware Write-Policy Evidence
+
+- `EV-V63-001` -> `TD-052 / WS-038` recall-preserving confidence-aware write policy
+  - Status: partial / negative_result
+  - Evidence:
+    - `scripts/verify_stage2_v63_write_policy.py --score-only` 当前返回 `85`
+    - `latest_stage2_v63_write_policy_train.json` 记录 learned write-worthiness、attribute-validity、write router、learned reader、learned decision 与 `write_policy / confidence_aware_write / weak_keep_policy` 全部已训练
+    - `latest_stage2_v63_write_policy_eval.json` 记录 authoritative four-way policy、`support_coverage_recall = 1.0` > disabled `0.0625`、`write_recall = 1.0` > disabled `0.0769`、`policy_labels = [core-worthy, residual-worthy, weak-but-keep, drop]`
+    - `latest_stage2_v63_persistent_state.json` 记录 non-collapse `core_bank_size = 22`、`residual_bank_size = 476`、`stream_observations_written = 652`、checkpoint、write trace 与 `weak_but_keep_residual_count = 12`
+    - `latest_stage2_v63_internal_eval.json` 记录 authoritative reader path `learned_query_slot_reader`、raw-context retrieval disabled、typed residuals 与 `full_accuracy = 0.375`
+    - `latest_stage2_v63_personamem_no_routing.json` 记录 answer-time routing disabled、raw-context retrieval disabled、PersonaMem gold 未用于 memory substrate
+    - `latest_stage2_v63_error_attribution.json` 记录 full589 failure attribution counts
+  - Negative result:
+    - PersonaMem full589 no-routing `179/589`
+    - text-only `180/589`
+    - option-only `235/589`
+    - margin vs text-only `-1`
+    - margin vs option-only `-56`
+    - `latest_stage2_v63_decision.json` 记录 `result_type = negative_result`
+  - Boundary:
+    - 这一轮证明 v6.3 的 authoritative four-way write policy、weak-but-keep residual retention、support-coverage gain、non-collapse state 与 error attribution artifact 已成立。
+    - 当前不能声明 benchmark gain、significant PersonaMem margin、acceptance met 或 reproducible closeout。
+
 ## Stage 2 V6.2 Learned Write-Quality Evidence
 
 - `EV-V62-001` -> `TD-051 / WS-037` learned write-worthiness / attribute-validity before write
