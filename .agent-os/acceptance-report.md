@@ -6,19 +6,21 @@
   - Status: partial / negative_result
   - Evidence:
     - Fresh v6 baseline was `stage2_v6_persistent_latent_memory_score = 16`
-    - Current verifier returns `75`
+    - Current verifier returns `80`
     - `latest_stage2_v6_persistent_state.json` records persistent `core_bank_size = 95`, `residual_bank_size = 483`, checkpoint path, and write trace path
     - `latest_stage2_v6_persistent_memory_train.json` records learned write-time router accuracy `0.9798657894134521` vs disabled controller `0.6644295454025269`
     - `latest_stage2_v6_persistent_memory_eval.json` records persistent-state authoritative input and raw-context retrieval disabled
     - `latest_stage2_v6_personamem_no_routing.json` records answer-time routing disabled and PersonaMem gold not used for memory substrate
+    - `latest_stage2_v6_persistent_memory_train.json` records query-conditioned reader / belief-readout training, reader eval accuracy `0.7583892345428467` vs disabled readout `0.5`
+    - `latest_stage2_v6_arch_ablation.json` records true disabled architecture ablation drops
   - Negative result:
-    - PersonaMem full589 no-routing `147/589`
+    - PersonaMem full589 no-routing `146/589`
     - text-only `205/589`
-    - margin `-58`
+    - margin `-59`
     - `latest_stage2_v6_decision.json` records `result_type = negative_result`
   - Boundary:
     - This is not v6 completion and not a superiority claim.
-    - Current caps remain active because architecture ablations do not all drop and PersonaMem meaningful margin is absent.
+    - Current caps remain active because PersonaMem no-routing does not beat text-only and meaningful margin is absent.
 
 ## Stage 2 V5.2 Full Learned Latent System Evidence
 

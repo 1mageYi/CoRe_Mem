@@ -7,7 +7,7 @@
 - Active workstreams: `WS-035`
 - Active workstream label: `TD-049 / WS-035`
 - Active workstream version: `v6`
-- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。`v5.1` current HEAD `89ba929` 已完成真实 BGE pretrained load、12k stage2 gold-free training、真实 checkpoint、held-out trained-vs-frozen / latent-vs-shuffled / full-vs-text-only gain，以及 PersonaMem full589 no-calibration `184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`。`scripts/verify_stage2_v51_real_training.py --score-only = 100`，supervisor 判定 `goal_reached`。`v5.2` current run 已发布 real learned prototype evidence 且 `scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`，但 PersonaMem margin 只有 `+1` 且依赖 answer-time confidence routing，不能作为 v6 closeout。`v6` fresh baseline 为 `16`，当前 partial persistent substrate evidence 已把 score 推到 `75`：persistent `core_bank=95` / `residual_bank=483`、state checkpoint、`745`-write trace、learned write-time router、persistent-state eval、raw-context retrieval disabled 和 no-gold substrate proof 均成立；但 PersonaMem full589 no-routing 为 `147/589` vs text-only `205/589`，margin `-58`，decision 为 `negative_result`，且 core/residual disabled ablation 未 drop。
+- Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。`v5.1` current HEAD `89ba929` 已完成真实 BGE pretrained load、12k stage2 gold-free training、真实 checkpoint、held-out trained-vs-frozen / latent-vs-shuffled / full-vs-text-only gain，以及 PersonaMem full589 no-calibration `184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`。`scripts/verify_stage2_v51_real_training.py --score-only = 100`，supervisor 判定 `goal_reached`。`v5.2` current run 已发布 real learned prototype evidence 且 `scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`，但 PersonaMem margin 只有 `+1` 且依赖 answer-time confidence routing，不能作为 v6 closeout。`v6` fresh baseline 为 `16`，当前 partial persistent substrate evidence 已把 score 推到 `80`：persistent `core_bank=95` / `residual_bank=483`、state checkpoint、`745`-write trace、learned write-time router、query-conditioned reader、belief/readout、persistent-state eval、raw-context retrieval disabled、true disabled architecture ablation drops 和 no-gold substrate proof 均成立；但 PersonaMem full589 no-routing 为 `146/589` vs text-only `205/589`，margin `-59`，decision 为 `negative_result`。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
 - Current v32 holdout truth: clean authoritative `timeout45` runs 已完成并发布。`outputs_v2/runs/v32_full_longmemeval_500_timeout45/` 当前固定为 `provider/local = 21/14`，`outputs_v2/runs/v32_full_personamem_512_timeout45/` 当前固定为 `provider/local = 183/175`；它们是 `v33` 的 external compare baseline。
@@ -29,7 +29,7 @@
   - Verifier: [scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
   - Hard gates: persistent banks、state checkpoint、stream write trace、learned write-time router、persistent-state authoritative eval、raw-context retrieval disabled、answer-time routing disabled、true disabled-architecture ablations、PersonaMem meaningful margin。
   - Truth boundary: v5.2 remains a useful prototype baseline, but confidence-routed `228/589` vs text-only `227/589` is not sufficient for v6 closeout.
-  - Current partial: score `75`; persistent banks/checkpoint/write trace/router/persistent eval/no-gold proof are present, but PersonaMem no-routing is negative (`147/589` vs text-only `205/589`) and core/residual disabled ablation does not drop.
+  - Current partial: score `80`; persistent banks/checkpoint/write trace/router/reader/belief-readout/persistent eval/no-gold proof and true architecture ablation drops are present, but PersonaMem no-routing is negative (`146/589` vs text-only `205/589`).
 
 - `WS-034` `[done]`: Stage-2 `v5.2 Full Learned Latent Memory System`，目标是把 v5.1 bootstrap 升级为真正的 full learned latent memory system。
   - Current task: `TD-048`
@@ -222,11 +222,10 @@
 ## Top Next Action
 
 - `TD-049 / WS-035 / v6` 继续执行。当前 top next action 是训练/接入 v6 query-conditioned reader + belief/readout，并修正 core/residual disabled architecture ablation，使下一轮不依赖 answer-time routing 或 raw full-context retrieval。
-  - Runtime truth: fresh baseline `16`，current partial score `75`。
-  - Current evidence truth: persistent banks/checkpoint/write trace/learned write-router/persistent-state eval 已发布；PersonaMem no-routing 是 negative_result，不能 claim。
+  - Runtime truth: fresh baseline `16`，current partial score `80`。
+  - Current evidence truth: persistent banks/checkpoint/write trace/learned write-router/reader/belief-readout/persistent-state eval/ablation drops 已发布；PersonaMem no-routing 是 negative_result，不能 claim。
   - Next focus:
-    - v6 reader/belief/readout 必须作为 persistent-bank path 消费 state checkpoint。
-    - ablation 必须是真 disabled architecture rerun，不能只改 composite arithmetic。
+    - 只在 persistent-bank no-routing path 上改进 PersonaMem readout。
     - PersonaMem margin 若无法达到 `+30`，继续记录 negative_result 或 blocked，不得回到 v5.2 confidence routing。
 
 ## Active Blockers

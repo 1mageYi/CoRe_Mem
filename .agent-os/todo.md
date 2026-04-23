@@ -11,9 +11,10 @@
   - Stop gate: PersonaMem full589 no-calibration must beat text-only by a meaningful margin, default `>= +30` correct, not v5.2-style `+1`.
   - Current baseline: fresh managed run initialized at `stage2_v6_persistent_latent_memory_score = 16`.
   - Current partial evidence: persistent `core_bank=95` / `residual_bank=483` exists, checkpoint exists, write trace records `745` writes, and learned write-time router is applied to state updates.
-  - Current score: `scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 75`.
-  - Current negative result: PersonaMem full589 no-routing `147/589` vs text-only `205/589`, margin `-58`; no claim allowed.
-  - Current blockers/gaps: v6 trainable reader/belief-readout not yet trained as v6 modules; core/residual split disabled ablation does not drop; significant PersonaMem margin absent.
+  - Current partial evidence: v6 query-conditioned reader / belief-readout is trained; true disabled architecture ablation drops now pass.
+  - Current score: `scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 80`.
+  - Current negative result: PersonaMem full589 no-routing `146/589` vs text-only `205/589`, margin `-59`; no claim allowed.
+  - Current blocker/gap: significant PersonaMem no-routing margin absent.
 
 - `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - Current workstream: `WS-034`

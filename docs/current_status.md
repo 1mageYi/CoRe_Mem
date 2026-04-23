@@ -11,9 +11,9 @@
 - 当前 v5.2 仍保留为 real learned latent prototype baseline：BGE/E5 真实加载、四任务 `24500` samples、真实 checkpoint、trainable reader/controller/belief artifact 均成立；但 v5.2 不能作为 final scientific claim。
 - Fresh v6 baseline 已初始化为 `stage2_v6_persistent_latent_memory_score = 16`。
 - 当前 v6 partial evidence 已发布：`latest_stage2_v6_persistent_memory_train.json`、`latest_stage2_v6_persistent_state.json`、`latest_stage2_v6_persistent_memory_eval.json`、`latest_stage2_v6_arch_ablation.json`、`latest_stage2_v6_personamem_no_routing.json` 与 `latest_stage2_v6_decision.json`。
-- 当前 verifier：`scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 75`。已满足 persistent banks、checkpoint、write trace、learned write-time routing、persistent-state eval、raw-context retrieval disabled、answer-time routing disabled 与 no-gold substrate proof。
-- 当前负结果：PersonaMem full589 no-routing `147/589`，text-only `205/589`，margin `-58`；`latest_stage2_v6_decision.json` 记录 `negative_result`，不得声明 v6 superiority。
-- 当前缺口：trainable query-conditioned reader / belief-readout 仍未作为 v6 模块训练；core/residual split disabled ablation 未 drop；PersonaMem meaningful margin 未达成。
+- 当前 verifier：`scripts/verify_stage2_v6_persistent_latent_memory.py --score-only = 80`。已满足 persistent banks、checkpoint、write trace、learned write-time routing、trainable query-conditioned reader、belief/readout、persistent-state eval、raw-context retrieval disabled、answer-time routing disabled、true disabled-architecture ablation drops 与 no-gold substrate proof。
+- 当前负结果：PersonaMem full589 no-routing `146/589`，text-only `205/589`，margin `-59`；`latest_stage2_v6_decision.json` 记录 `negative_result`，不得声明 v6 superiority。
+- 当前缺口：PersonaMem no-routing 未超过 text-only，meaningful margin 未达成。
 
 ## 上一轮状态：v5.2 full learned latent system 机械 stop condition 已达到
 

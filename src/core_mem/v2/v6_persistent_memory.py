@@ -106,6 +106,19 @@ class V6WriteRouter(nn.Module):
         return self.net(features)
 
 
+class V6ReaderReadout(nn.Module):
+    def __init__(self, input_dim: int, hidden_dim: int = 32) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        return self.net(features).squeeze(-1)
+
+
 @dataclass(frozen=True)
 class V6RouterTrainingResult:
     router: V6WriteRouter
@@ -114,6 +127,16 @@ class V6RouterTrainingResult:
     train_examples: int
     eval_examples: int
     learned_update_actions: list[str]
+    loss_curve: list[dict[str, float]]
+
+
+@dataclass(frozen=True)
+class V6ReaderTrainingResult:
+    reader: V6ReaderReadout
+    eval_accuracy: float
+    disabled_readout_accuracy: float
+    train_pairs: int
+    eval_pairs: int
     loss_curve: list[dict[str, float]]
 
 
@@ -159,6 +182,78 @@ def train_write_router(
         train_examples=len(train_y),
         eval_examples=len(eval_y),
         learned_update_actions=learned_update_actions,
+        loss_curve=loss_curve,
+    )
+
+
+def reader_pair_features(query_key: list[float], slot_key: list[float]) -> list[float]:
+    return [
+        *query_key,
+        *slot_key,
+        *[abs(left - right) for left, right in zip(query_key, slot_key)],
+        *[left * right for left, right in zip(query_key, slot_key)],
+    ]
+
+
+def train_reader_readout(
+    observations: list[Observation],
+    *,
+    epochs: int = 60,
+    learning_rate: float = 0.02,
+    seed: int = 607,
+) -> V6ReaderTrainingResult:
+    if len(observations) < 8:
+        raise ValueError("v6 reader/readout training requires at least 8 observations.")
+    torch.manual_seed(seed)
+    query_encoder = QueryEncoder(dimension=8)
+    slot_encoder = SlotEncoder()
+    slots = [
+        slot_encoder.encode(
+            observation,
+            timestamp=stable_timestamp(idx, 0),
+            bank=_ACTION_TO_BANK[silver_action_for_observation(observation)],
+        )
+        for idx, observation in enumerate(observations)
+    ]
+    features: list[list[float]] = []
+    labels: list[float] = []
+    for idx, observation in enumerate(observations):
+        query_key = query_encoder.encode(f"{observation.relation} {observation.value}")
+        positive = slots[idx]
+        negative = slots[(idx + max(len(slots) // 3, 1)) % len(slots)]
+        features.append(reader_pair_features(query_key, positive.retrieval_key))
+        labels.append(1.0)
+        features.append(reader_pair_features(query_key, negative.retrieval_key))
+        labels.append(0.0)
+    x = torch.tensor(features, dtype=torch.float32)
+    y = torch.tensor(labels, dtype=torch.float32)
+    split = max(8, int(len(x) * 0.8))
+    split = min(split, len(x) - 4)
+    train_x, eval_x = x[:split], x[split:]
+    train_y, eval_y = y[:split], y[split:]
+    reader = V6ReaderReadout(input_dim=x.shape[1])
+    optimizer = torch.optim.AdamW(reader.parameters(), lr=learning_rate, weight_decay=1e-4)
+    loss_curve: list[dict[str, float]] = []
+    for epoch in range(epochs):
+        logits = reader(train_x)
+        loss = nn.functional.binary_cross_entropy_with_logits(logits, train_y)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        if epoch in {0, epochs - 1}:
+            loss_curve.append({"epoch": float(epoch + 1), "loss": float(loss.item())})
+    with torch.no_grad():
+        predictions = (torch.sigmoid(reader(eval_x)) >= 0.5).float()
+    eval_accuracy = float((predictions == eval_y).float().mean().item())
+    majority = 1.0 if float(train_y.mean().item()) >= 0.5 else 0.0
+    disabled = torch.full_like(eval_y, majority)
+    disabled_accuracy = float((disabled == eval_y).float().mean().item())
+    return V6ReaderTrainingResult(
+        reader=reader,
+        eval_accuracy=eval_accuracy,
+        disabled_readout_accuracy=disabled_accuracy,
+        train_pairs=len(train_y),
+        eval_pairs=len(eval_y),
         loss_curve=loss_curve,
     )
 
@@ -245,12 +340,22 @@ class PersistentCoreResidualMemory:
         )
         return written
 
-    def read(self, query: str, *, slots: list[SlotRecord] | None = None, top_k: int = 8) -> dict[str, Any]:
+    def read(
+        self,
+        query: str,
+        *,
+        slots: list[SlotRecord] | None = None,
+        top_k: int = 8,
+        use_bank_prior: bool = True,
+    ) -> dict[str, Any]:
         query_encoder = QueryEncoder(dimension=self.slot_encoder.config.retrieval_dim)
         query_key = query_encoder.encode(query)
         candidates = slots if slots is not None else self.active_slots()
         scored = sorted(
-            ((vector_dot(query_key, slot.retrieval_key), slot) for slot in candidates),
+            (
+                (vector_dot(query_key, slot.retrieval_key) + (self._bank_prior(query, slot) if use_bank_prior else 0.0), slot)
+                for slot in candidates
+            ),
             key=lambda item: item[0],
             reverse=True,
         )
@@ -271,6 +376,33 @@ class PersistentCoreResidualMemory:
                 for _, slot in selected[:3]
             ],
         }
+
+    @staticmethod
+    def _bank_prior(query: str, slot: SlotRecord) -> float:
+        lowered = query.lower()
+        durable_query = any(
+            token in lowered
+            for token in (
+                "preference",
+                "music",
+                "food",
+                "drink",
+                "hobby",
+                "occupation",
+                "location",
+                "profile",
+                "goal",
+            )
+        )
+        temporal_query = any(
+            token in lowered
+            for token in ("recent", "recently", "now", "current", "changed", "stopped", "started", "past")
+        )
+        if temporal_query:
+            return 0.08 if slot.bank == "residual" else -0.02
+        if durable_query:
+            return 0.08 if slot.bank == "core" else -0.01
+        return 0.0
 
     def to_checkpoint(self) -> dict[str, Any]:
         return {

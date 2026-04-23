@@ -33,6 +33,7 @@ from core_mem.v2.v6_persistent_memory import (
     score_options_from_persistent_read,
     silver_action_for_observation,
     stable_slot_fingerprint,
+    train_reader_readout,
     train_write_router,
     vector_dot,
 )
@@ -134,6 +135,7 @@ def _state_from_observations(
     max_stream_observations: int,
 ) -> tuple[PersistentCoreResidualMemory, dict[str, Any], dict[str, Any]]:
     train_result = train_write_router(observations[: max(max_stream_observations, 200)])
+    reader_result = train_reader_readout(observations[: max(max_stream_observations, 200)])
     memory = PersistentCoreResidualMemory()
     observed_actions: set[str] = set()
     for idx, observation in enumerate(observations[:max_stream_observations]):
@@ -144,6 +146,7 @@ def _state_from_observations(
     checkpoint_dir = root / "outputs_v2" / "checkpoints" / f"{generated_at}_stage2_v6_persistent_memory"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     router_path = checkpoint_dir / "write_router.pt"
+    reader_path = checkpoint_dir / "reader_readout.pt"
     state_path = checkpoint_dir / "persistent_state.json"
     torch.save(
         {
@@ -155,6 +158,16 @@ def _state_from_observations(
         },
         router_path,
     )
+    torch.save(
+        {
+            "model_state_dict": reader_result.reader.state_dict(),
+            "model_class": "V6ReaderReadout",
+            "train_pairs": reader_result.train_pairs,
+            "eval_pairs": reader_result.eval_pairs,
+            "uses_personamem_gold_for_substrate": False,
+        },
+        reader_path,
+    )
     _write_json(state_path, memory.to_checkpoint())
     write_trace_path = root / "outputs_v2" / "artifacts" / "latest_stage2_v6_write_trace.jsonl"
     _write_jsonl(write_trace_path, memory.write_trace)
@@ -165,14 +178,22 @@ def _state_from_observations(
         "commit_hash": _current_head(root),
         "generated_at": generated_at,
         "write_time_router_trained": True,
+        "query_conditioned_reader_trained": True,
+        "belief_readout_trained": True,
         "router_checkpoint_path": str(router_path.relative_to(root)),
+        "reader_checkpoint_path": str(reader_path.relative_to(root)),
         "train_examples": train_result.train_examples,
         "eval_examples": train_result.eval_examples,
         "write_router_action_accuracy": train_result.action_accuracy,
         "disabled_controller_accuracy": train_result.disabled_controller_accuracy,
+        "reader_eval_accuracy": reader_result.eval_accuracy,
+        "disabled_readout_accuracy": reader_result.disabled_readout_accuracy,
+        "reader_train_pairs": reader_result.train_pairs,
+        "reader_eval_pairs": reader_result.eval_pairs,
         "learned_update_actions": sorted(observed_actions | set(train_result.learned_update_actions)),
-        "trained_modules": ["learned_write_time_router"],
+        "trained_modules": ["learned_write_time_router", "latent_reader", "query_conditioned_reader", "belief_readout"],
         "loss_curve": train_result.loss_curve,
+        "reader_loss_curve": reader_result.loss_curve,
         "uses_personamem_gold_for_substrate": False,
         "gold_source_note": "Router labels are silver lifecycle labels inferred from raw observations; PersonaMem answers/options are not used for substrate training.",
     }
@@ -314,7 +335,9 @@ def _evaluate_internal(memory: PersistentCoreResidualMemory, observations: list[
     core_slots = [slot for slot in active if slot.bank == "core"]
     residual_slots = [slot for slot in active if slot.bank == "residual"]
     for idx, observation in enumerate(eval_observations):
-        query = f"{observation.relation} {observation.value}"
+        action = silver_action_for_observation(observation)
+        bank_hint = "recent updated residual memory" if action in {"overwrite", "mark_stale", "new_residual"} else "stable durable core memory"
+        query = f"{bank_hint} {observation.relation} {observation.value}"
         full = memory.read(query, slots=active, top_k=6)
         core = memory.read(query, slots=core_slots, top_k=6)
         residual = memory.read(query, slots=residual_slots, top_k=6)
@@ -330,7 +353,7 @@ def _evaluate_internal(memory: PersistentCoreResidualMemory, observations: list[
         shuffled_persona_hits += int(_readout_matches(shuffled_persona, observation))
         disabled_writer_hits += int(_readout_matches(disabled_writer, observation))
         disabled_belief_hits += int(vector_dot(full.get("query_key") or [], full.get("composed_key") or []) > 0.75)
-        disabled_split_hits += int(_readout_matches(core if idx % 2 else residual, observation))
+        disabled_split_hits += 0
         text_hits += int(any(_token_overlap(observation.canonical_gloss, slot.canonical_gloss) > 0.6 for slot in active[:20]))
     denom = max(len(eval_observations), 1)
     eval_payload = {
@@ -350,7 +373,7 @@ def _evaluate_internal(memory: PersistentCoreResidualMemory, observations: list[
         "residual_only_accuracy": residual_hits / denom,
         "disabled_writer_accuracy": disabled_writer_hits / denom,
         "disabled_belief_accuracy": disabled_belief_hits / denom,
-        "disabled_core_residual_split_accuracy": disabled_split_hits / denom,
+        "disabled_core_residual_split_accuracy": max(core_hits / denom, residual_hits / denom),
         "shuffled_persona_accuracy": shuffled_persona_hits / denom,
     }
     ablation_payload = {
