@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-049` `[doing]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 learned latent prototype 升级为真正 persistent memory substrate。
+  - 当前 workstream: `WS-035`
+  - 当前计划：[docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
+  - 当前 verifier：[scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
+  - 核心目标：`dialogue stream -> learned write-time router -> persistent core/residual latent banks -> query-conditioned reader -> belief/readout`。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
+  - 新增硬边界：answer-time confidence routing 不允许作为 authoritative path；raw full-context retrieval 不允许作为 v6 authoritative eval 主语义路径。
+  - Success gate：persistent bank checkpoint、write trace、learned write-time routing、raw-context retrieval disabled、answer-time routing disabled、真实 architecture ablation drops、PersonaMem full589 no-calibration meaningful margin。
+  - Meaningful margin：默认至少 `+30` correct over text-only，或预先声明的显著性 artifact。
+
 - `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - 当前 workstream: `WS-034`
   - 当前 partial：fresh baseline `4`；iteration `1 keep` 已发布 v5.2 real multi-backbone compare，真实加载 `BGE + E5`，score 到 `20`。

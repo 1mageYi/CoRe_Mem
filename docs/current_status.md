@@ -1,6 +1,16 @@
 # Current Status
 
-## 当前最新状态：v5.2 full learned latent system 机械 stop condition 已达到
+## 当前最新状态：v6 persistent core-residual latent memory 已成为新主线
+
+- `TD-049 / WS-035 / v6` 已锁定为下一轮 long run 主线：目标不是继续优化 v5.2 的 answer-time routing，而是实现 persistent core/residual latent memory state。
+- v6 新计划：[docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
+- v6 新 verifier：[scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
+- v6 hard gate 明确禁止把 answer-time text-vs-latent confidence routing 作为 authoritative path；write-time routing 才是要加强的核心 memory routing。
+- v6 stop condition 要求：persistent `core_bank` / `residual_bank` checkpoint、stream write trace、learned write-time router 接入实际状态更新、query-time eval 消费 persistent state、raw-context retrieval disabled、真实 disabled-architecture ablation、PersonaMem no-calibration 相对 text-only 有 meaningful margin。
+- meaningful margin 默认设为 full589 至少 `+30` correct over text-only，避免 v5.2 `+1` correct 这类机械过线被误写成强结论。
+- 当前 v5.2 仍保留为 real learned latent prototype baseline：BGE/E5 真实加载、四任务 `24500` samples、真实 checkpoint、trainable reader/controller/belief artifact 均成立；但 v5.2 不能作为 final scientific claim。
+
+## 上一轮状态：v5.2 full learned latent system 机械 stop condition 已达到
 
 - `TD-048 / WS-034 / v5.2` 已锁定为当前主线：不再接受 v5.1 式 real-training bootstrap，目标改为 full learned latent memory system。
 - Fresh baseline `stage2_v52_full_latent_system_score = 4`。

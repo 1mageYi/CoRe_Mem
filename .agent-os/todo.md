@@ -2,6 +2,14 @@
 
 ## Doing
 
+- `TD-049` `[doing]` 以 `v6 Persistent Core-Residual Latent Memory` 为目标，把 v5.2 的 real learned latent prototype 升级为真正 persistent core/residual latent memory substrate。
+  - Current workstream: `WS-035`
+  - Plan: [docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
+  - Verifier: [scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
+  - Required structure: persistent `core_bank` and `residual_bank`; learned write-time memory routing connected to actual state updates; query-conditioned latent reader over persistent banks; learned belief/readout path without answer-time confidence routing; true disabled-architecture ablations.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage into memory substrate、no raw full-context retrieval as v6 authoritative memory path。
+  - Stop gate: PersonaMem full589 no-calibration must beat text-only by a meaningful margin, default `>= +30` correct, not v5.2-style `+1`.
+
 - `TD-048` `[done]` 以 `v5.2 Full Learned Latent Memory System` 为目标，把 v5.1 bootstrap 升级为完整 learned latent system。
   - Current workstream: `WS-034`
   - Current retained partial:

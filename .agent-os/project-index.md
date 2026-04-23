@@ -3,10 +3,10 @@
 ## Current Truth
 
 - Objective: `OBJ-002`, `OBJ-003`, `OBJ-004`
-- Top next action: `TD-048 / WS-034 / v5.2` managed run 已达到 mechanical stop condition。Fresh baseline 为 `4`；iteration `5` 通过 confidence-routed no-calibration PersonaMem full589 把 score 从 `80` 推到 `100`。当前不再自动开新实验；若继续，应先审查 `+1` PersonaMem margin 是否足够作为研究结论。
-- Active workstreams: `WS-034`
-- Active workstream label: `TD-048 / WS-034`
-- Active workstream version: `v5.2`
+- Top next action: `TD-049 / WS-035 / v6` long run。目标是把 v5.2 的 real learned latent prototype 升级为 persistent core/residual latent memory substrate，明确禁止 answer-time confidence routing 和 raw full-context retrieval 作为 authoritative closeout 路径。
+- Active workstreams: `WS-035`
+- Active workstream label: `TD-049 / WS-035`
+- Active workstream version: `v6`
 - Current retained progress: retained `v32` / `v33` / `v4` baselines 继续固定保留；`v5` 已重新定性为 scaffold / proxy evidence-package closeout，而不是 scientific result。`v5.1` current HEAD `89ba929` 已完成真实 BGE pretrained load、12k stage2 gold-free training、真实 checkpoint、held-out trained-vs-frozen / latent-vs-shuffled / full-vs-text-only gain，以及 PersonaMem full589 no-calibration `184/589 = 31.24%`，高于 option-only `167/589 = 28.35%` 与 random `25%`。`scripts/verify_stage2_v51_real_training.py --score-only = 100`，supervisor 判定 `goal_reached`。`v5.2` current run 已发布 `latest_stage2_v52_backbone_compare.json`，真实加载 `BAAI/bge-base-en-v1.5` 与 `intfloat/e5-base-v2`，并尝试 `facebook/contriever`；Contriever 因当前 `torch 2.5.1` 安全版本限制未加载。`latest_stage2_v52_multitask_training.json` 已记录四任务训练 `24500` samples，checkpoint 为 `outputs_v2/checkpoints/20260423T024312Z_stage2_v52_multitask/full_latent_system.pt`。`latest_stage2_v52_full_latent_eval.json` 记录 trained MRR `0.9816` > frozen `0.7054`、multi-task composite `0.9096` > retrieval-only `0.2454`、latent-only `0.9816` > shuffled `0.9464`、full composite `0.9096` > text-only `0.1764`；`latest_stage2_v52_ablation_summary.json` 记录 no-controller/no-belief/no-core-residual 都下降。`latest_stage2_v52_personamem_full589.json` 当前 confidence-routed no-calibration 为 `228/589`，text-only 为 `227/589`，route 统计为 text `539` / latent `50`，相对 text-only improved `9`、degraded `8`。当前 `scripts/verify_stage2_v52_full_latent_system.py --score-only = 100`，mechanical stop condition reached；但 PersonaMem margin 只有 `+1`，不能夸写成强 superiority。
 - Current quick-smoke truth: `2026-04-19` 当前 managed run 在 iteration `18` 之前已完成 learned-symbolic、learned+learned、blank-output fallback、provider-stability repeat 与 json-start constrained decoding 等多轮 `8`-sample holdout probe。真实最好 smoke 仍只到 Persona subset `provider/local = 5/4`、LongMemEval subset `1/1` tie；当前已确认 `acd742...` 在相同 prompt/evidence 下跨 run 出现 provider `(c) <-> (b)` 翻转，因此这条 quick-smoke line 目前既没有 keep，也不再适合继续作为唯一微调 gate
 - Current stable-holdout truth: commit `489ada0` 已让 learned full-holdout runner 复用 shared `latent_slot_ranker` 并按 batch 增量落盘；此前卡死的 resumed `LongMemEval-S 500` run `outputs_v2/runs/20260419T160705Z_stage2_memory_canary_longmemeval/` 截至当前检查已推进到 `322/500`，`PersonaMem 512` run `outputs_v2/runs/20260419T160701Z_stage2_memory_canary_personamem/` 已推进到 `238/512`。因此当前 `v31` 的真实状态已从 true blocker 切回 active measurement，但 full-holdout artifacts 仍未发布
@@ -22,6 +22,13 @@
 - `OBJ-004`: 第二阶段具体实例为 `V2.0 structured latent-slot memory`，目标是在保留第一阶段 v1 baseline 参考价值的前提下，建立更强的 latent memory 研究主线。
 
 ## Active Workstreams
+
+- `WS-035` `[doing]`: Stage-2 `v6 Persistent Core-Residual Latent Memory`，目标是实现真正 persistent `core_bank` / `residual_bank` latent state，训练 write-time memory routing，并用 query-conditioned latent reader + belief/readout 在不使用 answer-time confidence routing 的情况下超过 text-only。
+  - Current task: `TD-049`
+  - Plan: [docs/v6_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v6_plan.md)
+  - Verifier: [scripts/verify_stage2_v6_persistent_latent_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v6_persistent_latent_memory.py)
+  - Hard gates: persistent banks、state checkpoint、stream write trace、learned write-time router、persistent-state authoritative eval、raw-context retrieval disabled、answer-time routing disabled、true disabled-architecture ablations、PersonaMem meaningful margin。
+  - Truth boundary: v5.2 remains a useful prototype baseline, but confidence-routed `228/589` vs text-only `227/589` is not sufficient for v6 closeout.
 
 - `WS-034` `[done]`: Stage-2 `v5.2 Full Learned Latent Memory System`，目标是把 v5.1 bootstrap 升级为真正的 full learned latent memory system。
   - Current task: `TD-048`
