@@ -1,5 +1,18 @@
 # Run Log
 
+# 2026-04-22 Session 128
+
+- Worked on: `TD-047 / WS-033 / v5.1` background launch prep
+- State changed:
+  - Added bootstrap `scripts/verify_stage2_v51_real_training.py` so the background run has a real metric command before launch
+  - Added `tests/test_stage2_v51_real_training.py` to lock the score caps for missing real training, proxy backend, and full evidence
+  - Current bootstrap baseline is `stage2_v51_real_training_score = 10`
+- Verification:
+  - `conda run -n core_mem pytest -q tests/test_stage2_v51_real_training.py` -> passed
+  - `conda run -n core_mem python scripts/verify_stage2_v51_real_training.py --score-only` -> `10`
+- Next action:
+  - Fresh-start background autoresearch for v5.1, archiving the old v5 runtime artifacts
+
 # 2026-04-22 Session 127
 
 - Worked on: 将用户对 `v5` proxy/scaffold 结果的不满意转成 `TD-047 / WS-033 / v5.1 Real Pretrained Training` 计划锁定

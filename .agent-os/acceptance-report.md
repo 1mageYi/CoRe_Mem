@@ -250,7 +250,7 @@
     - `docs/v5_plan.md` 已加注：v5 retained artifact 是 scaffold/evidence-package closeout，不是 scientific closeout
     - `docs/current_status.md`、`docs/implementation_plan.md`、`.agent-os/todo.md` 与 `docs/todo.md` 已同步 v5.1 next action
   - Pending acceptance:
-    - `scripts/verify_stage2_v51_real_training.py` 尚未实现
+    - `scripts/verify_stage2_v51_real_training.py` 已有 bootstrap 版；后台长跑仍需扩展并让真实 v5.1 evidence 通过它
     - 真实 pretrained backbone 尚未重新加载并训练
     - 真实 checkpoint / train log / held-out eval 尚未产出
     - trained-vs-frozen、latent-only-vs-shuffled、full-vs-text-only 与 PersonaMem full589 no-calibration 结果尚未刷新
