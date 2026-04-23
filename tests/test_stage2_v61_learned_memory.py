@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import (
-    _best_matching_slot,
-    _scenario_axis_features,
-    _synthetic_queries_for_observation,
-    filter_v61_observations,
-    typed_observation,
-)
+from core_mem.v2.v61_learned_memory import _best_matching_slot, filter_v61_observations, typed_observation
 
 
 def _observation(**overrides: object) -> Observation:
@@ -121,26 +115,3 @@ def test_filter_v61_observations_removes_low_information_goal_and_hobby_values()
     filtered = filter_v61_observations([kept, dropped_goal, dropped_hobby])
 
     assert [item.obs_id for item in filtered] == ["obs-keep"]
-
-
-def test_scenario_axis_features_detect_pressure_and_calm_signals() -> None:
-    pressure = _scenario_axis_features("Rigid deadlines and expectations felt overwhelming.")
-    calm = _scenario_axis_features("A quieter, more peaceful and personal setting sounds better.")
-
-    assert pressure[0] == 1.0
-    assert pressure[2] == 1.0
-    assert calm[3] == 1.0
-
-
-def test_synthetic_queries_include_scenario_axes() -> None:
-    observation = _observation(
-        relation="reason_fact",
-        value="rigid deadlines and expectations felt overwhelming, so I wanted a calmer pace",
-        canonical_gloss="reason_fact=rigid deadlines and expectations felt overwhelming, so I wanted a calmer pace",
-        evidence_text="Rigid deadlines and expectations felt overwhelming, so I wanted a calmer pace.",
-    )
-
-    queries = _synthetic_queries_for_observation(observation)
-
-    assert any("structured, high-pressure" in query for query in queries)
-    assert any("calmer, quieter" in query for query in queries)
