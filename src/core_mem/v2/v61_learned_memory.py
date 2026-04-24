@@ -148,6 +148,13 @@ def _mean_vector(vectors: Iterable[list[float]]) -> list[float]:
     return [value / norm for value in merged]
 
 
+def _sanitize_numeric_features(values: Iterable[Any]) -> list[float]:
+    cleaned: list[float] = []
+    for value in values:
+        cleaned.append(0.0 if value is None else float(value))
+    return cleaned
+
+
 def _query_semantic_features(query: str) -> list[float]:
     tokens = set(_tokenize(query))
     return [
@@ -193,6 +200,18 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
         query_semantics[6] * float(slot.relation == "profile_trait"),
         query_semantics[7] * slot.soft_role_scores.stable,
     ]
+    return _sanitize_numeric_features([
+        *query_key,
+        *slot_key,
+        *[abs(left - right) for left, right in zip(query_key, slot_key)],
+        *[left * right for left, right in zip(query_key, slot_key)],
+        _token_overlap(query, slot.canonical_gloss),
+        _token_overlap(query, slot_value),
+        _token_overlap(query, relation_text),
+        *query_semantics,
+        *slot_semantics,
+        *alignment,
+    ])
 
 
 def _slot_facet_bucket(slot: SlotRecord) -> str:
@@ -235,18 +254,6 @@ def _facet_bucket_features(readout: dict[str, Any], option: str) -> list[float]:
             max((_token_overlap(option, slot.canonical_gloss) for slot in bucket_slots), default=0.0)
         )
     return [*ratios, *overlap_maxes]
-    return [
-        *query_key,
-        *slot_key,
-        *[abs(left - right) for left, right in zip(query_key, slot_key)],
-        *[left * right for left, right in zip(query_key, slot_key)],
-        _token_overlap(query, slot.canonical_gloss),
-        _token_overlap(query, slot_value),
-        _token_overlap(query, relation_text),
-        *query_semantics,
-        *slot_semantics,
-        *alignment,
-    ]
 
 
 def _is_low_information_value(observation: Observation) -> bool:
@@ -576,7 +583,7 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
     )
     decision_query_features = _decision_query_features(query)
     facet_bucket_features = _facet_bucket_features(readout, option)
-    return [
+    return _sanitize_numeric_features([
         *query_key,
         *composed,
         *option_key,
@@ -594,7 +601,7 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         selected_temporal_ratio,
         *decision_query_features,
         *facet_bucket_features,
-    ]
+    ])
 
 
 def _select_hard_negatives(observation: Observation, pool: list[Observation]) -> list[Observation]:
