@@ -74,11 +74,8 @@ _PREFERENCE_QUERY_TERMS = {
     "recommendation",
     "suggest",
 }
-_RECALL_QUERY_TERMS = {"fact", "facts", "mention", "mentioned", "recall", "remember", "shared"}
-_RECOMMEND_QUERY_TERMS = {"activity", "activities", "idea", "ideas", "recommend", "recommendation", "suggest"}
 _REASON_QUERY_TERMS = {"because", "caused", "explain", "reason", "reasons", "why"}
 _TEMPORAL_QUERY_TERMS = {"before", "change", "changed", "current", "now", "past", "previous", "recent", "recently", "update"}
-_EVOLUTION_QUERY_TERMS = {"before", "changed", "evolution", "evolve", "journey", "over", "previous", "track"}
 _SOCIAL_QUERY_TERMS = {"community", "dating", "family", "friend", "friends", "group", "partner", "relationship", "social"}
 _CONSTRAINT_QUERY_TERMS = {"avoid", "cannot", "can't", "constraint", "limit", "must", "restrict", "restriction"}
 _GOAL_QUERY_TERMS = {"aim", "goal", "goals", "plan", "planning", "trying", "want", "wants", "working"}
@@ -158,121 +155,6 @@ def _query_semantic_features(query: str) -> list[float]:
         float(bool(tokens & _PROFILE_QUERY_TERMS)),
         float("?" in query or bool(tokens & {"what", "which", "who", "where", "when", "why", "how"})),
     ]
-
-
-def _query_intent_signals(query: str) -> dict[str, bool]:
-    tokens = set(_tokenize(query))
-    return {
-        "reason": bool(tokens & _REASON_QUERY_TERMS),
-        "recommend": bool(tokens & _RECOMMEND_QUERY_TERMS),
-        "recall": bool(tokens & _RECALL_QUERY_TERMS),
-        "evolution": bool(tokens & _EVOLUTION_QUERY_TERMS),
-        "preference": bool(tokens & _PREFERENCE_QUERY_TERMS),
-    }
-
-
-def _slot_metadata(slot: SlotRecord) -> dict[str, Any]:
-    try:
-        return dict(getattr(slot, "_v6_metadata"))  # type: ignore[arg-type]
-    except AttributeError:
-        payload = slot.to_dict()
-        return dict(payload.get("metadata", {}) or {})
-
-
-def _slot_facet_type(slot: SlotRecord) -> str:
-    metadata = _slot_metadata(slot)
-    facet_type = str(metadata.get("facet_type") or "").strip().lower()
-    return facet_type or slot.relation
-
-
-def _facet_query_prior(query: str, slot: SlotRecord) -> float:
-    signals = _query_intent_signals(query)
-    facet_type = _slot_facet_type(slot)
-    prior = 0.0
-    if signals["reason"]:
-        prior += {
-            "update_reason": 0.18,
-            "social_feedback": 0.08,
-            "temporal_state": 0.04,
-            "preference_target": 0.02,
-            "generic_fact": -0.08,
-        }.get(facet_type, 0.0)
-    if signals["recommend"]:
-        prior += {
-            "preference_target": 0.18,
-            "environment_preference": 0.08,
-            "environment_aversion": 0.04,
-            "social_feedback": 0.08,
-            "update_reason": 0.02,
-            "generic_fact": -0.08,
-        }.get(facet_type, 0.0)
-    if signals["evolution"]:
-        prior += {
-            "preference_target": 0.14,
-            "update_reason": 0.12,
-            "temporal_state": 0.1,
-            "social_feedback": 0.06,
-            "generic_fact": -0.04,
-        }.get(facet_type, 0.0)
-    if signals["recall"] and not signals["reason"]:
-        prior += {
-            "preference_target": 0.12,
-            "generic_fact": 0.1,
-            "social_feedback": 0.06,
-            "temporal_state": 0.04,
-            "update_reason": -0.1,
-        }.get(facet_type, 0.0)
-    if signals["preference"] and not signals["recommend"] and not signals["evolution"]:
-        prior += {
-            "preference_target": 0.08,
-            "preference_mode": 0.06,
-            "environment_preference": 0.04,
-            "update_reason": -0.03,
-        }.get(facet_type, 0.0)
-    return prior
-
-
-def _facet_repeat_penalty(query: str, facet_type: str, count: int) -> float:
-    if count <= 0:
-        return 0.0
-    signals = _query_intent_signals(query)
-    if facet_type == "update_reason":
-        return (0.04 if signals["reason"] or signals["evolution"] else 0.1) * count
-    if facet_type == "generic_fact":
-        return (0.05 if signals["recall"] else 0.09) * count
-    if facet_type == "preference_target":
-        return (0.05 if signals["recommend"] or signals["evolution"] else 0.07) * count
-    return 0.06 * count
-
-
-def _select_query_conditioned_slots(
-    ranked: list[tuple[float, SlotRecord]],
-    *,
-    query: str,
-    top_k: int,
-) -> list[tuple[float, SlotRecord]]:
-    remaining = list(ranked)
-    selected: list[tuple[float, SlotRecord]] = []
-    facet_counts: Counter[str] = Counter()
-    while remaining and len(selected) < top_k:
-        best_idx = 0
-        best_score = float("-inf")
-        for idx, (base_score, slot) in enumerate(remaining):
-            facet_type = _slot_facet_type(slot)
-            adjusted = (
-                base_score
-                + _facet_query_prior(query, slot)
-                - _facet_repeat_penalty(query, facet_type, facet_counts[facet_type])
-            )
-            if adjusted > best_score:
-                best_idx = idx
-                best_score = adjusted
-        base_score, slot = remaining.pop(best_idx)
-        facet_type = _slot_facet_type(slot)
-        adjusted_score = min(1.0, max(0.0, base_score + _facet_query_prior(query, slot)))
-        selected.append((adjusted_score, slot))
-        facet_counts[facet_type] += 1
-    return selected
 
 
 def _slot_semantic_features(slot: SlotRecord) -> list[float]:
@@ -592,7 +474,7 @@ def _read_with_model(
     with torch.no_grad():
         scores = torch.sigmoid(reader(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
-    selected = _select_query_conditioned_slots(ranked, query=query, top_k=top_k)
+    selected = ranked[:top_k]
     total_score = sum(score for score, _ in selected) or 1.0
     composed = [
         sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score

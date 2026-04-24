@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
+from core_mem.v2.schemas import Observation
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
-from core_mem.v2.v61_learned_memory import _select_query_conditioned_slots
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
 
@@ -13,34 +12,6 @@ from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_mem
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
-
-
-def _slot(slot_id: str, relation: str, gloss: str, *, facet_type: str, bank: str = "residual") -> SlotRecord:
-    slot = SlotRecord(
-        slot_id=slot_id,
-        bank=bank,
-        entity="user",
-        relation=relation,
-        retrieval_key=[0.1, 0.2],
-        latent_tokens=[[0.1, 0.2]],
-        soft_role_scores=SoftRoleScores(
-            stable=0.2,
-            preference=0.9 if "preference" in relation else 0.1,
-            constraint=0.0,
-            goal=0.0,
-            temporal=0.8 if facet_type == "temporal_state" else 0.1,
-            social=0.6 if facet_type == "social_feedback" else 0.1,
-        ),
-        confidence=0.8,
-        first_seen_ts="turn-00001-obs-000",
-        last_update_ts="turn-00001-obs-000",
-        revision_count=0,
-        active_flag=True,
-        revision_parent=None,
-        canonical_gloss=gloss,
-    )
-    object.__setattr__(slot, "_v6_metadata", {"facet_type": facet_type})
-    return slot
 
 
 def test_v65_plan_only_is_low_score(tmp_path: Path) -> None:
@@ -451,38 +422,3 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
 
     active = [slot for slot in memory.residual_bank if slot.active_flag]
     assert len(active) == 2
-
-
-def test_v65_query_conditioned_slot_selection_prefers_preference_for_recall_queries() -> None:
-    ranked = [
-        (0.86, _slot("s1", "reason_fact", "update_reason=feeling pressured by deadlines", facet_type="update_reason")),
-        (0.84, _slot("s2", "reason_fact", "update_reason=public criticism felt overwhelming", facet_type="update_reason")),
-        (0.8, _slot("s3", "music_preference", "preference_target=producing music with software", facet_type="preference_target")),
-    ]
-
-    selected = _select_query_conditioned_slots(
-        ranked,
-        query="Can you recall a fact the user shared about music?",
-        top_k=2,
-    )
-
-    selected_glosses = [slot.canonical_gloss for _, slot in selected]
-    assert "preference_target=producing music with software" in selected_glosses
-    assert selected_glosses.count("update_reason=feeling pressured by deadlines") + selected_glosses.count(
-        "update_reason=public criticism felt overwhelming"
-    ) <= 1
-
-
-def test_v65_query_conditioned_slot_selection_keeps_reason_facet_for_reason_queries() -> None:
-    ranked = [
-        (0.82, _slot("s1", "reason_fact", "update_reason=feeling pressured by deadlines", facet_type="update_reason")),
-        (0.8, _slot("s2", "music_preference", "preference_target=producing music with software", facet_type="preference_target")),
-    ]
-
-    selected = _select_query_conditioned_slots(
-        ranked,
-        query="Why did the user's preference change recently?",
-        top_k=1,
-    )
-
-    assert selected[0][1].canonical_gloss == "update_reason=feeling pressured by deadlines"
