@@ -72,27 +72,6 @@ _STOPWORDS = {
     "while",
     "with",
 }
-_LOW_INFORMATION_TERMS = {
-    "able",
-    "another",
-    "contrast",
-    "displayed",
-    "essence",
-    "experience",
-    "found",
-    "journey",
-    "love",
-    "nothing",
-    "only",
-    "paradigm",
-    "prompted",
-    "really",
-    "shift",
-    "short",
-    "started",
-    "truly",
-    "yes",
-}
 _PREFERENCE_MODE_TERMS = {"emotional", "experimental", "intimate", "personal", "private", "software", "spontaneous"}
 _ENVIRONMENT_AVERSION_TERMS = {"chaotic", "crowded", "loud", "noisy", "overwhelmed", "pressure", "pressured", "scrutiny"}
 _ENVIRONMENT_PREFERENCE_TERMS = {"calm", "cozy", "library", "peaceful", "quiet", "small"}
@@ -106,33 +85,12 @@ def _tokenize(text: str) -> list[str]:
 
 
 def informative_tokens(text: str) -> list[str]:
-    rows: list[str] = []
-    seen: set[str] = set()
-    for token in _tokenize(text):
-        if token in _STOPWORDS or token in _LOW_INFORMATION_TERMS:
-            continue
-        if token in seen:
-            continue
-        seen.add(token)
-        rows.append(token)
-    return rows
+    return [token for token in _tokenize(text) if token not in _STOPWORDS]
 
 
 def _top_tokens(text: str, *, limit: int = 5) -> str:
     tokens = informative_tokens(text)
     return " ".join(tokens[:limit]) if tokens else text.strip().lower()
-
-
-def _cue_phrase(text: str, cue_terms: set[str], *, fallback: str, window: int = 2, limit: int = 6) -> str:
-    tokens = informative_tokens(text)
-    if not tokens:
-        return _top_tokens(fallback, limit=limit)
-    for index, token in enumerate(tokens):
-        if token in cue_terms:
-            left = max(0, index - window)
-            right = min(len(tokens), index + window + 1)
-            return " ".join(tokens[left:right][:limit])
-    return _top_tokens(fallback or text, limit=limit)
 
 
 def _facet_id(observation: Observation, facet_type: str, facet_value: str) -> str:
@@ -169,7 +127,6 @@ def _make_facet(
 
 def facetize_observation(observation: Observation) -> list[FacetRecord]:
     typed = typed_observation(observation)
-    value_text = typed.value.lower()
     text = f"{typed.value} {typed.evidence_text}".lower()
     tokens = set(informative_tokens(text))
     facets: list[FacetRecord] = []
@@ -185,39 +142,40 @@ def facetize_observation(observation: Observation) -> list[FacetRecord]:
         facets.append(record)
 
     if typed.relation.endswith("preference") or typed.relation in {"hobby", "goal"}:
-        add(_make_facet(typed, facet_type="preference_target", facet_value=_top_tokens(value_text), facet_scope="entity"))
+        add(_make_facet(typed, facet_type="preference_target", facet_value=_top_tokens(typed.value), facet_scope="entity"))
         mode_tokens = [token for token in informative_tokens(text) if token in _PREFERENCE_MODE_TERMS]
         if mode_tokens:
             add(_make_facet(typed, facet_type="preference_mode", facet_value=" ".join(mode_tokens[:4]), facet_scope="style"))
     if typed.relation in {"environment_fact", "location"} or tokens & (_ENVIRONMENT_AVERSION_TERMS | _ENVIRONMENT_PREFERENCE_TERMS):
-        aversion_phrase = _cue_phrase(value_text or text, _ENVIRONMENT_AVERSION_TERMS, fallback=typed.value)
-        if set(informative_tokens(aversion_phrase)) & _ENVIRONMENT_AVERSION_TERMS:
+        aversion_tokens = [token for token in informative_tokens(text) if token in _ENVIRONMENT_AVERSION_TERMS]
+        if aversion_tokens:
             add(
                 _make_facet(
                     typed,
                     facet_type="environment_aversion",
-                    facet_value=aversion_phrase,
+                    facet_value=" ".join(aversion_tokens[:4]),
                     facet_scope="state",
                     facet_polarity="negative",
                 )
             )
-        preference_phrase = _cue_phrase(value_text or text, _ENVIRONMENT_PREFERENCE_TERMS, fallback=typed.value)
-        if set(informative_tokens(preference_phrase)) & _ENVIRONMENT_PREFERENCE_TERMS:
-            add(_make_facet(typed, facet_type="environment_preference", facet_value=preference_phrase, facet_scope="state"))
+        preference_tokens = [token for token in informative_tokens(text) if token in _ENVIRONMENT_PREFERENCE_TERMS]
+        if preference_tokens:
+            add(_make_facet(typed, facet_type="environment_preference", facet_value=" ".join(preference_tokens[:4]), facet_scope="state"))
     if typed.relation in {"social_fact", "reason_fact"} or tokens & _SOCIAL_FEEDBACK_TERMS:
-        social_phrase = _cue_phrase(value_text or text, _SOCIAL_FEEDBACK_TERMS, fallback=typed.value)
-        if set(informative_tokens(social_phrase)) & _SOCIAL_FEEDBACK_TERMS:
-            add(_make_facet(typed, facet_type="social_feedback", facet_value=social_phrase, facet_scope="reason"))
+        social_tokens = [token for token in informative_tokens(text) if token in _SOCIAL_FEEDBACK_TERMS]
+        if social_tokens:
+            add(_make_facet(typed, facet_type="social_feedback", facet_value=" ".join(social_tokens[:4]), facet_scope="reason"))
     if typed.relation in {"reason_fact", "temporal_fact"} or tokens & _REASON_TERMS:
-        reason_phrase = _cue_phrase(value_text or text, _REASON_TERMS | _ENVIRONMENT_AVERSION_TERMS, fallback=typed.value)
-        if set(informative_tokens(reason_phrase)) & (_REASON_TERMS | _ENVIRONMENT_AVERSION_TERMS):
-            add(_make_facet(typed, facet_type="update_reason", facet_value=reason_phrase, facet_scope="reason"))
+        reason_tokens = [token for token in informative_tokens(text) if token in (_REASON_TERMS | _ENVIRONMENT_AVERSION_TERMS)]
+        if reason_tokens:
+            add(_make_facet(typed, facet_type="update_reason", facet_value=" ".join(reason_tokens[:5]), facet_scope="reason"))
     if typed.time_scope != "current" or tokens & _TEMPORAL_TERMS:
+        temporal_tokens = [token for token in informative_tokens(text) if token in _TEMPORAL_TERMS]
         add(
             _make_facet(
                 typed,
                 facet_type="temporal_state",
-                facet_value=typed.time_scope if typed.time_scope != "current" else _cue_phrase(value_text or text, _TEMPORAL_TERMS, fallback=typed.value),
+                facet_value=" ".join(temporal_tokens[:4]) if temporal_tokens else typed.time_scope,
                 facet_scope="temporal",
             )
         )

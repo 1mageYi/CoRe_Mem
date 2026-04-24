@@ -344,32 +344,6 @@ def test_v65_facetizer_splits_preference_and_reason_facets() -> None:
     assert "temporal_state" in facet_types
 
 
-def test_v65_reason_facet_keeps_phrase_not_duplicate_token() -> None:
-    observation = Observation(
-        obs_id="obs_reason",
-        source_dataset="demo",
-        source_dialogue_id="dlg",
-        source_turn_id="7",
-        session_id="dlg",
-        speaker="user",
-        entity="user",
-        relation="reason_fact",
-        value="I felt pressured by public scrutiny after the festival",
-        value_type="other",
-        time_scope="recent_change",
-        status_hint="active",
-        polarity="negative",
-        confidence=0.8,
-        evidence_text="I felt pressured by public scrutiny after the festival.",
-        canonical_gloss="reason_fact=I felt pressured by public scrutiny after the festival",
-        metadata={},
-    )
-
-    update_reason = next(facet for facet in facetize_observation(observation) if facet.facet_type == "update_reason")
-
-    assert update_reason.facet_value == "felt pressured public scrutiny"
-
-
 def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
     base = Observation(
         obs_id="obs_base",
