@@ -15,7 +15,8 @@
   - Current negative truth: `latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 434 > parser_only 409`、`facet_written_but_reader_missed_count = 5`；`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `150/589`，text-only `234/589`，option-only `235/589`
   - Latest discard: `research-results.tsv` iteration `2 discard` 说明 cue-anchored phrase retention 只能把 `needed_facet_missing` 改善到 `448`、把 no-routing 改善到 `138/589`，但 verifier 仍停在 `85`，因此该 trial 已回滚
   - Latest refine: `research-results.tsv` iteration `3 refine` 说明 facet-type glossing + salient phrase selection 已显著清理 selected slots，并把 `needed_facet_missing` 进一步压到 `434`、把 no-routing 提到 `150/589`，但 retained metric 仍是 `85`
-  - Current top next action: v6.5 的主瓶颈不再只是 token-level canonicalization。下一步直接修 question-conditioned reader / decision 对 facet-type selected glosses 的消费，让更干净的 facet support 真正转成 benchmark gain
+  - Latest discard: `research-results.tsv` iteration `4 discard` 说明 decision features 直接吃 `selected slot canonical_gloss` 并没有把当前 refine line 再推高：full589 仍是 `150/589`，`needed_facet_missing` 也只从 `434` 微调到 `433`
+  - Current top next action: v6.5 的主瓶颈不再只是 token-level canonicalization，也不再是单条 decision feature 接线。下一步直接修 question-conditioned reader / decision supervision 本身，让更干净的 facet support 真正转成 benchmark gain
 
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - Current workstream: `WS-039`

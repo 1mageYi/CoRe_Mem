@@ -12,6 +12,7 @@
     - `latest_stage2_v65_personamem_no_routing.json` 记录 answer-time routing disabled、PersonaMem gold 未用于 facetizer 或 substrate
     - `research-results.tsv` iteration `2 discard` 已记录 cue-anchored phrase retention trial：局部把 `needed_facet_missing` 改善到 `448`、把 PersonaMem full589 no-routing 改善到 `138/589`，但 verifier 仍停在 `85`，因此该 trial 未进入 retained state
     - `research-results.tsv` iteration `3 refine` 已记录 facet-type glossing + salient phrase selection trial：当前 selected slots 已主要呈现为 `preference_target=... / environment_aversion=... / update_reason=...`，`needed_facet_missing` 进一步降到 `434`，PersonaMem full589 no-routing 升到 `150/589`
+    - `research-results.tsv` iteration `4 discard` 已记录 decision-feature patch：直接把 `selected slot canonical_gloss` 接入 option features 只把 `needed_facet_missing` 从 `434` 微调到 `433`，未能提升 PersonaMem no-routing 或 verifier
   - Negative result:
     - `needed_facet_missing_count = 434 > parser_only 409`
     - `wrong_sibling_facet_selected_count = 0`
@@ -25,6 +26,7 @@
     - 这一轮只证明 v6.5 的 explicit facet schema、authoritative facetizer、facet-aware write utility 与 facet-level attribution 已经进入真实 memory path。
     - latest discard 说明：短语级去重/保留可以改善局部 failure bucket，但还不足以跨过 verifier 的 retained gate。
     - latest refine 又说明：即使 `facet_type` 已真正进入 selected gloss 语义，当前 gain 仍没有自动传到 verifier，下一步必须继续打 reader / decision 消费层。
+    - latest discard `4` 则进一步说明：当前 reader / decision 层的问题也不是“少接了一条 selected-gloss overlap feature”这么简单。
     - 当前不能声明 `needed_facet_missing` reduction、benchmark gain、acceptance met 或 closeout。
     - 下一步必须直接修 question-conditioned reader / decision 对 facet support 的消费，而不是把当前 partial、latest discard 或 latest refine 写成成功。
 

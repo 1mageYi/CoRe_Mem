@@ -1,5 +1,26 @@
 # Run Log
 
+# 2026-04-24 Session 168
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` decision-feature discard, rollback, refine restore, and state-doc sync
+- State changed:
+  - Trial commit `dcaf4f5` connected option features directly to `selected slot canonical_gloss`, attempting to let the v61-style decision head consume the new `facet_type=value` slot semantics more directly
+  - Full-context trial publish failed to produce a meaningful gain: PersonaMem full589 no-routing stayed at `150/589`, verifier stayed at `85`, and `needed_facet_missing` only nudged from `434` to `433`
+  - Helper recorded this as iteration `4 discard`, after which the trial commit was reverted with `git revert --no-edit`
+  - Re-published the iteration `3 refine` baseline and restored current runtime truth to `needed_facet_missing = 434`, PersonaMem no-routing `150/589`, score `85`
+- Evidence:
+  - `research-results.tsv` iteration `4 discard`
+  - `autoresearch-state.json` iteration `4`, `last_status = discard`, retained metric `85`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - Trial publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Trial verifier/guard: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+  - Refine restore publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Refine restore verifier/guard: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records one discard and a refine restore only.
+  - No benchmark gain or closeout claim is allowed from this iteration.
+
 # 2026-04-24 Session 167
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` facet-type glossing / salient phrase refine, full-context publish, helper logging, and state-doc sync
