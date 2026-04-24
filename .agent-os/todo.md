@@ -18,7 +18,9 @@
   - Latest discard: `research-results.tsv` iteration `4 discard` 说明 decision features 直接吃 `selected slot canonical_gloss` 并没有把当前 refine line 再推高：full589 仍是 `150/589`，`needed_facet_missing` 也只从 `434` 微调到 `433`
   - Latest discard: `research-results.tsv` iteration `5 discard` 说明 reader facet-metadata alignment 会把 full589 直接打回 `128/589`，并把 `needed_facet_missing` 恶化到 `456`
   - Latest discard: `research-results.tsv` iteration `7 discard` 说明 option-conditioned decision readout 会把 full589 no-routing 从 `150/589` 打回 `142/589`，并把 `needed_facet_missing` 恶化到 `441`；当前 code 和 `latest_stage2_v65_*` 已按 rollback policy restore 回 refine line
-  - Current top next action: 当前 local feature surgery family 已通过 iteration `6 pivot` 正式关闭，而 iteration `7 discard` 又排除了简单的 per-option reread。下一步必须改更广的 question-conditioned reader / decision supervision 本身，而不是继续停留在 token-level canonicalization / dedup、单条 feature 接线或 naive option-conditioned reread
+  - Latest discard: `research-results.tsv` iteration `8 discard` 说明 intent-conditioned facet readout 把 query-intent facet priors 与 duplicate-facet crowding penalty 接进 reader shortlist 后，full589 仍会回退到 `147/589`，并把 `needed_facet_missing` 恶化到 `436`
+  - Latest pivot/search: `research-results.tsv` iterations `9 pivot` 和 `10 search` 已正式关闭 “更广 supervision 但仍直接改 slot-selection heuristic” 的子 family，并记录 DST-as-reading-comprehension 与 MMR 两条主来源启发
+  - Current top next action: 当前 local feature surgery family 已通过 iteration `6 pivot` 关闭，而 iteration `7-8 discard` 又排除了 per-option reread 与 intent-conditioned slot reranking。下一步必须直接做 question-type / facet-type supervision 或 relevance+novelty 的 diversified shortlist，而不是继续停留在 token-level canonicalization / dedup、单条 feature 接线、naive reread 或 hand-tuned slot-selection priors
 
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - Current workstream: `WS-039`

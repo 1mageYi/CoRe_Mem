@@ -1,6 +1,6 @@
 # Current Status
 
-## 当前最新状态：v6.5 facetized observation-to-memory redesign 仍停在 active refine，简单 option-conditioned reread 也已被证伪
+## 当前最新状态：v6.5 facetized observation-to-memory redesign 仍停在 active refine，简单 option-conditioned reread 和 intent-conditioned slot reranking 都已被证伪
 
 - `TD-053 / WS-039 / v6.4` 已锁定为下一轮 long run 主线：目标不是把 observation extraction 扩成新的并列论文主贡献，而是用现有强方案解除当前最硬的上游 bottleneck，让 `Core-Residual latent memory` 主线继续推进。
 - v6.4 新计划：[docs/v64_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v64_plan.md)
@@ -22,8 +22,9 @@
 - iteration `4 discard` 把 decision-feature 边界压实：直接把 option features 接到 `selected slot canonical_gloss` 之后，full589 no-routing 仍停在 `150/589`，official verifier 仍停在 `85`。该 patch 已回滚。
 - iteration `5 discard` 又把 reader-feature 边界压实：把 facet metadata 与 environment semantics 接进 reader pair features 后，full589 no-routing 直接回退到 `128/589`，`needed_facet_missing` 也恶化到 `456`。该 patch 同样已回滚。
 - iteration `7 discard` 又把 question-conditioned 线里的一个窄候选排除了：option-conditioned decision readout 虽然把 v61 head 改成 base question readout + per-option reread 联合训练/推理，但 full-context publish 反而把 full589 no-routing 从 `150/589` 打回 `142/589`，并把 `needed_facet_missing` 从 `434` 恶化到 `441`。该 patch 已按 rollback policy 回滚。
+- iteration `8 discard` 又把“直接在 shortlist 上塞 intent prior”这条线排除了：intent-conditioned facet readout 虽然把 query-intent facet priors 和 duplicate-facet crowding penalty 接进 v61 readout selection，但 full-context publish 仍把 full589 no-routing 从 `150/589` 打回 `147/589`，并把 `needed_facet_missing` 从 `434` 恶化到 `436`。该 patch 也已按 rollback policy 回滚。
 - 当前 restore 后的 latest runtime truth 为：`latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 434 > parser_only 409`，`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `150/589`，text-only `234/589`，option-only `235/589`，official verifier 继续是 `85`。
-- 因此当前仍停在 iteration `6 pivot` 之后的新 family 早期探索阶段：这条 line 仍然不是 keep，而 local feature surgery family 已关闭，naive option-conditioned reread 也已被证伪。下一步不能再继续堆 canonicalization、reader-feature、decision-feature 或简单 per-option reread，而必须切到更广的 question-conditioned reader / decision supervision redesign。
+- iteration `9 pivot` 和 iteration `10 search` 又把下一步边界收紧了一层：当前不再继续尝试 hand-tuned slot-selection heuristic，而是把 search 启发正式收敛到两条更 principled 的方向，分别是 “把 retrieval 看成 question-conditioned slot QA / facet QA” 与 “用 relevance + novelty 的 MMR-style shortlist 抑制重复 facet 挤占”。因此下一步不能再继续堆 canonicalization、reader-feature、decision-feature、简单 per-option reread 或局部 intent prior，而必须切到更直接的 question-type / facet-type supervision 或 diversified shortlist redesign。
 - 当前 retained keep 已 restore 到 `latest_stage2_v64_*`：`scripts/verify_stage2_v64_observation_proposal.py --score-only = 75`，proposal recall `0.08488964346349745 > parser-only 0.015280135823429542`，persistent `core_bank=726 / residual_bank=960 / writes=3415`。
 - 当前 retained negative truth：`latest_stage2_v64_error_attribution.json` 记录 full589 `never_written_count = 442 > parser_only 409`；`latest_stage2_v64_personamem_no_routing.json` 记录 full589 no-routing `138/589`，text-only `199/589`，option-only `235/589`；因此当前仍只能写成 partial keep / negative_result。
 - 最新两条 discard 已把 proposer-side边界划清：same-relation novelty gate + top-1 learned budget 会把 full589 no-routing 打到 `97/589` 且 `never_written = 481`；prompt/question filtering + relation-aware value compression 虽把 learned candidates 从 `3421` 压到 `2109`、smoke margin 收窄到 `-6`，但 full589 仍只有 `135/589` 且 `never_written = 445`。

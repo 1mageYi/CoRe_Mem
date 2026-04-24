@@ -16,6 +16,9 @@
     - `research-results.tsv` iteration `5 discard` 已记录 reader-metadata patch：facet metadata 与 environment-query alignment 反而把 PersonaMem full589 no-routing 打回 `128/589`，并把 `needed_facet_missing` 恶化到 `456`
     - `research-results.tsv` iteration `6 pivot` 已记录当前 local feature surgery family结束，下一步改 broader question-conditioned supervision
     - `research-results.tsv` iteration `7 discard` 已记录 option-conditioned decision readout：base question readout + per-option reread 联合训练/推理会把 PersonaMem full589 no-routing 从 `150/589` 打回 `142/589`，并把 `needed_facet_missing` 恶化到 `441`
+    - `research-results.tsv` iteration `8 discard` 已记录 intent-conditioned facet readout：query-intent facet priors 与 duplicate-facet crowding penalty 会把 PersonaMem full589 no-routing 从 `150/589` 打回 `147/589`，并把 `needed_facet_missing` 恶化到 `436`
+    - `research-results.tsv` iteration `9 pivot` 已记录当前 broader supervision 子 family 继续失败；下一步不再直接改 slot-selection heuristics
+    - `research-results.tsv` iteration `10 search` 已记录两条主来源启发：DST-as-reading-comprehension 的 question-conditioned slot QA 视角，以及 MMR 的 relevance + novelty shortlist 视角
   - Negative result:
     - `needed_facet_missing_count = 434 > parser_only 409`
     - `wrong_sibling_facet_selected_count = 0`
@@ -32,6 +35,8 @@
     - latest discard `4` 则进一步说明：当前 reader / decision 层的问题也不是“少接了一条 selected-gloss overlap feature”这么简单。
     - latest discard `5` 又把边界再压清一层：reader facet-metadata alignment 不是当前 gain driver，继续沿这条 family 细抠只会回退。
     - latest discard `7` 继续把边界压清：简单的 option-conditioned reread 也不是当前 gain driver，它会把选项文本过早耦合进 slot selection，结果比 restore 后的 refine line 更差。
+    - latest discard `8` 又继续把边界压清：即使把 question intent 直接转成 facet prior 和重复 facet crowding penalty，也还是会在 authoritative full-context publish 上回退，说明当前缺口不是再多一点 shortlist heuristic。
+    - latest pivot/search 说明下一步应优先试更 principled 的 question-conditioned facet supervision 或 diversified shortlist，而不是继续做 hand-tuned slot-selection bias。
     - 当前不能声明 `needed_facet_missing` reduction、benchmark gain、acceptance met 或 closeout。
     - 下一步必须直接修更广的 question-conditioned reader / decision 对 facet support 的消费，而不是把当前 partial、latest discard 或 latest refine 写成成功。
 

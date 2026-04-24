@@ -1,5 +1,26 @@
 # Run Log
 
+# 2026-04-24 Session 171
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` intent-conditioned facet-readout discard rollback, retained restore, pivot/search logging, and state-doc sync
+- State changed:
+  - Trial commit `c0d18b9` added query-intent facet priors plus duplicate-facet crowding penalties inside the v61 readout shortlist, attempting to reduce `update_reason` over-selection without changing the upstream facetizer
+  - Full-context trial publish still regressed the active refine line: PersonaMem full589 no-routing fell from `150/589` to `147/589`, `needed_facet_missing` worsened from `434` to `436`, and `scripts/verify_stage2_v65_facetized_memory.py --score-only` stayed `85`
+  - Helper recorded this as iteration `8 discard`; the trial commit was then reverted with `git revert --no-edit`, and retained `latest_stage2_v65_*` artifacts were re-published on top of the restore commit
+  - Recorded iteration `9 pivot` because both broader-supervision candidates that still modified slot selection directly have now failed; recorded iteration `10 search` to preserve the DST-as-reading-comprehension and MMR shortlist design hints that will seed the next family
+  - Latest runtime truth after restore remains `needed_facet_missing = 434`, PersonaMem no-routing `150/589`, text-only `234/589`, option-only `235/589`, verifier `85`
+- Evidence:
+  - `research-results.tsv` iterations `8 discard`, `9 pivot`, and `10 search`
+  - `autoresearch-state.json` iteration `10`, `last_status = search`, `pivot_count = 2`, retained metric `85`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - Trial guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+  - Trial publish/verifier: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`; `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`
+  - Retained restore publish/verifier/guard: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`; `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records one discard, one restore, one pivot, and one search escalation only.
+  - No benchmark gain, `needed_facet_missing` reduction claim, or closeout claim is allowed from this iteration family.
+
 # 2026-04-24 Session 170
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` option-conditioned decision-readout discard, rollback, retained restore, and state-doc sync
