@@ -504,17 +504,12 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
     if not composed:
         return []
     option_key = QueryEncoder(dimension=len(composed)).encode(option)
+    belief_text = " ".join(f"{item['relation']} {item['value']}" for item in readout.get("belief_items", []))
     selected_slots = [item["slot"] for item in readout.get("selected", [])[:3] if isinstance(item.get("slot"), SlotRecord)]
-    selected_glosses = [slot.canonical_gloss for slot in selected_slots]
-    belief_text = " ".join(selected_glosses) or " ".join(
-        f"{item['relation']} {item['value']}" for item in readout.get("belief_items", [])
-    )
     selected_scores = [float(item["score"]) for item in readout.get("selected", [])[:3]]
     slot_score_max = max(selected_scores) if selected_scores else 0.0
     slot_score_mean = sum(selected_scores) / len(selected_scores) if selected_scores else 0.0
-    belief_overlaps = [_token_overlap(option, gloss) for gloss in selected_glosses]
-    if not belief_overlaps:
-        belief_overlaps = [_token_overlap(option, f"{item['relation']} {item['value']}") for item in readout.get("belief_items", [])]
+    belief_overlaps = [_token_overlap(option, f"{item['relation']} {item['value']}") for item in readout.get("belief_items", [])]
     belief_overlap_max = max(belief_overlaps) if belief_overlaps else 0.0
     belief_overlap_mean = sum(belief_overlaps) / len(belief_overlaps) if belief_overlaps else 0.0
     selected_core_ratio = (
