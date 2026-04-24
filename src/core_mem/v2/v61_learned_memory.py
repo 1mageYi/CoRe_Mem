@@ -74,6 +74,21 @@ _PREFERENCE_QUERY_TERMS = {
     "recommendation",
     "suggest",
 }
+_ENVIRONMENT_QUERY_TERMS = {
+    "atmosphere",
+    "calm",
+    "chaotic",
+    "crowded",
+    "environment",
+    "festival",
+    "intimate",
+    "library",
+    "libraries",
+    "peaceful",
+    "quiet",
+    "serene",
+    "small",
+}
 _REASON_QUERY_TERMS = {"because", "caused", "explain", "reason", "reasons", "why"}
 _TEMPORAL_QUERY_TERMS = {"before", "change", "changed", "current", "now", "past", "previous", "recent", "recently", "update"}
 _SOCIAL_QUERY_TERMS = {"community", "dating", "family", "friend", "friends", "group", "partner", "relationship", "social"}
@@ -147,6 +162,7 @@ def _query_semantic_features(query: str) -> list[float]:
     tokens = set(_tokenize(query))
     return [
         float(bool(tokens & _PREFERENCE_QUERY_TERMS)),
+        float(bool(tokens & _ENVIRONMENT_QUERY_TERMS)),
         float(bool(tokens & _REASON_QUERY_TERMS)),
         float(bool(tokens & _TEMPORAL_QUERY_TERMS)),
         float(bool(tokens & _SOCIAL_QUERY_TERMS)),
@@ -158,6 +174,8 @@ def _query_semantic_features(query: str) -> list[float]:
 
 
 def _slot_semantic_features(slot: SlotRecord) -> list[float]:
+    metadata = PersistentCoreResidualMemory._slot_metadata(slot)
+    facet_type = str(metadata.get("facet_type", ""))
     return [
         float(slot.bank == "core"),
         float(slot.bank == "residual"),
@@ -167,6 +185,12 @@ def _slot_semantic_features(slot: SlotRecord) -> list[float]:
         float(slot.soft_role_scores.goal),
         float(slot.soft_role_scores.temporal),
         float(slot.soft_role_scores.social),
+        float(facet_type == "preference_target"),
+        float(facet_type == "preference_mode"),
+        float(facet_type in {"environment_aversion", "environment_preference"}),
+        float(facet_type == "update_reason"),
+        float(facet_type == "social_feedback"),
+        float(facet_type == "temporal_state"),
         float(slot.relation == "reason_fact"),
         float(slot.relation == "profile_trait"),
     ]
@@ -180,13 +204,14 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
     relation_text = slot.relation.replace("_", " ")
     alignment = [
         query_semantics[0] * slot.soft_role_scores.preference,
-        query_semantics[1] * float(slot.relation == "reason_fact"),
-        query_semantics[2] * slot.soft_role_scores.temporal,
-        query_semantics[3] * slot.soft_role_scores.social,
-        query_semantics[4] * slot.soft_role_scores.constraint,
-        query_semantics[5] * slot.soft_role_scores.goal,
-        query_semantics[6] * float(slot.relation == "profile_trait"),
-        query_semantics[7] * slot.soft_role_scores.stable,
+        query_semantics[1] * slot_semantics[10],
+        query_semantics[2] * slot_semantics[11],
+        query_semantics[3] * slot.soft_role_scores.temporal,
+        query_semantics[4] * slot.soft_role_scores.social,
+        query_semantics[5] * slot.soft_role_scores.constraint,
+        query_semantics[6] * slot.soft_role_scores.goal,
+        query_semantics[7] * float(slot.relation == "profile_trait"),
+        query_semantics[8] * slot.soft_role_scores.stable,
     ]
     return [
         *query_key,
