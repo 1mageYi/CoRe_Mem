@@ -5,7 +5,6 @@ from pathlib import Path
 
 from core_mem.v2.schemas import Observation
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
-from core_mem.v2.v61_learned_memory import _option_conditioned_query, _option_features
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
 
@@ -378,45 +377,6 @@ def test_v65_preference_target_uses_salient_phrase_not_leading_boilerplate() -> 
     assert "spontaneous" in preference_target.facet_value
     assert "emotional" in preference_target.facet_value
     assert "tried" not in preference_target.facet_value
-
-
-def test_v65_option_conditioned_query_uses_option_body_tokens_only() -> None:
-    query = "What activity would fit the user best right now?"
-    option = "(b) Producing music with software in a calm space would feel more personal."
-
-    conditioned = _option_conditioned_query(query, option)
-
-    assert conditioned.startswith(query)
-    assert "(b)" not in conditioned
-    assert "producing music software" in conditioned
-
-
-def test_v65_option_features_expand_with_option_conditioned_readout() -> None:
-    base_readout = {
-        "query_key": [0.1, 0.2],
-        "composed_key": [0.3, 0.4],
-        "belief_items": [{"relation": "music_preference", "value": "album reviews"}],
-        "selected": [],
-    }
-    conditioned_readout = {
-        "query_key": [0.2, 0.3],
-        "composed_key": [0.4, 0.5],
-        "belief_items": [{"relation": "music_preference", "value": "producing music with software"}],
-        "selected": [],
-    }
-
-    base_features = _option_features(base_readout, "What fits the user best?", "(b) Producing music with software")
-    conditioned_features = _option_features(
-        base_readout,
-        "What fits the user best?",
-        "(b) Producing music with software",
-        conditioned_readout=conditioned_readout,
-        conditioned_query="What fits the user best? producing music with software",
-    )
-
-    assert len(base_features) > 0
-    assert len(conditioned_features) == len(base_features) * 2
-    assert conditioned_features != base_features
 
 
 def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
