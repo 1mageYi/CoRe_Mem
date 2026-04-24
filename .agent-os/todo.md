@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-054` `[doing]` 以 `v6.5 Facetized Observation-to-Memory Redesign` 为目标，把 clause-level observation / slot memory 升级成 facet-structured latent memory unit。
+  - Current workstream: `WS-040`
+  - Plan: [docs/v65_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v65_plan.md)
+  - Verifier: [scripts/verify_stage2_v65_facetized_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v65_facetized_memory.py)
+  - Required structure: keep the v6.4 hybrid proposer and the v6.3 persistent Core-Residual memory path, but insert an authoritative facetizer / canonicalizer before write-time memory competition.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
+  - New required evidence: explicit facet schema, authoritative facetizer, facet-aware write utility, facet-level error attribution, reduced `needed_facet_missing`, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
+  - Current baseline: fresh `scripts/verify_stage2_v65_facetized_memory.py --score-only = 43`
+  - Current top next action: scaffold v6.5, measure baseline, then launch a fresh background run with v6.4 as inherited negative baseline / handoff truth
+
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - Current workstream: `WS-039`
   - Plan: [docs/v64_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v64_plan.md)
@@ -10,7 +20,23 @@
   - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
   - New required evidence: learned observation proposer in authoritative candidate path, hybrid candidate pool, positive proposal recall / support recovery over parser-only, full589 `never_written` reduction, dedup / normalization / validation evidence, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
   - Current baseline: `scripts/verify_stage2_v64_observation_proposal.py --score-only = 47`
-  - Current top next action: scaffold verifier baseline, then launch background managed run with fresh-start archival of current v6.3 runtime artifacts.
+  - Current partial: current HEAD `22a1eca` 已新增 `scripts/publish_stage2_v64_observation_proposal.py` 与 `src/core_mem/v2/v64_observation_proposal.py`，把 authoritative candidate path 升级成真实 `rule + learned proposer` hybrid pool；当前 verifier `= 75`
+  - Current partial: `latest_stage2_v64_observation_proposal_eval.json` 记录 `proposal_recall = 0.08488964346349745 > parser_only 0.015280135823429542`，以及 dedup / normalization / validation 证据；`latest_stage2_v64_persistent_state.json` 记录 non-collapse `core=726 / residual=960 / writes=3415`
+  - Current negative truth: `latest_stage2_v64_error_attribution.json` 记录 full589 `never_written_count = 442 > parser_only 409`；`latest_stage2_v64_personamem_no_routing.json` 记录 full589 no-routing `138/589`，text-only `199/589`，option-only `235/589`
+  - Latest discard: same-relation novelty gate + top-1 learned budget 会把 full589 no-routing 打到 `97/589` 且 `never_written = 481`
+  - Latest discard: prompt/question filtering + relation-aware value compression 虽把 learned candidates 从 `3421` 压到 `2109`、smoke margin 收窄到 `-6`，但 full589 仍只有 `135/589` 且 `never_written = 445`
+  - Latest discard: length-aware learned confidence calibration 只重权重了长 learned-only value，full589 仍回退到 `never_written = 455` 与 `no-routing = 130/589`
+  - Latest discard: relation-aware fragment extraction + rule-preferred merge preservation 虽把 full589 `never_written` 改善到 `427`、no-routing 提到 `155/589`、margin vs text-only 收窄到 `-42`，但仍未低于 parser baseline `409`
+  - Latest discard: candidate provenance metadata preservation + provenance-aware reader selection prior 未能转成 retained gain，full589 回退到 `133/589` 且 `never_written = 448`
+  - Latest discard: provenance-aware pre-write features + write-policy heuristics only reduced full589 `never_written` from `442` to `441` and no-routing from `138/589` to `140/589`, while text-only rose to `202/589`; verifier stayed `75`
+  - Latest discard: value-aware persistent slot matching prevented same-relation distinct facets from auto-sharing a slot, but bank size exploded to `core=1402 / residual=1866` and full589 regressed to `never_written = 445`, `written_but_reader_missed = 24`, and no-routing `120/589`
+  - Latest discard: relation-specific sibling utility competition demoted 111 broad learned-only preference/hobby candidates and improved full589 to `never_written = 420`, `no-routing = 161/589`, and text-only `195`, but it still failed the parser-baseline and margin gates
+  - Latest discard: refined abstract-clause demotion pushed the same family to a near-miss at `never_written = 413`, `no-routing = 171/589`, and text-only `195`, but it still missed the parser baseline `409`
+  - Latest discard: extending the same family with hobby-misroute demotion regressed back to `never_written = 423` and `no-routing = 159/589`
+  - Latest discard: a narrower sibling-only abstract-clause demotion plus overwrite protection only triggered `4` relation-competition demotions and regressed to `never_written = 450`, `no-routing = 130/589`, and text-only `199`
+  - Latest discard: carryover-vs-update overwrite gating formed a new search-derived family but did not produce a keep: redirecting blocked updates to `new_residual` improved full589 to `never_written = 431` but exploded the state to `core=420 / residual=2140` with `written_but_reader_missed = 18`; redirecting them to `ignore` improved to `434 / 151 / text-only 196`; narrowing the same gate to overwrite-only snapped back to `442 / 138 / text-only 200`
+  - Current runtime handoff: iteration `22 pivot` abandoned the carryover-vs-update overwrite-gate family after three more discards and no keep; this is now the third pivot without improvement
+  - Current top next action: `[SOFT BLOCKER HANDOFF]` preserve the retained v6.4 line at `generated_at = 20260424T061605Z`, verifier `75`, `never_written = 442`, PersonaMem no-routing `138/589`, and stop autonomous local write-path gating retries. Further progress likely needs a broader redesign than current in-scope overwrite heuristics.
 
 - `TD-052` `[doing]` 以 `v6.3 Recall-Preserving Confidence-Aware Write Policy` 为目标，把 v6.2 的 hard write filter 升级成真正的 confidence-aware memory policy。
   - Current workstream: `WS-038`
@@ -22,7 +48,7 @@
   - Current baseline: `scripts/verify_stage2_v63_write_policy.py --score-only = 56`
   - Current partial: current HEAD added [scripts/publish_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v63_write_policy.py) and [src/core_mem/v2/v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v63_write_policy.py); current verifier `= 85`
   - Current partial: `latest_stage2_v63_write_policy_eval.json` records authoritative four-way policy plus `support_coverage_recall = 1.0 > disabled 0.0625` and `write_recall = 1.0 > disabled 0.0769`; `latest_stage2_v63_persistent_state.json` records non-collapsing `core=22 / residual=476 / writes=652` and `weak_but_keep_residual_count = 12`
-  - Current negative truth: `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `179/589`, text-only `180/589`, option-only `235/589`; margin vs text-only `-1`, margin vs option-only `-56`
+  - Current negative truth: `latest_stage2_v63_personamem_no_routing.json` records full589 no-routing `180/589`, text-only `180/589`, option-only `235/589`; margin vs text-only `0`, margin vs option-only `-55`
   - Latest discard: the durable-fact core-promotion trial degraded full589 no-routing to `152/589`; the selected-support-gloss decision-feature trial degraded it to `173/589`; the state-anchored support-supervision expansion degraded it to `144/589`; the scenario-aware reader-semantics trial degraded it to `162/589`; the question-conditioned belief-selector trial degraded it to `176/589`; the query-relation-router trial degraded it to `163/589`; the relation-pooled belief-composer trial degraded it to `160/589`; the late-interaction reader-features trial degraded it to `156/589`. All eight lines have been reverted and should not be retried without a different strategy family.
   - Current top next action: `[SOFT BLOCKER HANDOFF]` preserve the current non-collapse write-policy line at `180/589` vs text-only `180/589` vs option-only `235/589`, and stop autonomous iteration inside the current readout-tweak family. The third pivot has been reached without a keep; further progress likely requires a broader redesign or a reframed goal beyond the current in-scope representation tweaks.
 

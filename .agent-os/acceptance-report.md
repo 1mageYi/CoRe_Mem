@@ -1,5 +1,43 @@
 # Acceptance Report
 
+## Stage 2 V6.4 Learned Observation Proposal Evidence
+
+- `EV-V64-001` -> `TD-053 / WS-039` learned observation proposer / hybrid candidate pool
+  - Status: partial / negative_result
+  - Evidence:
+    - `scripts/verify_stage2_v64_observation_proposal.py --score-only` 当前返回 `75`
+    - `latest_stage2_v64_observation_proposal_train.json` 记录 learned observation proposer、write-worthiness、attribute-validity、write router、learned reader、learned decision 全部已训练
+    - `latest_stage2_v64_observation_proposal_eval.json` 记录 authoritative learned proposer、hybrid candidate pool、dedup / normalization / validation，以及 `proposal_recall = 0.08488964346349745 > parser_only 0.015280135823429542`
+    - `latest_stage2_v64_persistent_state.json` 记录 persistent `core_bank_size = 726`、`residual_bank_size = 960`、`stream_observations_written = 3415`、checkpoint 与 write trace
+    - `latest_stage2_v64_personamem_no_routing.json` 记录 answer-time routing disabled、raw-context retrieval disabled、PersonaMem gold 未用于 proposer 或 substrate
+    - `research-results.tsv` iteration `1 keep` 已记录 `persistent-bank / write-routing / learned-reader-authoritative / learned-decision-authoritative / learned-observation-proposer-authoritative / hybrid-candidate-pool / proposal-recall-positive / dedup-normalization-validation / no-answer-routing / no-gold-leakage`
+  - Negative result:
+    - full589 `never_written_count = 442 > parser_only 409`
+    - support recovery `0.24957555178268254 < parser_only 0.30560271646859083`
+    - PersonaMem full589 no-routing `138/589`
+    - text-only `199/589`
+    - option-only `235/589`
+    - margin vs text-only `-61`
+    - margin vs option-only `-97`
+    - discarded same-relation novelty gate + top-1 learned budget degraded full589 no-routing to `97/589` and worsened `never_written` to `481`
+    - discarded prompt/question filtering + relation-aware value compression cleaned learned candidates but still left full589 at `135/589` with `never_written = 445`
+    - discarded length-aware learned confidence calibration only reweighted long learned-only values, but full589 still regressed to `never_written = 455` and no-routing `130/589`, showing that mild proposer-side confidence shaping alone does not remove the write-path bottleneck
+    - discarded relation-aware fragment extraction + rule-preferred merge preservation improved full589 `never_written` to `427` and no-routing to `155/589`, but still failed to beat parser baseline `409` or lift verifier above `75`
+    - discarded candidate provenance metadata preservation + provenance-aware reader prior regressed full589 to `133/589` and `never_written = 448`, showing that reader-side provenance bias alone does not remove the write-path bottleneck
+    - discarded provenance-aware pre-write features + write-policy heuristics only nudged full589 to `never_written = 441` and no-routing `140/589`, while text-only also rose to `202/589`, so the verifier remained `75`
+    - discarded value-aware persistent slot matching expanded the banks to `core=1402 / residual=1866` but regressed full589 to `never_written = 445`, `written_but_reader_missed = 24`, and no-routing `120/589`, showing that naive anti-overwrite widening can bloat the state without preserving usable support
+    - discarded relation-specific sibling utility competition improved full589 to `never_written = 420`, `no-routing = 161/589`, and text-only `195`, but still failed the parser-baseline and significant-margin gates
+    - discarded refined abstract-clause demotion produced the strongest current near-miss at `never_written = 413` and `no-routing = 171/589`, but still did not beat parser baseline `409`
+    - discarded hobby-misroute demotion regressed the same family back to `never_written = 423` and `no-routing = 159/589`, showing that the new strategy should stay narrower than a broad hobby cleanup bundle
+    - discarded narrower sibling-only abstract-clause demotion plus overwrite protection only triggered `4` demotions and regressed full589 to `never_written = 450` and no-routing `130/589`, showing that turn-local sibling gating is too narrow to preserve the iteration `11` near-miss
+    - discarded carryover-vs-update overwrite gate redirected blocked low-reliability updates to `new_residual`; full589 improved `never_written` to `431` but exploded the state to `core=420 / residual=2140` and `written_but_reader_missed = 18`, so the gain did not survive as usable support
+    - discarded carryover-vs-update `ignore` redirect improved the same family to `never_written = 434` and PersonaMem `151/589`, but it still stayed below the retained line and parser baseline
+    - discarded overwrite-only carryover gate regressed the same family back to retained-level truth (`never_written = 442`, PersonaMem `138/589`), showing that local overwrite gating does not unlock the missing v6.4 labels
+  - Boundary:
+    - 这一轮证明 v6.4 的 authoritative learned proposer、hybrid candidate pool、proposal recall gain、persistent banks、write trace、learned reader/decision 与 no-answer-routing / no-gold structure 已成立。
+    - 当前不能声明 `never_written` reduction、support-coverage gain、benchmark gain、acceptance met 或 reproducible closeout。
+    - proposer-threshold tightening、extraction-only cleanup、provenance-aware bias、naive anti-overwrite widening、过宽的 `hobby` misroute cleanup、turn-local sibling-only gating，以及 carryover-vs-update overwrite redirects 都已出现失败证据；当前 run 已在第 `3` 个 pivot 进入 soft-blocker handoff。
+
 ## Stage 2 V6.3 Confidence-Aware Write-Policy Evidence
 
 - `EV-V63-001` -> `TD-052 / WS-038` recall-preserving confidence-aware write policy

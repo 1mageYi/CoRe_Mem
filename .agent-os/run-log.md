@@ -1,5 +1,199 @@
 # Run Log
 
+# 2026-04-24 Session 164
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` scaffold, verifier/test definition, and fresh background handoff preparation
+- State changed:
+  - Promoted the next active line from the `v6.4` soft-blocker handoff to `v6.5`, with the explicit diagnosis that learned proposal recall alone is insufficient because clause-level observations remain too coarse to become stable benchmark-needed support
+  - Added `docs/v65_plan.md` to define the redesign as `facet-structured latent memory`, not a new extraction paper track and not a retreat to symbolic text memory
+  - Added `scripts/verify_stage2_v65_facetized_memory.py` and `tests/test_stage2_v65_facetized_memory.py` so the next long run is mechanically gated on facet schema, authoritative facetizer, facet-aware write utility, facet-level attribution, and `needed_facet_missing` reduction
+  - Updated project-state documents so `WS-040` / `TD-054` is now the active workstream, while `v6.4` remains preserved as inherited negative baseline / handoff truth
+- Evidence:
+  - New plan: `docs/v65_plan.md`
+  - New verifier: `scripts/verify_stage2_v65_facetized_memory.py`
+  - New tests: `tests/test_stage2_v65_facetized_memory.py`
+- Verification:
+  - `git diff --check`
+  - `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `43`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session only defines the next strategy family and its mechanical gate.
+  - No benchmark gain or scientific closeout claim is allowed from the scaffold itself.
+
+# 2026-04-24 Session 163
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` protocol resume, runtime-truth consistency check, and stop-boundary confirmation
+- State changed:
+  - Re-read the autoresearch protocol core docs after context compaction and confirmed that the current run still sits at iteration `22 pivot` with `pivot_count = 3`
+  - Confirmed the documented soft-blocker handoff remains active: no new experiment was started because continuing local heuristic trials would cross the current protocol stop boundary
+  - Fixed `.agent-os/project-index.md` so its `Top Next Action` now matches the already-restored v6.4 runtime truth instead of the stale v6.1 entry
+- Evidence:
+  - `.agent-os/project-index.md` now states the active top next action as `TD-053 / WS-039 / v6.4` soft-blocker handoff
+  - `autoresearch-state.json` remains at iteration `22`, current metric `75`, retained labels unchanged, and `pivot_count = 3`
+  - `research-results.tsv` remains unchanged at row `22 pivot`; no row `23` was created because no new trial was run
+- Verification:
+  - No new code or experiment was launched in this session
+  - The stop decision was based on the current protocol docs plus existing runtime state, not on new benchmark claims
+- Boundary:
+  - This session records protocol-compliant stop confirmation and state-document consistency repair only.
+  - No new keep, discard, benchmark gain, or blocker-cleared claim is allowed.
+
+# 2026-04-24 Session 162
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` search-derived carryover/update gate family, helper logging through iteration `22`, retained restore, and soft-blocker handoff
+- State changed:
+  - Recorded iteration `14 discard` for relation-level abstract preference demotion plus overwrite protection: full589 regressed to `never_written = 451`, PersonaMem no-routing `130/589`, text-only `194/589`, verifier stayed `75`
+  - Recorded iteration `15 pivot` and iteration `16 search`: abandoned the abstract-clause demotion subfamily and used primary-source DST papers to derive a new carryover-vs-update / local-reliability gate hypothesis
+  - Iteration `17 discard`: redirecting blocked updates to `new_residual` improved `never_written` to `431` but exploded the state to `core=420 / residual=2140` and `written_but_reader_missed = 18`
+  - Iteration `18 discard`: redirecting blocked updates to `ignore` improved to `never_written = 434`, PersonaMem `151/589`, text-only `196/589`, but still failed the retained line and parser baseline
+  - Iteration `19 discard` plus iteration `20 refine`: narrowing the gate to non-core-worthy residual paths regressed to `never_written = 444`, PersonaMem `138/589`, text-only `193/589`; the next refine explicitly limited blocking to destructive overwrite/mark_stale only
+  - Iteration `21 discard`: overwrite-only gate snapped back to retained-level truth (`never_written = 442`, PersonaMem `138/589`, text-only `200/589`)
+  - Iteration `22 pivot`: abandoned the carryover-vs-update overwrite-gate family. This is now the third pivot without a keep, so the run enters protocol-defined soft-blocker handoff
+  - After each discard, restored code with `git restore` and re-published retained aliases from archived `20260424T061605Z` snapshots so runtime truth remains on the retained keep
+- Evidence:
+  - `research-results.tsv` now records rows `14 discard`, `15 pivot`, `16 search`, `17 discard`, `18 discard`, `19 discard`, `20 refine`, `21 discard`, and `22 pivot`
+  - `autoresearch-state.json` now records iteration `22`, retained metric `75`, `discards = 16`, `pivot_count = 3`, and last status `pivot`
+  - Retained aliases remain restored to `generated_at = 20260424T061605Z` with verifier `75`, `never_written = 442`, and PersonaMem no-routing `138/589`
+- Verification:
+  - Each trial discard passed `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v61_learned_memory.py`
+  - Trial verifier remained `75` for iterations `14`, `17`, `18`, `19`, and `21`
+  - Final retained restore check: `conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> `75`
+- Boundary:
+  - This session records failed explorations, one search escalation, two pivots, repeated retained restores, and a soft-blocker handoff only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 161
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` retained-alias repair, iteration `13 discard`, and state-document resync
+- State changed:
+  - First discovered that `latest_stage2_v64_*` aliases had been left on a discarded line instead of the retained keep; restored them from archived retained snapshots so runtime truth again points to `generated_at = 20260424T061605Z`, verifier `75`, full589 `never_written = 442`, and PersonaMem no-routing `138/589`
+  - Iteration `13 discard`: tried a narrower learned-only preference abstract-clause demotion plus overwrite protection in the v6.3 write path, but the full589 rerun only triggered `4` relation-competition demotions and regressed to `never_written = 450`, PersonaMem no-routing `130/589`, text-only `199`, option-only `235`, verifier still `75`
+  - Recorded iteration `13 discard` through the helper, restored the trial code with `git restore`, and synchronized `.agent-os/*` plus `docs/*` so runtime truth now preserves the retained keep while explicitly ruling out sibling-only gating as the next refinement
+- Evidence:
+  - `research-results.tsv` now records row `13 discard`
+  - `autoresearch-state.json` now records iteration `13`, retained metric `75`, `discards = 11`, `consecutive_discards = 11`, and last trial commit `22a1eca+dirty-v11`
+  - `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, `latest_stage2_v64_error_attribution.json`, and `latest_stage2_v64_decision.json` were restored on clean retained truth with `generated_at = 20260424T061605Z`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v61_learned_memory.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Retained restore guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v63_write_policy.py tests/test_stage2_v61_learned_memory.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+- Boundary:
+  - This session records retained-alias repair, one failed exploration, rollback-by-restore, and state-document resynchronization only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 160
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` pivot logging after strategy-family exhaustion
+- State changed:
+  - After iteration `8 discard`, the run reached the protocol threshold for abandoning the current strategy family instead of brute-force retrying more local patches
+  - Iteration `9 pivot` was recorded through the helper: v6.4 now explicitly abandons the local candidate-shaping family built around proposer-threshold tightening, extraction-only cleanup, provenance-aware bias, and naive anti-overwrite widening
+  - Runtime truth now requires the next strategy family to target relation-specific write-path utility / overwrite-merge competition rather than more local scoring bias or bank expansion
+- Evidence:
+  - `research-results.tsv` now records row `9 pivot`
+  - `autoresearch-state.json` now records iteration `9`, retained metric `75`, and `pivot_count = 1`
+- Verification:
+  - Retained line remained restored before the pivot decision: `conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> `75`
+- Boundary:
+  - This session records a strategy-family abandonment decision only.
+  - No new keep, benchmark gain, or closeout claim is allowed.
+
+# 2026-04-23 Session 159
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` value-aware anti-overwrite widening discard, retained-line restore, and doc resync
+- State changed:
+  - Iteration `8 discard`: changed persistent slot matching so same-relation observations only revised an existing slot when their values were sufficiently similar, attempting to preserve distinct facets instead of auto-merging them
+  - The full589 rerun regressed sharply despite passing targeted tests: banks expanded to `core=1402 / residual=1866`, full589 fell to `never_written = 445`, `written_but_reader_missed = 24`, PersonaMem no-routing `120/589`, text-only `211/589`, option-only `235/589`, verifier still `75`
+  - Recorded iteration `8 discard` through the helper, restored the trial code with `git restore`, and re-published clean retained `22a1eca` artifacts so `latest_stage2_v64_*` returned to the retained line with `generated_at = 20260424T055950Z`, `never_written = 442`, and `138/589`
+  - Synchronized `.agent-os/*` and `docs/*` again so runtime truth now includes seven discards after the keep and explicitly rules out naive anti-overwrite widening as the next strategy family
+- Evidence:
+  - `research-results.tsv` now records row `8 discard`
+  - `autoresearch-state.json` now records iteration `8`, retained metric `75`, and last trial commit `22a1eca+dirty-v7`
+  - `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, and `latest_stage2_v64_error_attribution.json` were restored on clean `22a1eca` with `generated_at = 20260424T055950Z`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v6_persistent_latent_memory.py tests/test_stage2_v64_observation_proposal.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Retained restore guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v61_learned_memory.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+- Boundary:
+  - This session records one failed exploration, rollback-by-restore, retained-line restoration, and state-document resynchronization only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 158
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` provenance-aware pre-write/write-policy discard, retained-line restore, and doc resync
+- State changed:
+  - Iteration `7 discard`: added provenance-aware pre-write features to v6.2 write-memory features and provenance-aware heuristics to the v6.3 write policy so rule-backed candidates would be favored before state mutation
+  - The full589 rerun only moved underlying truth slightly: `never_written = 441`, PersonaMem no-routing `140/589`, text-only `202/589`, option-only `235/589`, verifier still `75`
+  - Recorded iteration `7 discard` through the helper, restored the trial code with `git restore`, and re-published clean retained `22a1eca` artifacts so `latest_stage2_v64_*` returned to the retained line with `generated_at = 20260424T054018Z`, `never_written = 442`, and `138/589`
+  - Synchronized `.agent-os/*` and `docs/*` to the new runtime truth: retained metric `75`, six discards after the keep, and next action narrowed from provenance bias to write-path utility / overwrite-merge competition
+- Evidence:
+  - `research-results.tsv` now records row `7 discard`
+  - `autoresearch-state.json` now records iteration `7`, retained metric `75`, and last trial commit `22a1eca+dirty-v6`
+  - `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, and `latest_stage2_v64_error_attribution.json` were restored on clean `22a1eca` with `generated_at = 20260424T054018Z`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v63_write_policy.py tests/test_stage2_v64_observation_proposal.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Retained restore guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v61_learned_memory.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+- Boundary:
+  - This session records one failed exploration, rollback-by-restore, retained-line restoration, and state-document resynchronization only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 157
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` provenance-aware reader-competition discard and retained-line restore
+- State changed:
+  - Iteration `6 discard`: preserved observation `candidate_provenance / write_policy_label` into persistent slot metadata and added provenance-aware reader selection priors so rule/hybrid anchors could outrank learned-only long values at read time
+  - The full589 rerun regressed despite passing local tests: `never_written = 448`, PersonaMem no-routing `133/589`, text-only `199/589`, option-only `235/589`, verifier still `75`
+  - Recorded iteration `6 discard` through the helper, restored the trial code with `git restore`, and re-published clean retained `22a1eca` artifacts so `latest_stage2_v64_*` returned to `never_written = 442` / `138/589`
+- Evidence:
+  - `research-results.tsv` now records row `6 discard`
+  - `autoresearch-state.json` now records iteration `6`, retained metric `75`, and last trial commit `22a1eca+dirty-v5`
+  - `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, and `latest_stage2_v64_error_attribution.json` were restored on clean `22a1eca` with `generated_at = 20260424T052755Z`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v61_learned_memory.py tests/test_stage2_v62_write_memory.py tests/test_stage2_v64_observation_proposal.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Retained restore guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py tests/test_stage2_v61_learned_memory.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+- Boundary:
+  - This session records one failed exploration, helper logging, rollback-by-restore, and retained-line restoration only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 156
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` fragment-extraction / merge-canonicalization discard and retained-line restore
+- State changed:
+  - Restored the retained `22a1eca` artifacts first so runtime truth matched the keep line again before starting a new experiment
+  - Iteration `5 discard`: added relation-aware learned fragment extraction plus rule-preferred merge preservation, validated the behavior with expanded v6.4 unit tests, and completed a full589 rerun
+  - The trial improved underlying truth but not the retained metric: proposal recall `0.0865874363327674`, support recovery `0.2750424448217318`, full589 `never_written = 427`, PersonaMem no-routing `155/589`, text-only `197/589`, option-only `235/589`, verifier still `75`
+  - Recorded iteration `5 discard` through the helper, reverted the trial code with `git restore`, and re-published clean retained `22a1eca` artifacts so `latest_stage2_v64_*` returned to `never_written = 442` / `138/589`
+- Evidence:
+  - `research-results.tsv` now records row `5 discard`
+  - `autoresearch-state.json` now records iteration `5`, retained metric `75`, and last trial commit `22a1eca+dirty-v4`
+  - `latest_stage2_v64_observation_proposal_train.json`, `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, `latest_stage2_v64_error_attribution.json`, and `latest_stage2_v64_decision.json` were restored on clean `22a1eca`
+- Verification:
+  - Trial guard before discard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Retained restore guard: same commands -> passed, score `75`
+- Boundary:
+  - This session records one failed exploration, helper logging, rollback-by-restore, and retained-line restoration only.
+  - No `never_written` reduction claim, benchmark gain claim, or closeout claim is allowed.
+
+# 2026-04-23 Session 155
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` first keep restore plus two proposer-side discards
+- State changed:
+  - Confirmed fresh managed baseline at `47`, initialized `research-results.tsv` / `autoresearch-state.json`, and recorded iteration `1 keep` for the first authoritative v6.4 hybrid proposer line at verifier `75`
+  - Published and then restored the retained v6.4 artifacts on clean `22a1eca`: proposal recall `0.08488964346349745 > parser-only 0.015280135823429542`, persistent `core=726 / residual=960 / writes=3415`, and full589 no-routing `138/589` vs text-only `199/589` vs option-only `235/589`
+  - Iteration `2 discard`: same-relation novelty gate + top-1 learned budget reduced candidate volume but worsened full589 no-routing to `97/589` and `never_written` to `481`
+  - Iteration `3 discard`: prompt/question filtering + relation-aware value compression cleaned learned candidates and improved smoke behavior, but full589 still only reached `135/589` with `never_written = 445`, so the trial was discarded and the retained keep line was re-published
+  - Repaired one transient TSV/state divergence caused by a failed helper invocation, then re-synced state from TSV and confirmed `autoresearch_resume_check.py` returns `full_resume`
+- Evidence:
+  - `research-results.tsv` now records rows `1 keep`, `2 discard`, and `3 discard`
+  - `latest_stage2_v64_observation_proposal_train.json`, `latest_stage2_v64_observation_proposal_eval.json`, `latest_stage2_v64_persistent_state.json`, `latest_stage2_v64_personamem_no_routing.json`, `latest_stage2_v64_error_attribution.json`, and `latest_stage2_v64_decision.json`
+  - `.agent-os/acceptance-report.md` and `.agent-os/lessons-learned.md` updated with retained truth plus discard boundaries
+- Verification:
+  - Baseline: `conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> `47`
+  - Keep guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py && conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> passed, score `75`
+  - Discard 2 guard before rollback: same command -> passed, score `75`
+  - Discard 3 guard before rollback: same command -> passed, score `75`
+  - Retained restore check: `conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> `75`
+- Boundary:
+  - This session establishes the first retained v6.4 structural line and two failed proposer-side explorations only.
+  - No `never_written` reduction, benchmark gain, acceptance, or closeout claim is allowed.
+
 # 2026-04-23 Session 154
 
 - Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` scaffold / launch prep

@@ -2,21 +2,53 @@
 
 ## Doing
 
+- `TD-054` `[doing]` 以 `v6.5 Facetized Observation-to-Memory Redesign` 为目标，把 clause-level observation / slot memory 升级成 facet-structured latent memory unit。
+  - 当前 workstream: `WS-040`
+  - 当前计划：[docs/v65_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v65_plan.md)
+  - 当前 verifier：[scripts/verify_stage2_v65_facetized_memory.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v65_facetized_memory.py)
+  - 核心目标：`raw turn + local context -> proposer -> facetizer / canonicalizer -> facet-aware write utility -> persistent core/residual memory -> learned reader -> learned decision -> answer`。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
+  - 新增硬边界：不允许把 facet 退化成 text-only symbolic memory；不允许 answer-time routing；不允许 raw-context retrieval 作为 authoritative path。
+  - 结构继承：v6.4 的 hybrid proposer 与 v6.3 的 persistent Core-Residual memory 主链继续作为 baseline 继承。
+  - 新增成功门槛：explicit facet schema、authoritative facetizer、facet-aware write utility、facet-level error attribution、full589 `needed_facet_missing` reduction、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
+  - 当前 baseline：fresh `scripts/verify_stage2_v65_facetized_memory.py --score-only = 43`
+
+- `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
+  - 当前 workstream: `WS-039`
+  - 当前计划：[docs/v64_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v64_plan.md)
+  - 当前 verifier：[scripts/verify_stage2_v64_observation_proposal.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v64_observation_proposal.py)
+  - 核心目标：`raw turn + local context -> rule proposer + learned proposer -> merged candidate pool -> dedup / normalization / validation -> v6.3 confidence-aware write policy -> persistent memory -> learned reader -> learned decision -> answer`。
+  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
+  - 新增硬边界：不允许回到 answer-time routing；不允许 raw-context retrieval 作为 authoritative path；不允许把 extraction-only cleanup 冒充 benchmark gain。
+  - 结构继承：v6.3 的 persistent substrate、confidence-aware write policy、learned reader 与 learned decision 主链全部继续作为 baseline 继承。
+  - 新增成功门槛：authoritative learned proposer、hybrid candidate pool、proposal recall / support recovery 正增益、full589 `never_written` reduction、dedup / normalization / validation evidence、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
+  - 当前 v6.4 baseline：fresh `scripts/verify_stage2_v64_observation_proposal.py --score-only = 47`；说明 v6.3 结构 evidence 已继承，但 learned observation proposal / extraction coverage 仍未成立。
+  - 当前 partial：current HEAD `22a1eca` 已新增 `scripts/publish_stage2_v64_observation_proposal.py` 与 `src/core_mem/v2/v64_observation_proposal.py`，把 authoritative candidate path 升级成真实 `rule + learned proposer` hybrid pool；当前 verifier `= 75`
+  - 当前 partial：`latest_stage2_v64_observation_proposal_eval.json` 记录 `proposal_recall = 0.08488964346349745 > parser_only 0.015280135823429542`，以及 dedup / normalization / validation 证据；`latest_stage2_v64_persistent_state.json` 记录 non-collapse `core=726 / residual=960 / writes=3415`
+  - 当前负结果：`latest_stage2_v64_error_attribution.json` 记录 full589 `never_written_count = 442 > parser_only 409`；`latest_stage2_v64_personamem_no_routing.json` 记录 full589 no-routing `138/589`，text-only `199/589`，option-only `235/589`
+  - 最新 discard：same-relation novelty gate + top-1 learned budget 会把 full589 no-routing 打到 `97/589` 且 `never_written = 481`
+  - 最新 discard：prompt/question filtering + relation-aware value compression 虽把 learned candidates 从 `3421` 压到 `2109`、smoke margin 收窄到 `-6`，但 full589 仍只有 `135/589` 且 `never_written = 445`
+  - 最新 discard：length-aware learned confidence calibration 只重权重了长 learned-only value，但 full589 仍回退到 `never_written = 455`、`no-routing = 130/589`
+  - 最新 discard：relation-aware fragment extraction + rule-preferred merge preservation 虽把 full589 `never_written` 改善到 `427`、no-routing 提到 `155/589`、margin vs text-only 收窄到 `-42`，但仍未低于 parser baseline `409`
+  - 最新 discard：candidate provenance metadata preservation + provenance-aware reader selection prior 未能转成 retained gain，full589 回退到 `133/589` 且 `never_written = 448`
+  - 最新 discard：provenance-aware pre-write features + write-policy heuristics 只把 full589 `never_written` 从 `442` 轻微降到 `441`、no-routing 从 `138/589` 提到 `140/589`，同时 text-only 升到 `202/589`；verifier 仍是 `75`
+  - 最新 discard：value-aware persistent slot matching 虽试图阻止同 relation 的 distinct facets 被错误 merge/overwrite，但 bank size 膨胀到 `core=1402 / residual=1866`，full589 反而回退到 `never_written = 445`、`written_but_reader_missed = 24` 与 no-routing `120/589`
+  - 最新 discard：relation-specific sibling utility competition 虽把 full589 推到 `never_written = 420`、`no-routing = 161/589`、text-only `195`，但仍未过 parser baseline `409`
+  - 最新 discard：进一步的 abstract-clause demotion 把这条 relation-specific 线推到 near-miss：`never_written = 413`、`no-routing = 171/589`、text-only `195`，但仍差最后 `4` 个 `never_written`
+  - 最新 discard：再加 `hobby` misroute demotion 会把这条 near-miss 回退到 `never_written = 423`、`no-routing = 159/589`
+  - 最新 discard：再收窄成 sibling-only abstract-clause demotion 并加 overwrite protection 后，只触发了 `4` 次 relation-competition demotion，结果回退到 `never_written = 450`、`no-routing = 130/589`、text-only `199`
+  - 最新 discard：search 后新开的 carryover-vs-update overwrite-gate family 也没形成 keep。把 blocked update 改写成 `new_residual` 时，full589 虽到 `never_written = 431`，但 bank 膨胀到 `core=420 / residual=2140`、`written_but_reader_missed = 18`；改成 `ignore` 时，最好也只到 `434 / 151 / text-only 196`；再收窄成 overwrite-only gate 则回到 `442 / 138 / text-only 200`
+  - 当前 handoff：iteration `22 pivot` 已正式放弃 carryover-vs-update overwrite-gate family；当前这是第 `3` 个 pivot 且无新 keep，run 进入 soft-blocker handoff
+  - 当前下一步：`[SOFT BLOCKER HANDOFF]` 保留 retained v6.4 line，不再继续做 local write-path gating / overwrite redirect 小修补。若要继续推进，需要更广的 redesign 或用户确认后的目标重构
+
 - `TD-052` `[doing]` 以 `v6.3 Recall-Preserving Confidence-Aware Write Policy` 为目标，把 v6.2 的 hard write filter 升级成真正的 confidence-aware memory policy。
   - 当前 workstream: `WS-038`
   - 当前计划：[docs/v63_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v63_plan.md)
   - 当前 verifier：[scripts/verify_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v63_write_policy.py)
-  - 核心目标：`turn / observation -> core-worthy / residual-worthy / weak-but-keep / drop -> non-collapsed persistent state -> learned reader -> learned decision -> answer`。
-  - 硬约束：no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage。
-  - 新增硬边界：不允许用 cleaner-but-emptier bank 冒充 gain；不允许 answer-time routing；不允许 raw-context retrieval 作为 authoritative path。
-  - 结构继承：v6.1 的 learned reader/decision 与 v6.2 的 write-quality 主链全部继续作为 baseline 继承。
-  - 新增成功门槛：confidence-aware 四分类 write policy、weak-but-keep residual buffer、support-coverage / write-recall 正增益、non-collapse state 证据、error attribution、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
-  - 当前 v6.3 baseline：fresh `scripts/verify_stage2_v63_write_policy.py --score-only = 56`；说明 v6.2 evidence 已继承，但 recall-preserving write dynamics 仍未成立。
-  - 当前 partial：current HEAD 已新增 `scripts/publish_stage2_v63_write_policy.py` 与 `src/core_mem/v2/v63_write_policy.py`，把 authoritative write path 升级成真实 four-way confidence-aware policy；当前 verifier `= 85`
-  - 当前 partial：`latest_stage2_v63_write_policy_eval.json` 记录 `support_coverage_recall = 1.0 > disabled 0.0625`、`write_recall = 1.0 > disabled 0.0769`；`latest_stage2_v63_persistent_state.json` 记录 non-collapse `core=22 / residual=476 / writes=652` 与 `weak_but_keep_residual_count = 12`
-  - 当前负结果：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `180/589`，text-only `180/589`，option-only `235/589`；当前对 text-only `0`、对 option-only `-55`
-  - 最新 discard：durable-fact core-promotion trial 虽把 bank 推到 `core=40 / residual=435`，但 full589 no-routing 掉到 `152/589`；selected-support-gloss decision-feature trial 把 retained line 打坏到 `173/589`；state-anchored support-supervision expansion 把 full589 no-routing 打到 `144/589`；scenario-aware reader-semantics trial 也只会打到 `162/589`；第一次 pivot 后的 question-conditioned belief-selector trial 也只会打到 `176/589`；query-relation-router trial 还会掉到 `163/589`；search-derived 的 relation-pooled belief-composer trial 还会掉到 `160/589`；late-interaction reader-features trial 还会掉到 `156/589`。这八条线都已回滚，不应继续沿 writer/readout 邻域、selected-slot rerank / routing、pooled-belief 或 late-interaction reader 家族推进
-  - 当前下一步：`[SOFT BLOCKER HANDOFF]` 保留当前 non-collapse write-policy line，停止继续打磨现有 question-conditioned rerank / routing、pooled-belief 组合和 late-interaction reader；第三次 pivot 已触发，下一条 hypothesis 只能来自更广的 redesign / 目标重构，而不是继续做 in-scope readout tweak。
+  - 当前 baseline：fresh `scripts/verify_stage2_v63_write_policy.py --score-only = 56`
+  - 当前 partial：authoritative four-way write policy、support-coverage gain、non-collapse `core=22 / residual=476 / writes=652`、full589 error attribution artifact 均已成立；当前 verifier `= 85`
+  - 当前负结果：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `180/589`，text-only `180/589`，option-only `235/589`
+  - 当前 handoff：durable core-promotion、selected-support-gloss decision feature、state-anchored support supervision、scenario-aware reader semantics、question-conditioned belief selector、query relation router、relation-pooled belief composer、late-interaction reader features 八条线都已回滚；当前作为 blocked baseline / handoff truth 保留
 
 - `TD-051` `[doing]` 以 `v6.2 Learned Write-Worthiness / Attribute-Validity Before Extraction` 为目标，把 v6.1 的 persistent + learned reader/decision 主链升级成真正由 learned write-quality 控制输入质量的 memory system。
   - 当前 workstream: `WS-037`

@@ -157,6 +157,27 @@
 - 再继续强化 `Core-Residual` substrate、latent read/write dynamics 与 latent-first inference；
 - 避免一次性同时把 extraction、write、read、belief、decision 都当作独立主贡献推进，导致研究重心分散。
 
+### 当前 `v6.5` 执行锚点
+
+当前 active 主线已经进一步前推到 **`TD-054 / WS-040 / v6.5 facetized observation-to-memory redesign`**，核心约束是：
+
+- `Core-Residual latent memory` 仍然是主贡献中心
+- `v6.4` 的 learned proposer / hybrid candidate pool 继续作为上游输入继承
+- 当前不再把 clause-level observation 直接当成最终 memory unit
+- 允许把 memory unit redesign 成 `facet-structured latent memory`
+- 不允许把 `facet` 退化成 text-only symbolic memory
+- 不允许 PersonaMem gold answer 进入 facetizer / writer / substrate
+- 不允许 benchmark-specific facet rules被写成主 gain
+
+当前 `v6.5` 的直接工作内容是：
+
+- explicit facet schema
+- authoritative facetizer / canonicalizer
+- facet-aware write utility
+- facet-level error attribution
+- full589 `needed_facet_missing` reduction
+- 与现有 v6.4 proposer / v6.3 write policy / persistent state 主链无缝衔接
+
 ### 当前 `v6.4` 执行锚点
 
 当前 active 主线前推到 **`TD-053 / WS-039 / v6.4 learned observation proposal / extraction coverage`**，核心约束是：

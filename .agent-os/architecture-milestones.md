@@ -14,6 +14,7 @@
 - `WS-032`: Stage-2 `v5 Core-Residual Latent Substrate` 顶会级 latent memory 路线
 - `WS-033`: Stage-2 `v5.1 Real Pretrained Training`，把 v5 scaffold 前推成真实 pretrained backbone + real data + real checkpoint + held-out eval 的 scientific result 路线（本轮 managed stop 已达成）
 - `WS-039`: Stage-2 `v6.4 Learned Observation Proposal / Extraction Coverage`，用现有强方案解除 parser-coverage bottleneck，为 `Core-Residual latent memory` 主线清障
+- `WS-040`: Stage-2 `v6.5 Facetized Observation-to-Memory Redesign`，把 clause-level observation / slot 改成 facet-structured memory unit，为真正的 latent-first Core-Residual memory 铺路
 
 ## Current Architecture Route
 
@@ -49,6 +50,7 @@
   - `latent memory representation / latent dynamics` 是核心研究对象
   - `observation extraction / proposal` 当前首先是上游 bottleneck-removal 模块
   - 在满足无泄漏、无 shortcut 约束下，允许 observation extraction 优先借鉴现有强方案；它当前不要求成为并列主贡献
+  - 当 clause-level observation / slot 成为 support bottleneck 时，允许把 memory unit redesign 成 facet-structured latent memory；这仍从属于 `Core-Residual latent memory` 主线，而不是新的并列论文主题
 
 ### Stage-2 V5 路线
 
