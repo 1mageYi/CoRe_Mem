@@ -133,6 +133,18 @@ def _token_overlap(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
+def _option_body_text(option: str) -> str:
+    return re.sub(r"^\s*\([a-z]\)\s*", "", option.strip(), flags=re.IGNORECASE)
+
+
+def _option_conditioned_query(query: str, option: str, *, limit: int = 24) -> str:
+    option_tokens = [token for token in _tokenize(_option_body_text(option)) if token not in _STOPWORDS]
+    if limit > 0:
+        option_tokens = option_tokens[:limit]
+    option_hint = " ".join(option_tokens) if option_tokens else _option_body_text(option)
+    return f"{query} {option_hint}".strip()
+
+
 def _mean_vector(vectors: Iterable[list[float]]) -> list[float]:
     rows = [row for row in vectors if row]
     if not rows:
@@ -498,7 +510,7 @@ def _read_with_model(
     }
 
 
-def _option_features(readout: dict[str, Any], query: str, option: str) -> list[float]:
+def _single_readout_option_features(readout: dict[str, Any], query: str, option: str) -> list[float]:
     query_key = readout.get("query_key") or []
     composed = readout.get("composed_key") or []
     if not composed:
@@ -538,6 +550,27 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         selected_preference_ratio,
         selected_temporal_ratio,
     ]
+
+
+def _option_features(
+    readout: dict[str, Any],
+    query: str,
+    option: str,
+    *,
+    conditioned_readout: dict[str, Any] | None = None,
+    conditioned_query: str | None = None,
+) -> list[float]:
+    base_features = _single_readout_option_features(readout, query, option)
+    if conditioned_readout is None:
+        return base_features
+    conditioned_features = _single_readout_option_features(
+        conditioned_readout,
+        conditioned_query or query,
+        option,
+    )
+    if not conditioned_features:
+        return base_features
+    return [*base_features, *conditioned_features]
 
 
 def _select_hard_negatives(observation: Observation, pool: list[Observation]) -> list[Observation]:
@@ -594,7 +627,19 @@ def train_decision_head(
         options = [observation_option_statement(observation), *[observation_option_statement(negative) for negative in negatives[:3]]]
         for query in _synthetic_queries_for_observation(observation):
             readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
-            features = [_option_features(readout, query, option) for option in options]
+            features = []
+            for option in options:
+                conditioned_query = _option_conditioned_query(query, option)
+                conditioned_readout = _read_with_model(conditioned_query, slots=slots, reader=reader, top_k=6)
+                features.append(
+                    _option_features(
+                        readout,
+                        query,
+                        option,
+                        conditioned_readout=conditioned_readout,
+                        conditioned_query=conditioned_query,
+                    )
+                )
             if any(not feature for feature in features):
                 continue
             option_groups.append(features)
@@ -643,10 +688,28 @@ def score_options_with_head(
     query: str,
     options: list[str],
     head: V61DecisionHead,
+    *,
+    slots: list[SlotRecord] | None = None,
+    reader: V6ReaderReadout | None = None,
 ) -> tuple[int, list[float]]:
     if not options:
         return 0, []
-    features = [_option_features(readout, query, option) for option in options]
+    features: list[list[float]] = []
+    for option in options:
+        conditioned_readout = None
+        conditioned_query = None
+        if slots and reader is not None:
+            conditioned_query = _option_conditioned_query(query, option)
+            conditioned_readout = _read_with_model(conditioned_query, slots=slots, reader=reader, top_k=8)
+        features.append(
+            _option_features(
+                readout,
+                query,
+                option,
+                conditioned_readout=conditioned_readout,
+                conditioned_query=conditioned_query,
+            )
+        )
     if not features or not features[0]:
         return 0, [0.0 for _ in options]
     tensor = torch.tensor(features, dtype=torch.float32)
@@ -706,7 +769,7 @@ def evaluate_internal_v61(
             continue
         options = [observation_option_statement(observation), *[observation_option_statement(negative) for negative in negatives[:3]]]
         readout = _read_with_model(query, slots=slots, reader=reader, top_k=6)
-        pred_idx, _ = score_options_with_head(readout, query, options, decision_head)
+        pred_idx, _ = score_options_with_head(readout, query, options, decision_head, slots=slots, reader=reader)
         full_hits += int(pred_idx == 0)
         belief_items = readout.get("belief_items", [])
         if belief_items:
@@ -732,7 +795,14 @@ def evaluate_internal_v61(
             if not split_slots:
                 continue
             split_readout = _read_with_model(query, slots=split_slots, reader=reader, top_k=6)
-            split_pred_idx, _ = score_options_with_head(split_readout, query, options, decision_head)
+            split_pred_idx, _ = score_options_with_head(
+                split_readout,
+                query,
+                options,
+                decision_head,
+                slots=split_slots,
+                reader=reader,
+            )
             best_split = max(best_split, int(split_pred_idx == 0))
         core_residual_disabled_hits += best_split
     denom = max(len(eval_observations), 1)

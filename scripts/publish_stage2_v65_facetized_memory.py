@@ -175,7 +175,14 @@ def _evaluate_personamem(
         readout = {"query_key": [], "selected": [], "composed_key": [], "belief_items": []}
         if slots:
             readout = _read_with_model(question, slots=slots, reader=reader, top_k=8)
-        pred_idx, option_scores = score_options_with_head(readout, question, options, decision_head)
+        pred_idx, option_scores = score_options_with_head(
+            readout,
+            question,
+            options,
+            decision_head,
+            slots=slots,
+            reader=reader,
+        )
         text_idx = _text_only_prediction(question, options, slots)
         option_idx = max(range(len(options)), key=lambda idx: _token_overlap(question, options[idx])) if options else 0
         prediction = labels[pred_idx] if labels else ""
