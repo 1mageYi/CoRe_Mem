@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core_mem.v2.schemas import Observation
+from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
+from core_mem.v2.v61_learned_memory import _facet_bucket_features, _synthetic_queries_for_observation
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
 
@@ -12,6 +13,30 @@ from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_mem
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _slot(
+    slot_id: str,
+    gloss: str,
+    *,
+    relation: str = "reason_fact",
+) -> SlotRecord:
+    return SlotRecord(
+        slot_id=slot_id,
+        bank="residual",
+        entity="user",
+        relation=relation,
+        retrieval_key=[0.0, 0.0, 0.0, 0.0],
+        latent_tokens=[[0.0, 0.0, 0.0, 0.0]],
+        soft_role_scores=SoftRoleScores(preference=0.8 if "preference" in relation else 0.1, social=0.8 if relation == "social_fact" else 0.0),
+        confidence=0.8,
+        first_seen_ts="turn-1",
+        last_update_ts="turn-1",
+        revision_count=0,
+        active_flag=True,
+        revision_parent=None,
+        canonical_gloss=gloss,
+    )
 
 
 def test_v65_plan_only_is_low_score(tmp_path: Path) -> None:
@@ -422,3 +447,49 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
 
     active = [slot for slot in memory.residual_bank if slot.active_flag]
     assert len(active) == 2
+
+
+def test_v65_synthetic_queries_expand_to_recommendation_and_evolution_styles() -> None:
+    observation = Observation(
+        obs_id="obs_pref_templates",
+        source_dataset="demo",
+        source_dialogue_id="dlg",
+        source_turn_id="7",
+        session_id="dlg",
+        speaker="user",
+        entity="user",
+        relation="music_preference",
+        value="quiet, reflective music-making feels more natural",
+        value_type="preference",
+        time_scope="recent_change",
+        status_hint="active",
+        polarity="positive",
+        confidence=0.8,
+        evidence_text="Quiet, reflective music-making feels more natural to me now.",
+        canonical_gloss="music_preference=quiet reflective music-making feels more natural",
+        metadata={},
+    )
+
+    queries = set(_synthetic_queries_for_observation(observation))
+
+    assert "How has the user's preference changed over time?" in queries
+    assert "Which recommendation best aligns with the user's preference?" in queries
+    assert "What new idea would fit the user's preference?" in queries
+
+
+def test_v65_facet_bucket_features_capture_reason_and_preference_mix() -> None:
+    readout = {
+        "selected": [
+            {"score": 0.9, "slot": _slot("pref-1", "preference_target=quiet reflective libraries", relation="music_preference")},
+            {"score": 0.8, "slot": _slot("reason-1", "update_reason=too pressured by deadlines")},
+            {"score": 0.7, "slot": _slot("social-1", "social_feedback=mentor encouraged deeper exploration", relation="social_fact")},
+        ]
+    }
+
+    features = _facet_bucket_features(readout, "A quiet library recommendation with reflective space")
+
+    assert len(features) == 10
+    assert features[0] > 0.0
+    assert features[1] > 0.0
+    assert features[3] > 0.0
+    assert features[5] > 0.0

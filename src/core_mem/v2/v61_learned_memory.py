@@ -80,6 +80,11 @@ _SOCIAL_QUERY_TERMS = {"community", "dating", "family", "friend", "friends", "gr
 _CONSTRAINT_QUERY_TERMS = {"avoid", "cannot", "can't", "constraint", "limit", "must", "restrict", "restriction"}
 _GOAL_QUERY_TERMS = {"aim", "goal", "goals", "plan", "planning", "trying", "want", "wants", "working"}
 _PROFILE_QUERY_TERMS = {"kind", "person", "personality", "style", "tendency", "trait", "traits"}
+_DECISION_RECALL_TERMS = {"fact", "facts", "mentioned", "recall", "remember", "shared"}
+_DECISION_RECOMMEND_TERMS = {"idea", "ideas", "recommend", "recommendation", "suggest", "suggestion"}
+_DECISION_REASON_TERMS = {"because", "reason", "reasons", "why"}
+_DECISION_EVOLUTION_TERMS = {"change", "changed", "evolution", "evolve", "previous", "recent", "timeline"}
+_DECISION_SCENARIO_TERMS = {"align", "aligned", "fit", "scenario", "situations"}
 _LOW_INFORMATION_VALUE_TERMS = {
     "about",
     "again",
@@ -188,6 +193,48 @@ def _reader_pair_features(query: str, query_key: list[float], slot: SlotRecord) 
         query_semantics[6] * float(slot.relation == "profile_trait"),
         query_semantics[7] * slot.soft_role_scores.stable,
     ]
+
+
+def _slot_facet_bucket(slot: SlotRecord) -> str:
+    gloss_prefix = slot.canonical_gloss.split("=", 1)[0].strip().lower()
+    if gloss_prefix in {"preference_target", "preference_mode"}:
+        return "preference"
+    if gloss_prefix == "update_reason" or slot.relation == "reason_fact":
+        return "reason"
+    if gloss_prefix in {"environment_aversion", "environment_preference"} or slot.relation == "environment_fact":
+        return "environment"
+    if gloss_prefix == "social_feedback" or slot.relation == "social_fact":
+        return "social"
+    if gloss_prefix == "temporal_state" or slot.relation == "temporal_fact":
+        return "temporal"
+    return "generic"
+
+
+def _decision_query_features(query: str) -> list[float]:
+    tokens = set(_tokenize(query))
+    return [
+        float(bool(tokens & _DECISION_RECALL_TERMS)),
+        float(bool(tokens & _DECISION_RECOMMEND_TERMS)),
+        float(bool(tokens & _DECISION_REASON_TERMS)),
+        float(bool(tokens & _DECISION_EVOLUTION_TERMS)),
+        float(bool(tokens & _DECISION_SCENARIO_TERMS)),
+    ]
+
+
+def _facet_bucket_features(readout: dict[str, Any], option: str) -> list[float]:
+    selected_slots = [item["slot"] for item in readout.get("selected", [])[:5] if isinstance(item.get("slot"), SlotRecord)]
+    if not selected_slots:
+        return [0.0] * 10
+    bucket_names = ("preference", "reason", "environment", "social", "temporal")
+    bucket_counts = Counter(_slot_facet_bucket(slot) for slot in selected_slots)
+    ratios = [bucket_counts[bucket] / len(selected_slots) for bucket in bucket_names]
+    overlap_maxes = []
+    for bucket in bucket_names:
+        bucket_slots = [slot for slot in selected_slots if _slot_facet_bucket(slot) == bucket]
+        overlap_maxes.append(
+            max((_token_overlap(option, slot.canonical_gloss) for slot in bucket_slots), default=0.0)
+        )
+    return [*ratios, *overlap_maxes]
     return [
         *query_key,
         *slot_key,
@@ -339,11 +386,17 @@ def _synthetic_queries_for_observation(observation: Observation) -> list[str]:
     if observation.relation.endswith("preference") or observation.relation == "hobby":
         queries.add(f"Which {relation_text} best matches the user?")
         queries.add("What would the user most likely prefer right now?")
+        queries.add("Which preference fact did the user explicitly share?")
+        queries.add("How has the user's preference changed over time?")
+        queries.add("Which recommendation best aligns with the user's preference?")
+        queries.add("What new idea would fit the user's preference?")
     elif observation.relation == "reason_fact":
         queries.add("Why did the user's situation change?")
         queries.add("Which reason best explains the user's recent update?")
+        queries.add("What reason did the user mention for the change?")
     elif observation.relation in {"temporal_fact", "environment_fact", "social_fact"}:
         queries.add(f"What recent {relation_text} detail best fits the user?")
+        queries.add("Which fact did the user explicitly share about this situation?")
     elif observation.relation == "profile_trait":
         queries.add("What kind of tendency best describes the user?")
     else:
@@ -521,6 +574,8 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
     selected_temporal_ratio = (
         sum(slot.soft_role_scores.temporal for slot in selected_slots) / len(selected_slots) if selected_slots else 0.0
     )
+    decision_query_features = _decision_query_features(query)
+    facet_bucket_features = _facet_bucket_features(readout, option)
     return [
         *query_key,
         *composed,
@@ -537,6 +592,8 @@ def _option_features(readout: dict[str, Any], query: str, option: str) -> list[f
         selected_core_ratio,
         selected_preference_ratio,
         selected_temporal_ratio,
+        *decision_query_features,
+        *facet_bucket_features,
     ]
 
 
