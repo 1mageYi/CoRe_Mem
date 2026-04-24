@@ -1,5 +1,23 @@
 # Run Log
 
+# 2026-04-23 Session 154
+
+- Worked on: `TD-053 / WS-039 / v6.4 Learned Observation Proposal / Extraction Coverage` scaffold / launch prep
+- State changed:
+  - Added the `v6.4` plan, verifier, and tests to force the next managed run to optimize learned observation proposal coverage rather than more parser / write-policy / readout micro-tweaks
+  - Repointed active status docs from `TD-052 / WS-038 / v6.3` to `TD-053 / WS-039 / v6.4`
+  - Preserved `v6.3` as the blocked baseline / handoff truth: retained verifier `85`, PersonaMem full589 no-routing `180/589` vs text-only `180/589` vs option-only `235/589`, and dominant failure bucket `never_written = 409`
+- Evidence:
+  - `docs/v64_plan.md`
+  - `scripts/verify_stage2_v64_observation_proposal.py`
+  - `tests/test_stage2_v64_observation_proposal.py`
+- Verification:
+  - `git diff --check`
+  - `conda run -n core_mem python scripts/verify_stage2_v64_observation_proposal.py --score-only` -> `47`
+  - `conda run -n core_mem pytest -q tests/test_stage2_v64_observation_proposal.py`
+- Boundary:
+  - This session establishes the next long-run gate and handoff only. It does not claim a new benchmark gain.
+
 # 2026-04-23 Session 153
 
 - Worked on: `TD-052 / WS-038 / v6.3 Recall-Preserving Confidence-Aware Write Policy` late-interaction reader-feature discard and third-pivot soft-blocker handoff

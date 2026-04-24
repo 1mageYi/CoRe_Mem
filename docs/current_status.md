@@ -1,5 +1,21 @@
 # Current Status
 
+## 当前最新状态：v6.4 learned observation proposal / extraction coverage 已成为新主线
+
+- `TD-053 / WS-039 / v6.4` 已锁定为下一轮 long run 主线：目标不是把 observation extraction 扩成新的并列论文主贡献，而是用现有强方案解除当前最硬的上游 bottleneck，让 `Core-Residual latent memory` 主线继续推进。
+- v6.4 新计划：[docs/v64_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v64_plan.md)
+- v6.4 新 verifier：[scripts/verify_stage2_v64_observation_proposal.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v64_observation_proposal.py)
+- v6.4 继承 v6.3 已成立的结构事实：persistent `core_bank` / `residual_bank`、state checkpoint、write trace、confidence-aware write policy、authoritative learned reader、authoritative learned decision、raw-context retrieval disabled、answer-time routing disabled 与 no-gold substrate proof。
+- v6.4 hard gate 明确要求：authoritative candidate path 必须从 `rule parser only` 升级到 `rule proposer + learned proposer` hybrid candidate pool；必须新增 proposal recall / support recovery 证据、full589 `never_written` reduction 证据与 dedup / normalization / validation 证据；不得回到 answer-time routing、raw-context retrieval 或 benchmark-specific extraction trick。
+- 当前研究收敛已写入真源：`Core-Residual persistent latent memory` 与对应 latent dynamics 是主贡献；`observation extraction / proposal` 当前首先是 bottleneck-removal 模块，因此允许优先借鉴现有强方案，只要继续满足 no-gold / no-shortcut 约束。
+
+## 当前新增研究收敛：主贡献必须收紧到 Core-Residual latent memory，本轮不再把 observation extraction 当成并列原创主线
+
+- 用户已明确确认：当前论文级主贡献必须收紧为 `Core-Residual persistent latent memory substrate` 及其对应的 latent memory 主链，而不是同时把过多上游子模块都当成并列贡献。
+- 因此，`observation extraction / proposal` 当前被重新定位为 **优先解除的上游 bottleneck**，不是本轮必须独立冲原创 claim 的主线。
+- 当前执行要求已同步到真源：只要满足 `no gold leakage / no benchmark-specific shortcut / no answer-time fallback`，允许优先借鉴、适配现有强 extraction / IE / teacher-assisted proposal 方案，先把 observation coverage 问题解决，再继续冲 latent 主贡献。
+- 这条收敛是对当前 v6.1 / v6.2 / v6.3 连续 blocked truth 的直接响应：当前最硬的上游缺口不是 reader 或 decision，而是大量 benchmark-required information 根本没有进入 memory。
+
 ## 当前最新状态：v6.3 recall-preserving confidence-aware write policy 已成为新主线
 
 - `TD-052 / WS-038 / v6.3` 已锁定为下一轮 long run 主线：目标不是继续让 bank 更干净，而是把 write-quality 升级成 recall-preserving 的 confidence-aware memory policy，让 memory state 更接近真正的 learned memory dynamics。
@@ -10,6 +26,7 @@
 - 当前 retained keep 已发布 [scripts/publish_stage2_v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/publish_stage2_v63_write_policy.py) 与 [src/core_mem/v2/v63_write_policy.py](/media/storage/mingjing/workspace/CoRe_Mem/src/core_mem/v2/v63_write_policy.py)，并把 `scripts/verify_stage2_v63_write_policy.py --score-only` 从 fresh baseline `56` 推到 `85`。
 - 当前已成立的 v6.3 结构证据：`latest_stage2_v63_write_policy_eval.json` 记录 authoritative four-way policy、`support_coverage_recall = 1.0 > disabled 0.0625`、`write_recall = 1.0 > disabled 0.0769`；`latest_stage2_v63_persistent_state.json` 记录 non-collapse `core_bank=22 / residual_bank=476 / writes=652` 与 `weak_but_keep_residual_count = 12`；`latest_stage2_v63_error_attribution.json` 已发布 full589 failure attribution artifact。
 - 当前最新 benchmark truth：`latest_stage2_v63_personamem_no_routing.json` 记录 full589 no-routing `180/589`，text-only `180/589`，option-only `235/589`；`latest_stage2_v63_decision.json` 记录 `negative_result`。因此 v6.3 当前仍只能写成 partial keep，不能写成 success claim。
+- 当前最新研究判断：`v6.3` 已足够证明 “继续在 write-policy / read-path tweak 家族里局部试错” 不是高性价比方向；下一步若继续推进，应切到 **learned observation proposal / extraction coverage**，并优先使用成熟强方案解除上游瓶颈，而不是把 parser/extraction 本身继续扩成新的并列原创主题。
 - 最新 discard truth：把 durable fact 更积极地升入 `core` 的试验会把 state 推到 `core=40 / residual=435`，但 full589 no-routing 反而掉到 `152/589`；把 `selected_slot_glosses` overlap 直接追加进 learned decision head feature，会把 retained line 打坏到 `173/589`；把 state-anchored raw candidate 扩进 reader/decision supervision，会把 full589 no-routing 打到 `144/589`；把 scenario-aware reader semantics 接进 reader 训练，会把 full589 no-routing 打到 `162/589`；第一次 pivot 后的 question-conditioned belief selector 也只会到 `176/589`；query relation router 会掉到 `163/589`；search-derived 的 relation-pooled belief composer 会掉到 `160/589`；late-interaction reader features 还会掉到 `156/589`。这说明当前下一步既不能继续在 writer/readout 邻域做局部微调，也不能继续在现有 selected-slot rerank / routing、pooled-belief 组合或 late-interaction reader 家族里打转。
 - 新 long-run 的下一步已经进入第三次 `[PIVOT]` 后的 soft blocker handoff：保留当前 non-collapse write-policy line，不再回到 tiny clean bank；当前 run 不再继续消费 autonomous trial budget，直到有人明确给出更广的 redesign / 目标重构，而不是继续沿现有 read-path tweak 家族盲试。
 

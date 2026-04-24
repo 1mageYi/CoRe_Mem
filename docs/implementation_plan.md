@@ -139,6 +139,43 @@
 4. 本地 intrinsic evaluation 完整，减少盲目烧 benchmark API
 5. benchmark 仍作为 evaluation source，而不是 primary training source
 
+### 第二阶段当前研究重心收敛
+
+当前新增硬约束如下：
+
+1. 论文级主贡献优先收敛到 `Core-Residual latent memory` 主线。
+2. `observation extraction / proposal` 当前视为上游瓶颈清除项，而不是必须同步追求的并列原创贡献。
+3. 为解除该 bottleneck，允许优先采用现有强方案、成熟 pretrained / IE / extraction / proposal 技术或 teacher-assisted 方案，只要满足：
+   - 不使用 PersonaMem gold answer 进入 substrate
+   - 不引入 benchmark-specific shortcut
+   - 不回到 answer-time fallback
+4. 在上游 coverage 仍明显不足时，不再继续把研究资源主要投入到 parser 规则微调、局部 readout tweak 或小型结构修补上。
+
+因此，接下来的执行顺序必须是：
+
+- 先解除 observation coverage bottleneck；
+- 再继续强化 `Core-Residual` substrate、latent read/write dynamics 与 latent-first inference；
+- 避免一次性同时把 extraction、write、read、belief、decision 都当作独立主贡献推进，导致研究重心分散。
+
+### 当前 `v6.4` 执行锚点
+
+当前 active 主线前推到 **`TD-053 / WS-039 / v6.4 learned observation proposal / extraction coverage`**，核心约束是：
+
+- `Core-Residual latent memory` 仍然是主贡献中心
+- `observation extraction / proposal` 当前只作为 bottleneck-removal 模块推进
+- 允许优先采用现有强方案、预训练 extraction / IE / teacher-assisted proposal 方法
+- 不允许 PersonaMem gold answer 进入 proposer / validator / writer / substrate
+- 不允许 benchmark-specific extraction trick 被写成主 gain
+
+当前 `v6.4` 的直接工作内容是：
+
+- learned observation proposer
+- rule + learned hybrid candidate pool
+- proposal recall / support recovery artifact
+- full589 `never_written` reduction
+- dedup / normalization / validation
+- 与现有 v6.3 write policy / persistent state 主链无缝衔接
+
 ### 当前 `v2.9` 执行锚点
 
 当前 active 主线已经前推到 **`TD-040` / `WS-026` / `v2.9 learned-core-path long-run`**，核心约束是：

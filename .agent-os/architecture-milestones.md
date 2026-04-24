@@ -13,6 +13,7 @@
 - `WS-009`: Stage-2 本地 intrinsic evaluation 与 canary 协议
 - `WS-032`: Stage-2 `v5 Core-Residual Latent Substrate` 顶会级 latent memory 路线
 - `WS-033`: Stage-2 `v5.1 Real Pretrained Training`，把 v5 scaffold 前推成真实 pretrained backbone + real data + real checkpoint + held-out eval 的 scientific result 路线（本轮 managed stop 已达成）
+- `WS-039`: Stage-2 `v6.4 Learned Observation Proposal / Extraction Coverage`，用现有强方案解除 parser-coverage bottleneck，为 `Core-Residual latent memory` 主线清障
 
 ## Current Architecture Route
 
@@ -43,6 +44,11 @@
 - 训练数据策略为 `public-datasets-first, synthetic-minimal`
 - benchmark 保持 evaluation source 地位，不作为 primary training source
 - 第二阶段输出统一沉淀到 `outputs_v2/`
+- 当前新增架构优先级约束：
+  - `Core + Residual` persistent latent memory 是架构主贡献中心
+  - `latent memory representation / latent dynamics` 是核心研究对象
+  - `observation extraction / proposal` 当前首先是上游 bottleneck-removal 模块
+  - 在满足无泄漏、无 shortcut 约束下，允许 observation extraction 优先借鉴现有强方案；它当前不要求成为并列主贡献
 
 ### Stage-2 V5 路线
 

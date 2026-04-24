@@ -2,6 +2,16 @@
 
 ## Doing
 
+- `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
+  - Current workstream: `WS-039`
+  - Plan: [docs/v64_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v64_plan.md)
+  - Verifier: [scripts/verify_stage2_v64_observation_proposal.py](/media/storage/mingjing/workspace/CoRe_Mem/scripts/verify_stage2_v64_observation_proposal.py)
+  - Required structure: keep the v6.3 persistent substrate, confidence-aware write policy, learned reader, and learned decision path, but replace `rule parser only` with `rule proposer + learned proposer` in the authoritative candidate path.
+  - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
+  - New required evidence: learned observation proposer in authoritative candidate path, hybrid candidate pool, positive proposal recall / support recovery over parser-only, full589 `never_written` reduction, dedup / normalization / validation evidence, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
+  - Current baseline: `scripts/verify_stage2_v64_observation_proposal.py --score-only = 47`
+  - Current top next action: scaffold verifier baseline, then launch background managed run with fresh-start archival of current v6.3 runtime artifacts.
+
 - `TD-052` `[doing]` 以 `v6.3 Recall-Preserving Confidence-Aware Write Policy` 为目标，把 v6.2 的 hard write filter 升级成真正的 confidence-aware memory policy。
   - Current workstream: `WS-038`
   - Plan: [docs/v63_plan.md](/media/storage/mingjing/workspace/CoRe_Mem/docs/v63_plan.md)

@@ -117,6 +117,33 @@
 5. belief-state recovery
 6. local-first evaluation protocol
 
+### 2.2.2 第二阶段贡献优先级约束
+
+第二阶段必须明确区分：
+
+1. **主贡献**
+2. **为消除瓶颈而引入的上游能力**
+3. **纯工程性支撑**
+
+当前经用户确认的主贡献优先级如下：
+
+1. `Core + Residual` persistent memory substrate 是第一主贡献。
+2. 与该 substrate 对应的 `latent memory representation / latent dynamics` 是同一主线上的核心贡献。
+3. `learned write / read / belief` 只有在直接服务于上述 latent memory 主线时，才允许进入论文主 claim。
+
+当前经用户确认的非主贡献但允许采用的策略如下：
+
+1. `observation extraction / proposal` 当前首先被视为 **已知上游瓶颈**，其首要目标是解除系统上限，而不是作为本轮原创方法主线。
+2. 为解决该 bottleneck，允许优先借鉴、复用、适配现有强方案，包括 pretrained encoder、现有 extraction / span / IE 风格方法、teacher-assisted proposal 方案或其他成熟范式。
+3. 只要满足项目现有硬约束（无 gold leakage、无 benchmark-specific shortcut、无 answer-time fallback），`observation extraction` 不要求在本轮优先追求完全原创。
+4. 除非后续出现独立、强且可复现的科学增益证据，否则不得把 `observation extraction` 线上的局部创新写成论文主贡献，避免研究重心发散。
+
+因此，第二阶段当前的执行原则必须是：
+
+- 先用可信的现有强方案尽快打通 `observation extraction / proposal` bottleneck；
+- 以此支撑真正的 `Core-Residual latent memory` 主线；
+- 再判断哪些上游模块值得升级为独立 contribution，而不是在 bottleneck 尚未解除前同时追求过多原创点。
+
 ### 2.2.1 第二阶段当前执行优先级
 
 在继续扩大 benchmark 运行之前，第二阶段当前执行优先级必须先放在 **把真正的 latent memory 主链路做实**。
@@ -208,9 +235,11 @@ Observation 是从原始对话中抽出来的 memory-bearing unit。
 - `evidence_text` 只用于离线审计，不作为 answer-time 主 memory 载体。
 - `canonical_gloss` 只用于解释、错误分析和人工检查，不等于原始文本。
 - `value_type` 是训练与分析时的弱标签，不是封闭 ontology。
-- Observation parser 采用 **混合策略**：
-  - `rule-first`
-  - `model-second`
+- Observation parser / proposer 采用 **混合策略**：
+  - 允许 `rule-first + model-second`
+  - 允许 `model-first + rule/validator-second`
+  - 当前优先级是尽快解除 observation coverage bottleneck，而不是坚持 rule-first 作为研究目标
+  - 最终要求是：主 memory 主线不被 parser coverage 卡死
 
 ### 4.2 Slot Record v1
 
