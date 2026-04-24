@@ -10,19 +10,21 @@
     - `latest_stage2_v65_persistent_state.json` 记录 persistent `core_bank_size = 647`、`residual_bank_size = 1675`、`stream_observations_written = 3492`、checkpoint 与 write trace
     - `latest_stage2_v65_internal_eval.json` 记录 `facet_aware_write_utility_used = true`，raw-context retrieval disabled 继续成立
     - `latest_stage2_v65_personamem_no_routing.json` 记录 answer-time routing disabled、PersonaMem gold 未用于 facetizer 或 substrate
+    - `research-results.tsv` iteration `2 discard` 已记录 cue-anchored phrase retention trial：局部把 `needed_facet_missing` 改善到 `448`、把 PersonaMem full589 no-routing 改善到 `138/589`，但 verifier 仍停在 `85`，因此该 trial 未进入 retained state
   - Negative result:
-    - `needed_facet_missing_count = 465 > parser_only 409`
+    - `needed_facet_missing_count = 464 > parser_only 409`
     - `wrong_sibling_facet_selected_count = 0`
     - `facet_written_but_reader_missed_count = 2`
-    - PersonaMem full589 no-routing `122/589`
+    - PersonaMem full589 no-routing `123/589`
     - text-only `218/589`
     - option-only `235/589`
-    - margin vs text-only `-96`
-    - margin vs option-only `-113`
+    - margin vs text-only `-95`
+    - margin vs option-only `-112`
   - Boundary:
     - 这一轮只证明 v6.5 的 explicit facet schema、authoritative facetizer、facet-aware write utility 与 facet-level attribution 已经进入真实 memory path。
+    - latest discard 还说明：短语级去重/保留可以改善局部 failure bucket，但还不足以跨过 verifier 的 retained gate。
     - 当前不能声明 `needed_facet_missing` reduction、benchmark gain、acceptance met 或 closeout。
-    - 下一步必须直接修 facet canonicalization / value retention，而不是把当前 partial 写成成功。
+    - 下一步必须直接修 facet-level support retention / value selection，而不是把当前 partial 或 latest discard 写成成功。
 
 ## Stage 2 V6.4 Learned Observation Proposal Evidence
 

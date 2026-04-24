@@ -1,5 +1,28 @@
 # Run Log
 
+# 2026-04-24 Session 166
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` cue-anchored facet canonicalization trial, helper logging, rollback, retained republish, and doc sync
+- State changed:
+  - Trial commit `49af9a1` added cue-anchored phrase retention and low-information dedup to `src/core_mem/v2/v65_facetized_memory.py`, plus a focused regression test for reason-facet phrase preservation
+  - Full-context trial publish improved local v6.5 buckets to `needed_facet_missing = 448` and PersonaMem full589 no-routing `138/589`, but `scripts/verify_stage2_v65_facetized_memory.py --score-only` still stayed at `85`
+  - Helper recorded this as iteration `2 discard`, because the trial did not improve the retained metric even though several facet-local metrics improved
+  - Rolled back the trial with `git revert --no-edit`, re-published retained `latest_stage2_v65_*` artifacts, and restored the current runtime truth to retained partial `needed_facet_missing = 464`, PersonaMem no-routing `123/589`, score `85`
+- Evidence:
+  - `research-results.tsv` iteration `2 discard`
+  - `autoresearch-state.json` iteration `2`, `last_status = discard`, retained metric `85`
+  - `outputs_v2/artifacts/20260424T181805Z_latest_stage2_v65_{facetized_memory_eval,personamem_no_routing,error_attribution,decision}.json`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - Trial publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Trial verifier: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`
+  - Trial guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+  - Retained restore publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Retained restore verifier/guard: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records one discarded canonicalization trial and a retained restore only.
+  - No `needed_facet_missing` reduction, benchmark gain, or closeout claim is allowed from this iteration.
+
 # 2026-04-24 Session 165
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` first retained partial implementation, full-context artifact publish, and state-doc sync
