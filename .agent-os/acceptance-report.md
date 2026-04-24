@@ -1,5 +1,29 @@
 # Acceptance Report
 
+## Stage 2 V6.5 Facetized Observation-to-Memory Evidence
+
+- `EV-V65-001` -> `TD-054 / WS-040` facetized observation-to-memory redesign
+  - Status: partial / negative_result
+  - Evidence:
+    - `scripts/verify_stage2_v65_facetized_memory.py --score-only` 当前返回 `85`
+    - `latest_stage2_v65_facetized_memory_eval.json` 记录 full-context `37` shared contexts 下 authoritative facetizer、`8` 类 facet schema、`facet_candidate_count = 4980` 与 `facet_rerouted_actions = 815`
+    - `latest_stage2_v65_persistent_state.json` 记录 persistent `core_bank_size = 647`、`residual_bank_size = 1675`、`stream_observations_written = 3492`、checkpoint 与 write trace
+    - `latest_stage2_v65_internal_eval.json` 记录 `facet_aware_write_utility_used = true`，raw-context retrieval disabled 继续成立
+    - `latest_stage2_v65_personamem_no_routing.json` 记录 answer-time routing disabled、PersonaMem gold 未用于 facetizer 或 substrate
+  - Negative result:
+    - `needed_facet_missing_count = 465 > parser_only 409`
+    - `wrong_sibling_facet_selected_count = 0`
+    - `facet_written_but_reader_missed_count = 2`
+    - PersonaMem full589 no-routing `122/589`
+    - text-only `218/589`
+    - option-only `235/589`
+    - margin vs text-only `-96`
+    - margin vs option-only `-113`
+  - Boundary:
+    - 这一轮只证明 v6.5 的 explicit facet schema、authoritative facetizer、facet-aware write utility 与 facet-level attribution 已经进入真实 memory path。
+    - 当前不能声明 `needed_facet_missing` reduction、benchmark gain、acceptance met 或 closeout。
+    - 下一步必须直接修 facet canonicalization / value retention，而不是把当前 partial 写成成功。
+
 ## Stage 2 V6.4 Learned Observation Proposal Evidence
 
 - `EV-V64-001` -> `TD-053 / WS-039` learned observation proposer / hybrid candidate pool

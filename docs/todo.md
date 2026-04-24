@@ -12,6 +12,10 @@
   - 结构继承：v6.4 的 hybrid proposer 与 v6.3 的 persistent Core-Residual memory 主链继续作为 baseline 继承。
   - 新增成功门槛：explicit facet schema、authoritative facetizer、facet-aware write utility、facet-level error attribution、full589 `needed_facet_missing` reduction、PersonaMem full589 no-routing > text-only 且 > option-only，并保留 meaningful margin。
   - 当前 baseline：fresh `scripts/verify_stage2_v65_facetized_memory.py --score-only = 43`
+  - 当前 partial：current HEAD 已新增 `src/core_mem/v2/v65_facetized_memory.py`、`scripts/publish_stage2_v65_facetized_memory.py`，并把 `PersistentCoreResidualMemory` 的 same-relation match 升级成 facet-aware `facet_match_key` matching；当前 verifier `= 85`
+  - 当前 partial：`latest_stage2_v65_facetized_memory_eval.json` 记录 authoritative facetizer、`8` 类 facet schema、`facet_candidate_count = 4980`、`facet_rerouted_actions = 815`；`latest_stage2_v65_persistent_state.json` 记录 non-collapse `core=647 / residual=1675 / writes=3492`
+  - 当前负结果：`latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 465 > parser_only 409`、`facet_written_but_reader_missed_count = 2`；`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `122/589`，text-only `218/589`，option-only `235/589`
+  - 当前下一步：直接修 facet canonicalization / value retention，避免低信息 facet value 把 bank 撑大却留不住 benchmark-needed support
 
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - 当前 workstream: `WS-039`

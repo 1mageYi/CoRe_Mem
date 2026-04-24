@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from core_mem.v2.schemas import Observation
+from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
+from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
 
 
@@ -310,3 +313,74 @@ def test_v65_complete_payload_scores_100(tmp_path: Path) -> None:
 
     assert payload["score"] == 100
     assert payload["stop_ready"] is True
+
+
+def test_v65_facetizer_splits_preference_and_reason_facets() -> None:
+    observation = Observation(
+        obs_id="obs_demo",
+        source_dataset="demo",
+        source_dialogue_id="dlg",
+        source_turn_id="3",
+        session_id="dlg",
+        speaker="user",
+        entity="user",
+        relation="music_preference",
+        value="producing music with software feels more spontaneous and less pressured",
+        value_type="preference",
+        time_scope="recent_change",
+        status_hint="active",
+        polarity="negative",
+        confidence=0.8,
+        evidence_text="Producing music with software feels more spontaneous and less pressured.",
+        canonical_gloss="music_preference=producing music with software feels more spontaneous and less pressured",
+        metadata={},
+    )
+
+    facet_types = {facet.facet_type for facet in facetize_observation(observation)}
+
+    assert "preference_target" in facet_types
+    assert "preference_mode" in facet_types
+    assert "update_reason" in facet_types
+    assert "temporal_state" in facet_types
+
+
+def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
+    base = Observation(
+        obs_id="obs_base",
+        source_dataset="demo",
+        source_dialogue_id="dlg",
+        source_turn_id="1",
+        session_id="dlg",
+        speaker="user",
+        entity="user",
+        relation="music_preference",
+        value="latin music in software",
+        value_type="preference",
+        time_scope="current",
+        status_hint="active",
+        polarity="positive",
+        confidence=0.8,
+        evidence_text="I like making latin music in software.",
+        canonical_gloss="music_preference=latin music in software",
+        metadata={},
+    )
+    variant = Observation.from_dict(
+        {
+            **base.to_dict(),
+            "obs_id": "obs_variant",
+            "value": "software feels spontaneous and personal",
+            "canonical_gloss": "music_preference=software feels spontaneous and personal",
+        }
+    )
+
+    first_facet = next(facet for facet in facetize_observation(base) if facet.facet_type == "preference_target")
+    second_facet = next(facet for facet in facetize_observation(variant) if facet.facet_type == "preference_mode")
+    first = materialize_facet_observation(base, first_facet)
+    second = materialize_facet_observation(variant, second_facet)
+
+    memory = PersistentCoreResidualMemory()
+    memory.write(first, "new_residual", turn_index=1, obs_index=0)
+    memory.write(second, "merge_residual", turn_index=2, obs_index=0)
+
+    active = [slot for slot in memory.residual_bank if slot.active_flag]
+    assert len(active) == 2

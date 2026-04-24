@@ -10,7 +10,10 @@
   - Hard constraints: no fallback、no shortcut、no benchmark-specific heuristic、no provider prompt trick、no PersonaMem gold leakage、no raw full-context retrieval、no answer-time routing。
   - New required evidence: explicit facet schema, authoritative facetizer, facet-aware write utility, facet-level error attribution, reduced `needed_facet_missing`, and PersonaMem full589 no-routing > text-only and > option-only with meaningful margin.
   - Current baseline: fresh `scripts/verify_stage2_v65_facetized_memory.py --score-only = 43`
-  - Current top next action: scaffold v6.5, measure baseline, then launch a fresh background run with v6.4 as inherited negative baseline / handoff truth
+  - Current partial: current HEAD 已新增 `src/core_mem/v2/v65_facetized_memory.py`、`scripts/publish_stage2_v65_facetized_memory.py`，并把 `PersistentCoreResidualMemory` 的 same-relation match 升级成 facet-aware `facet_match_key` matching；当前 verifier `= 85`
+  - Current partial: `latest_stage2_v65_facetized_memory_eval.json` 记录 authoritative facetizer、`8` 类 facet schema、`facet_candidate_count = 4980`、`facet_rerouted_actions = 815`；`latest_stage2_v65_persistent_state.json` 记录 non-collapse `core=647 / residual=1675 / writes=3492`
+  - Current negative truth: `latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 465 > parser_only 409`、`facet_written_but_reader_missed_count = 2`；`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `122/589`，text-only `218/589`，option-only `235/589`
+  - Current top next action: 不再把 v6.5 当成 schema scaffold。下一步直接修 facet canonicalization / value retention，避免 `pressured pressured`、`community community` 这类低信息 facet value 把 bank 撑大却留不住 benchmark-needed support
 
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - Current workstream: `WS-039`

@@ -15,6 +15,7 @@ _POLARITIES = {"positive", "negative", "neutral"}
 _BANKS = {"core", "residual"}
 _QUERY_TYPES = {"single_fact", "multi_fact", "update_sensitive", "temporal"}
 _GLOBAL_CONSISTENCY = {"high", "medium", "low"}
+_FACET_SCOPES = {"entity", "style", "reason", "state", "temporal"}
 
 
 def _require(choice: str, valid: set[str], field_name: str) -> str:
@@ -81,6 +82,42 @@ class Observation:
             confidence=float(payload.get("confidence", 0.0)),
             evidence_text=str(payload.get("evidence_text", "")),
             canonical_gloss=str(payload.get("canonical_gloss", "")),
+            metadata=dict(payload.get("metadata", {}) or {}),
+        )
+
+
+@dataclass(frozen=True)
+class FacetRecord:
+    facet_id: str
+    source_observation_id: str
+    relation: str
+    facet_type: str
+    facet_value: str
+    facet_scope: str
+    facet_polarity: str
+    confidence: float
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "relation", normalize_relation(self.relation))
+        _require(self.facet_scope, _FACET_SCOPES, "facet_scope")
+        _require(self.facet_polarity, _POLARITIES, "facet_polarity")
+        object.__setattr__(self, "confidence", _bounded_float(self.confidence, "confidence"))
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> FacetRecord:
+        return cls(
+            facet_id=str(payload["facet_id"]),
+            source_observation_id=str(payload.get("source_observation_id", "")),
+            relation=str(payload.get("relation", "other_fact")),
+            facet_type=str(payload.get("facet_type", "generic_fact")),
+            facet_value=str(payload.get("facet_value", "")),
+            facet_scope=str(payload.get("facet_scope", "entity")),
+            facet_polarity=str(payload.get("facet_polarity", "neutral")),
+            confidence=float(payload.get("confidence", 0.0)),
             metadata=dict(payload.get("metadata", {}) or {}),
         )
 

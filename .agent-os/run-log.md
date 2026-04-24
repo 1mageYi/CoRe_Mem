@@ -1,5 +1,25 @@
 # Run Log
 
+# 2026-04-24 Session 165
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` first retained partial implementation, full-context artifact publish, and state-doc sync
+- State changed:
+  - Added `src/core_mem/v2/v65_facetized_memory.py` plus `scripts/publish_stage2_v65_facetized_memory.py`, so the authoritative path now really inserts `facetizer / canonicalizer -> facet-aware write utility` between the v6.4 hybrid proposer and persistent Core-Residual memory
+  - Upgraded `src/core_mem/v2/v6_persistent_memory.py` to preserve observation metadata on slots and to match writes by `facet_match_key` when present, instead of relation-only matching
+  - Published full-context `latest_stage2_v65_*` artifacts over all `37` shared contexts and the full PersonaMem `589` questions; `scripts/verify_stage2_v65_facetized_memory.py --score-only` rose from baseline `43` to `85`
+  - Confirmed the retained v6.5 line is still a negative-result partial: facet schema / facetizer / facet-aware write utility / facet-level attribution are now real, but `needed_facet_missing = 465 > parser_only 409` and PersonaMem no-routing is `122/589` vs text-only `218/589`
+- Evidence:
+  - `src/core_mem/v2/v65_facetized_memory.py`
+  - `scripts/publish_stage2_v65_facetized_memory.py`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_train,facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`
+  - `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session establishes the first real v6.5 partial keep only.
+  - No `needed_facet_missing` reduction, benchmark gain, or closeout claim is allowed.
+
 # 2026-04-24 Session 164
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` scaffold, verifier/test definition, and fresh background handoff preparation

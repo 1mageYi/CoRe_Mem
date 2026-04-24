@@ -439,11 +439,16 @@ class PersistentCoreResidualMemory:
         candidates = self.core_bank if bank == "core" else self.residual_bank
         family = relation_family(observation.relation)
         source_dialogue_id = observation.source_dialogue_id
+        facet_match_key = str(observation.metadata.get("facet_match_key") or "")
         for slot in reversed(candidates):
             if not slot.active_flag:
                 continue
             metadata = self._slot_metadata(slot)
             if metadata.get("source_dialogue_id") != source_dialogue_id:
+                continue
+            if facet_match_key:
+                if str(metadata.get("facet_match_key") or "") == facet_match_key:
+                    return slot
                 continue
             if relation_family(slot.relation) == family:
                 return slot
@@ -477,6 +482,7 @@ class PersistentCoreResidualMemory:
             "source_turn_index": int(observation.source_turn_id) if str(observation.source_turn_id).isdigit() else -1,
             "obs_id": observation.obs_id,
         }
+        metadata.update(dict(observation.metadata))
         object.__setattr__(slot, "_v6_metadata", metadata)
         return slot
 

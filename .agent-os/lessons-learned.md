@@ -6,6 +6,9 @@
 
 ## Entries
 
+- 2026-04-24:
+  - 对 `v6.5` 而言，facet schema / facetizer / facet-aware write utility 进入 authoritative path 本身还不够。full-context authoritative run 已说明：即使 verifier 从 `43` 拉到 `85`，facet canonicalization 如果把 value 压成 `pressured pressured`、`community community` 这类低信息 token，`needed_facet_missing` 仍会恶化到 `465 > parser_only 409`，PersonaMem no-routing 也会掉到 `122/589`。后续若继续推进 v6.5，应优先修 facet value retention / canonicalization，而不是再把时间花在 schema completeness 或简单 state growth 上。
+
 - 2026-04-23:
   - `v6.4` 里把 relation-specific sibling utility competition 接进 v6.3 write path，是第一条真正把 `never_written` 明显往 parser baseline 拉近的新策略族。它能把 full589 从 retained `never_written = 442` 推到 `420`，PersonaMem no-routing 推到 `161/589`，同时把 text-only 压到 `195/589`。这说明当前主问题确实部分在 relation-specific write-path utility，而不只是 proposer recall 或 reader competition；后续应继续沿这条 family 收窄，而不是回到 proposer-cleanup。
   - `v6.4` 里进一步把同一条策略族收窄成 preference-family abstract-clause demotion，会出现当前最强 near-miss：full589 `never_written = 413`、PersonaMem no-routing `171/589`、text-only `195/589`。这说明 broad learned-only preference clauses 确实在污染 accepted support / overwrite-merge utility；后续最值得追的是把这类 abstract clause 再收窄，而不是重开新的 wide cleanup bundle。
