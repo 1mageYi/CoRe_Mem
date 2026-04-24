@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core_mem.v2.schemas import Observation
+from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
+from core_mem.v2.v61_learned_memory import _select_diversified_slots
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
 
@@ -12,6 +13,31 @@ from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_mem
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _slot(
+    slot_id: str,
+    gloss: str,
+    *,
+    relation: str = "reason_fact",
+    retrieval_key: list[float] | None = None,
+) -> SlotRecord:
+    return SlotRecord(
+        slot_id=slot_id,
+        bank="residual",
+        entity="user",
+        relation=relation,
+        retrieval_key=retrieval_key or [0.0, 0.0, 0.0, 0.0],
+        latent_tokens=[[0.0, 0.0, 0.0, 0.0]],
+        soft_role_scores=SoftRoleScores(preference=0.8 if "preference" in relation else 0.1, temporal=0.1),
+        confidence=0.8,
+        first_seen_ts="turn-1",
+        last_update_ts="turn-1",
+        revision_count=0,
+        active_flag=True,
+        revision_parent=None,
+        canonical_gloss=gloss,
+    )
 
 
 def test_v65_plan_only_is_low_score(tmp_path: Path) -> None:
@@ -422,3 +448,23 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
 
     active = [slot for slot in memory.residual_bank if slot.active_flag]
     assert len(active) == 2
+
+
+def test_v65_diversified_shortlist_reduces_duplicate_reason_crowding() -> None:
+    ranked = [
+        (0.96, _slot("reason-1", "update_reason=feeling overwhelmed by deadlines", retrieval_key=[1.0, 0.0, 0.0, 0.0])),
+        (0.93, _slot("reason-2", "update_reason=too pressured by rigid deadlines", retrieval_key=[0.98, 0.02, 0.0, 0.0])),
+        (
+            0.88,
+            _slot(
+                "pref-1",
+                "preference_target=peaceful libraries with reflective reading",
+                relation="music_preference",
+                retrieval_key=[0.15, 0.95, 0.0, 0.0],
+            ),
+        ),
+    ]
+
+    selected = _select_diversified_slots(ranked, top_k=2)
+
+    assert [slot.slot_id for _, slot in selected] == ["reason-1", "pref-1"]
