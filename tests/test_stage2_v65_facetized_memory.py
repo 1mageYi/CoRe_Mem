@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core_mem.v2.schemas import Observation
+from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
+from core_mem.v2.v61_learned_memory import _option_features
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
@@ -422,3 +423,43 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
 
     active = [slot for slot in memory.residual_bank if slot.active_flag]
     assert len(active) == 2
+
+
+def test_v65_option_features_use_selected_slot_gloss_when_belief_items_empty() -> None:
+    slot = SlotRecord(
+        slot_id="slot_demo",
+        bank="residual",
+        entity="user",
+        relation="environment_fact",
+        retrieval_key=[0.0] * 8,
+        latent_tokens=[[0.0] * 8],
+        soft_role_scores=SoftRoleScores(temporal=0.1),
+        confidence=0.8,
+        first_seen_ts="turn-00001-obs-000",
+        last_update_ts="turn-00001-obs-000",
+        revision_count=0,
+        active_flag=True,
+        revision_parent=None,
+        canonical_gloss="environment_aversion=larger festivals feel too crowded chaotic",
+    )
+    readout = {
+        "query_key": [0.0] * 8,
+        "composed_key": [0.0] * 8,
+        "selected": [{"score": 0.9, "slot": slot}],
+        "belief_items": [],
+    }
+
+    matching = _option_features(
+        readout,
+        "What environment should fit the user better?",
+        "(b) Smaller and quieter festivals away from crowded spaces.",
+    )
+    non_matching = _option_features(
+        readout,
+        "What environment should fit the user better?",
+        "(a) A loud downtown street concert full of strangers.",
+    )
+
+    assert matching[-9] > 0.0
+    assert matching[-9] > non_matching[-9]
+    assert matching[-7] > non_matching[-7]
