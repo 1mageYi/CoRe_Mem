@@ -344,6 +344,41 @@ def test_v65_facetizer_splits_preference_and_reason_facets() -> None:
     assert "temporal_state" in facet_types
 
 
+def test_v65_preference_target_uses_salient_phrase_not_leading_boilerplate() -> None:
+    observation = Observation(
+        obs_id="obs_pref_phrase",
+        source_dataset="demo",
+        source_dialogue_id="dlg",
+        source_turn_id="29",
+        session_id="dlg",
+        speaker="user",
+        entity="user",
+        relation="music_preference",
+        value=(
+            "I tried reviewing an album in 2019, but that did not stick either, as it felt unproductive. "
+            "I think I was attempting to analyze the music in a way that did not align with my natural style, "
+            "which is often more spontaneous and emotional rather than analytical."
+        ),
+        value_type="preference",
+        time_scope="recent_change",
+        status_hint="active",
+        polarity="negative",
+        confidence=0.8,
+        evidence_text=(
+            "I think I was attempting to analyze the music in a way that did not align with my natural style, "
+            "which is often more spontaneous and emotional rather than analytical."
+        ),
+        canonical_gloss="music_preference=reviewing albums felt unproductive and too analytical",
+        metadata={},
+    )
+
+    preference_target = next(facet for facet in facetize_observation(observation) if facet.facet_type == "preference_target")
+
+    assert "spontaneous" in preference_target.facet_value
+    assert "emotional" in preference_target.facet_value
+    assert "tried" not in preference_target.facet_value
+
+
 def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
     base = Observation(
         obs_id="obs_base",
@@ -377,6 +412,9 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
     second_facet = next(facet for facet in facetize_observation(variant) if facet.facet_type == "preference_mode")
     first = materialize_facet_observation(base, first_facet)
     second = materialize_facet_observation(variant, second_facet)
+
+    assert first.canonical_gloss.startswith("preference_target=")
+    assert second.canonical_gloss.startswith("preference_mode=")
 
     memory = PersistentCoreResidualMemory()
     memory.write(first, "new_residual", turn_index=1, obs_index=0)
