@@ -14,9 +14,10 @@
   - 当前 baseline：fresh `scripts/verify_stage2_v65_facetized_memory.py --score-only = 43`
   - 当前 partial：current HEAD 已新增 `src/core_mem/v2/v65_facetized_memory.py`、`scripts/publish_stage2_v65_facetized_memory.py`，并把 `PersistentCoreResidualMemory` 的 same-relation match 升级成 facet-aware `facet_match_key` matching；当前 verifier `= 85`
   - 当前 partial：`latest_stage2_v65_facetized_memory_eval.json` 记录 authoritative facetizer、`8` 类 facet schema、`facet_candidate_count = 4980`、`facet_rerouted_actions = 815`；`latest_stage2_v65_persistent_state.json` 记录 non-collapse `core=647 / residual=1675 / writes=3492`
-  - 当前负结果：`latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 464 > parser_only 409`、`facet_written_but_reader_missed_count = 2`；`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `123/589`，text-only `218/589`，option-only `235/589`
+  - 当前负结果：`latest_stage2_v65_error_attribution.json` 记录 `needed_facet_missing_count = 434 > parser_only 409`、`facet_written_but_reader_missed_count = 5`；`latest_stage2_v65_personamem_no_routing.json` 记录 full589 no-routing `150/589`，text-only `234/589`，option-only `235/589`
   - 最新 discard：`research-results.tsv` iteration `2 discard` 说明 cue-anchored phrase retention 只能把 `needed_facet_missing` 改善到 `448`、把 no-routing 改善到 `138/589`，但 verifier 仍停在 `85`，因此该 trial 已回滚，不能记成 retained keep
-  - 当前下一步：直接修 facet-level support retention / value selection，而不是继续停留在 token-level canonicalization / dedup
+  - 最新 refine：`research-results.tsv` iteration `3 refine` 说明 facet-type glossing + salient phrase selection 已把 selected slots 明显清理干净，并把 `needed_facet_missing` 进一步压到 `434`、把 no-routing 提到 `150/589`，但 retained metric 仍是 `85`
+  - 当前下一步：直接修 question-conditioned reader / decision 对 facet-type selected glosses 的消费，而不是继续停留在 token-level canonicalization / dedup
 
 - `TD-053` `[doing]` 以 `v6.4 Learned Observation Proposal / Extraction Coverage` 为目标，用现有强方案解除当前 parser-coverage bottleneck，让 `Core-Residual latent memory` 主线继续推进。
   - 当前 workstream: `WS-039`

@@ -1,5 +1,25 @@
 # Run Log
 
+# 2026-04-24 Session 167
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` facet-type glossing / salient phrase refine, full-context publish, helper logging, and state-doc sync
+- State changed:
+  - Trial commit `3e31e6f` changed `materialize_facet_observation()` to emit `facet_type=value` canonical glosses and replaced leading-token preference extraction with salient phrase selection, especially for `preference_target`
+  - Full-context publish moved selected slots off relation-level boilerplate and onto actual facet semantics, reducing `needed_facet_missing` from retained `464` to `434` and lifting PersonaMem full589 no-routing from `123/589` to `150/589`
+  - `scripts/verify_stage2_v65_facetized_memory.py --score-only` still stayed at `85`, so helper recorded this as iteration `3 refine` rather than keep
+  - Current diagnosis shifted: v6.5 memory-unit quality improved materially, but wrong predictions still almost always have `answer_text / belief_values / evidence_text = None`, indicating the next bottleneck is question-conditioned reader / decision consumption of selected facets
+- Evidence:
+  - `research-results.tsv` iteration `3 refine`
+  - `autoresearch-state.json` iteration `3`, `last_status = refine`, retained metric `85`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`
+  - `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records an active refine line only.
+  - No `needed_facet_missing` reduction claim, benchmark gain claim, or closeout claim is allowed from this iteration.
+
 # 2026-04-24 Session 166
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` cue-anchored facet canonicalization trial, helper logging, rollback, retained republish, and doc sync
