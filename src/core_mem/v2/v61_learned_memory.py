@@ -143,37 +143,6 @@ def _mean_vector(vectors: Iterable[list[float]]) -> list[float]:
     return [value / norm for value in merged]
 
 
-def _slot_similarity(left: SlotRecord, right: SlotRecord) -> float:
-    key_similarity = max(0.0, vector_dot(left.retrieval_key, right.retrieval_key))
-    gloss_similarity = _token_overlap(left.canonical_gloss, right.canonical_gloss)
-    return max(0.0, min(1.0, 0.65 * key_similarity + 0.35 * gloss_similarity))
-
-
-def _select_diversified_slots(
-    ranked: list[tuple[float, SlotRecord]],
-    *,
-    top_k: int,
-    diversity_weight: float = 0.35,
-) -> list[tuple[float, SlotRecord]]:
-    if top_k <= 0 or not ranked:
-        return []
-    if len(ranked) <= 1:
-        return ranked[:top_k]
-    selected: list[tuple[float, SlotRecord]] = [ranked[0]]
-    remaining = ranked[1:]
-    while remaining and len(selected) < top_k:
-        best_index = 0
-        best_score = float("-inf")
-        for idx, (relevance, slot) in enumerate(remaining):
-            redundancy = max((_slot_similarity(slot, chosen_slot) for _, chosen_slot in selected), default=0.0)
-            mmr_score = float(relevance) - diversity_weight * redundancy
-            if mmr_score > best_score:
-                best_score = mmr_score
-                best_index = idx
-        selected.append(remaining.pop(best_index))
-    return selected
-
-
 def _query_semantic_features(query: str) -> list[float]:
     tokens = set(_tokenize(query))
     return [
@@ -505,7 +474,7 @@ def _read_with_model(
     with torch.no_grad():
         scores = torch.sigmoid(reader(features)).tolist()
     ranked = sorted(zip(scores, slots), key=lambda item: item[0], reverse=True)
-    selected = _select_diversified_slots(ranked, top_k=top_k)
+    selected = ranked[:top_k]
     total_score = sum(score for score, _ in selected) or 1.0
     composed = [
         sum(score * slot.retrieval_key[idx] for score, slot in selected) / total_score
