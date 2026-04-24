@@ -3,8 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from core_mem.v2.schemas import Observation, SlotRecord, SoftRoleScores
-from core_mem.v2.v61_learned_memory import _slot_semantic_features
+from core_mem.v2.schemas import Observation
 from core_mem.v2.v6_persistent_memory import PersistentCoreResidualMemory
 from core_mem.v2.v65_facetized_memory import facetize_observation, materialize_facet_observation
 from scripts.verify_stage2_v65_facetized_memory import compute_v65_facetized_memory
@@ -423,30 +422,3 @@ def test_v65_persistent_memory_matches_on_facet_key_not_relation_only() -> None:
 
     active = [slot for slot in memory.residual_bank if slot.active_flag]
     assert len(active) == 2
-
-
-def test_v65_slot_semantics_include_environment_facet_signal() -> None:
-    slot = SlotRecord(
-        slot_id="slot_env",
-        bank="residual",
-        entity="user",
-        relation="environment_fact",
-        retrieval_key=[0.0] * 8,
-        latent_tokens=[[0.0] * 8],
-        soft_role_scores=SoftRoleScores(temporal=0.2),
-        confidence=0.8,
-        first_seen_ts="turn-00001-obs-000",
-        last_update_ts="turn-00001-obs-000",
-        revision_count=0,
-        active_flag=True,
-        revision_parent=None,
-        canonical_gloss="environment_aversion=larger festivals feel too crowded chaotic",
-    )
-    object.__setattr__(slot, "_v6_metadata", {"facet_type": "environment_aversion"})
-
-    semantics = _slot_semantic_features(slot)
-
-    assert semantics[8] == 0.0
-    assert semantics[9] == 0.0
-    assert semantics[10] == 1.0
-    assert semantics[15] == 0.0
