@@ -1,5 +1,25 @@
 # Run Log
 
+# 2026-04-24 Session 170
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` option-conditioned decision-readout discard, rollback, retained restore, and state-doc sync
+- State changed:
+  - Trial commit `394a4b9` retrained the v61 decision path on base-question readout plus option-conditioned reread, attempting a broader question-conditioned supervision step after the iteration `6 pivot`
+  - Full-context trial publish regressed PersonaMem full589 no-routing from the active refine line down to `142/589` and worsened `needed_facet_missing` from `434` to `441`, while `scripts/verify_stage2_v65_facetized_memory.py --score-only` stayed `85`
+  - Helper recorded this as iteration `7 discard`, after which the trial commit was reverted with `git revert --no-edit`
+  - Re-published the current v6.5 refine baseline; latest runtime truth is now restored to `needed_facet_missing = 434`, PersonaMem no-routing `150/589`, and verifier `85`
+- Evidence:
+  - `research-results.tsv` iteration `7 discard`
+  - `autoresearch-state.json` iteration `7`, `last_status = discard`, retained metric `85`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - Trial guard: `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+  - Trial publish/verifier: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`; `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`
+  - Retained restore publish/verifier/guard: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`; `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records one discarded broader supervision trial and a retained restore only.
+  - No benchmark gain, `needed_facet_missing` reduction claim, or closeout claim is allowed from this iteration.
+
 # 2026-04-24 Session 169
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` reader-metadata discard, refine restore, and family pivot

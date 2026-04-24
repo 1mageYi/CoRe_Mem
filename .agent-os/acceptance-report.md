@@ -7,7 +7,7 @@
   - Evidence:
     - `scripts/verify_stage2_v65_facetized_memory.py --score-only` 当前返回 `85`
     - `latest_stage2_v65_facetized_memory_eval.json` 记录 full-context `37` shared contexts 下 authoritative facetizer、`8` 类 facet schema、`facet_candidate_count = 4834` 与 `facet_rerouted_actions = 1014`
-    - `latest_stage2_v65_persistent_state.json` 记录 persistent `core_bank_size = 647`、`residual_bank_size = 1675`、`stream_observations_written = 3492`、checkpoint 与 write trace
+    - `latest_stage2_v65_persistent_state.json` 记录 persistent `core_bank_size = 691`、`residual_bank_size = 1732`、`stream_observations_written = 3776`、checkpoint 与 write trace
     - `latest_stage2_v65_internal_eval.json` 记录 `facet_aware_write_utility_used = true`，raw-context retrieval disabled 继续成立
     - `latest_stage2_v65_personamem_no_routing.json` 记录 answer-time routing disabled、PersonaMem gold 未用于 facetizer 或 substrate
     - `research-results.tsv` iteration `2 discard` 已记录 cue-anchored phrase retention trial：局部把 `needed_facet_missing` 改善到 `448`、把 PersonaMem full589 no-routing 改善到 `138/589`，但 verifier 仍停在 `85`，因此该 trial 未进入 retained state
@@ -15,23 +15,25 @@
     - `research-results.tsv` iteration `4 discard` 已记录 decision-feature patch：直接把 `selected slot canonical_gloss` 接入 option features 只把 `needed_facet_missing` 从 `434` 微调到 `433`，未能提升 PersonaMem no-routing 或 verifier
     - `research-results.tsv` iteration `5 discard` 已记录 reader-metadata patch：facet metadata 与 environment-query alignment 反而把 PersonaMem full589 no-routing 打回 `128/589`，并把 `needed_facet_missing` 恶化到 `456`
     - `research-results.tsv` iteration `6 pivot` 已记录当前 local feature surgery family结束，下一步改 broader question-conditioned supervision
+    - `research-results.tsv` iteration `7 discard` 已记录 option-conditioned decision readout：base question readout + per-option reread 联合训练/推理会把 PersonaMem full589 no-routing 从 `150/589` 打回 `142/589`，并把 `needed_facet_missing` 恶化到 `441`
   - Negative result:
-    - `needed_facet_missing_count = 438 > parser_only 409`
+    - `needed_facet_missing_count = 434 > parser_only 409`
     - `wrong_sibling_facet_selected_count = 0`
     - `facet_written_but_reader_missed_count = 5`
-    - PersonaMem full589 no-routing `146/589`
+    - PersonaMem full589 no-routing `150/589`
     - text-only `234/589`
     - option-only `235/589`
-    - margin vs text-only `-88`
-    - margin vs option-only `-89`
+    - margin vs text-only `-84`
+    - margin vs option-only `-85`
   - Boundary:
     - 这一轮只证明 v6.5 的 explicit facet schema、authoritative facetizer、facet-aware write utility 与 facet-level attribution 已经进入真实 memory path。
     - latest discard 说明：短语级去重/保留可以改善局部 failure bucket，但还不足以跨过 verifier 的 retained gate。
     - latest refine 又说明：即使 `facet_type` 已真正进入 selected gloss 语义，当前 gain 仍没有自动传到 verifier，下一步必须继续打 reader / decision 消费层。
     - latest discard `4` 则进一步说明：当前 reader / decision 层的问题也不是“少接了一条 selected-gloss overlap feature”这么简单。
     - latest discard `5` 又把边界再压清一层：reader facet-metadata alignment 不是当前 gain driver，继续沿这条 family 细抠只会回退。
+    - latest discard `7` 继续把边界压清：简单的 option-conditioned reread 也不是当前 gain driver，它会把选项文本过早耦合进 slot selection，结果比 restore 后的 refine line 更差。
     - 当前不能声明 `needed_facet_missing` reduction、benchmark gain、acceptance met 或 closeout。
-    - 下一步必须直接修 question-conditioned reader / decision 对 facet support 的消费，而不是把当前 partial、latest discard 或 latest refine 写成成功。
+    - 下一步必须直接修更广的 question-conditioned reader / decision 对 facet support 的消费，而不是把当前 partial、latest discard 或 latest refine 写成成功。
 
 ## Stage 2 V6.4 Learned Observation Proposal Evidence
 
