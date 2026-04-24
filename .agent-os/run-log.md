@@ -1,5 +1,26 @@
 # Run Log
 
+# 2026-04-24 Session 169
+
+- Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` reader-metadata discard, refine restore, and family pivot
+- State changed:
+  - Trial commit `8661907` added facet-type/environment semantics into v61 reader features, but full-context publish regressed PersonaMem full589 no-routing from the active line down to `128/589` and worsened `needed_facet_missing` to `456`
+  - Helper recorded this as iteration `5 discard`, after which the trial commit was reverted with `git revert --no-edit`
+  - Re-published the current v6.5 refine baseline; latest runtime truth now sits at `needed_facet_missing = 438`, PersonaMem no-routing `146/589`, and verifier `85`
+  - Recorded iteration `6 pivot` because the current local feature surgery family is now exhausted: canonicalization cleanup, direct decision-gloss features, and reader facet-metadata alignment all failed to lift the retained score above `85`
+- Evidence:
+  - `research-results.tsv` iterations `5 discard` and `6 pivot`
+  - `autoresearch-state.json` iteration `6`, `last_status = pivot`, retained metric `85`
+  - `outputs_v2/artifacts/latest_stage2_v65_{facetized_memory_eval,persistent_state,internal_eval,personamem_no_routing,error_attribution,decision}.json`
+- Verification:
+  - Trial publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Trial verifier/guard: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+  - Refine restore publish: `conda run -n core_mem python scripts/publish_stage2_v65_facetized_memory.py --max-stream-observations 8000`
+  - Refine restore verifier/guard: `conda run -n core_mem python scripts/verify_stage2_v65_facetized_memory.py --score-only` -> `85`; `git diff --check && conda run -n core_mem pytest -q tests/test_stage2_v65_facetized_memory.py`
+- Boundary:
+  - This session records one discard, one restore, and one pivot only.
+  - No benchmark gain or closeout claim is allowed from this iteration family.
+
 # 2026-04-24 Session 168
 
 - Worked on: `TD-054 / WS-040 / v6.5 Facetized Observation-to-Memory Redesign` decision-feature discard, rollback, refine restore, and state-doc sync
