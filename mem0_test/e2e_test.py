@@ -12,6 +12,12 @@ Design (aligned with PersonaMem §4.4, details where the paper is silent):
   - Retrieve **top-5** facts with ``Memory.search`` for the current user question.
   - Answer the same 4-way MCQ with **gpt-4o-mini** via your OpenAI-compatible API.
 
+Latency (Appendix E — Mem0):
+  - ``query_time_s`` = **per-question online total**: ingest + search + final MCQ LLM,
+    matching the paper's Mem0 narrative (sequential memory work during inference,
+    retrieval, then answering). **Not** the MCQ call alone.
+  - ``llm_answer_time_s`` = final ``chat.completions`` for the MCQ only (breakdown).
+
 Env (CoRe_Mem/.env):
     LLM_API_KEY, LLM_BASE_URL, LLM_MODEL=gpt-4o-mini
     MEM0_EMBED_PROVIDER — ``huggingface`` (default) or ``openai``
@@ -79,6 +85,7 @@ _PRED_COLUMNS = [
     "score",
     "mem0_ingest_time_s",
     "mem0_search_time_s",
+    "llm_answer_time_s",
     "query_time_s",
     "context_length_in_tokens",
     "distance_to_ref_in_blocks",
@@ -172,6 +179,9 @@ def run() -> None:
                     prefix,
                 )
 
+                # Appendix E: Mem0 "per query" = online inference total for this row.
+                t_query_paper = t_ingest + t_search + t_llm
+
                 ok, pred = extract_answer(raw, correct)
                 rec = {
                     "persona_id": row["persona_id"],
@@ -183,7 +193,8 @@ def run() -> None:
                     "score": int(ok),
                     "mem0_ingest_time_s": round(t_ingest, 3),
                     "mem0_search_time_s": round(t_search, 4),
-                    "query_time_s": round(t_llm, 4),
+                    "llm_answer_time_s": round(t_llm, 4),
+                    "query_time_s": round(t_query_paper, 4),
                     "context_length_in_tokens": row["context_length_in_tokens"],
                     "distance_to_ref_in_blocks": row["distance_to_ref_in_blocks"],
                     "distance_to_ref_proportion_in_context": row[
@@ -198,7 +209,7 @@ def run() -> None:
                     acc = sum(r["score"] for r in all_rows) / len(all_rows)
                     pbar.set_postfix(
                         acc=f"{acc*100:.0f}%",
-                        ing=f"{t_ingest:.0f}s",
+                        q=f"{t_query_paper:.0f}s",
                         llm=f"{t_llm:.1f}s",
                     )
 
@@ -219,14 +230,10 @@ def run() -> None:
     df = pd.DataFrame(all_rows)
     df["score"] = df["score"].astype(int)
     overall_acc = df["score"].mean()
-    overall_llm = df["query_time_s"].astype(float).mean()
+    overall_query = df["query_time_s"].astype(float).mean()
+    overall_llm_answer = df["llm_answer_time_s"].astype(float).mean()
     overall_ingest = df["mem0_ingest_time_s"].astype(float).mean()
     overall_search = df["mem0_search_time_s"].astype(float).mean()
-    overall_e2e = (
-        df["mem0_ingest_time_s"].astype(float)
-        + df["mem0_search_time_s"].astype(float)
-        + df["query_time_s"].astype(float)
-    ).mean()
 
     summary = (
         df.groupby("question_type", sort=False)
@@ -235,12 +242,13 @@ def run() -> None:
             accuracy=("score", "mean"),
             avg_ingest_s=("mem0_ingest_time_s", "mean"),
             avg_search_s=("mem0_search_time_s", "mean"),
-            avg_llm_s=("query_time_s", "mean"),
+            avg_llm_answer_s=("llm_answer_time_s", "mean"),
+            avg_query_time_s=("query_time_s", "mean"),
         )
         .reset_index()
     )
     summary["accuracy_pct"] = (summary["accuracy"] * 100).round(1)
-    for c in ("avg_ingest_s", "avg_search_s", "avg_llm_s"):
+    for c in ("avg_ingest_s", "avg_search_s", "avg_llm_answer_s", "avg_query_time_s"):
         summary[c] = summary[c].round(3)
     summary["display_name"] = summary["question_type"].map(
         lambda t: _TYPE_DISPLAY.get(t, t)
@@ -255,31 +263,43 @@ def run() -> None:
         f"- **LLM**: `{MODEL}` @ `{BASE_URL}`",
         f"- **Mem0**: open-source `Memory`, FAISS, top-{TOP_K} memories",
         f"- **Overall accuracy**: **{overall_acc*100:.1f}%**",
+        "",
+        "### Latency (PersonaMem Appendix E — Mem0)",
+        "",
+        "- **`query_time_s`** (per row in `predictions.csv`): **ingest + search + final MCQ LLM**,",
+        "  i.e. total online time per question, aligned with the paper's description of Mem0 latency",
+        "  (sequential memory updates during inference, retrieval, then answering).",
+        "- **`llm_answer_time_s`**: MCQ `chat.completions` call only (breakdown).",
+        "",
+        f"- **Avg `query_time_s` (paper-style)**: **{overall_query:.2f}** s / question",
         f"- **Avg ingest (Mem0 add)**: {overall_ingest:.2f} s / question",
         f"- **Avg search (Mem0)**: {overall_search:.3f} s / question",
-        f"- **Avg final LLM**: {overall_llm:.3f} s / question",
-        f"- **Avg end-to-end**: {overall_e2e:.2f} s / question",
+        f"- **Avg `llm_answer_time_s`**: {overall_llm_answer:.3f} s / question",
         "",
         "## By question type",
         "",
-        "| Type | N | Acc % | Avg ingest (s) | Avg search (s) | Avg LLM (s) |",
-        "|------|--:|------:|---------------:|---------------:|------------:|",
+        "| Type | N | Acc % | Avg query (s) | Avg ingest (s) | Avg search (s) | Avg LLM answer (s) |",
+        "|------|--:|------:|--------------:|---------------:|---------------:|-------------------:|",
     ]
     for _, r in summary.iterrows():
         report_lines.append(
             f"| {_TYPE_DISPLAY.get(r['question_type'], r['question_type'])} | "
             f"{int(r['n'])} | {r['accuracy_pct']:.1f} | "
-            f"{r['avg_ingest_s']:.2f} | {r['avg_search_s']:.3f} | {r['avg_llm_s']:.3f} |"
+            f"{r['avg_query_time_s']:.2f} | {r['avg_ingest_s']:.2f} | {r['avg_search_s']:.3f} | "
+            f"{r['avg_llm_answer_s']:.3f} |"
         )
     report_lines.append(
         f"| **Average** | {len(df)} | {overall_acc*100:.1f} | "
-        f"{overall_ingest:.2f} | {overall_search:.3f} | {overall_llm:.3f} |"
+        f"{overall_query:.2f} | {overall_ingest:.2f} | {overall_search:.3f} | {overall_llm_answer:.3f} |"
     )
     report_lines.extend(["", "```json", json.dumps(config, indent=2), "```"])
     (out_dir / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
 
     print(f"\nDone. Results: {out_dir}")
-    print(f"  accuracy={overall_acc*100:.1f}%  n={len(df)}  errors={len(errors)}")
+    print(
+        f"  accuracy={overall_acc*100:.1f}%  n={len(df)}  errors={len(errors)}  "
+        f"avg_query_s(AppendixE)={overall_query:.2f}  avg_llm_answer_s={overall_llm_answer:.3f}"
+    )
 
 
 if __name__ == "__main__":
