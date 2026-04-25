@@ -42,6 +42,11 @@ outputs/tables/
 # RAG_test results
 RAG_test/results/
 
+# mem0_test local vector index + results
+mem0_test/.faiss_store/
+mem0_test/.faiss_personamem_idx/
+mem0_test/results/
+
 # ── OS & editor noise ─────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

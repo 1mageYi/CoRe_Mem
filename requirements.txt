@@ -4,6 +4,12 @@ python-dotenv>=1.0
 numpy>=1.24
 pydantic>=2.0
 pydantic-settings>=2.0
+pandas>=2.0
+tqdm>=4.65
+
+# mem0_test (PersonaMem Mem0-style eval; OSS Memory + FAISS)
+mem0ai>=1.0.0
+faiss-cpu>=1.8.0
 
 # Embedding (RSK-001: specific model TBD)
 sentence-transformers>=2.2
