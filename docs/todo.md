@@ -1,29 +1,46 @@
-# TODO（人类可读视图）
+# Graph Memory TODO
 
-> 与 `.agent-os/todo.md` 同步。
+## Phase 0: 文档与基线准备
+- [x] 固化 benchmark 顺序：PERMA -> PersonaMem（最终） -> LoCoMo（可选）
+- [x] 写清 baseline 对照：semantic-only、旧 core/residual、mem0-like
+- [x] 定义统一指标看板（准确率、延迟、记忆覆盖、图统计）
 
-## 进行中
+## Phase 1: Graph MVP（PERMA）
+- [x] 定义 node/edge schema 与存储接口
+- [x] 实现 non-LLM extractor（规则主干）
+- [x] 实现 Add 流程（dedup + create + merge）
+- [x] 实现三类 edge 构建（semantic/temporal/co-usage）
+- [x] 实现 Search 流程（seed + expand + rerank）
+- [x] 实现 prompt builder（可解释 evidence 输出）
+- [x] 增加 PERMA 风格 smoke runner（最小可运行）
+- [x] 增加真实 PERMA mini eval（graph-full vs semantic-only）
+- [x] 增加 mini e2e 回归测试文件（真实 PERMA 样本，limit=2）
 
-- Writer fact 提取逻辑（LLM prompt-based extraction）
+## Phase 2: Core/Residual 自分化
+- [ ] 引入 PageRank/入度/使用频次计算 core_score
+- [ ] 实现 core prior 融合打分
+- [ ] 完成 lambda_core 网格搜索
+- [ ] 对比“无 prior vs 有 prior”
 
-## 就绪
+## Phase 3: PERMA 消融与稳健性
+- [ ] edge 消融（semantic-only / +temporal / +co-usage / full）
+- [ ] merge 策略消融（latest-wins vs multi-version）
+- [ ] co-usage 污染控制（最小共现阈值 + 衰减）
+- [ ] temporal probing 分段评测（早期/中期/后期）
+- [ ] 失败剖析：解释 user109 上 graph-full 相比 semantic-only 的退化来源
+- [ ] 加入 per-sample debug 导出（seed/expanded/top evidence/score 分解）
 
-- 实现阿里云 OpenAI-compatible provider adapter
-- 接入 PersonaMem 32k 官方主任务与评测协议
+## Phase 4: PersonaMem 最终迁移验证
+- [ ] 适配 PersonaMem 数据入口
+- [ ] 复用同一 memory graph 流程执行评测
+- [ ] 对比旧方案与图方案增益/退化点
+- [ ] 输出最终对照报告
 
-## 待办
+## Phase 5: 可选 LoCoMo 压测
+- [ ] 超长上下文下时延与内存占用评估
+- [ ] 时序/因果相关任务的图扩展收益分析
 
-- PersonaMem 128k / 1M 启动开关
-- 接入 LongMemEval-S 官方协议
-- 建立实验总入口与分步骤脚本
-- 实现 Reader（query → top-k core + top-j residual 检索）
-- 训练 vec2text 模型解码 latent 信息
-
-## 已完成
-
-- 初始化项目文档系统
-- 创建环境管理方案（venv，Python 3.10）
-- 建立基础目录结构、配置机制
-- 确定 embedding model（`all-MiniLM-L6-v2`）
-- **实现 write path 核心模块**：slot、embedding、residual_manager、core_updater、writer
-- **建立 unit tests**：28 个测试全部通过
+## 交付物检查
+- [ ] docs 完整（requirements / implementation_plan / todo / current_status）
+- [ ] 实验配置可复现（参数、随机种子、run 命名）
+- [ ] 结论含失败分析，不只报最好结果

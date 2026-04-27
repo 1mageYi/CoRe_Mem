@@ -1,2 +1,0 @@
-compactor
-core_mem

@@ -1,35 +1,8 @@
-# Core dependencies
-openai>=1.0
-python-dotenv>=1.0
 numpy>=1.24
 pydantic>=2.0
-pydantic-settings>=2.0
-pandas>=2.0
-tqdm>=4.65
-
-# mem0_test (PersonaMem Mem0-style eval; OSS Memory + FAISS)
-mem0ai>=1.0.0
-faiss-cpu>=1.8.0
-
-# Embedding (RSK-001: specific model TBD)
+python-dotenv>=1.0
 sentence-transformers>=2.2
-# torch cu124 构建无法通过普通 pip index 安装，需指定 --index-url：
-#   pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu124
-torch==2.4.1
-torchvision==0.19.1
-torchaudio==2.4.1
-
-# vec2text inference（与 transformers 4.x 配套，5.x 不兼容）
-# datasets<2.21 在 pyarrow 15+ 上会报 PyExtensionType 缺失；与 numpy 2.x 搭配勿降级 pyarrow
-datasets>=2.21.0
-vec2text==0.0.13
-transformers==4.44.2
-huggingface_hub==0.36.2
-accelerate>=1.0
-
-# Testing
-pytest>=7.0
-pytest-asyncio>=0.21
-
-# Linting
-ruff>=0.4
+networkx>=3.2
+pytest>=8.0
+openai>=1.0
+tqdm>=4.65
