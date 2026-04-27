@@ -246,8 +246,13 @@ def build_graph_from_conversation(
     *,
     embedder: BgeM3Embedder,
     add_cfg: AddConfig | None = None,
-) -> MemoryGraphStore:
-    """Feed all turns (both speakers) into a fresh graph store."""
+    build_entity_edges: bool = True,
+) -> tuple[MemoryGraphStore, dict]:
+    """Feed all turns (both speakers) into a fresh graph store.
+
+    Returns:
+        (store, build_stats) where build_stats contains node/edge counts.
+    """
     store = MemoryGraphStore()
     extractor = RuleExtractor()
     ac = add_cfg or AddConfig()
@@ -264,7 +269,17 @@ def build_graph_from_conversation(
         rec = extractor.extract_from_turn(text, time_index=ti, source_turn_id=turn.global_idx)
         add.add_record(rec, now_ts=ti)
 
-    return store
+    # P1: build entity edges in a single batch pass after all nodes are inserted
+    n_entity_edges = 0
+    if build_entity_edges:
+        n_entity_edges = add.build_entity_edges(now_ts=0)
+
+    build_stats = {
+        "n_nodes": len(store.nodes),
+        "n_edges_total": store.graph.number_of_edges(),
+        "n_entity_edges": n_entity_edges,
+    }
+    return store, build_stats
 
 
 # ---------------------------------------------------------------------------
@@ -322,19 +337,29 @@ def run_locomo_eval(
     if cfg.conv_limit > 0:
         convs = convs[: cfg.conv_limit]
 
-        # For LoCoMo's fact-retrieval task, semantic similarity should dominate.
-        # PERMA's core-prior boost hurts here: early-session nodes (which hold
-        # key facts) have fewer edges than later nodes and get demoted unfairly.
-        rank_cfg = RankingConfig(
-            alpha_semantic=0.90,
-            beta_centrality=0.05,
-            gamma_edge_evidence=0.03,
-            delta_temporal_fit=0.02,
-            lambda_core=0.0,   # no core-prior boost
-        )
-        # Increase seed pool so early-session relevant nodes aren't cut before expansion.
-        search_cfg = SearchConfig(seed_topk=20)
-        add_cfg = AddConfig()
+    # For LoCoMo's fact-retrieval task, semantic similarity should dominate.
+    # PERMA's core-prior boost hurts here: early-session nodes (which hold
+    # key facts) have fewer edges than later nodes and get demoted unfairly.
+    rank_cfg = RankingConfig(
+        alpha_semantic=0.90,
+        beta_centrality=0.05,
+        gamma_edge_evidence=0.03,
+        delta_temporal_fit=0.02,
+        lambda_core=0.0,   # no core-prior boost
+    )
+    # Hybrid BM25+semantic retrieval + P0 adaptive expansion:
+    # - BM25 complements dense retrieval for keyword-heavy single-hop facts
+    # - adaptive_expand_threshold: skip graph traversal when top-1 is already
+    #   high-confidence (prevents adding noisy neighbours to cat-1 evidence)
+    # - expand_use_entity: follow entity edges built by build_entity_edges()
+    search_cfg = SearchConfig(
+        seed_topk=20,
+        use_bm25=True,
+        bm25_topk=20,
+        adaptive_expand_threshold=0.80,  # P0
+        expand_use_entity=True,           # P1
+    )
+    add_cfg = AddConfig()
 
     shared_embedder = BgeM3Embedder()
 
@@ -345,8 +370,8 @@ def run_locomo_eval(
 
     for conv in conv_iter:
         # Build graph once per conversation (shared across all QA pairs).
-        store = build_graph_from_conversation(
-            conv, embedder=shared_embedder, add_cfg=add_cfg
+        store, build_stats = build_graph_from_conversation(
+            conv, embedder=shared_embedder, add_cfg=add_cfg, build_entity_edges=True
         )
         pipe = SearchPipeline(
             graph_store=store,
@@ -441,6 +466,7 @@ def run_locomo_eval(
                     "graph_debug": graph_debug,
                     "graph_top_evidence": graph_evidence,
                     "semantic_top_evidence": sem_evidence,
+                    "build_stats": build_stats,
                 }
                 if cfg.include_full_context:
                     dbg["pred_full_ctx"] = full_ctx_ans

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -18,6 +19,11 @@ class AddConfig:
     semantic_edge_topk: int = 8
     # latest_wins: high-sim always overwrites nearest node; hybrid: only update_type==update merges
     merge_strategy: MergeStrategy = "hybrid"
+    # P1: entity edge parameters
+    # Skip entity as edge key if it appears in > this fraction of all nodes (filters speaker names etc.)
+    entity_edge_max_freq: float = 0.35
+    # Cap outgoing entity edges per node to avoid super-hub explosion
+    entity_edge_max_per_node: int = 20
 
 
 @dataclass(slots=True)
@@ -116,6 +122,66 @@ class AddPipeline:
                 best_sim = sim
                 best_id = node.node_id
         return best_id, max(best_sim, 0.0)
+
+    def build_entity_edges(self, now_ts: int) -> int:
+        """Build bidirectional entity edges between nodes sharing named entity mentions.
+
+        Call this once after all nodes for a conversation have been added.
+        Entities appearing in more than ``cfg.entity_edge_max_freq`` of all nodes
+        are ignored (they are usually speaker names / pronouns that appear everywhere
+        and don't carry linking signal).
+
+        Returns the number of new directed edges created (each undirected edge = 2).
+        """
+        nodes = self.graph_store.all_nodes()
+        n_total = len(nodes)
+        if n_total < 2:
+            return 0
+
+        # entity → [node_id, ...]
+        entity_index: dict[str, list[str]] = {}
+        for node in nodes:
+            for ent in node.structured_record.entity_mentions:
+                entity_index.setdefault(ent, []).append(node.node_id)
+
+        # Filter high-frequency / singleton entries.
+        # Use ceil so small test graphs (n<10) don't accidentally filter everything.
+        max_count = max(2, math.ceil(n_total * self.cfg.entity_edge_max_freq))
+        entity_index = {
+            ent: nids
+            for ent, nids in entity_index.items()
+            if 2 <= len(nids) <= max_count
+        }
+
+        edges_created = 0
+        out_degree: dict[str, int] = {}  # per-node entity-edge cap
+
+        for ent, nids in entity_index.items():
+            for i in range(len(nids)):
+                for j in range(i + 1, len(nids)):
+                    a, b = nids[i], nids[j]
+                    if (out_degree.get(a, 0) >= self.cfg.entity_edge_max_per_node
+                            or out_degree.get(b, 0) >= self.cfg.entity_edge_max_per_node):
+                        continue
+                    # Only add if neither direction already has any edge (avoids duplicate logic)
+                    if self.graph_store.has_edge(a, b) or self.graph_store.has_edge(b, a):
+                        continue
+                    for src, dst in ((a, b), (b, a)):
+                        self.graph_store.add_edge(
+                            MemoryEdge(
+                                src_node_id=src,
+                                dst_node_id=dst,
+                                edge_type="entity",
+                                weight=1.0,
+                                created_at=now_ts,
+                                updated_at=now_ts,
+                            )
+                        )
+                    out_degree[a] = out_degree.get(a, 0) + 1
+                    out_degree[b] = out_degree.get(b, 0) + 1
+                    edges_created += 2
+
+        return edges_created
 
     def _attach_semantic_edges(self, node_id: str, now_ts: int) -> None:
         node = self.graph_store.get_node(node_id)

@@ -2,8 +2,50 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from .schemas import StructuredRecord
+
+# --- spaCy NER: lazy-loaded singleton -------------------------------------------
+# Kept module-level so the model is loaded once per process and shared.
+# If spaCy or the en_core_web_sm model is unavailable, entity extraction silently
+# degrades to returning an empty list (entity edges simply won't be built).
+_NLP: object = None   # None = not yet attempted; False = failed/unavailable
+_NER_LABELS = {"PERSON", "GPE", "LOC", "ORG", "EVENT", "WORK_OF_ART", "NORP"}
+
+
+def _get_nlp():
+    global _NLP
+    if _NLP is None:
+        try:
+            import spacy
+            _NLP = spacy.load("en_core_web_sm", disable=["parser", "tagger", "lemmatizer"])
+        except Exception:  # model not downloaded or spacy missing
+            _NLP = False
+    return _NLP if _NLP is not False else None
+
+
+def extract_entities(text: str) -> list[str]:
+    """Return unique lowercase named entity strings from *text* using spaCy NER.
+
+    Returns an empty list when spaCy is unavailable so downstream code works
+    regardless of whether the model is installed.
+    """
+    nlp = _get_nlp()
+    if nlp is None:
+        return []
+    doc = nlp(text)  # type: ignore[operator]
+    seen: set[str] = set()
+    out: list[str] = []
+    for ent in doc.ents:
+        if ent.label_ not in _NER_LABELS:
+            continue
+        norm = ent.text.strip().lower()
+        if len(norm) < 3 or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(norm)
+    return out
 
 
 @dataclass(slots=True)
@@ -44,6 +86,7 @@ class RuleExtractor:
             condition_tag="",
             evidence_span=text.strip(),
             source_turn_ids=[source_turn_id],
+            entity_mentions=extract_entities(text),
         )
 
     @staticmethod

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 import networkx as nx
 
 from .schemas import MemoryEdge, MemoryNode
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lowercase + whitespace tokenisation for BM25."""
+    return re.sub(r"[^\w\s]", " ", text.lower()).split()
 
 
 @dataclass(slots=True)
@@ -14,20 +20,54 @@ class MemoryGraphStore:
 
     - DiGraph enables directed temporal/supersedes edges.
     - Bidirectional semantic/co-usage edges are stored as two directed edges.
+    - BM25 index is built lazily on first retrieval call and invalidated on
+      every ``add_node`` so it stays current without manual management.
     """
 
     graph: nx.DiGraph = field(init=False)
     nodes: dict[str, MemoryNode] = field(init=False, default_factory=dict)
     _co_usage_hit_counts: dict[tuple[str, str], int] = field(init=False, default_factory=dict)
+    # BM25 lazy index
+    _bm25_index: object = field(init=False, repr=False)
+    _bm25_node_ids: list = field(init=False, repr=False, default_factory=list)
+    _bm25_dirty: bool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.graph = nx.DiGraph()
         self.nodes = {}
         self._co_usage_hit_counts = {}
+        self._bm25_index = None
+        self._bm25_node_ids = []
+        self._bm25_dirty = True
 
     def add_node(self, node: MemoryNode) -> None:
         self.nodes[node.node_id] = node
         self.graph.add_node(node.node_id)
+        self._bm25_dirty = True  # invalidate index on every new node
+
+    # ------------------------------------------------------------------
+    # BM25 index management
+    # ------------------------------------------------------------------
+
+    def build_bm25_index(self) -> None:
+        """(Re)build the BM25 index over all current node texts."""
+        from rank_bm25 import BM25Okapi  # lazy import keeps startup fast
+
+        node_list = list(self.nodes.values())
+        self._bm25_node_ids = [n.node_id for n in node_list]
+        corpus = [_tokenize(n.structured_record.text) for n in node_list]
+        self._bm25_index = BM25Okapi(corpus)
+        self._bm25_dirty = False
+
+    def bm25_search(self, query: str, top_k: int) -> list[tuple[str, float]]:
+        """Return up to *top_k* (node_id, bm25_score) pairs sorted by score."""
+        if self._bm25_dirty or self._bm25_index is None:
+            self.build_bm25_index()
+        tokens = _tokenize(query)
+        import numpy as _np  # already a transitive dep
+        scores: list[float] = self._bm25_index.get_scores(tokens).tolist()  # type: ignore[union-attr]
+        indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        return [(self._bm25_node_ids[i], scores[i]) for i in indices]
 
     def get_node(self, node_id: str) -> MemoryNode:
         return self.nodes[node_id]

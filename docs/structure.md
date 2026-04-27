@@ -55,10 +55,26 @@
 - `co-usage`：同次 query 共用且原无边，双向
 
 ## 4) Retrieval 总览
-- Step A：query 语义召回 seed nodes
+- Step A：**Hybrid seed 召回**（semantic dense + BM25 sparse，RRF 融合；BM25 默认关，LoCoMo eval 开启）
 - Step B：图扩展补全（按 edge 类型控制范围）
 - Step C：融合打分（semantic + centrality + temporal/edge evidence）
 - Step D：选 top evidence，构建 prompt
+
+### 4.1 BM25 混合检索
+- `MemoryGraphStore.bm25_search(query, top_k)`：BM25Okapi on raw turn text，lazy build + dirty flag
+- `SearchConfig.use_bm25 / bm25_topk / rrf_k`：控制是否启用及 RRF 超参
+- RRF 公式：`score(d) = Σ 1/(k + rank(d))`，k=60（标准值）
+
+### 4.2 P0：自适应扩展
+- `SearchConfig.adaptive_expand_threshold: float = 0.0`（0=关闭）
+- top-1 seed sim ≥ threshold → 直接跳过图展开，避免单跳事实题的邻居噪声污染
+- 实现在 `SearchPipeline._maybe_expand()`
+
+### 4.3 P1：Entity 边
+- `RuleExtractor` 调用 `extract_entities(text)`（spaCy en_core_web_sm NER）填充 `StructuredRecord.entity_mentions`
+- 全图建完后调用 `AddPipeline.build_entity_edges(now_ts)` 批量添加 `entity` 类型双向边
+- 高频实体（出现在 >35% 节点）被过滤，避免说话人名成为 hub
+- 图展开时 `SearchConfig.expand_use_entity=True` 则 entity 边也被遍历
 
 ## 5) 当前留空位（待实现后填充）
 - Extractor 具体实现方案：`RuleExtractor (MVP)`，后续补轻量模型兜底

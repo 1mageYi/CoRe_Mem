@@ -203,3 +203,97 @@ uv run python experiments/locomo/eval_locomo_graph.py
 | full-context | 42.5% | 37.5% |
 
 cat2（时序题）：graph/semantic 达到 47.8%，超过 full-context 的 43.5%
+
+---
+
+## BM25 混合检索实现（本轮）
+
+### 实现内容
+- **依赖**：新增 `rank-bm25>=0.2.2`，已同步到 `requirements.txt` / `pyproject.toml` / `uv.lock`
+- **`src/graph_mem/graph_store.py`**：
+  - 新增 `_tokenize(text)` 辅助函数（小写 + 去标点 + 空格分词）
+  - `MemoryGraphStore` 增加三个 slots 字段：`_bm25_index`、`_bm25_node_ids`、`_bm25_dirty`
+  - 新增 `build_bm25_index()` 方法（lazy build，首次调用或 dirty 时重建）
+  - 新增 `bm25_search(query, top_k)` → `list[(node_id, score)]`
+  - `add_node()` 写入时标记 `_bm25_dirty=True`，保证索引自动失效
+- **`src/graph_mem/search_pipeline.py`**：
+  - `SearchConfig` 新增三个参数：`use_bm25: bool = False`、`bm25_topk: int = 20`、`rrf_k: int = 60`
+  - `_seed_retrieve(qvec, query_str)` 支持双路召回 + RRF 融合
+  - `search()` / `search_with_debug()` 同步传入 `query_str`
+  - `use_bm25` **默认关闭**（不影响 PERMA 等已有实验），LoCoMo eval 中显式启用
+
+### LoCoMo eval 启用方式
+`experiments/locomo/eval_locomo_graph.py` 中 `SearchConfig(seed_topk=20, use_bm25=True, bm25_topk=20)`
+
+### 验证结果（2 conv × 20 题 = 40 samples）
+| Baseline | 本次（with BM25） | 上一版（no BM25） |
+|---|---|---|
+| graph-full | 30.0% | 32.5% |
+| semantic-only | 37.5% | 35.0% |
+| full-context | 40.0% | 37.5% |
+
+> 样本量 40 份，差异在噪声范围内（±5pp），无法得出 BM25 明确提升/退化结论。  
+> 下一步：扩大到 10 conv（1540 题全量）才能可靠对比。cat1（单跳事实题）是 BM25 的主要目标受益方向。
+
+### 下一步
+- 扩大规模到全量（`--conv-limit 10`）；BM25 对 cat1 单跳事实题的提升最为关键
+- 考虑对 `rrf_k` 与 `bm25_topk` 做小规模敏感性测试
+
+---
+
+## P0 自适应扩展 + P1 Entity 边（本轮）
+
+### 背景
+graph-full (30%) 持续低于 semantic-only (37.5%)，分析原因：
+1. **图扩展对 cat1 单跳题引入噪声**：语义已命中正确节点，展开邻居反而稀释 evidence
+2. **节点粒度粗（turn-level）**：节点间只有时序/语义边，跨实体关联缺失
+
+### P0：自适应扩展
+- `SearchConfig.adaptive_expand_threshold: float = 0.0`（默认关闭）
+- 若 top-1 seed 语义相似度 ≥ threshold，跳过图扩展直接用 seeds（新 `_maybe_expand()` 方法）
+- `search_with_debug` 的 debug 字典新增 `skipped_expand` 标记
+- LoCoMo eval 中设置 `adaptive_expand_threshold=0.80`
+
+### P1：Entity 边
+**依赖**：新增 `spacy>=3.7` + `en_core_web_sm` 模型（~12MB）
+- **安装**：`uv pip install spacy>=3.7 && uv run python -m spacy download en_core_web_sm`
+
+**Schema 变化**：
+- `StructuredRecord.entity_mentions: list[str]` 字段（默认空列表）
+- `EdgeType` 新增 `"entity"` 类型
+
+**extractor.py**：
+- 新增模块级 `_get_nlp()` 懒加载 spaCy（spaCy 不可用时优雅降级为空列表）
+- 新增 `extract_entities(text) -> list[str]`（过滤 PERSON / GPE / LOC / ORG / EVENT 等标签，≥3字符）
+- `RuleExtractor.extract_from_turn()` 现在自动填充 `entity_mentions`
+
+**add_pipeline.py**：
+- `AddConfig` 新增 `entity_edge_max_freq=0.35`（实体出现在 >35% 节点中则过滤，避免说话人姓名产生海量边）和 `entity_edge_max_per_node=20`
+- 新增 `AddPipeline.build_entity_edges(now_ts) -> int`：
+  - 对所有节点按 entity 分组，两两建双向 `entity` 边
+  - 用 `math.ceil` 计算 max_count 防止小语料过度过滤
+  - 返回创建的有向边数量
+
+**search_pipeline.py**：
+- `SearchConfig.expand_use_entity: bool = True` — entity 边在 `_expand()` 中被纳入图遍历
+
+**eval_locomo_graph.py**：
+- `build_graph_from_conversation()` 返回值改为 `(store, build_stats)`，内含 n_nodes / n_edges / n_entity_edges
+- 图构建后自动调用 `add.build_entity_edges(now_ts=0)`
+- 修复了 `rank_cfg / search_cfg / add_cfg` 写在 `if conv_limit > 0:` 内的 scoping bug
+- SearchConfig 更新：`adaptive_expand_threshold=0.80, expand_use_entity=True`
+
+### 验证结果（2 conv × 20 题 = 40 samples）
+| Baseline | P0+P1 前 | **P0+P1 后** |
+|---|---|---|
+| graph-full | 30.0% | **35.0%** ↑5pp |
+| semantic-only | 37.5% | 40.0% |
+| full-context | 40.0% | 35.0% |
+| delta graph-sem | -7.5pp | **-5.0pp** |
+
+cat2（时序题）：graph 47.8% vs semantic 52.2%，差距缩小  
+样本量仍为 40，需全量（1540 题）才能可靠验证
+
+### 下一步
+- 全量评测 `--conv-limit 10` 验证提升是否稳定
+- entity 边对 cat3 跨 session 推理的潜在帮助（目前 cat3 样本太少）

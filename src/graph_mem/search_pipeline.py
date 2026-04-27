@@ -24,6 +24,14 @@ class SearchConfig:
     co_usage_decay: float = 1.0
     co_usage_prune_threshold: float = 0.05
     core_top_ratio: float = 0.2
+    # Hybrid retrieval: BM25 + semantic RRF fusion for seed candidates
+    use_bm25: bool = False      # off by default; enable per-eval (e.g. LoCoMo)
+    bm25_topk: int = 20         # BM25 candidates before RRF fusion
+    rrf_k: int = 60             # RRF constant (standard: 60)
+    # P0: adaptive expansion - skip graph expansion when semantic confidence is high
+    adaptive_expand_threshold: float = 0.0  # 0.0 = always expand; e.g. 0.80 = skip if top-1 sim >= 0.80
+    # P1: entity edge traversal during graph expansion
+    expand_use_entity: bool = True
 
 
 @dataclass(slots=True)
@@ -35,8 +43,8 @@ class SearchPipeline:
 
     def search(self, query: str, *, now_ts: int) -> list[str]:
         qvec = self.embedder.encode(query)
-        seeds = self._seed_retrieve(qvec)
-        expanded = self._expand(seeds)
+        seeds = self._seed_retrieve(qvec, query)
+        expanded = self._maybe_expand(seeds, qvec)
         ranked = self._rank(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
@@ -44,8 +52,8 @@ class SearchPipeline:
 
     def search_with_debug(self, query: str, *, now_ts: int) -> tuple[list[str], dict]:
         qvec = self.embedder.encode(query)
-        seeds = self._seed_retrieve(qvec)
-        expanded = self._expand(seeds)
+        seeds = self._seed_retrieve(qvec, query)
+        expanded, skipped_expand = self._maybe_expand(seeds, qvec, return_skip_flag=True)
         ranked, breakdown = self._rank_with_breakdown(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
@@ -53,18 +61,60 @@ class SearchPipeline:
         debug = {
             "seeds": seeds,
             "expanded": expanded,
+            "skipped_expand": skipped_expand,
             "ranked_top_ids": top_ids,
             "score_breakdown": breakdown,
         }
         return evidence, debug
 
-    def _seed_retrieve(self, qvec: list[float]) -> list[str]:
-        scores = []
-        for node in self.graph_store.all_nodes():
-            sim = self.embedder.cosine(qvec, node.embedding)
-            scores.append((node.node_id, sim))
-        scores.sort(key=lambda x: x[1], reverse=True)
-        return [nid for nid, _ in scores[: self.cfg.seed_topk]]
+    def _seed_retrieve(self, qvec: list[float], query_str: str = "") -> list[str]:
+        """Return seed node IDs.
+
+        When ``cfg.use_bm25`` is True, performs Reciprocal Rank Fusion (RRF)
+        over dense (semantic) and sparse (BM25) rankings before taking top-k.
+        Falls back to pure semantic when BM25 is disabled.
+        """
+        # --- Dense (semantic) ranking ---
+        sem_scores = [
+            (node.node_id, self.embedder.cosine(qvec, node.embedding))
+            for node in self.graph_store.all_nodes()
+        ]
+        sem_scores.sort(key=lambda x: x[1], reverse=True)
+
+        if not self.cfg.use_bm25 or not query_str:
+            return [nid for nid, _ in sem_scores[: self.cfg.seed_topk]]
+
+        # --- Sparse (BM25) ranking ---
+        bm25_results = self.graph_store.bm25_search(query_str, top_k=self.cfg.bm25_topk)
+
+        # --- RRF fusion ---
+        k = self.cfg.rrf_k
+        rrf: dict[str, float] = {}
+        for rank, (nid, _) in enumerate(sem_scores):
+            rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
+        for rank, (nid, _) in enumerate(bm25_results):
+            rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
+
+        fused = sorted(rrf.items(), key=lambda x: x[1], reverse=True)
+        return [nid for nid, _ in fused[: self.cfg.seed_topk]]
+
+    def _maybe_expand(
+        self,
+        seeds: list[str],
+        qvec: list[float],
+        *,
+        return_skip_flag: bool = False,
+    ) -> list[str] | tuple[list[str], bool]:
+        """Expand seeds, optionally skipping if top-1 semantic confidence exceeds threshold."""
+        skipped = False
+        if self.cfg.adaptive_expand_threshold > 0.0 and seeds:
+            top_sim = self.embedder.cosine(qvec, self.graph_store.get_node(seeds[0]).embedding)
+            if top_sim >= self.cfg.adaptive_expand_threshold:
+                skipped = True
+        result = seeds if skipped else self._expand(seeds)
+        if return_skip_flag:
+            return result, skipped
+        return result
 
     def _expand(self, seeds: list[str]) -> list[str]:
         edge_types: list[str] = []
@@ -74,6 +124,8 @@ class SearchPipeline:
             edge_types.append("temporal")
         if self.cfg.expand_use_co_usage:
             edge_types.append("co_usage")
+        if self.cfg.expand_use_entity:
+            edge_types.append("entity")
         visited = set(seeds)
         frontier = list(seeds)
         for _ in range(self.cfg.expand_hop):

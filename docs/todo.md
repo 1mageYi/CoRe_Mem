@@ -40,7 +40,11 @@
 - [x] 选定数据快照：`data/locomo/locomo10.json`（10 对话，cat5 adversarial 默认排除，1540 QA）
 - [x] 实现 `src/graph_mem/locomo_data.py`：LoCoMoTurn / LoCoMoQA / LoCoMoConversation / load_locomo / turn_time_index
 - [x] 实现 `experiments/locomo/eval_locomo_graph.py`（复用 graph store / SearchPipeline；双说话人写入；soft_match + LLM judge 评分）
-- [ ] **跑起来并记录结果**：快速验证 `--conv-limit 2 --qa-limit 20`，再逐步扩大规模
+- [x] 快速验证 `--conv-limit 2 --qa-limit 20`（已通，见 current_status）
+- [x] 实现 BM25 混合检索（`rank-bm25` + RRF，`SearchConfig.use_bm25=True`，已启用于 LoCoMo eval）
+- [x] P0 自适应扩展（`adaptive_expand_threshold=0.80`，高置信度时跳过图展开防噪声）
+- [x] P1 Entity 边（spaCy NER → `entity_mentions` → `build_entity_edges()` → 图遍历）
+- [ ] **扩大规模**：全量 10 对话（`uv run python experiments/locomo/eval_locomo_graph.py`），对比各阶段改进
 - [ ] 报告：准确率、延迟、图统计（与 PERMA 脚本同级别产物）
 - [ ] 超长上下文下时延与内存占用评估（随 LoCoMo 一并记录）
 

@@ -7,7 +7,7 @@ from typing import Literal
 EventType = Literal["emergence", "supplement", "task", "unknown"]
 UpdateType = Literal["new", "update", "revision", "conflict", "unknown"]
 NodeState = Literal["active", "inactive", "superseded", "conflicted"]
-EdgeType = Literal["semantic", "temporal", "co_usage", "supersedes"]
+EdgeType = Literal["semantic", "temporal", "co_usage", "supersedes", "entity"]
 
 
 @dataclass(slots=True)
@@ -23,6 +23,8 @@ class StructuredRecord:
     condition_tag: str = ""
     evidence_span: str = ""
     source_turn_ids: list[int] = field(default_factory=list)
+    # Named entity mentions extracted via NER; used to build entity edges
+    entity_mentions: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
