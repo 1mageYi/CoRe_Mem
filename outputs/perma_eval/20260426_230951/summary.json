@@ -1,0 +1,12 @@
+{
+  "user_id": "user108",
+  "variant": "c",
+  "n_samples": 5,
+  "acc_graph_full": 0.6,
+  "acc_semantic_only": 0.2,
+  "acc_delta_graph_minus_semantic": 0.4,
+  "avg_t_graph_s": 1.2963,
+  "avg_t_semantic_s": 1.1136,
+  "llm_model": "openai/gpt-4o-mini",
+  "llm_base_url": "https://api.tokenrouter.com/v1"
+}

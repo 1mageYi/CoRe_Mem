@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from .eval_utils import build_eval_prompt, load_llm_config, query_option_letter
 from .extractor import RuleExtractor
 from .graph_store import MemoryGraphStore
 from .perma_data import load_perma_user_samples
+from .ranking import RankingConfig
 from .search_pipeline import SearchPipeline
 
 
@@ -23,6 +24,10 @@ class PermaEvalConfig:
     user_id: str = "user108"
     variant: str = "c"
     limit: int = 10
+    # None -> use `RankingConfig.lambda_core` in `ranking.py`
+    lambda_core: float | None = None
+    # False skips debug_samples.jsonl (faster parameter sweeps)
+    write_debug: bool = True
 
 
 def semantic_only_evidence(
@@ -72,22 +77,35 @@ def run_perma_eval(
     if cfg.limit > 0:
         samples = samples[: cfg.limit]
 
+    rank_cfg = RankingConfig()
+    if cfg.lambda_core is not None:
+        rank_cfg = replace(rank_cfg, lambda_core=float(cfg.lambda_core))
+
     shared_embedder = BgeM3Embedder()
     search_cache: dict[str, SearchPipeline] = {}
     graph_cache: dict[str, tuple[MemoryGraphStore, BgeM3Embedder]] = {}
 
     rows = []
+    debug_rows = []
     iterator = tqdm(samples, desc="PERMA eval", unit="q") if show_progress else samples
     for idx, sample in enumerate(iterator, start=1):
         key = f"{sample.user_id}:{sample.task_id}:{sample.task_type}"
         if key not in graph_cache:
             store, embedder = build_graph_from_context(sample.context_messages, embedder=shared_embedder)
             graph_cache[key] = (store, embedder)
-            search_cache[key] = SearchPipeline(graph_store=store, embedder=embedder)
+            sk = f"{key}:λ{rank_cfg.lambda_core}"
+            search_cache[sk] = SearchPipeline(
+                graph_store=store,
+                embedder=embedder,
+                rank_cfg=rank_cfg,
+            )
         else:
             store, embedder = graph_cache[key]
 
-        graph_evidence = search_cache[key].search(sample.question, now_ts=10_000 + idx)
+        sk = f"{key}:λ{rank_cfg.lambda_core}"
+        pipe = search_cache[sk]
+
+        graph_evidence, graph_debug = pipe.search_with_debug(sample.question, now_ts=10_000 + idx)
         semantic_evidence = semantic_only_evidence(store, embedder, sample.question, top_k=8)
 
         graph_prompt = build_eval_prompt(sample.question, sample.options_text, graph_evidence)
@@ -110,6 +128,26 @@ def run_perma_eval(
                 "t_semantic_s": round(t_sem, 4),
             }
         )
+        if cfg.write_debug:
+            debug_rows.append(
+                {
+                    "sample_index": idx,
+                    "user_id": sample.user_id,
+                    "task_id": sample.task_id,
+                    "task_type": sample.task_type,
+                    "question": sample.question,
+                    "gold": sample.gold_label,
+                    "pred_graph": graph_pred,
+                    "pred_semantic": sem_pred,
+                    "ok_graph": int(graph_pred == sample.gold_label),
+                    "ok_semantic": int(sem_pred == sample.gold_label),
+                    "graph_debug": graph_debug,
+                    "graph_top_evidence": graph_evidence,
+                    "semantic_top_evidence": semantic_evidence,
+                    "graph_prompt_preview": graph_prompt[:800],
+                    "semantic_prompt_preview": sem_prompt[:800],
+                }
+            )
 
     n = len(rows)
     acc_graph = (sum(r["ok_graph"] for r in rows) / n) if n else 0.0
@@ -120,6 +158,7 @@ def run_perma_eval(
     summary = {
         "user_id": cfg.user_id,
         "variant": cfg.variant,
+        "lambda_core": rank_cfg.lambda_core,
         "n_samples": n,
         "acc_graph_full": round(acc_graph, 4),
         "acc_semantic_only": round(acc_sem, 4),
@@ -139,6 +178,11 @@ def run_perma_eval(
                 writer.writeheader()
                 writer.writerows(rows)
         (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        if cfg.write_debug:
+            debug_path = out_dir / "debug_samples.jsonl"
+            with debug_path.open("w", encoding="utf-8") as f:
+                for item in debug_rows:
+                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
     return summary
 

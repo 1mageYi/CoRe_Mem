@@ -31,6 +31,7 @@
 ## 2.1 代码入口（当前）
 - 训练/评测入口：
   - `train/perma/eval_perma_graph_vs_semantic.py`
+  - `train/perma/tune_lambda_core.py`（`lambda_core` 网格，含无 prior 的 `λ=0`）
   - `train/perma/smoke_graph_mvp.py`
 - 可复用评测核心：
   - `src/graph_mem/perma_eval.py`

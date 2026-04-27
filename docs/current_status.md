@@ -22,11 +22,9 @@
 - 融合打分参数缺少固定调参协议，存在复现波动风险。
 
 ## 下一步（短期）
-1. 接入 PERMA 样本读取，替换 smoke 脚本中的手工 turns。
-2. 强化冲突分类规则：补齐 context_split 与 hard_conflict 判定。
-3. 增加 baseline 评测脚本（semantic-only / graph-full）。
-4. 固定参数搜索 protocol，并产出首轮 PERMA dev 结果。
-5. MVP 稳定后进入 edge/core 消融，再准备 PersonaMem 迁移。
+1. Phase 2 调参协议已可跑：`python train/perma/tune_lambda_core.py`（`--lambdas` 含 `0.0` 作无 prior 基线）。
+2. 进入 Phase 3：edge 消融、co-usage 抑制、merge 消融（按 `todo.md`）。
+3. 小样本下的跨用户准确率只做方向参考；失败归因等大 N 后再做。
 
 ## 本轮已完成（Graph MVP Skeleton）
 - 新建 `src/graph_mem/` 模块：
@@ -87,6 +85,46 @@
   - `python train/perma/eval_perma_graph_vs_semantic.py --user-id user108 --variant c --limit 5`
 - mini e2e 测试：
   - `python -m pytest tests/graph_mem/test_e2e_perma_mini.py -q`
+
+## 调试导出（新增）
+- PERMA 评测现已支持逐样本调试导出：`debug_samples.jsonl`
+- 每条样本记录包含：
+  - `seeds`（初始语义召回）
+  - `expanded`（图扩展后的候选集合）
+  - `score_breakdown`（semantic/centrality/edge/temporal/final）
+  - `graph_top_evidence` 与 `semantic_top_evidence`
+  - `graph_prompt_preview` 与 `semantic_prompt_preview`
+  - `pred_graph/pred_semantic/gold`
+- 导出位置示例：
+  - `outputs/perma_eval/20260426_225611/debug_samples.jsonl`
+
+## Phase 2 进展（新增）
+- core/residual 已从“仅 PageRank 阈值”升级为联合 `core_score`：
+  - `core_score = 0.50 * pagerank + 0.30 * in_degree + 0.20 * retrieve_count`（min-max 归一化后融合）
+- 检索重排已使用 `core_score` 作为中心性先验输入，`lambda_core` 对 core 节点做乘性加权。
+- 每次检索后会回写命中节点的 `retrieve_count`，用于后续动态 core 分化。
+- debug 导出已增加 `core_score` 与 `retrieve_count` 字段，便于定位 prior 偏置问题。
+
+## 本轮验证结果（新增）
+- 测试：
+  - `python -m pytest tests/graph_mem -q` -> `1 passed, 1 skipped`
+- 快速 PERMA 实测：
+  - `python train/perma/eval_perma_graph_vs_semantic.py --user-id user108 --variant c --limit 5`
+  - graph: `0.80` vs semantic-only: `0.20`，delta: `+0.60`
+  - output: `outputs/perma_eval/20260426_230254`
+
+## PERMA 多用户通用性快检（新增）
+- 配置：`variant=c`, `limit=5`, 覆盖全部 10 个用户
+- 汇总文件：`outputs/perma_eval/multi_user_limit5_summary.json`
+- 分布结果（delta = graph - semantic）：
+  - 正增益：`3/10`（`user108 +0.4`, `user123 +0.4`, `user914 +0.2`）
+  - 持平：`4/10`（`user112`, `user354`, `user419`, `user507`）
+  - 负增益：`3/10`（`user109 -0.4`, `user1377 -0.4`, `user334 -0.8`）
+- 聚合统计：
+  - `mean_delta = -0.06`
+  - `median_delta = 0.0`
+- 阶段性判断：
+  - 当前不是“全局一致退化”，但存在明确的**多用户负增益子集**，属于需要继续定位但不必立即全局重构的状态。
 
 ## 参考说明
 - 设计参考 GraphRAG 的“结构化 + 图关系”思想，但实现目标是研究代码清晰、模块解耦，不照抄其工程结构。

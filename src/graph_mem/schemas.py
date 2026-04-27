@@ -38,6 +38,8 @@ class MemoryNode:
     valid_to: int | None = None
     supersedes: str | None = None
     version: int = 1
+    retrieve_count: int = 0
+    core_score: float = 0.0
 
 
 @dataclass(slots=True)

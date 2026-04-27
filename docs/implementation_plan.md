@@ -186,7 +186,7 @@ flowchart TD
 
 说明：
 - 初期保持 `alpha` 主导，避免中心性过早垄断检索。
-- `lambda_core` 建议只在 `0.10 / 0.20 / 0.30` 范围内搜索。
+- `lambda_core` 建议只在 `0.10 / 0.20 / 0.30` 范围内搜索；**无 prior 对照**用 `λ=0`（`PermaEvalConfig.lambda_core=0` 或 `train/perma/tune_lambda_core.py --lambdas 0,0.1,0.2,0.3`）。
 
 ### 11.4 co-usage 边控制
 - `co_usage_min_count = 2`（至少共现2次才固化）

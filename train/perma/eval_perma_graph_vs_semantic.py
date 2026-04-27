@@ -15,7 +15,13 @@ from graph_mem.perma_eval import PermaEvalConfig, run_perma_eval_with_timestampe
 
 
 def run(args: argparse.Namespace) -> None:
-    cfg = PermaEvalConfig(user_id=args.user_id, variant=args.variant, limit=args.limit)
+    cfg = PermaEvalConfig(
+        user_id=args.user_id,
+        variant=args.variant,
+        limit=args.limit,
+        lambda_core=args.lambda_core,
+        write_debug=not args.no_debug,
+    )
     summary, out_dir = run_perma_eval_with_timestamped_output(cfg, root_dir=ROOT, show_progress=True)
 
     print("\n=== PERMA Graph vs Semantic ===")
@@ -28,6 +34,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--user-id", default="user108")
     p.add_argument("--variant", default="c", choices=["c", "n", "s"])
     p.add_argument("--limit", type=int, default=20)
+    p.add_argument(
+        "--lambda-core",
+        type=float,
+        default=None,
+        dest="lambda_core",
+        help="Override RankingConfig.lambda_core (omit for default).",
+    )
+    p.add_argument("--no-debug", action="store_true", help="Skip debug_samples.jsonl export.")
     return p.parse_args()
 
 

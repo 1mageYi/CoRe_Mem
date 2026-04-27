@@ -17,18 +17,18 @@
 - [x] 增加 mini e2e 回归测试文件（真实 PERMA 样本，limit=2）
 
 ## Phase 2: Core/Residual 自分化
-- [ ] 引入 PageRank/入度/使用频次计算 core_score
-- [ ] 实现 core prior 融合打分
-- [ ] 完成 lambda_core 网格搜索
-- [ ] 对比“无 prior vs 有 prior”
+- [x] 引入 PageRank/入度/使用频次计算 core_score
+- [x] 实现 core prior 融合打分
+- [x] 完成 lambda_core 网格搜索（`PermaEvalConfig.lambda_core` + `train/perma/tune_lambda_core.py`）
+- [x] 对比“无 prior vs 有 prior”（网格含 `λ=0` 与默认/多档 `λ`）
 
 ## Phase 3: PERMA 消融与稳健性
 - [ ] edge 消融（semantic-only / +temporal / +co-usage / full）
 - [ ] merge 策略消融（latest-wins vs multi-version）
 - [ ] co-usage 污染控制（最小共现阈值 + 衰减）
 - [ ] temporal probing 分段评测（早期/中期/后期）
-- [ ] 失败剖析：解释 user109 上 graph-full 相比 semantic-only 的退化来源
-- [ ] 加入 per-sample debug 导出（seed/expanded/top evidence/score 分解）
+- [ ] 失败样本剖析（待更大 N 或全量跑完后再做，小样本不展开）
+- [x] 加入 per-sample debug 导出（seed/expanded/top evidence/score 分解）
 
 ## Phase 4: PersonaMem 最终迁移验证
 - [ ] 适配 PersonaMem 数据入口
