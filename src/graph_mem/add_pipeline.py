@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from .embedder import BgeM3Embedder
 from .formatter import format_structured_text
 from .graph_store import MemoryGraphStore
 from .schemas import MemoryEdge, MemoryNode, StructuredRecord
+
+MergeStrategy = Literal["hybrid", "latest_wins"]
 
 
 @dataclass(slots=True)
@@ -13,6 +16,8 @@ class AddConfig:
     merge_threshold: float = 0.88
     semantic_edge_threshold: float = 0.78
     semantic_edge_topk: int = 8
+    # latest_wins: high-sim always overwrites nearest node; hybrid: only update_type==update merges
+    merge_strategy: MergeStrategy = "hybrid"
 
 
 @dataclass(slots=True)
@@ -23,13 +28,25 @@ class AddPipeline:
 
     def add_record(self, record: StructuredRecord, *, now_ts: int) -> str:
         structured_text = format_structured_text(record)
-        emb = self.embedder.encode(structured_text)
+        # Embed raw text so semantic similarity is driven by content, not
+        # the shared metadata prefix that would compress all embeddings together.
+        emb = self.embedder.encode(record.text)
 
         nearest_id, nearest_sim = self._nearest_neighbor(emb)
         if nearest_id is None:
             node_id = self._create_node(record, structured_text, emb, now_ts)
             self._attach_semantic_edges(node_id, now_ts)
             return node_id
+
+        if nearest_sim >= self.cfg.merge_threshold and self.cfg.merge_strategy == "latest_wins":
+            node = self.graph_store.get_node(nearest_id)
+            node.structured_record = record
+            node.structured_text = structured_text
+            node.embedding = emb
+            node.updated_at = now_ts
+            node.version += 1
+            self._attach_semantic_edges(nearest_id, now_ts)
+            return nearest_id
 
         if nearest_sim >= self.cfg.merge_threshold and record.update_type == "update":
             node = self.graph_store.get_node(nearest_id)

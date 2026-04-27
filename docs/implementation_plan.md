@@ -112,10 +112,10 @@ flowchart TD
   - 规则先抽取核心槽位（event_type/topic/preference/update/time）。
   - 轻量分类器用于歧义样本仲裁（可后置，不阻塞MVP）。
 
-## 7. Benchmark 执行顺序
-1. `PERMA`：主 benchmark，先完成设计验证。
-2. `PersonaMem`：全流程完成后做迁移验证。
-3. `LoCoMo`：可选压力测试（时序/因果与超长上下文）。
+## 7. Benchmark 执行顺序（current）
+1. `LoCoMo`：主 benchmark（超长多会话对话记忆；与本系统设定一致）。
+2. `PERMA`：对照与消融回归（task 对齐语境下的偏好/事件 QA）。
+3. `PersonaMem`：全流程稳定后的迁移验证。
 
 ## 8. 消融实验设计
 - Edge 消融：
@@ -188,10 +188,10 @@ flowchart TD
 - 初期保持 `alpha` 主导，避免中心性过早垄断检索。
 - `lambda_core` 建议只在 `0.10 / 0.20 / 0.30` 范围内搜索；**无 prior 对照**用 `λ=0`（`PermaEvalConfig.lambda_core=0` 或 `train/perma/tune_lambda_core.py --lambdas 0,0.1,0.2,0.3`）。
 
-### 11.4 co-usage 边控制
-- `co_usage_min_count = 2`（至少共现2次才固化）
-- `co_usage_decay = 0.98`（每轮查询后做边权衰减）
-- `co_usage_prune_threshold = 0.05`（低于阈值的弱边清理）
+### 11.4 co-usage 边控制（已实现）
+- **固化**：`co_usage_min_count`（默认 `1`：首次共现已建边；设为 `2` 则第二次联合命中才写入图）。
+- **扩展**：`expand_min_co_usage_usage` 仅在沿 co_usage 扩展时忽略弱边。
+- **衰减**：每轮检索后可选 `co_usage_decay`、`co_usage_prune_threshold`（见 `MemoryGraphStore.decay_co_usage_edges`）。
 
 ### 11.5 状态/冲突参数
 - `inactive_penalty = 0.35`（inactive 节点在重排时乘性惩罚）

@@ -1,7 +1,7 @@
 # Graph Memory TODO
 
 ## Phase 0: 文档与基线准备
-- [x] 固化 benchmark 顺序：PERMA -> PersonaMem（最终） -> LoCoMo（可选）
+- [x] 固化 benchmark 顺序（当前）：LoCoMo（主测·长上下文）→ PERMA（对照/回归）→ PersonaMem（最终迁移）
 - [x] 写清 baseline 对照：semantic-only、旧 core/residual、mem0-like
 - [x] 定义统一指标看板（准确率、延迟、记忆覆盖、图统计）
 
@@ -23,10 +23,10 @@
 - [x] 对比“无 prior vs 有 prior”（网格含 `λ=0` 与默认/多档 `λ`）
 
 ## Phase 3: PERMA 消融与稳健性
-- [ ] edge 消融（semantic-only / +temporal / +co-usage / full）
-- [ ] merge 策略消融（latest-wins vs multi-version）
-- [ ] co-usage 污染控制（最小共现阈值 + 衰减）
-- [ ] temporal probing 分段评测（早期/中期/后期）
+- [x] edge 消融（`graph_edge_mode`：`full` / `semantic_only` / `semantic_temporal` / `semantic_co_usage`）
+- [x] merge 策略消融（`merge_strategy`：`hybrid` vs `latest_wins`）
+- [x] co-usage 污染控制（`co_usage_min_count` 固化门槛 + `co_usage_decay` / `co_usage_prune_threshold`）
+- [x] temporal probing 分段评测（`--temporal-probe`：按样本顺序三等分 early/mid/late）
 - [ ] 失败样本剖析（待更大 N 或全量跑完后再做，小样本不展开）
 - [x] 加入 per-sample debug 导出（seed/expanded/top evidence/score 分解）
 
@@ -36,9 +36,13 @@
 - [ ] 对比旧方案与图方案增益/退化点
 - [ ] 输出最终对照报告
 
-## Phase 5: 可选 LoCoMo 压测
-- [ ] 超长上下文下时延与内存占用评估
-- [ ] 时序/因果相关任务的图扩展收益分析
+## Phase 5: LoCoMo 主评测（原「可选压测」升格）
+- [x] 选定数据快照：`data/locomo/locomo10.json`（10 对话，cat5 adversarial 默认排除，1540 QA）
+- [x] 实现 `src/graph_mem/locomo_data.py`：LoCoMoTurn / LoCoMoQA / LoCoMoConversation / load_locomo / turn_time_index
+- [x] 实现 `experiments/locomo/eval_locomo_graph.py`（复用 graph store / SearchPipeline；双说话人写入；soft_match + LLM judge 评分）
+- [ ] **跑起来并记录结果**：快速验证 `--conv-limit 2 --qa-limit 20`，再逐步扩大规模
+- [ ] 报告：准确率、延迟、图统计（与 PERMA 脚本同级别产物）
+- [ ] 超长上下文下时延与内存占用评估（随 LoCoMo 一并记录）
 
 ## 交付物检查
 - [ ] docs 完整（requirements / implementation_plan / todo / current_status）

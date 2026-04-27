@@ -18,10 +18,12 @@ class MemoryGraphStore:
 
     graph: nx.DiGraph = field(init=False)
     nodes: dict[str, MemoryNode] = field(init=False, default_factory=dict)
+    _co_usage_hit_counts: dict[tuple[str, str], int] = field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
         self.graph = nx.DiGraph()
         self.nodes = {}
+        self._co_usage_hit_counts = {}
 
     def add_node(self, node: MemoryNode) -> None:
         self.nodes[node.node_id] = node
@@ -54,6 +56,70 @@ class MemoryGraphStore:
         data["usage_count"] = int(data.get("usage_count", 1)) + 1
         data["weight"] = float(data.get("weight", 0.0)) + 1.0
         data["updated_at"] = now_ts
+
+    def register_co_usage_between(
+        self,
+        a: str,
+        b: str,
+        *,
+        now_ts: int,
+        min_count_to_solidify: int,
+    ) -> None:
+        """
+        Count co-appearance events per unordered pair; only add bidirectional co_usage edges
+        after `min_count_to_solidify` joint hits (unless edges already exist).
+        """
+        key = tuple(sorted((a, b)))
+        self._co_usage_hit_counts[key] = self._co_usage_hit_counts.get(key, 0) + 1
+        h = self._co_usage_hit_counts[key]
+
+        da_ab = self.graph.has_edge(a, b) and self.graph.get_edge_data(a, b).get("edge_type") == "co_usage"
+        if da_ab:
+            self.increment_co_usage(a, b, now_ts)
+            if self.graph.has_edge(b, a):
+                self.increment_co_usage(b, a, now_ts)
+            return
+
+        if h >= min_count_to_solidify:
+            self.add_edge(
+                MemoryEdge(
+                    src_node_id=a,
+                    dst_node_id=b,
+                    edge_type="co_usage",
+                    weight=float(h),
+                    created_at=now_ts,
+                    updated_at=now_ts,
+                    usage_count=h,
+                )
+            )
+            self.add_edge(
+                MemoryEdge(
+                    src_node_id=b,
+                    dst_node_id=a,
+                    edge_type="co_usage",
+                    weight=float(h),
+                    created_at=now_ts,
+                    updated_at=now_ts,
+                    usage_count=h,
+                )
+            )
+
+    def decay_co_usage_edges(self, decay: float, prune_below: float, now_ts: int) -> None:
+        """Multiply co_usage edge weights by decay; drop edges weaker than prune_below."""
+        if decay >= 1.0 and prune_below <= 0.0:
+            return
+        edges = list(self.graph.edges(data=True))
+        for u, v, data in edges:
+            if data.get("edge_type") != "co_usage":
+                continue
+            if decay < 1.0:
+                w = float(data.get("weight", 0.0)) * decay
+                data["weight"] = w
+                data["updated_at"] = now_ts
+            else:
+                w = float(data.get("weight", 0.0))
+            if prune_below > 0.0 and w < prune_below:
+                self.graph.remove_edge(u, v)
 
     def centrality(self) -> dict[str, float]:
         if self.graph.number_of_nodes() == 0:
@@ -88,12 +154,22 @@ class MemoryGraphStore:
             scores[nid] = score
         return scores
 
-    def neighbors_by_type(self, node_id: str, edge_type: str, limit: int) -> list[str]:
+    def neighbors_by_type(
+        self,
+        node_id: str,
+        edge_type: str,
+        limit: int,
+        *,
+        min_usage_count: int = 1,
+    ) -> list[str]:
         out: list[str] = []
         for nxt in self.graph.successors(node_id):
             data = self.graph.get_edge_data(node_id, nxt)
-            if data and data.get("edge_type") == edge_type:
-                out.append(nxt)
+            if not data or data.get("edge_type") != edge_type:
+                continue
+            if edge_type == "co_usage" and int(data.get("usage_count", 1)) < min_usage_count:
+                continue
+            out.append(nxt)
             if len(out) >= limit:
                 break
         return out

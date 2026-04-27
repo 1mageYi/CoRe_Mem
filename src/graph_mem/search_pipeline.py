@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from .embedder import BgeM3Embedder
 from .graph_store import MemoryGraphStore
 from .ranking import RankingConfig, fuse_score
-from .schemas import MemoryEdge
 
 
 @dataclass(slots=True)
@@ -14,7 +13,16 @@ class SearchConfig:
     expand_hop: int = 1
     expand_max_neighbors_per_type: int = 6
     final_topn_evidence: int = 8
-    co_usage_min_count: int = 2
+    # 1-hop expansion: which edge types to follow (seeds are always kept)
+    expand_use_semantic: bool = True
+    expand_use_temporal: bool = True
+    expand_use_co_usage: bool = True
+    # Only traverse co_usage edges with at least this usage_count
+    expand_min_co_usage_usage: int = 1
+    # Solidify new co_usage pair edges only after this many joint top-k co-occurrence events
+    co_usage_min_count: int = 1
+    co_usage_decay: float = 1.0
+    co_usage_prune_threshold: float = 0.05
     core_top_ratio: float = 0.2
 
 
@@ -32,7 +40,7 @@ class SearchPipeline:
         ranked = self._rank(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
-        return [self.graph_store.get_node(nid).structured_text for nid in top_ids]
+        return [self.graph_store.get_node(nid).structured_record.text for nid in top_ids]
 
     def search_with_debug(self, query: str, *, now_ts: int) -> tuple[list[str], dict]:
         qvec = self.embedder.encode(query)
@@ -41,7 +49,7 @@ class SearchPipeline:
         ranked, breakdown = self._rank_with_breakdown(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
-        evidence = [self.graph_store.get_node(nid).structured_text for nid in top_ids]
+        evidence = [self.graph_store.get_node(nid).structured_record.text for nid in top_ids]
         debug = {
             "seeds": seeds,
             "expanded": expanded,
@@ -59,15 +67,30 @@ class SearchPipeline:
         return [nid for nid, _ in scores[: self.cfg.seed_topk]]
 
     def _expand(self, seeds: list[str]) -> list[str]:
+        edge_types: list[str] = []
+        if self.cfg.expand_use_semantic:
+            edge_types.append("semantic")
+        if self.cfg.expand_use_temporal:
+            edge_types.append("temporal")
+        if self.cfg.expand_use_co_usage:
+            edge_types.append("co_usage")
         visited = set(seeds)
         frontier = list(seeds)
         for _ in range(self.cfg.expand_hop):
             nxt_frontier: list[str] = []
             for nid in frontier:
-                for edge_type in ("semantic", "temporal", "co_usage"):
-                    neighbors = self.graph_store.neighbors_by_type(
-                        nid, edge_type=edge_type, limit=self.cfg.expand_max_neighbors_per_type
-                    )
+                for edge_type in edge_types:
+                    if edge_type == "co_usage":
+                        neighbors = self.graph_store.neighbors_by_type(
+                            nid,
+                            edge_type=edge_type,
+                            limit=self.cfg.expand_max_neighbors_per_type,
+                            min_usage_count=self.cfg.expand_min_co_usage_usage,
+                        )
+                    else:
+                        neighbors = self.graph_store.neighbors_by_type(
+                            nid, edge_type=edge_type, limit=self.cfg.expand_max_neighbors_per_type
+                        )
                     for nb in neighbors:
                         if nb not in visited:
                             visited.add(nb)
@@ -159,27 +182,15 @@ class SearchPipeline:
         for i in range(len(top_ids)):
             for j in range(i + 1, len(top_ids)):
                 a, b = top_ids[i], top_ids[j]
-                if self.graph_store.has_edge(a, b):
-                    self.graph_store.increment_co_usage(a, b, now_ts)
-                    self.graph_store.increment_co_usage(b, a, now_ts)
-                    continue
-                edge = MemoryEdge(
-                    src_node_id=a,
-                    dst_node_id=b,
-                    edge_type="co_usage",
-                    weight=1.0,
-                    created_at=now_ts,
-                    updated_at=now_ts,
-                    usage_count=1,
+                self.graph_store.register_co_usage_between(
+                    a,
+                    b,
+                    now_ts=now_ts,
+                    min_count_to_solidify=self.cfg.co_usage_min_count,
                 )
-                back = MemoryEdge(
-                    src_node_id=b,
-                    dst_node_id=a,
-                    edge_type="co_usage",
-                    weight=1.0,
-                    created_at=now_ts,
-                    updated_at=now_ts,
-                    usage_count=1,
-                )
-                self.graph_store.add_edge(edge)
-                self.graph_store.add_edge(back)
+        if self.cfg.co_usage_decay < 1.0 or self.cfg.co_usage_prune_threshold > 0.0:
+            self.graph_store.decay_co_usage_edges(
+                self.cfg.co_usage_decay,
+                self.cfg.co_usage_prune_threshold,
+                now_ts,
+            )

@@ -9,14 +9,27 @@ from pathlib import Path
 from openai import OpenAI
 from tqdm import tqdm
 
-from .add_pipeline import AddPipeline
+from .ablation_presets import (
+    GraphEdgeMode,
+    add_config_for_merge,
+    search_config_for_edge_mode,
+)
+from .add_pipeline import AddConfig, AddPipeline, MergeStrategy
 from .embedder import BgeM3Embedder
 from .eval_utils import build_eval_prompt, load_llm_config, query_option_letter
 from .extractor import RuleExtractor
 from .graph_store import MemoryGraphStore
 from .perma_data import load_perma_user_samples
 from .ranking import RankingConfig
-from .search_pipeline import SearchPipeline
+from .search_pipeline import SearchConfig, SearchPipeline
+
+
+def _search_cfg_sig(sc: SearchConfig) -> str:
+    return (
+        f"s{int(sc.expand_use_semantic)}{int(sc.expand_use_temporal)}{int(sc.expand_use_co_usage)}"
+        f"emu{sc.expand_min_co_usage_usage}cms{sc.co_usage_min_count}"
+        f"cd{sc.co_usage_decay}cp{sc.co_usage_prune_threshold}"
+    )
 
 
 @dataclass(slots=True)
@@ -28,6 +41,13 @@ class PermaEvalConfig:
     lambda_core: float | None = None
     # False skips debug_samples.jsonl (faster parameter sweeps)
     write_debug: bool = True
+    graph_edge_mode: GraphEdgeMode = "full"
+    merge_strategy: MergeStrategy = "hybrid"
+    co_usage_decay: float = 1.0
+    co_usage_min_count: int = 1
+    co_usage_prune_threshold: float = 0.05
+    expand_min_co_usage_usage: int = 1
+    temporal_probe_thirds: bool = False
 
 
 def semantic_only_evidence(
@@ -40,7 +60,7 @@ def semantic_only_evidence(
     scored = []
     for node in store.all_nodes():
         sim = embedder.cosine(qv, node.embedding)
-        scored.append((sim, node.structured_text))
+        scored.append((sim, node.structured_record.text))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [txt for _, txt in scored[:top_k]]
 
@@ -49,10 +69,12 @@ def build_graph_from_context(
     context_messages: list[dict],
     *,
     embedder: BgeM3Embedder,
+    add_cfg: AddConfig | None = None,
 ) -> tuple[MemoryGraphStore, BgeM3Embedder]:
     store = MemoryGraphStore()
     extractor = RuleExtractor()
-    add = AddPipeline(graph_store=store, embedder=embedder)
+    ac = add_cfg or AddConfig()
+    add = AddPipeline(graph_store=store, embedder=embedder, cfg=ac)
 
     t = 0
     for msg in context_messages:
@@ -81,6 +103,16 @@ def run_perma_eval(
     if cfg.lambda_core is not None:
         rank_cfg = replace(rank_cfg, lambda_core=float(cfg.lambda_core))
 
+    search_cfg = search_config_for_edge_mode(cfg.graph_edge_mode)
+    search_cfg = replace(
+        search_cfg,
+        co_usage_decay=float(cfg.co_usage_decay),
+        co_usage_min_count=int(cfg.co_usage_min_count),
+        co_usage_prune_threshold=float(cfg.co_usage_prune_threshold),
+        expand_min_co_usage_usage=int(cfg.expand_min_co_usage_usage),
+    )
+    add_cfg = add_config_for_merge(cfg.merge_strategy)
+
     shared_embedder = BgeM3Embedder()
     search_cache: dict[str, SearchPipeline] = {}
     graph_cache: dict[str, tuple[MemoryGraphStore, BgeM3Embedder]] = {}
@@ -89,20 +121,25 @@ def run_perma_eval(
     debug_rows = []
     iterator = tqdm(samples, desc="PERMA eval", unit="q") if show_progress else samples
     for idx, sample in enumerate(iterator, start=1):
-        key = f"{sample.user_id}:{sample.task_id}:{sample.task_type}"
-        if key not in graph_cache:
-            store, embedder = build_graph_from_context(sample.context_messages, embedder=shared_embedder)
-            graph_cache[key] = (store, embedder)
-            sk = f"{key}:λ{rank_cfg.lambda_core}"
+        gk = f"{sample.user_id}:{sample.task_id}:{sample.task_type}:m{cfg.merge_strategy}"
+        if gk not in graph_cache:
+            store, embedder = build_graph_from_context(
+                sample.context_messages,
+                embedder=shared_embedder,
+                add_cfg=add_cfg,
+            )
+            graph_cache[gk] = (store, embedder)
+        else:
+            store, embedder = graph_cache[gk]
+
+        sk = f"{gk}|λ{rank_cfg.lambda_core}|{_search_cfg_sig(search_cfg)}"
+        if sk not in search_cache:
             search_cache[sk] = SearchPipeline(
                 graph_store=store,
                 embedder=embedder,
                 rank_cfg=rank_cfg,
+                cfg=search_cfg,
             )
-        else:
-            store, embedder = graph_cache[key]
-
-        sk = f"{key}:λ{rank_cfg.lambda_core}"
         pipe = search_cache[sk]
 
         graph_evidence, graph_debug = pipe.search_with_debug(sample.question, now_ts=10_000 + idx)
@@ -159,6 +196,12 @@ def run_perma_eval(
         "user_id": cfg.user_id,
         "variant": cfg.variant,
         "lambda_core": rank_cfg.lambda_core,
+        "graph_edge_mode": cfg.graph_edge_mode,
+        "merge_strategy": cfg.merge_strategy,
+        "co_usage_decay": cfg.co_usage_decay,
+        "co_usage_min_count": cfg.co_usage_min_count,
+        "co_usage_prune_threshold": cfg.co_usage_prune_threshold,
+        "expand_min_co_usage_usage": cfg.expand_min_co_usage_usage,
         "n_samples": n,
         "acc_graph_full": round(acc_graph, 4),
         "acc_semantic_only": round(acc_sem, 4),
@@ -168,6 +211,24 @@ def run_perma_eval(
         "llm_model": llm_cfg.model,
         "llm_base_url": llm_cfg.base_url,
     }
+
+    if cfg.temporal_probe_thirds and n >= 1:
+        t1 = n // 3
+        t2 = 2 * n // 3
+
+        def _third(acc_fn, start: int, end: int) -> dict:
+            sl = rows[start:end]
+            if not sl:
+                return {"n": 0, "acc_graph": 0.0, "acc_semantic": 0.0}
+            ng = sum(acc_fn(r)[0] for r in sl) / len(sl)
+            ns = sum(acc_fn(r)[1] for r in sl) / len(sl)
+            return {"n": len(sl), "acc_graph": round(ng, 4), "acc_semantic": round(ns, 4)}
+
+        summary["temporal_probe_thirds"] = {
+            "early": _third(lambda r: (r["ok_graph"], r["ok_semantic"]), 0, t1),
+            "mid": _third(lambda r: (r["ok_graph"], r["ok_semantic"]), t1, t2),
+            "late": _third(lambda r: (r["ok_graph"], r["ok_semantic"]), t2, n),
+        }
 
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)

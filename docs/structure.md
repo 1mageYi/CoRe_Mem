@@ -23,15 +23,18 @@
 - `Add Pipeline`：写入流程（dedup、merge、new、edge维护）
 - `Search Pipeline`：检索流程（seed、expand、rerank）
 - `Core/Residual Layering`：基于中心性动态分层
-- `Evaluation`：PERMA 主测，PersonaMem 最终验证
-  - `PERMA Loader`：真实数据读取与 task/eval 对齐
-  - `Eval Runner`：graph-full vs semantic-only 对照评测
+- `Evaluation`：LoCoMo 主测（长对话），PERMA 回归，PersonaMem 最终验证
+  - `LoCoMo Loader`：TBD（接入后写入）
+  - `PERMA Loader`：真实数据读取与 task/eval 对齐（对照）
+  - `Eval Runner`：graph-full vs semantic-only 对照评测（`PermaEvalConfig` 含 Phase 3 消融字段）
+  - `Ablation presets`：`ablation_presets.py`（边扩展模式、merge 预设）
   - `Mini E2E Test`：真实 PERMA 小样本回归守门
 
 ## 2.1 代码入口（当前）
 - 训练/评测入口：
   - `train/perma/eval_perma_graph_vs_semantic.py`
   - `train/perma/tune_lambda_core.py`（`lambda_core` 网格，含无 prior 的 `λ=0`）
+  - `train/perma/run_phase3_ablations.py`（Phase 3：`--user-ids` 多用户 × edge 模式；汇总含 `aggregate_by_graph_edge_mode`）
   - `train/perma/smoke_graph_mvp.py`
 - 可复用评测核心：
   - `src/graph_mem/perma_eval.py`
