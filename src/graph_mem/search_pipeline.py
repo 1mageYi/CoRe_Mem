@@ -32,6 +32,20 @@ class SearchConfig:
     adaptive_expand_threshold: float = 0.0  # 0.0 = always expand; e.g. 0.80 = skip if top-1 sim >= 0.80
     # P1: entity edge traversal during graph expansion
     expand_use_entity: bool = True
+    # Split-slot evidence budget:
+    #   seed_evidence_slots  – filled from seed nodes ranked by semantic similarity
+    #   expand_evidence_slots – filled from expansion-only nodes ranked by edge proximity to seeds
+    # When both are 0 (default), falls back to original unified fuse_score ranking.
+    seed_evidence_slots: int = 0
+    expand_evidence_slots: int = 0
+    # Personalized PageRank (PPR) as a third retrieval signal.
+    # PPR propagates semantic-anchor relevance across graph edges, enabling
+    # multi-hop candidates to surface even when they have low direct semantic sim.
+    # When enabled, PPR scores are fused via RRF alongside semantic and BM25.
+    use_ppr: bool = False
+    ppr_n_anchors: int = 5        # top-N semantic hits used as PPR personalization anchors
+    ppr_alpha: float = 0.85       # PageRank restart probability (higher = more local)
+    ppr_topk: int = 40            # how many top-PPR candidates to include in RRF
 
 
 @dataclass(slots=True)
@@ -41,11 +55,17 @@ class SearchPipeline:
     rank_cfg: RankingConfig = field(default_factory=RankingConfig)
     cfg: SearchConfig = field(default_factory=SearchConfig)
 
+    def _use_split_slots(self) -> bool:
+        return self.cfg.seed_evidence_slots > 0 or self.cfg.expand_evidence_slots > 0
+
     def search(self, query: str, *, now_ts: int) -> list[str]:
         qvec = self.embedder.encode(query)
         seeds = self._seed_retrieve(qvec, query)
         expanded = self._maybe_expand(seeds, qvec)
-        ranked = self._rank(expanded, qvec)
+        if self._use_split_slots():
+            ranked = self._split_slot_rank(seeds, expanded, qvec)
+        else:
+            ranked = self._rank(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
         return [self.graph_store.get_node(nid).structured_record.text for nid in top_ids]
@@ -54,25 +74,35 @@ class SearchPipeline:
         qvec = self.embedder.encode(query)
         seeds = self._seed_retrieve(qvec, query)
         expanded, skipped_expand = self._maybe_expand(seeds, qvec, return_skip_flag=True)
-        ranked, breakdown = self._rank_with_breakdown(expanded, qvec)
+        if self._use_split_slots():
+            ranked = self._split_slot_rank(seeds, expanded, qvec)
+            breakdown: list[dict] = []   # full breakdown not computed in split-slot mode
+        else:
+            ranked, breakdown = self._rank_with_breakdown(expanded, qvec)
         top_ids = [nid for nid, _ in ranked[: self.cfg.final_topn_evidence]]
         self._update_co_usage(top_ids, now_ts)
         evidence = [self.graph_store.get_node(nid).structured_record.text for nid in top_ids]
+        top_seed_sim = 0.0
+        if seeds:
+            top_seed_sim = float(self.embedder.cosine(qvec, self.graph_store.get_node(seeds[0]).embedding))
         debug = {
             "seeds": seeds,
             "expanded": expanded,
             "skipped_expand": skipped_expand,
             "ranked_top_ids": top_ids,
             "score_breakdown": breakdown,
+            "top_seed_semantic_sim": round(top_seed_sim, 6),
+            "n_expanded": len(expanded),
+            "n_candidates_ranked": len(breakdown),
         }
         return evidence, debug
 
     def _seed_retrieve(self, qvec: list[float], query_str: str = "") -> list[str]:
-        """Return seed node IDs.
-
-        When ``cfg.use_bm25`` is True, performs Reciprocal Rank Fusion (RRF)
-        over dense (semantic) and sparse (BM25) rankings before taking top-k.
-        Falls back to pure semantic when BM25 is disabled.
+        """Return seed node IDs via RRF over up to three signals:
+        1. Dense semantic (always on)
+        2. Sparse BM25 (cfg.use_bm25)
+        3. Personalized PageRank (cfg.use_ppr) — propagates anchor relevance
+           across graph edges, helping multi-hop candidates surface.
         """
         # --- Dense (semantic) ranking ---
         sem_scores = [
@@ -81,19 +111,35 @@ class SearchPipeline:
         ]
         sem_scores.sort(key=lambda x: x[1], reverse=True)
 
-        if not self.cfg.use_bm25 or not query_str:
+        use_bm25 = self.cfg.use_bm25 and bool(query_str)
+        use_ppr = self.cfg.use_ppr
+
+        if not use_bm25 and not use_ppr:
             return [nid for nid, _ in sem_scores[: self.cfg.seed_topk]]
 
-        # --- Sparse (BM25) ranking ---
-        bm25_results = self.graph_store.bm25_search(query_str, top_k=self.cfg.bm25_topk)
-
-        # --- RRF fusion ---
+        # --- RRF accumulator ---
         k = self.cfg.rrf_k
         rrf: dict[str, float] = {}
         for rank, (nid, _) in enumerate(sem_scores):
             rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
-        for rank, (nid, _) in enumerate(bm25_results):
-            rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
+
+        # --- Sparse (BM25) ---
+        if use_bm25:
+            bm25_results = self.graph_store.bm25_search(query_str, top_k=self.cfg.bm25_topk)
+            for rank, (nid, _) in enumerate(bm25_results):
+                rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
+
+        # --- Personalized PageRank ---
+        if use_ppr:
+            # Use top-N semantic hits as personalization anchors
+            anchors = {
+                nid: max(0.0, score)
+                for nid, score in sem_scores[: self.cfg.ppr_n_anchors]
+            }
+            ppr = self.graph_store.ppr_scores(anchors, alpha=self.cfg.ppr_alpha)
+            ppr_sorted = sorted(ppr.items(), key=lambda x: x[1], reverse=True)
+            for rank, (nid, _) in enumerate(ppr_sorted[: self.cfg.ppr_topk]):
+                rrf[nid] = rrf.get(nid, 0.0) + 1.0 / (k + rank + 1)
 
         fused = sorted(rrf.items(), key=lambda x: x[1], reverse=True)
         return [nid for nid, _ in fused[: self.cfg.seed_topk]]
@@ -149,6 +195,59 @@ class SearchPipeline:
                             nxt_frontier.append(nb)
             frontier = nxt_frontier
         return list(visited)
+
+    def _split_slot_rank(
+        self, seeds: list[str], expanded: list[str], qvec: list[float]
+    ) -> list[tuple[str, float]]:
+        """Split-slot ranking: semantic-ranked seed slots + graph-proximity expand slots.
+
+        seed_evidence_slots positions are filled by the best-semantic seed nodes.
+        expand_evidence_slots positions are filled by expansion-only nodes ranked by
+        their maximum edge weight to any seed node (graph proximity), not by semantic
+        similarity to the query.  This prevents bridge nodes from being evicted by the
+        unified fuse_score which unfairly favours graph-central nodes over fact-bearing
+        periphery nodes.
+        """
+        seed_set = set(seeds)
+        expand_only = [nid for nid in expanded if nid not in seed_set]
+
+        # --- seed slots: ranked by semantic similarity ---
+        seed_ranked = sorted(
+            seeds,
+            key=lambda nid: self.embedder.cosine(qvec, self.graph_store.get_node(nid).embedding),
+            reverse=True,
+        )
+        top_seeds = seed_ranked[: self.cfg.seed_evidence_slots]
+
+        # --- expand slots: ranked by max edge weight to any selected seed ---
+        taken = set(top_seeds)
+
+        def edge_proximity(nid: str) -> float:
+            best = 0.0
+            for seed_nid in top_seeds:
+                if self.graph_store.graph.has_edge(seed_nid, nid):
+                    w = self.graph_store.graph[seed_nid][nid].get("weight", 1.0)
+                    best = max(best, float(w))
+                if self.graph_store.graph.has_edge(nid, seed_nid):
+                    w = self.graph_store.graph[nid][seed_nid].get("weight", 1.0)
+                    best = max(best, float(w))
+            # fall back to semantic if no direct edge (e.g. 2-hop)
+            if best == 0.0:
+                best = self.embedder.cosine(qvec, self.graph_store.get_node(nid).embedding) * 0.5
+            return best
+
+        expand_ranked = sorted(expand_only, key=edge_proximity, reverse=True)
+        top_expand = [nid for nid in expand_ranked if nid not in taken][: self.cfg.expand_evidence_slots]
+
+        # Combine: seeds first (highest semantic), then expand nodes
+        result: list[tuple[str, float]] = []
+        for rank, nid in enumerate(top_seeds):
+            sem = self.embedder.cosine(qvec, self.graph_store.get_node(nid).embedding)
+            result.append((nid, 1.0 - rank * 1e-6))   # preserve seed order via tiny tiebreak
+            _ = sem
+        for rank, nid in enumerate(top_expand):
+            result.append((nid, 0.5 - rank * 1e-6))   # expand nodes always after seeds
+        return result
 
     def _rank(self, candidates: list[str], qvec: list[float]) -> list[tuple[str, float]]:
         centrality = self.graph_store.centrality()

@@ -166,6 +166,30 @@ class MemoryGraphStore:
             return {}
         return nx.pagerank(self.graph, alpha=0.85)
 
+    def ppr_scores(
+        self,
+        personalization: dict[str, float],
+        alpha: float = 0.85,
+    ) -> dict[str, float]:
+        """Personalized PageRank from given anchor node weights.
+
+        personalization: {node_id: weight} — anchor nodes with relative
+            importance weights (will be L1-normalised internally).
+        alpha: restart probability (probability of jumping back to anchor).
+            Higher alpha = stays closer to anchors = more local.
+
+        Returns dict of {node_id: ppr_score} for all nodes in the graph.
+        """
+        if self.graph.number_of_nodes() == 0:
+            return {}
+        # Keep only anchors that exist in graph; L1-normalise
+        pers = {nid: w for nid, w in personalization.items() if nid in self.graph and w > 0}
+        if not pers:
+            return {}
+        total = sum(pers.values())
+        pers = {nid: w / total for nid, w in pers.items()}
+        return nx.pagerank(self.graph, alpha=alpha, personalization=pers)
+
     def compute_core_scores(self) -> dict[str, float]:
         """
         Combine three signals into a stable core score:

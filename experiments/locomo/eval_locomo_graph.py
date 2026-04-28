@@ -37,7 +37,7 @@ import json
 import re
 import sys
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -68,15 +68,33 @@ from graph_mem.search_pipeline import SearchConfig, SearchPipeline
 # ---------------------------------------------------------------------------
 
 def _answer_prompt(question: str, evidence: list[str]) -> str:
-    """Prompt for graph-memory / semantic-only baselines (retrieved snippets)."""
-    ev_text = "\n".join(f"  - {e}" for e in evidence) if evidence else "  (no relevant memories found)"
+    """Prompt for graph-memory / semantic-only baselines (retrieved snippets).
+
+    Design principles:
+    - Encourage multi-snippet reasoning: snippets may need to be combined.
+    - Explicit temporal arithmetic: resolve relative dates from session timestamps.
+    - Commonsense bridging: allowed for cat-3 style questions.
+    - Concise final answer: do NOT output reasoning, only the answer.
+    """
+    ev_text = (
+        "\n".join(f"  [{i+1}] {e}" for i, e in enumerate(evidence))
+        if evidence else "  (no relevant memories found)"
+    )
     return (
-        "You are answering questions about people based on their conversation history.\n"
-        "Use ONLY the conversation memories listed below.\n"
-        "Be concise and precise. For dates give the specific date if known.\n"
-        "If the memories do not contain enough information, answer 'I don't know'.\n\n"
-        f"Conversation memories:\n{ev_text}\n\n"
-        f"Question: {question}\n\n"
+        "You are a memory assistant answering questions about people based on retrieved conversation snippets.\n"
+        "\n"
+        "Rules:\n"
+        "1. Use ONLY the snippets below as your source of facts.\n"
+        "2. You may combine information from multiple snippets to form the answer.\n"
+        "3. Each snippet includes a timestamp (e.g. '[Caroline, Session 3, 9 June 2023]'). "
+        "Use these to resolve relative time expressions like 'yesterday', 'last week', 'next month'.\n"
+        "4. You may apply general commonsense reasoning to bridge implicit connections between facts.\n"
+        "5. Give a concise, direct answer. Do NOT include your reasoning steps in the reply.\n"
+        "6. If the snippets do not contain enough information to answer, reply exactly: I don't know\n"
+        "\n"
+        f"Conversation snippets:\n{ev_text}\n"
+        "\n"
+        f"Question: {question}\n"
         "Answer:"
     )
 
@@ -84,12 +102,19 @@ def _answer_prompt(question: str, evidence: list[str]) -> str:
 def _full_context_prompt(question: str, context_block: str) -> str:
     """Prompt for the full-context baseline (raw conversation history)."""
     return (
-        "You are answering questions about people based on their full conversation history.\n"
-        "Use ONLY the conversation provided below.\n"
-        "Be concise and precise. For dates give the specific date if known.\n"
-        "If the answer cannot be found in the conversation, answer 'I don't know'.\n\n"
-        f"Conversation:\n{context_block}\n\n"
-        f"Question: {question}\n\n"
+        "You are a memory assistant answering questions about people based on their full conversation history.\n"
+        "\n"
+        "Rules:\n"
+        "1. Use ONLY the conversation provided below as your source of facts.\n"
+        "2. You may combine information from multiple parts of the conversation.\n"
+        "3. Each turn is timestamped by session and date; use these to resolve relative time references.\n"
+        "4. You may apply general commonsense reasoning to bridge implicit connections between facts.\n"
+        "5. Give a concise, direct answer. Do NOT include your reasoning steps in the reply.\n"
+        "6. If the answer cannot be found in the conversation, reply exactly: I don't know\n"
+        "\n"
+        f"Conversation:\n{context_block}\n"
+        "\n"
+        f"Question: {question}\n"
         "Answer:"
     )
 
@@ -238,6 +263,106 @@ def full_context_evidence(
 
 
 # ---------------------------------------------------------------------------
+# Gold-turn vs retrieval diagnostics (for graph vs full-context analysis)
+# ---------------------------------------------------------------------------
+
+def gold_evidence_retrieval_diagnostics(
+    conv: LoCoMoConversation,
+    qa: LoCoMoQA,
+    store: MemoryGraphStore,
+    embedder: BgeM3Embedder,
+    query: str,
+    graph_debug: dict,
+    graph_evidence: list[str],
+    *,
+    final_topn: int,
+) -> dict:
+    """Align LoCoMo ``evidence_refs`` (e.g. D1:3) to graph nodes and report ranks.
+
+    Used to separate **retrieval failure** (gold node not in top-k evidence) from
+    **reasoning failure** (gold content present but LLM still wrong vs full-context).
+    """
+    qv = embedder.encode(query)
+    nodes = store.all_nodes()
+    sem_ranked = sorted(
+        [(n.node_id, embedder.cosine(qv, n.embedding)) for n in nodes],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    rank_by_id = {nid: i + 1 for i, (nid, _) in enumerate(sem_ranked)}
+    sim_by_id = {nid: sim for nid, sim in sem_ranked}
+
+    gold_nids: list[str] = []
+    per_ref: list[dict] = []
+
+    for ref in qa.evidence:
+        turn = conv.get_turn(ref)
+        if turn is None:
+            per_ref.append({"dia_id": ref, "resolved": False})
+            continue
+        matched: list[str] = []
+        needle = turn.text.strip()
+        for node in nodes:
+            rec = node.structured_record
+            if turn.global_idx in rec.source_turn_ids:
+                matched.append(node.node_id)
+            elif needle and needle in rec.text:
+                matched.append(node.node_id)
+        matched = list(dict.fromkeys(matched))
+        gold_nids.extend(matched)
+        ranks = [rank_by_id[m] for m in matched]
+        sims = [sim_by_id[m] for m in matched]
+        per_ref.append(
+            {
+                "dia_id": ref,
+                "resolved": True,
+                "matched_node_ids": matched,
+                "best_semantic_rank": min(ranks) if ranks else None,
+                "best_semantic_sim": round(max(sims), 6) if sims else None,
+            }
+        )
+
+    gold_nids = list(dict.fromkeys(gold_nids))
+    best_sem_rank = min((rank_by_id[n] for n in gold_nids), default=None) if gold_nids else None
+    best_sem_sim = max((sim_by_id[n] for n in gold_nids), default=None) if gold_nids else None
+
+    seeds = graph_debug.get("seeds", [])
+    expanded = graph_debug.get("expanded", [])
+    ranked_top = graph_debug.get("ranked_top_ids", [])
+    breakdown = graph_debug.get("score_breakdown", [])
+
+    gold_in_seed = bool(gold_nids) and any(n in seeds for n in gold_nids)
+    gold_in_expanded = bool(gold_nids) and any(n in expanded for n in gold_nids)
+    gold_in_final_topk = bool(gold_nids) and any(n in ranked_top[:final_topn] for n in gold_nids)
+
+    positions = [
+        i + 1 for i, item in enumerate(breakdown) if item.get("node_id") in gold_nids
+    ]
+    gold_rerank_pos = min(positions) if positions else None
+
+    ev_blob = _normalize(" ".join(graph_evidence))
+    gold_turn_text_in_evidence = False
+    for ref in qa.evidence:
+        t = conv.get_turn(ref)
+        if t and _normalize(t.text) in ev_blob:
+            gold_turn_text_in_evidence = True
+            break
+
+    return {
+        "gold_evidence_node_ids": gold_nids,
+        "gold_node_found": len(gold_nids) > 0,
+        "best_semantic_rank_global": best_sem_rank,
+        "best_semantic_sim": round(best_sem_sim, 6) if best_sem_sim is not None else None,
+        "gold_in_seed_list": gold_in_seed,
+        "gold_in_expanded_set": gold_in_expanded,
+        "gold_in_final_topk": gold_in_final_topk,
+        "gold_rerank_position_among_expanded": gold_rerank_pos,
+        "gold_turn_raw_text_in_graph_evidence": gold_turn_text_in_evidence,
+        "per_reference": per_ref,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Graph building from LoCoMo turns
 # ---------------------------------------------------------------------------
 
@@ -316,7 +441,7 @@ class LoCoMoEvalConfig:
     include_full_context: bool = True  # add full-context baseline column
     context_budget_chars: int = 400_000  # truncate if conv exceeds this
     write_debug: bool = True
-    top_k: int = 8
+    top_k: int = 16   # semantic-only baseline top-k; keep aligned with final_topn_evidence
 
 
 # ---------------------------------------------------------------------------
@@ -352,12 +477,28 @@ def run_locomo_eval(
     # - adaptive_expand_threshold: skip graph traversal when top-1 is already
     #   high-confidence (prevents adding noisy neighbours to cat-1 evidence)
     # - expand_use_entity: follow entity edges built by build_entity_edges()
+    # Widened recall pool (from dropout analysis):
+    # - seed_topk 20->40: gold semantic rank median=22 for misses, need wider window
+    # - bm25_topk matches seed_topk to keep RRF balance
+    # - final_topn_evidence 8->12: 520/1540 were dropped by top-8 budget cut
     search_cfg = SearchConfig(
-        seed_topk=20,
+        seed_topk=40,
         use_bm25=True,
-        bm25_topk=20,
+        bm25_topk=40,
         adaptive_expand_threshold=0.80,  # P0
         expand_use_entity=True,           # P1
+        final_topn_evidence=16,
+        # Split-slot rerank: seeds ranked by semantic, expand nodes ranked by
+        # edge proximity to seeds.  Prevents graph-peripheral fact nodes from
+        # being evicted by the fuse_score that rewards highly-connected nodes.
+        seed_evidence_slots=10,
+        expand_evidence_slots=6,
+        # P2: Personalized PageRank — disabled for now.
+        # On LoCoMo's sparse per-conversation graph (~200-400 nodes, chain-like
+        # temporal edges), PPR propagation overlaps heavily with existing 1-hop
+        # expand and slightly hurts single-hop (cat4) by boosting noisy neighbours.
+        # Re-evaluate after graph density improves (e.g. sentence-level nodes).
+        use_ppr=False,
     )
     add_cfg = AddConfig()
 
@@ -365,6 +506,17 @@ def run_locomo_eval(
 
     rows: list[dict] = []
     debug_rows: list[dict] = []
+
+    # Aggregate gold-vs-retrieval stats (for graph vs full-context post-mortem)
+    retr_summary = {
+        "n_total": 0,
+        "n_gold_node_found": 0,
+        "n_gold_in_final_topk": 0,
+        "n_gold_turn_text_in_graph_evidence": 0,
+        "n_graph_wrong_full_right": 0,
+        "n_graph_wrong_full_right_gold_in_topk": 0,
+        "n_graph_wrong_full_right_gold_missing_topk": 0,
+    }
 
     conv_iter = tqdm(convs, desc="LoCoMo conv", unit="conv") if show_progress else convs
 
@@ -471,6 +623,32 @@ def run_locomo_eval(
                 if cfg.include_full_context:
                     dbg["pred_full_ctx"] = full_ctx_ans
                     dbg["ok_full_ctx"] = int(ok_full_ctx)
+
+                retr = gold_evidence_retrieval_diagnostics(
+                    conv,
+                    qa,
+                    store,
+                    shared_embedder,
+                    qa.question,
+                    graph_debug,
+                    graph_evidence,
+                    final_topn=pipe.cfg.final_topn_evidence,
+                )
+                dbg["retrieval_diagnostics"] = retr
+                retr_summary["n_total"] += 1
+                if retr["gold_node_found"]:
+                    retr_summary["n_gold_node_found"] += 1
+                if retr["gold_in_final_topk"]:
+                    retr_summary["n_gold_in_final_topk"] += 1
+                if retr["gold_turn_raw_text_in_graph_evidence"]:
+                    retr_summary["n_gold_turn_text_in_graph_evidence"] += 1
+                if cfg.include_full_context and (not ok_graph) and ok_full_ctx:
+                    retr_summary["n_graph_wrong_full_right"] += 1
+                    if retr["gold_in_final_topk"]:
+                        retr_summary["n_graph_wrong_full_right_gold_in_topk"] += 1
+                    else:
+                        retr_summary["n_graph_wrong_full_right_gold_missing_topk"] += 1
+
                 debug_rows.append(dbg)
 
     # Aggregate
@@ -531,6 +709,23 @@ def run_locomo_eval(
         )
         summary["avg_t_full_ctx_s"] = round(avg_t_full_ctx, 4) if avg_t_full_ctx is not None else None
         summary["n_truncated_convs"] = n_truncated
+
+    if retr_summary["n_total"] > 0:
+        nt = retr_summary["n_total"]
+        summary["retrieval_diagnostics"] = {
+            **retr_summary,
+            "rate_gold_node_found": round(retr_summary["n_gold_node_found"] / nt, 4),
+            "rate_gold_in_final_topk": round(retr_summary["n_gold_in_final_topk"] / nt, 4),
+            "rate_gold_turn_text_in_graph_evidence": round(
+                retr_summary["n_gold_turn_text_in_graph_evidence"] / nt, 4
+            ),
+            "rate_graph_wrong_full_right": round(retr_summary["n_graph_wrong_full_right"] / nt, 4),
+            "among_graph_wrong_full_right": {
+                "n": retr_summary["n_graph_wrong_full_right"],
+                "gold_in_topk": retr_summary["n_graph_wrong_full_right_gold_in_topk"],
+                "gold_missing_topk": retr_summary["n_graph_wrong_full_right_gold_missing_topk"],
+            },
+        }
 
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -613,8 +808,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--top-k",
         type=int,
-        default=8,
-        help="Top-K evidence snippets to retrieve",
+        default=16,
+        help="Top-K evidence snippets to retrieve (graph final_topn and semantic-only top-k)",
     )
     return p.parse_args()
 

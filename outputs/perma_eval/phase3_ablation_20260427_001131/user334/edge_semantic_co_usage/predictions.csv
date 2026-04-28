@@ -1,0 +1,16 @@
+user_id,task_id,task_type,gold,pred_graph,pred_semantic,ok_graph,ok_semantic,t_graph_s,t_semantic_s
+user334,SD-Alarm-task-2,3,C,B,B,0,0,2.2166,0.8824
+user334,SD-Alarm-task-3,1,E,B,E,0,1,0.945,0.9054
+user334,SD-Alarm-task-3,2,E,A,E,0,1,2.0225,0.875
+user334,SD-Alarm-task-3,3,E,A,E,0,1,1.9593,0.8936
+user334,SD-Alarm-task-4,3,F,A,A,0,0,1.6395,0.9419
+user334,SD-Books-task-1,1,D,D,D,1,1,1.5415,1.0865
+user334,SD-Books-task-1,2,D,D,D,1,1,1.5462,0.8784
+user334,SD-Books-task-1,3,D,D,D,1,1,1.4012,1.4183
+user334,SD-Books-task-4,3,E,A,E,0,1,1.7125,0.8326
+user334,SD-Books-task-5,3,C,C,C,1,1,1.5843,0.9349
+user334,SD-Events-task-2,3,E,E,E,1,1,1.5373,1.2179
+user334,SD-Events-task-3,3,F,B,B,0,0,1.4789,0.9176
+user334,SD-Events-task-4,1,C,A,A,0,0,3.6836,1.4751
+user334,SD-Events-task-4,2,C,C,C,1,1,1.2879,1.9517
+user334,SD-Events-task-4,3,C,A,A,0,0,1.4696,0.8619

@@ -25,7 +25,9 @@ class LoCoMoQA:
     question: str
     answer: str           # always str (original ints are cast)
     evidence: list[str]   # list of dia_id references, e.g. ["D1:3", "D2:5"]
-    category: int         # 1=single-hop, 2=temporal, 3=commonsense, 4=multi-hop, 5=adversarial
+    category: int         # 1=multi-hop, 2=temporal, 3=open-domain, 4=single-hop, 5=adversarial
+    # NOTE: The category IDs in locomo10.json do NOT match the paper's numbered list.
+    # Verified from official eval code (task_eval/evaluation.py) and GitHub issue #6.
 
 
 @dataclass
@@ -164,12 +166,12 @@ def filter_qa_by_categories(
 ) -> list[LoCoMoQA]:
     """Optionally restrict QA pairs to a subset of category IDs.
 
-    LoCoMo categories:
-      1 = single-hop
+    LoCoMo categories (actual mapping per official eval code & GitHub issue #6):
+      1 = multi-hop (cross-session synthesis)
       2 = temporal reasoning
-      3 = commonsense / multi-hop inference
-      4 = multi-hop without commonsense
-      5 = adversarial (false premise)
+      3 = open-domain / commonsense / world knowledge
+      4 = single-hop (single-session fact)
+      5 = adversarial (false premise / unanswerable)
     """
     if categories is None:
         return qa

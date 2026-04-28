@@ -31,10 +31,14 @@
   - `Mini E2E Test`：真实 PERMA 小样本回归守门
 
 ## 2.1 代码入口（当前）
-- 训练/评测入口：
+- **LoCoMo 主评测**（主测）：
+  - `experiments/locomo/eval_locomo_graph.py`（graph-full / semantic-only / full-context 三路对比）
+  - `experiments/locomo/analyze_results.py`（debug 后分析：overview / failures / gap / recall）
+  - `src/graph_mem/locomo_data.py`（数据加载：LoCoMoTurn / LoCoMoQA / load_locomo）
+- PERMA 评测（对照/回归）：
   - `train/perma/eval_perma_graph_vs_semantic.py`
-  - `train/perma/tune_lambda_core.py`（`lambda_core` 网格，含无 prior 的 `λ=0`）
-  - `train/perma/run_phase3_ablations.py`（Phase 3：`--user-ids` 多用户 × edge 模式；汇总含 `aggregate_by_graph_edge_mode`）
+  - `train/perma/tune_lambda_core.py`（`lambda_core` 网格）
+  - `train/perma/run_phase3_ablations.py`（edge 消融）
   - `train/perma/smoke_graph_mvp.py`
 - 可复用评测核心：
   - `src/graph_mem/perma_eval.py`
@@ -49,15 +53,16 @@
 - 时间与来源信息
 - 状态信息（active/inactive/superseded/conflicted）
 
-### Edge（三类）
+### Edge（四类）
 - `semantic`：语义相似，双向
 - `temporal`：时间前后，单向（old -> new）
 - `co-usage`：同次 query 共用且原无边，双向
+- `entity`：共享命名实体（spaCy NER），双向
 
 ## 4) Retrieval 总览
 - Step A：**Hybrid seed 召回**（semantic dense + BM25 sparse，RRF 融合；BM25 默认关，LoCoMo eval 开启）
-- Step B：图扩展补全（按 edge 类型控制范围）
-- Step C：融合打分（semantic + centrality + temporal/edge evidence）
+- Step B：图扩展补全（按 edge 类型控制范围；P0 高置信度时跳过）
+- Step C：**Split-slot 打分**（seed 槽按语义排序；expand 槽按图边邻近度排序；两类不竞争）
 - Step D：选 top evidence，构建 prompt
 
 ### 4.1 BM25 混合检索
@@ -75,6 +80,13 @@
 - 全图建完后调用 `AddPipeline.build_entity_edges(now_ts)` 批量添加 `entity` 类型双向边
 - 高频实体（出现在 >35% 节点）被过滤，避免说话人名成为 hub
 - 图展开时 `SearchConfig.expand_use_entity=True` 则 entity 边也被遍历
+
+### 4.4 Split-slot Rerank
+- 取代原始统一 `fuse_score`，解决"图中心节点挤出事实边缘节点"问题
+- `SearchConfig.seed_evidence_slots`：seed 节点按 semantic sim 降序填满前 N 个槽
+- `SearchConfig.expand_evidence_slots`：expand-only 节点按与 seed 的最大边权重填满后 M 个槽；无直接边时 fallback 到 0.5×semantic
+- `final_topn_evidence = seed_evidence_slots + expand_evidence_slots`
+- 默认关闭（两者为 0 时退回 fuse_score），LoCoMo eval 设置 seed=10 / expand=6
 
 ## 5) 当前留空位（待实现后填充）
 - Extractor 具体实现方案：`RuleExtractor (MVP)`，后续补轻量模型兜底

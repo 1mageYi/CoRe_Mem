@@ -297,3 +297,120 @@ cat2（时序题）：graph 47.8% vs semantic 52.2%，差距缩小
 ### 下一步
 - 全量评测 `--conv-limit 10` 验证提升是否稳定
 - entity 边对 cat3 跨 session 推理的潜在帮助（目前 cat3 样本太少）
+
+### LoCoMo 全量主测 + 增强 debug（本轮）
+- `search_with_debug` 增加 `top_seed_semantic_sim`、`n_expanded`、`n_candidates_ranked`
+- 每题 `retrieval_diagnostics`：将 `evidence_refs`（D1:3）对齐到图 node，报告全局语义 rank、是否在 seed/expanded/final top-k、金标 turn 原文是否出现在 graph evidence 中
+- `summary.json` 增加 `retrieval_diagnostics` 汇总率 + **graph 错而 full-context 对** 子集里「金标在 top-k 内/外」计数（区分检索失败 vs LLM 推理失败）
+- 跑完后：`uv run python experiments/locomo/analyze_results.py --mode graph_full`
+
+---
+
+## 全量主测归因 + 召回/Prompt 优化（本轮）
+
+### 全量主测结果（20260427_141126，1540 题）
+| 方法 | 准确率 |
+|------|--------|
+| full-context | 42.86% |
+| semantic-only | 32.86% |
+| graph-full | 28.51% |
+
+### Pipeline dropout 分析
+对 1540 题做了 gold node 全链路追踪（`_analyze_dropout.py`）：
+| 阶段 | 数量 | 占比 |
+|------|------|------|
+| 节点匹配失败 | 9 | 0.6% |
+| **dense/BM25 miss（不在 seed top-20）** | **407** | **26.4%** |
+| P0 adaptive expand 截断 | 0 | 0% |
+| **进了 expanded，被 rerank/top-8 截断** | **520** | **33.8%** |
+| 进入 final top-k | 835 | 54.2% |
+| 进了 top-k，graph 仍答错 | 424 | 50.8% |
+
+- cat1 进了 top-k 还错 79%（LLM 推理问题突出）
+- cat4 进了 top-k 还错仅 36%（主要是召回问题）
+- P0 adaptive expand 无负作用（无截断损失）
+
+### 改动（基于归因）
+
+**1. 扩宽召回窗口**（`eval_locomo_graph.py`）
+- `seed_topk`: 20 → **40**（gold 语义排名中位数 22，需要更宽窗口）
+- `bm25_topk`: 20 → **40**
+- `final_topn_evidence`: 8 → **12**（33.8% 被 top-8 截断）
+
+**2. Prompt 升级**（`_answer_prompt` + `_full_context_prompt`）
+- 明确允许跨 snippet 联系（多跳）
+- 引导时序推算：利用 `[Speaker, Session N, date]` 前缀解析相对时间
+- 允许常识推理桥接（cat3）
+- 要求只输出结论、不输出推理过程
+- evidence 编号（`[1]`、`[2]`...）便于 LLM 内部引用
+
+**3. 全量验证（run2）**：完成，结果见 `20260427_170019/summary.json`
+
+### run2 结果（1540 题）
+| 方法 | run1 | run2（+召回+prompt） | 变化 |
+|------|------|------|------|
+| graph-full | 28.51% | **29.74%** | +1.23pp |
+| semantic-only | 32.86% | **31.82%** | -1.04pp |
+| full-context | 42.86% | **44.03%** | +1.17pp |
+| delta graph-sem | -4.35pp | **-2.08pp** | 差距缩小一半 |
+
+检索诊断改善：gold 进入 final top-k 从 835/1540(54.2%) → 905/1540(58.8%)（+70 题）
+
+### run3：已中止（发现 rerank 降级是更根本问题）
+
+**Gold rank 分布分析（run2 debug）：**
+- 语义 rank：平均 26.3，**中位数 4**（双峰分布）
+- rerank 后：平均 18.6，中位数 7
+- 关键发现：rerank 将 gold 从语义 k≤12 的 **73%** 降到最终 top-12 的 **63%**（损失 10pp）
+- rerank 正在主动降级 gold 节点：融合公式中的 centrality/edge_evidence 惩罚了图中边缘的事实节点（早期 session、单次出现、连边少）
+
+**问题根因：** 所有 seed 节点和 expand 节点用同一公式竞争，expand 节点天然语义低，但又带来多跳所需的桥接信息
+
+### run4（当前正跑）：split-slot rerank
+
+**改动：**
+- `seed_evidence_slots=10`：seed 节点按语义相似度排序占前 10 位
+- `expand_evidence_slots=6`：扩展节点按与 seed 的边权重（图邻近度）排序占后 6 位
+- 两类节点不再竞争，seed 保精度，expand 保多跳覆盖
+- `final_topn_evidence=16`（seed 10 + expand 6）
+
+**Smoke test 结果（2 conv × 20 题）：**
+| 方法 | 准确率 |
+|------|------|
+| graph-full | **42.5%** |
+| semantic-only | 40.0% |
+| full-context | 45.0% |
+
+graph-full 首次在小样本上超过 semantic-only（+2.5pp），全量结果待跑完
+
+### run4 结果（1540 题，20260427_194910）
+
+| 方法 | run2 | run4（split-slot） | 变化 |
+|------|------|------|------|
+| graph-full | 29.74% | **34.81%** | **+5.07pp** |
+| semantic-only | 31.82% | **35.91%** | +4.09pp |
+| full-context | 44.03% | **43.96%** | ≈持平 |
+| delta graph-sem | -2.08pp | **-1.10pp** | 差距继续缩小 |
+| gold 进入 top-k | 58.8% | **67.47%** | **+8.67pp** |
+
+split-slot rerank 核心效果：gold 召回从 58.8% → 67.47%，graph 整体涨 5pp+。
+
+**按 category 分析（已修正官方 ID 映射，cat1=multi-hop，cat4=single-hop）：**
+
+| Cat | 实际类型 | 题数 | graph | semantic | full-ctx | 备注 |
+|---|---|---|---|---|---|---|
+| 1 | Multi-hop | 282 | 18.44% | 19.15% | 29.79% | 图扩展暂未拉开差距 |
+| 2 | Temporal | 321 | **31.15%** | 30.84% | 19.63% | graph 超过 semantic ✓ |
+| 3 | Open-domain | 96 | 10.42% | 12.50% | 18.75% | 需外部知识，三者均低 |
+| 4 | Single-hop | 841 | 44.47% | 46.14% | 60.88% | 最大分类，检索 miss 是主要差距 |
+
+**Single-hop 与 full-context 差距（-16pp）根因：**
+1. 检索 miss rate ~33%（full-context miss=0）
+2. full-context 对单一事实题几乎无推理负担，LLM 直接顺读找答案
+3. 节点粒度为 turn 级别，embedding 被混合内容稀释，精准度受限
+
+**LoCoMo Category ID 重要勘误：**
+官方 `locomo10.json` 中 category 数字顺序与 paper 文字描述不一致（已由多篇论文确认，见 GitHub issue #6）：
+- `1` = multi-hop（非 single-hop）
+- `4` = single-hop（非 multi-hop）
+已修正 `src/graph_mem/locomo_data.py` 中的注释。

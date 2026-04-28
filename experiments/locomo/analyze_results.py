@@ -41,10 +41,15 @@ def _load(run_dir: Path) -> tuple[list[dict], dict]:
     dbg_path = run_dir / "debug_samples.jsonl"
     sum_path = run_dir / "summary.json"
     rows: list[dict] = []
-    with dbg_path.open(encoding="utf-8") as f:
-        for line in f:
-            rows.append(json.loads(line))
-    summary = json.loads(sum_path.read_text(encoding="utf-8"))
+    if dbg_path.exists():
+        with dbg_path.open(encoding="utf-8") as f:
+            for line in f:
+                rows.append(json.loads(line))
+    summary = (
+        json.loads(sum_path.read_text(encoding="utf-8"))
+        if sum_path.exists()
+        else {}
+    )
     return rows, summary
 
 
@@ -88,7 +93,18 @@ def _print_sample(row: dict, idx: int, *, show_evidence: int = 2) -> None:
     skip = gd.get("skipped_expand")
     n_seeds = len(gd.get("seeds", []))
     n_exp = len(gd.get("expanded", []))
-    print(f"       Graph: {n_seeds} seeds -> {n_exp} expanded | skipped_expand={skip}")
+    tseed = gd.get("top_seed_semantic_sim")
+    extra = f" | top_seed_sim={tseed}" if tseed is not None else ""
+    print(f"       Graph: {n_seeds} seeds -> {n_exp} expanded | skipped_expand={skip}{extra}")
+
+    retr = row.get("retrieval_diagnostics")
+    if retr:
+        print(
+            f"       [gold vs retrieval] rank={retr.get('best_semantic_rank_global')} "
+            f"sim={retr.get('best_semantic_sim')} in_seed={retr.get('gold_in_seed_list')} "
+            f"in_exp={retr.get('gold_in_expanded_set')} in_topk={retr.get('gold_in_final_topk')} "
+            f"turn_txt_in_ev={retr.get('gold_turn_raw_text_in_graph_evidence')}"
+        )
 
     gold_in_graph = _evidence_contains_hint(row.get("graph_top_evidence", []), row["gold"])
     gold_in_sem = _evidence_contains_hint(row.get("semantic_top_evidence", []), row["gold"])
@@ -126,16 +142,35 @@ def mode_overview(rows: list[dict], summary: dict) -> None:
     print()
 
     # Error pattern tallies
+    denom = len(rows) or 1
     n_all_wrong = sum(1 for r in rows if not r["ok_graph"] and not r["ok_semantic"])
     n_graph_only_wrong = sum(1 for r in rows if not r["ok_graph"] and r["ok_semantic"])
     n_sem_only_wrong = sum(1 for r in rows if r["ok_graph"] and not r["ok_semantic"])
     n_all_correct = sum(1 for r in rows if r["ok_graph"] and r["ok_semantic"])
     print("Error patterns:")
-    print(f"  both correct         : {n_all_correct:3d}  ({n_all_correct/len(rows):.1%})")
-    print(f"  both wrong           : {n_all_wrong:3d}  ({n_all_wrong/len(rows):.1%})")
-    print(f"  graph wrong, sem OK  : {n_graph_only_wrong:3d}  ({n_graph_only_wrong/len(rows):.1%})  [graph retrieval/rerank issue]")
-    print(f"  sem wrong, graph OK  : {n_sem_only_wrong:3d}  ({n_sem_only_wrong/len(rows):.1%})  [graph helps here]")
+    print(f"  both correct         : {n_all_correct:3d}  ({n_all_correct/denom:.1%})")
+    print(f"  both wrong           : {n_all_wrong:3d}  ({n_all_wrong/denom:.1%})")
+    print(f"  graph wrong, sem OK  : {n_graph_only_wrong:3d}  ({n_graph_only_wrong/denom:.1%})  [graph retrieval/rerank issue]")
+    print(f"  sem wrong, graph OK  : {n_sem_only_wrong:3d}  ({n_sem_only_wrong/denom:.1%})  [graph helps here]")
     print()
+
+    rd = summary.get("retrieval_diagnostics")
+    if rd:
+        print("Retrieval diagnostics (LoCoMo gold evidence -> graph nodes):")
+        print(f"  gold node resolved     : {rd['n_gold_node_found']}/{rd['n_total']} ({rd['rate_gold_node_found']:.1%})")
+        print(f"  gold in graph final top-k: {rd['n_gold_in_final_topk']}/{rd['n_total']} ({rd['rate_gold_in_final_topk']:.1%})")
+        print(
+            f"  gold turn text in graph ev: {rd['n_gold_turn_text_in_graph_evidence']}/{rd['n_total']} "
+            f"({rd['rate_gold_turn_text_in_graph_evidence']:.1%})"
+        )
+        print(f"  graph wrong & full-ctx right: {rd['n_graph_wrong_full_right']} ({rd['rate_graph_wrong_full_right']:.1%})")
+        am = rd.get("among_graph_wrong_full_right", {})
+        if am.get("n"):
+            print(
+                f"      of those: gold in top-k={am['gold_in_topk']}, "
+                f"gold missing top-k={am['gold_missing_topk']} (retrieval vs reasoning split)"
+            )
+        print()
 
 
 def mode_failures(rows: list[dict], show_n: int) -> None:
@@ -152,6 +187,19 @@ def mode_failures(rows: list[dict], show_n: int) -> None:
             _print_sample(row, i + 1)
         if len(cat_rows) > show_n:
             print(f"  ... {len(cat_rows) - show_n} more not shown\n")
+
+
+def mode_graph_full_gap(rows: list[dict], show_n: int) -> None:
+    """Cases where full-context is right but graph is wrong (main comparison)."""
+    gap_rows = [
+        r for r in rows
+        if not r.get("ok_graph") and r.get("ok_full_ctx")
+    ]
+    print(f"--- graph wrong / full-context right ({len(gap_rows)} samples) ---\n")
+    for i, row in enumerate(gap_rows[:show_n]):
+        _print_sample(row, i + 1)
+    if len(gap_rows) > show_n:
+        print(f"... {len(gap_rows) - show_n} more not shown\n")
 
 
 def mode_gap(rows: list[dict], show_n: int) -> None:
@@ -206,13 +254,14 @@ def _parse_args() -> argparse.Namespace:
     )
     p.add_argument(
         "--mode",
-        choices=["overview", "failures", "gap", "recall"],
+        choices=["overview", "failures", "gap", "recall", "graph_full"],
         default="overview",
         help=(
             "overview: summary + error patterns | "
             "failures: all graph failures by category | "
             "gap: cases where graph fails but semantic succeeds | "
-            "recall: check if gold answer was even in retrieved evidence"
+            "recall: check if gold answer was even in retrieved evidence | "
+            "graph_full: graph wrong but full-context right (vs-LoCoMo-gold alignment)"
         ),
     )
     p.add_argument(
@@ -244,6 +293,9 @@ def main() -> None:
     elif args.mode == "recall":
         mode_overview(rows, summary)
         mode_recall(rows, show_n=args.show_n)
+    elif args.mode == "graph_full":
+        mode_overview(rows, summary)
+        mode_graph_full_gap(rows, show_n=args.show_n)
 
 
 if __name__ == "__main__":

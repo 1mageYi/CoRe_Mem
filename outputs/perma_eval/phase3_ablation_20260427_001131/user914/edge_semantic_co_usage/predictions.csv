@@ -1,0 +1,16 @@
+user_id,task_id,task_type,gold,pred_graph,pred_semantic,ok_graph,ok_semantic,t_graph_s,t_semantic_s
+user914,SD-Alarm-task-2,3,G,G,G,1,1,1.39,0.7461
+user914,SD-Alarm-task-3,1,D,D,D,1,1,1.5651,0.8436
+user914,SD-Alarm-task-3,2,D,C,C,0,0,1.4783,4.1712
+user914,SD-Alarm-task-3,3,D,D,C,1,0,1.5682,0.8652
+user914,SD-Alarm-task-4,3,C,C,C,1,1,1.4033,0.8213
+user914,SD-Books-task-1,3,E,E,E,1,1,1.4644,1.0206
+user914,SD-Books-task-3,3,E,E,E,1,1,4.4019,0.8811
+user914,SD-Books-task-4,1,G,C,G,0,1,4.3612,0.9054
+user914,SD-Books-task-4,2,G,C,G,0,1,1.4293,0.859
+user914,SD-Books-task-4,3,G,C,G,0,1,1.395,0.8266
+user914,SD-Calendar-task-2,3,F,A,A,0,0,1.9073,0.9196
+user914,SD-Calendar-task-3,3,H,D,D,0,0,1.5948,0.7369
+user914,SD-Calendar-task-4,1,E,B,C,0,0,1.543,0.9122
+user914,SD-Calendar-task-4,2,E,C,C,0,0,2.1578,0.8223
+user914,SD-Calendar-task-4,3,E,C,C,0,0,1.3932,0.8381

@@ -44,7 +44,17 @@
 - [x] 实现 BM25 混合检索（`rank-bm25` + RRF，`SearchConfig.use_bm25=True`，已启用于 LoCoMo eval）
 - [x] P0 自适应扩展（`adaptive_expand_threshold=0.80`，高置信度时跳过图展开防噪声）
 - [x] P1 Entity 边（spaCy NER → `entity_mentions` → `build_entity_edges()` → 图遍历）
-- [ ] **扩大规模**：全量 10 对话（`uv run python experiments/locomo/eval_locomo_graph.py`），对比各阶段改进
+- [x] 全量主测 run1（20260427_141126）：graph 28.5% / sem 32.9% / full 42.9%
+- [x] 归因分析：seed miss 26.4%，rerank cut 33.8%，topk+LLM_wrong 27.5%
+- [x] 扩召回：seed/bm25 topk 20→40，final_topn 8→12
+- [x] Prompt 升级：跨 snippet 推理、时序推算、常识桥接
+- [x] **全量 run2**（召回 + prompt）：graph 29.74%(+1.23pp)，gold in top-k 54.2%→58.8%
+- [x] **全量 run3**（final_topn 12→16）：中途停止，发现 rerank 降级问题更根本
+- [x] 归因：rerank 把 gold 从语义 rank≤12 的 73% 降到 final top-12 的 63%（-10pp）
+- [x] 实现 split-slot rerank（seed 10 位按语义，expand 6 位按图邻近度）
+- [x] **全量 run4**（split-slot rerank，20260427_194910）：graph 34.81% / sem 35.91% / full 43.96%
+- [x] 修正 LoCoMo category ID 映射（官方 bug，cat1=multi-hop，cat4=single-hop，与 paper 文字描述相反）
+- [ ] 探索降低 single-hop 与 full-context 差距（当前 -16pp，主因是 ~33% 检索 miss + 节点粒度粗）
 - [ ] 报告：准确率、延迟、图统计（与 PERMA 脚本同级别产物）
 - [ ] 超长上下文下时延与内存占用评估（随 LoCoMo 一并记录）
 
