@@ -38,6 +38,9 @@ class SearchConfig:
     # When both are 0 (default), falls back to original unified fuse_score ranking.
     seed_evidence_slots: int = 0
     expand_evidence_slots: int = 0
+    # Ablation: final evidence is purely query↔node semantic rank over the expanded
+    # candidate set (ignores split-slot seed/expand reservation and fuse_score).
+    final_rank_semantic_only: bool = False
     # Personalized PageRank (PPR) as a third retrieval signal.
     # PPR propagates semantic-anchor relevance across graph edges, enabling
     # multi-hop candidates to surface even when they have low direct semantic sim.
@@ -62,7 +65,9 @@ class SearchPipeline:
         qvec = self.embedder.encode(query)
         seeds = self._seed_retrieve(qvec, query)
         expanded = self._maybe_expand(seeds, qvec)
-        if self._use_split_slots():
+        if self.cfg.final_rank_semantic_only:
+            ranked = self._semantic_only_rank(expanded, qvec)
+        elif self._use_split_slots():
             ranked = self._split_slot_rank(seeds, expanded, qvec)
         else:
             ranked = self._rank(expanded, qvec)
@@ -74,7 +79,10 @@ class SearchPipeline:
         qvec = self.embedder.encode(query)
         seeds = self._seed_retrieve(qvec, query)
         expanded, skipped_expand = self._maybe_expand(seeds, qvec, return_skip_flag=True)
-        if self._use_split_slots():
+        if self.cfg.final_rank_semantic_only:
+            ranked = self._semantic_only_rank(expanded, qvec)
+            breakdown: list[dict] = []
+        elif self._use_split_slots():
             ranked = self._split_slot_rank(seeds, expanded, qvec)
             breakdown: list[dict] = []   # full breakdown not computed in split-slot mode
         else:
@@ -85,6 +93,12 @@ class SearchPipeline:
         top_seed_sim = 0.0
         if seeds:
             top_seed_sim = float(self.embedder.cosine(qvec, self.graph_store.get_node(seeds[0]).embedding))
+        if self.cfg.final_rank_semantic_only:
+            final_mode = "semantic_only_expanded"
+        elif self._use_split_slots():
+            final_mode = "split_slot"
+        else:
+            final_mode = "fuse_score"
         debug = {
             "seeds": seeds,
             "expanded": expanded,
@@ -93,7 +107,8 @@ class SearchPipeline:
             "score_breakdown": breakdown,
             "top_seed_semantic_sim": round(top_seed_sim, 6),
             "n_expanded": len(expanded),
-            "n_candidates_ranked": len(breakdown),
+            "n_candidates_ranked": len(breakdown) if breakdown else len(expanded),
+            "final_rank_mode": final_mode,
         }
         return evidence, debug
 
@@ -195,6 +210,17 @@ class SearchPipeline:
                             nxt_frontier.append(nb)
             frontier = nxt_frontier
         return list(visited)
+
+    def _semantic_only_rank(
+        self, expanded: list[str], qvec: list[float]
+    ) -> list[tuple[str, float]]:
+        """Rank expanded candidates by cosine similarity only (no fuse / split slots)."""
+        scored = sorted(
+            expanded,
+            key=lambda nid: self.embedder.cosine(qvec, self.graph_store.get_node(nid).embedding),
+            reverse=True,
+        )
+        return [(nid, 1.0 - i * 1e-6) for i, nid in enumerate(scored)]
 
     def _split_slot_rank(
         self, seeds: list[str], expanded: list[str], qvec: list[float]

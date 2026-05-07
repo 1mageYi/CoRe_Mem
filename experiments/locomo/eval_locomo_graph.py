@@ -441,7 +441,30 @@ class LoCoMoEvalConfig:
     include_full_context: bool = True  # add full-context baseline column
     context_budget_chars: int = 400_000  # truncate if conv exceeds this
     write_debug: bool = True
-    top_k: int = 16   # semantic-only baseline top-k; keep aligned with final_topn_evidence
+    top_k: int = 16   # final_topn_evidence for graph; top-k for semantic-only baseline
+    # --- retrieval mode (mutually exclusive; first True wins in priority order) ---
+    # graph_no_expand: graph built normally; query = BM25+RRF seeds only, no 1-hop
+    #   expansion, final 16 ranked by semantic similarity. Isolates the contribution
+    #   of graph traversal itself (no residual / expansion nodes at all).
+    graph_no_expand: bool = False
+    # graph_split_12_4: same pipeline as graph_full but 12 seed slots + 4 expand slots.
+    graph_split_12_4: bool = False
+    # graph_semantic_final_ablation: seed+expand same as graph_full, but final 16 ranked
+    #   by semantic only (no split-slot 10+6 proximity reservation).
+    graph_semantic_final_ablation: bool = False
+    # (default = graph_full: split_slot_10_6)
+    # --- custom slot override (takes priority over named slot modes) ---
+    # When seed_slots_override + expand_slots_override > 0 the named slot-mode flags
+    # are ignored and these values are used directly.  Both must be specified together.
+    # graph_retrieval_mode will be recorded as "split_slot_{seed}_{expand}".
+    seed_slots_override: int = 0    # 0 = not set
+    expand_slots_override: int = 0  # 0 = not set (16+0 → set expand to 0, seed to 16)
+    # --- edge-type ablations (orthogonal; combinable with any slot mode above) ---
+    # Each flag disables one edge type during 1-hop graph expansion at query time.
+    # Graph construction (write path) is unaffected.
+    ablate_no_semantic_edge: bool = False
+    ablate_no_temporal_edge: bool = False
+    ablate_no_co_usage_edge: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -481,25 +504,78 @@ def run_locomo_eval(
     # - seed_topk 20->40: gold semantic rank median=22 for misses, need wider window
     # - bm25_topk matches seed_topk to keep RRF balance
     # - final_topn_evidence 8->12: 520/1540 were dropped by top-8 budget cut
-    search_cfg = SearchConfig(
+    _common_search = dict(
         seed_topk=40,
         use_bm25=True,
         bm25_topk=40,
-        adaptive_expand_threshold=0.80,  # P0
-        expand_use_entity=True,           # P1
-        final_topn_evidence=16,
-        # Split-slot rerank: seeds ranked by semantic, expand nodes ranked by
-        # edge proximity to seeds.  Prevents graph-peripheral fact nodes from
-        # being evicted by the fuse_score that rewards highly-connected nodes.
-        seed_evidence_slots=10,
-        expand_evidence_slots=6,
+        adaptive_expand_threshold=0.80,  # P0: skip expand when top-1 sim >= 0.80
+        expand_use_entity=True,           # P1: follow entity edges
+        final_topn_evidence=cfg.top_k,
         # P2: Personalized PageRank — disabled for now.
         # On LoCoMo's sparse per-conversation graph (~200-400 nodes, chain-like
         # temporal edges), PPR propagation overlaps heavily with existing 1-hop
         # expand and slightly hurts single-hop (cat4) by boosting noisy neighbours.
-        # Re-evaluate after graph density improves (e.g. sentence-level nodes).
         use_ppr=False,
     )
+    # seed=16,expand=0 is a valid all-core config; use a sentinel of -1 in the config
+    # to mean "not set", so 0 is a legitimate value for expand_slots_override.
+    _use_slot_override = cfg.seed_slots_override > 0
+
+    if _use_slot_override:
+        # Custom core/residual ratio: all other pipeline params identical to graph_full.
+        search_cfg = SearchConfig(
+            **_common_search,
+            seed_evidence_slots=cfg.seed_slots_override,
+            expand_evidence_slots=cfg.expand_slots_override,
+        )
+    elif cfg.graph_no_expand:
+        # Semantic-graph: graph built normally; at query time skip all 1-hop
+        # traversal (expand_hop=0). Candidates = BM25+RRF seed pool only (40 nodes).
+        # Final top_k selected by pure semantic similarity — no split-slot.
+        # Isolates whether graph expansion itself (not just the slot design) helps.
+        search_cfg = SearchConfig(
+            **_common_search,
+            expand_hop=0,
+            final_rank_semantic_only=True,
+            seed_evidence_slots=0,
+            expand_evidence_slots=0,
+        )
+    elif cfg.graph_split_12_4:
+        # Same full pipeline as graph_full but 12 core (semantic-seed) + 4 residual
+        # (expand proximity) slots instead of 10+6.
+        search_cfg = SearchConfig(
+            **_common_search,
+            seed_evidence_slots=12,
+            expand_evidence_slots=4,
+        )
+    elif cfg.graph_semantic_final_ablation:
+        # Ablation: seed+expand same as graph_full, but final ranking is pure
+        # semantic over the whole expanded pool (no proximity reservation for
+        # expansion nodes).
+        search_cfg = SearchConfig(
+            **_common_search,
+            final_rank_semantic_only=True,
+            seed_evidence_slots=0,
+            expand_evidence_slots=0,
+        )
+    else:
+        # Default graph_full: split-slot 10 (semantic-seed) + 6 (expand-proximity).
+        search_cfg = SearchConfig(
+            **_common_search,
+            seed_evidence_slots=10,
+            expand_evidence_slots=6,
+        )
+
+    # --- edge-type ablations (applied on top of any slot config above) ---
+    # Disabling an edge type only affects 1-hop graph expansion at query time;
+    # the write pipeline (graph construction) is unchanged.
+    if cfg.ablate_no_semantic_edge:
+        search_cfg.expand_use_semantic = False
+    if cfg.ablate_no_temporal_edge:
+        search_cfg.expand_use_temporal = False
+    if cfg.ablate_no_co_usage_edge:
+        search_cfg.expand_use_co_usage = False
+
     add_cfg = AddConfig()
 
     shared_embedder = BgeM3Embedder()
@@ -683,9 +759,30 @@ def run_locomo_eval(
             )
         cat_stats[cat] = entry
 
+    if _use_slot_override:
+        graph_mode = f"split_slot_{cfg.seed_slots_override}_{cfg.expand_slots_override}"
+    elif cfg.graph_no_expand:
+        graph_mode = "semantic_graph_no_expand"
+    elif cfg.graph_split_12_4:
+        graph_mode = "split_slot_12_4"
+    elif cfg.graph_semantic_final_ablation:
+        graph_mode = "semantic_final_ablation"
+    else:
+        graph_mode = "split_slot_10_6"
+    # append edge-ablation suffix(es) so each run is uniquely identifiable
+    edge_suffixes = []
+    if cfg.ablate_no_semantic_edge:
+        edge_suffixes.append("no_sem_edge")
+    if cfg.ablate_no_temporal_edge:
+        edge_suffixes.append("no_temp_edge")
+    if cfg.ablate_no_co_usage_edge:
+        edge_suffixes.append("no_co_edge")
+    if edge_suffixes:
+        graph_mode = graph_mode + "__" + "_".join(edge_suffixes)
     summary: dict = {
         "n_conversations": len(convs),
         "n_samples": n,
+        "graph_retrieval_mode": graph_mode,
         "judge_method": "llm" if cfg.use_llm_judge else "soft_match",
         "categories_evaluated": sorted(cfg.categories),
         "baselines": (
@@ -811,6 +908,72 @@ def _parse_args() -> argparse.Namespace:
         default=16,
         help="Top-K evidence snippets to retrieve (graph final_topn and semantic-only top-k)",
     )
+    # --- retrieval mode flags (mutually exclusive; graph_no_expand > graph_split_12_4
+    #     > graph_semantic_final_ablation > default split_slot_10_6) ---
+    p.add_argument(
+        "--graph-no-expand",
+        action="store_true",
+        help=(
+            "Semantic-graph ablation: graph built normally but query skips all 1-hop "
+            "expansion (expand_hop=0). Final top-K selected by pure semantic similarity "
+            "over the BM25+RRF seed pool only. Isolates the effect of graph traversal."
+        ),
+    )
+    p.add_argument(
+        "--graph-split-12-4",
+        action="store_true",
+        help=(
+            "Graph-full variant: same pipeline as default but 12 semantic-seed slots "
+            "+ 4 graph-proximity (expand) slots instead of 10+6."
+        ),
+    )
+    p.add_argument(
+        "--graph-semantic-final-ablation",
+        action="store_true",
+        help=(
+            "Ablation: seed+expand same as graph_full; final top-K ranked purely by "
+            "semantic similarity over the expanded pool (no split-slot reservation)."
+        ),
+    )
+    # --- custom slot ratio (overrides named slot-mode flags) ---
+    p.add_argument(
+        "--seed-slots",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "Number of core (semantic-seed) evidence slots in the final top-K. "
+            "When > 0 overrides named slot-mode flags; pair with --expand-slots. "
+            "Example: --seed-slots 14 --expand-slots 2  or  --seed-slots 16 --expand-slots 0"
+        ),
+    )
+    p.add_argument(
+        "--expand-slots",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "Number of residual (expand-proximity) evidence slots in the final top-K. "
+            "Use 0 to disable residual slots entirely (all-core). "
+            "Only meaningful when --seed-slots is also provided."
+        ),
+    )
+    # --- edge-type ablations (orthogonal; pair with any slot-mode flag above) ---
+    p.add_argument(
+        "--no-semantic-edge",
+        action="store_true",
+        help="Edge ablation: disable semantic edges during 1-hop graph expansion at query time.",
+    )
+    p.add_argument(
+        "--no-temporal-edge",
+        action="store_true",
+        help="Edge ablation: disable temporal edges during 1-hop graph expansion at query time.",
+    )
+    p.add_argument(
+        "--no-co-usage-edge",
+        action="store_true",
+        help="Edge ablation: disable co-usage edges during 1-hop graph expansion at query time.",
+    )
     return p.parse_args()
 
 
@@ -832,6 +995,14 @@ def main() -> None:
         context_budget_chars=args.context_budget_chars,
         write_debug=not args.no_debug,
         top_k=args.top_k,
+        graph_no_expand=args.graph_no_expand,
+        graph_split_12_4=args.graph_split_12_4,
+        graph_semantic_final_ablation=args.graph_semantic_final_ablation,
+        seed_slots_override=args.seed_slots,
+        expand_slots_override=args.expand_slots,
+        ablate_no_semantic_edge=args.no_semantic_edge,
+        ablate_no_temporal_edge=args.no_temporal_edge,
+        ablate_no_co_usage_edge=args.no_co_usage_edge,
     )
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -840,6 +1011,7 @@ def main() -> None:
     summary = run_locomo_eval(cfg, root_dir=ROOT, out_dir=out_dir, show_progress=True)
 
     print("\n===== LoCoMo Evaluation Summary =====")
+    print(f"Graph retrieval: {summary.get('graph_retrieval_mode', 'default')}")
     print(f"Conversations : {summary['n_conversations']}")
     print(f"QA samples    : {summary['n_samples']}")
     print(f"Judge method  : {summary['judge_method']}")
