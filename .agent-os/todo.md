@@ -2,20 +2,20 @@
 
 ## Doing
 
-- `TD-012` `[doing]` Writer fact 提取逻辑（LLM prompt-based extraction）——当前 writer 接收已有 text delta，后续需接入 LLM 提取。
+- `TD-012` `[doing]` Writer fact extraction logic (LLM prompt-based extraction) — writer currently receives text deltas; wire LLM extraction next.
 
 ## Ready
 
-- `TD-005` `[ready]` 实现阿里云 OpenAI-compatible provider adapter。
-- `TD-006` `[ready]` 接入 PersonaMem 32k 官方主任务与评测协议。
+- `TD-005` `[ready]` Implement Alibaba Cloud OpenAI-compatible provider adapter.
+- `TD-006` `[ready]` Integrate PersonaMem 32k official main task and evaluation protocol.
 
 ## Backlog
 
-- `TD-007` `[backlog]` 为 PersonaMem 128k / 1M 提供启动开关。
-- `TD-008` `[backlog]` 接入 LongMemEval-S 官方协议。
-- `TD-010` `[backlog]` 建立实验总入口与分步骤脚本。
-- `TD-013` `[backlog]` 实现 Reader：query → top-k core + top-j residual 检索。
-- `TD-014` `[backlog]` 训练 vec2text 模型解码 latent 信息。
+- `TD-007` `[backlog]` Add launch switches for PersonaMem 128k / 1M.
+- `TD-008` `[backlog]` Integrate LongMemEval-S official protocol.
+- `TD-010` `[backlog]` Central experiment entrypoint and staged scripts.
+- `TD-013` `[backlog]` Implement Reader: query → top-k core + top-j residual retrieval.
+- `TD-014` `[backlog]` Train vec2text model to decode latent information.
 
 ## Blocked
 
@@ -23,21 +23,21 @@
 
 ## Done
 
-- `TD-001` `[done]` 初始化项目文档系统并建立根契约、真源文档和状态文档。
-  - Evidence: `AGENTS.md`、`CLAUDE.md`、`docs/`、`.agent-os/` 全部就位，恢复路径可用。
-- `TD-002` `[done]` 创建环境管理方案（venv 替代 conda，`CD-005`），Python 3.10。
-  - Evidence: `pyproject.toml` 锁定 `requires-python = "==3.10.*"`，`requirements.txt` 就位。
-- `TD-003` `[done]` 建立基础目录结构、配置机制与输出目录规范。
-  - Evidence: `src/`、`scripts/`、`configs/`、`outputs/`、`tests/` 已创建；`configs/default.toml`、`.gitignore`、`.env.example` 就位。
-- `TD-004` `[done]` 调研并确定第一阶段使用的 pretrained embedding model。
-  - Evidence: 确定使用 `sentence-transformers/all-MiniLM-L6-v2`（384 维），理由：轻量、广泛验证、与 vec2text 兼容。
-- `TD-009` `[done]` 实现 vanilla CoRe Memory 核心模块（write path）。
-  - Evidence: `slot.py`、`embedding.py`、`residual_manager.py`、`core_updater.py`、`writer.py` 已实现。
-  - 合并机制：在线质心（Online Centroid），recency_weight=1.5。
-  - 驱逐策略：residual 按 merge_count 最低驱逐；core 强制合并进最近邻。
-  - 28 个 unit tests 全部通过。
-- `TD-011` `[done]` 建立 unit tests 与最小 E2E smoke test。
-  - Evidence: `test_slot.py`(13)、`test_residual_manager.py`(7)、`test_core_updater.py`(5)、`test_writer.py`(4)、`test_smoke.py`(1)，共 28 个测试全部通过。
+- `TD-001` `[done]` Initialize project documentation system with root contract, source-of-truth docs, and status docs.
+  - Evidence: `AGENTS.md`, `CLAUDE.md`, `docs/`, `.agent-os/` in place; recovery path works.
+- `TD-002` `[done]` Environment setup (venv instead of conda, `CD-005`), Python 3.10.
+  - Evidence: `pyproject.toml` pins `requires-python = "==3.10.*"`; `requirements.txt` present.
+- `TD-003` `[done]` Base directory layout, configuration, and output conventions.
+  - Evidence: `src/`, `scripts/`, `configs/`, `outputs/`, `tests/` created; `configs/default.toml`, `.gitignore`, `.env.example` present.
+- `TD-004` `[done]` Survey and pick phase-1 pretrained embedding model.
+  - Evidence: `sentence-transformers/all-MiniLM-L6-v2` (384-d), lightweight, widely validated, vec2text-compatible.
+- `TD-009` `[done]` Implement vanilla CoRe Memory core (write path).
+  - Evidence: `slot.py`, `embedding.py`, `residual_manager.py`, `core_updater.py`, `writer.py`.
+  - Merge: online centroid, recency_weight=1.5.
+  - Eviction: residual evicts lowest merge_count; core forced merge into nearest neighbor.
+  - 28 unit tests pass.
+- `TD-011` `[done]` Unit tests and minimal E2E smoke test.
+  - Evidence: `test_slot.py`(13), `test_residual_manager.py`(7), `test_core_updater.py`(5), `test_writer.py`(4), `test_smoke.py`(1) — 28 tests pass.
 
 ## Verified
 

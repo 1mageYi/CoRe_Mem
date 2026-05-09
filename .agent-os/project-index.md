@@ -9,20 +9,20 @@
 
 ## Objective Summary
 
-- `OBJ-002`: 实现一个 bounded cross-session personalized memory framework，其第一阶段具体实例为 vanilla CoRe Memory，并在 PersonaMem 与 LongMemEval-S 上完成可复现、可追溯的实验运行。
+- `OBJ-002`: Build a bounded cross-session personalized memory framework whose phase-1 instance is vanilla CoRe Memory, with reproducible, traceable runs on PersonaMem and LongMemEval-S.
 
 ## Active Workstreams
 
-- `WS-001` `[done]`: 项目系统初始化与恢复路径建设
-- `WS-002` `[done]`: 第一阶段方法与 benchmark 实现准备
+- `WS-001` `[done]`: Project system bootstrap and recovery path
+- `WS-002` `[done]`: Phase-1 method and benchmark prep
 - `WS-003` `[backlog]`: Benchmark adapters
-- `WS-004` `[doing]`: Vanilla CoRe Memory 方法实现（write path done，reader 待做）
-- `WS-005` `[backlog]`: 评测、输出与复现
-- `WS-006` `[partial]`: 测试体系（write path tests done）
+- `WS-004` `[doing]`: Vanilla CoRe Memory implementation (write path done; reader pending)
+- `WS-005` `[backlog]`: Evaluation, outputs, reproduction
+- `WS-006` `[partial]`: Test harness (write-path tests done)
 
 ## Top Next Action
 
-- `TD-012` `[doing]`: Writer fact 提取逻辑（LLM prompt-based extraction）——当前 writer 接收已有 text delta，后续需接入 LLM 提取。
+- `TD-012` `[doing]`: Writer fact extraction (LLM prompt-based) — writer currently receives text deltas; wire LLM extraction next.
 
 ## Active Blockers
 
@@ -30,12 +30,12 @@
 
 ## Recent Important Changes
 
-- 2026-04-04: 锁定第一阶段目标、benchmark、范围、硬约束和验收标准。
-- 2026-04-04: 确认文档系统采用 `docs/` 与 `.agent-os/` 并存模式。
-- 2026-04-06: 环境管理从 conda 切换为 venv（`CD-005`）。
-- 2026-04-06: 完成目录结构、依赖文件、模块骨架创建（`TD-001`/`TD-002`/`TD-003` done）。
-- 2026-04-06: 确定 embedding model 为 `all-MiniLM-L6-v2`（`TD-004` done）。
-- 2026-04-06: 实现 write path 全部核心模块（`TD-009` done）：slot、embedding、residual_manager、core_updater、writer。合并机制为在线质心，驱逐策略为 merge_count 最低优先。28 个 unit tests 全部通过。
+- 2026-04-04: Locked phase-1 goals, benchmarks, scope, hard constraints, acceptance.
+- 2026-04-04: Documentation uses coexisting `docs/` and `.agent-os/`.
+- 2026-04-06: Environment conda → venv (`CD-005`).
+- 2026-04-06: Directory layout, dependency files, module skeletons (`TD-001`/`TD-002`/`TD-003` done).
+- 2026-04-06: Embedding model `all-MiniLM-L6-v2` (`TD-004` done).
+- 2026-04-06: Write-path modules complete (`TD-009` done): slot, embedding, residual_manager, core_updater, writer. Online centroid merge; residual eviction by lowest merge_count. 28 unit tests pass.
 
 ## Read Next
 
