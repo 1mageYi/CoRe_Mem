@@ -1,0 +1,6 @@
+user_id,task_id,task_type,gold,pred_graph,pred_semantic,ok_graph,ok_semantic,t_graph_s,t_semantic_s
+user914,SD-Alarm-task-2,3,G,G,G,1,1,1.3842,1.0786
+user914,SD-Alarm-task-3,1,D,D,D,1,1,1.443,1.107
+user914,SD-Alarm-task-3,2,D,C,C,0,0,1.3478,0.7829
+user914,SD-Alarm-task-3,3,D,D,C,1,0,1.2165,0.7858
+user914,SD-Alarm-task-4,3,C,C,C,1,1,1.5766,0.774

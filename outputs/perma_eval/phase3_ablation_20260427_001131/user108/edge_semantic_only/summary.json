@@ -1,0 +1,19 @@
+{
+  "user_id": "user108",
+  "variant": "c",
+  "lambda_core": 0.2,
+  "graph_edge_mode": "semantic_only",
+  "merge_strategy": "hybrid",
+  "co_usage_decay": 1.0,
+  "co_usage_min_count": 1,
+  "co_usage_prune_threshold": 0.05,
+  "expand_min_co_usage_usage": 1,
+  "n_samples": 15,
+  "acc_graph_full": 0.4,
+  "acc_semantic_only": 0.4667,
+  "acc_delta_graph_minus_semantic": -0.0667,
+  "avg_t_graph_s": 1.4638,
+  "avg_t_semantic_s": 1.5536,
+  "llm_model": "openai/gpt-4o-mini",
+  "llm_base_url": "https://api.tokenrouter.com/v1"
+}

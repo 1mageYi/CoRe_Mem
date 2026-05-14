@@ -2,60 +2,68 @@
 
 ## Workstreams
 
-- `WS-001`: 项目系统与恢复能力
-- `WS-002`: 基础工程与环境
+- `WS-001`: Project system and recovery
+- `WS-002`: Base engineering and environment
 - `WS-003`: Benchmark adapters
-- `WS-004`: Vanilla CoRe Memory 方法实现
-- `WS-005`: 评测、输出与复现
-- `WS-006`: 测试体系
+- `WS-004`: Vanilla CoRe Memory implementation
+- `WS-005`: Evaluation, outputs, reproduction
+- `WS-006`: Testing
 
 ## Current Architecture Route
 
-第一阶段采用 training-light 路线：
+Phase 1 uses a training-light stack:
 
-- pretrained embedding model 作为基础表示层
-- 阿里云兼容 OpenAI API 作为主要 LLM 调用
-- vanilla CoRe Memory 作为主方法
-- benchmark adapters 直接对齐官方协议
-- 结果与元数据统一沉淀到 `outputs/`
+- `all-MiniLM-L6-v2` as the embedding layer (384-d)
+- Alibaba Cloud OpenAI-compatible API as the default LLM client
+- Vanilla CoRe Memory as the main method
+  - Merge: online centroid, recency_weight=1.5
+  - Core: 32 slots; Residual: 64 slots
+  - Residual eviction: lowest merge_count first
+  - Core eviction: forced merge into nearest core slot by cos_sim
+  - Persistence: safetensors + JSON
+- Benchmark adapters follow official protocols
+- Results and metadata land under `outputs/`
 
 ## Milestones
 
-- `MS-001` `[doing]` 项目系统初始化完成
+- `MS-001` `[done]` Project system bootstrap
   - Acceptance:
-    - `AGENTS.md` 与 `CLAUDE.md` 就位
-    - `docs/` 与 `.agent-os/` 基础文档齐全
-    - 文档恢复路径可用
+    - `AGENTS.md` and `CLAUDE.md` present
+    - `docs/` and `.agent-os/` baseline docs present
+    - Documentation recovery path works
 
-- `MS-002` `[backlog]` 环境与基础工程骨架完成
+- `MS-002` `[done]` Environment and engineering skeleton
   - Acceptance:
-    - conda 环境 `core_mem` 固定
-    - 依赖管理明确
-    - 配置系统与 provider adapter 就位
+    - venv pinned to Python 3.10 (`CD-005`)
+    - Dependencies declared (`pyproject.toml` + `requirements.txt`)
+    - Config system (`configs/default.toml` + `config.py`)
 
-- `MS-003` `[backlog]` PersonaMem 32k 接入并跑通官方协议
+- `MS-003` `[backlog]` PersonaMem 32k integrated with official protocol
   - Acceptance:
-    - 数据可获取
-    - 主任务可运行
-    - 官方评测协议可运行
+    - Data obtainable
+    - Main task runs
+    - Official eval protocol runs
 
-- `MS-004` `[backlog]` LongMemEval-S 接入并跑通官方协议
+- `MS-004` `[backlog]` LongMemEval-S integrated with official protocol
   - Acceptance:
-    - 数据可获取
-    - 官方协议可运行
+    - Data obtainable
+    - Official protocol runs
 
-- `MS-005` `[backlog]` Vanilla CoRe Memory 主干实现完成
+- `MS-005` `[partial]` Vanilla CoRe Memory core complete
+  - Write path done: writer / core updater / residual manager runnable
+  - Read path pending: reader not implemented
   - Acceptance:
-    - writer / core updater / residual manager / reader 可运行
+    - writer / core updater / residual manager / reader runnable
 
-- `MS-006` `[backlog]` 测试与复现闭环完成
+- `MS-006` `[partial]` Testing and reproduction loop
+  - Write-path tests done: 28 unit tests pass
   - Acceptance:
-    - unit tests 完整
-    - E2E smoke test 可运行
-    - 总入口与分步骤脚本可重跑结果
+    - Unit tests complete
+    - E2E smoke test runs
+    - Central entrypoint and staged scripts reproduce results
 
-- `MS-007` `[backlog]` 第一阶段正式结果产出
+- `MS-007` `[backlog]` Phase-1 formal results
   - Acceptance:
-    - PersonaMem 正式结果
-    - LongMemEval-S 正式结果
-    - 结果表与结果数据齐全
+    - PersonaMem formal results
+    - LongMemEval-S formal results
+    - Tables and prediction outputs complete

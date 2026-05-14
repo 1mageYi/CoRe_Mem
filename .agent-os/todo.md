@@ -2,25 +2,20 @@
 
 ## Doing
 
-- `TD-001` `[doing]` 初始化项目文档系统并建立根契约、真源文档和状态文档。
-  - Reason: 这是所有后续实现与恢复的前置条件。
-  - Evidence target: 文档文件齐全，恢复路径明确。
+- `TD-012` `[doing]` Writer fact extraction logic (LLM prompt-based extraction) — writer currently receives text deltas; wire LLM extraction next.
 
 ## Ready
 
-- `TD-002` `[ready]` 创建并固定 conda 环境 `core_mem`，Python 版本为 `3.10`。
-- `TD-003` `[ready]` 建立基础目录结构、配置机制与输出目录规范。
-- `TD-004` `[ready]` 调研并确定第一阶段使用的 pretrained embedding model。
+- `TD-005` `[ready]` Implement Alibaba Cloud OpenAI-compatible provider adapter.
+- `TD-006` `[ready]` Integrate PersonaMem 32k official main task and evaluation protocol.
 
 ## Backlog
 
-- `TD-005` `[backlog]` 实现阿里云 OpenAI-compatible provider adapter。
-- `TD-006` `[backlog]` 接入 PersonaMem 32k 官方主任务与评测协议。
-- `TD-007` `[backlog]` 为 PersonaMem 128k / 1M 提供启动开关。
-- `TD-008` `[backlog]` 接入 LongMemEval-S 官方协议。
-- `TD-009` `[backlog]` 实现 vanilla CoRe Memory 核心模块。
-- `TD-010` `[backlog]` 建立实验总入口与分步骤脚本。
-- `TD-011` `[backlog]` 建立 unit tests 与最小 E2E smoke test。
+- `TD-007` `[backlog]` Add launch switches for PersonaMem 128k / 1M.
+- `TD-008` `[backlog]` Integrate LongMemEval-S official protocol.
+- `TD-010` `[backlog]` Central experiment entrypoint and staged scripts.
+- `TD-013` `[backlog]` Implement Reader: query → top-k core + top-j residual retrieval.
+- `TD-014` `[backlog]` Train vec2text model to decode latent information.
 
 ## Blocked
 
@@ -28,7 +23,21 @@
 
 ## Done
 
-- None
+- `TD-001` `[done]` Initialize project documentation system with root contract, source-of-truth docs, and status docs.
+  - Evidence: `AGENTS.md`, `CLAUDE.md`, `docs/`, `.agent-os/` in place; recovery path works.
+- `TD-002` `[done]` Environment setup (venv instead of conda, `CD-005`), Python 3.10.
+  - Evidence: `pyproject.toml` pins `requires-python = "==3.10.*"`; `requirements.txt` present.
+- `TD-003` `[done]` Base directory layout, configuration, and output conventions.
+  - Evidence: `src/`, `scripts/`, `configs/`, `outputs/`, `tests/` created; `configs/default.toml`, `.gitignore`, `.env.example` present.
+- `TD-004` `[done]` Survey and pick phase-1 pretrained embedding model.
+  - Evidence: `sentence-transformers/all-MiniLM-L6-v2` (384-d), lightweight, widely validated, vec2text-compatible.
+- `TD-009` `[done]` Implement vanilla CoRe Memory core (write path).
+  - Evidence: `slot.py`, `embedding.py`, `residual_manager.py`, `core_updater.py`, `writer.py`.
+  - Merge: online centroid, recency_weight=1.5.
+  - Eviction: residual evicts lowest merge_count; core forced merge into nearest neighbor.
+  - 28 unit tests pass.
+- `TD-011` `[done]` Unit tests and minimal E2E smoke test.
+  - Evidence: `test_slot.py`(13), `test_residual_manager.py`(7), `test_core_updater.py`(5), `test_writer.py`(4), `test_smoke.py`(1) — 28 tests pass.
 
 ## Verified
 

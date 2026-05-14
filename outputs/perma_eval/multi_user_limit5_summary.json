@@ -1,0 +1,102 @@
+[
+  {
+    "user_id": "user108",
+    "limit": 5,
+    "acc_graph_full": 0.6,
+    "acc_semantic_only": 0.2,
+    "delta": 0.4,
+    "avg_t_graph_s": 1.2963,
+    "avg_t_semantic_s": 1.1136,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_230951"
+  },
+  {
+    "user_id": "user109",
+    "limit": 5,
+    "acc_graph_full": 0.4,
+    "acc_semantic_only": 0.8,
+    "delta": -0.4,
+    "avg_t_graph_s": 1.6728,
+    "avg_t_semantic_s": 1.2097,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_231328"
+  },
+  {
+    "user_id": "user112",
+    "limit": 5,
+    "acc_graph_full": 0.8,
+    "acc_semantic_only": 0.8,
+    "delta": 0.0,
+    "avg_t_graph_s": 1.7149,
+    "avg_t_semantic_s": 1.2963,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_231722"
+  },
+  {
+    "user_id": "user123",
+    "limit": 5,
+    "acc_graph_full": 0.4,
+    "acc_semantic_only": 0.0,
+    "delta": 0.4,
+    "avg_t_graph_s": 1.4502,
+    "avg_t_semantic_s": 0.9187,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_232100"
+  },
+  {
+    "user_id": "user1377",
+    "limit": 5,
+    "acc_graph_full": 0.0,
+    "acc_semantic_only": 0.4,
+    "delta": -0.4,
+    "avg_t_graph_s": 1.4867,
+    "avg_t_semantic_s": 0.8857,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_232504"
+  },
+  {
+    "user_id": "user334",
+    "limit": 5,
+    "acc_graph_full": 0.0,
+    "acc_semantic_only": 0.8,
+    "delta": -0.8,
+    "avg_t_graph_s": 1.4238,
+    "avg_t_semantic_s": 0.8861,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_232821"
+  },
+  {
+    "user_id": "user354",
+    "limit": 5,
+    "acc_graph_full": 0.8,
+    "acc_semantic_only": 0.8,
+    "delta": 0.0,
+    "avg_t_graph_s": 1.4533,
+    "avg_t_semantic_s": 0.8721,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_233225"
+  },
+  {
+    "user_id": "user419",
+    "limit": 5,
+    "acc_graph_full": 0.6,
+    "acc_semantic_only": 0.6,
+    "delta": 0.0,
+    "avg_t_graph_s": 1.3735,
+    "avg_t_semantic_s": 0.957,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_233624"
+  },
+  {
+    "user_id": "user507",
+    "limit": 5,
+    "acc_graph_full": 0.4,
+    "acc_semantic_only": 0.4,
+    "delta": 0.0,
+    "avg_t_graph_s": 1.3461,
+    "avg_t_semantic_s": 0.9429,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_234006"
+  },
+  {
+    "user_id": "user914",
+    "limit": 5,
+    "acc_graph_full": 0.8,
+    "acc_semantic_only": 0.6,
+    "delta": 0.2,
+    "avg_t_graph_s": 1.3936,
+    "avg_t_semantic_s": 0.9057,
+    "out_dir": "D:\\Code\\CoRe\\CoRe_Mem\\outputs\\perma_eval\\20260426_234327"
+  }
+]

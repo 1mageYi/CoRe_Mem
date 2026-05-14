@@ -1,0 +1,63 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+api_tokens/
+
+# ── Python virtual environments ───────────────────────────────────────────────
+.venv/
+.venv_linux_ref
+venv/
+env/
+
+# ── Python cache & build artifacts ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── uv / pip cache ────────────────────────────────────────────────────────────
+.uv/
+pip-wheel-metadata/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── HuggingFace dataset / model caches ────────────────────────────────────────
+RAG_test/.hf_cache/
+.cache/
+*.hf_cache/
+
+# ── Experiment outputs (keep directory stubs, ignore actual run data) ──────────
+outputs/runs/
+outputs/logs/
+outputs/figures/
+outputs/tables/
+
+# RAG_test results
+RAG_test/results/
+
+# mem0_test local vector index + results
+mem0_test/.faiss_store/
+mem0_test/.faiss_personamem_idx/
+mem0_test/results/
+
+# ── OS & editor noise ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/

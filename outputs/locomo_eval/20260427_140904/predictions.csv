@@ -1,0 +1,3 @@
+sample_id,category,question,gold,pred_graph,pred_semantic,ok_graph,ok_semantic,t_graph_s,t_semantic_s,pred_full_ctx,ok_full_ctx,t_full_ctx_s,ctx_chars,ctx_truncated
+conv-26,2,When did Caroline go to the LGBTQ support group?,7 May 2023,I don't know.,I don't know.,0,0,1.7665,0.8376,Caroline went to the LGBTQ support group on 7 May 2023.,1,1.6547,63718,0
+conv-26,2,When did Melanie paint a sunrise?,2022,"Melanie painted a sunrise last year, but the specific date is not known.","Melanie painted a sunrise last year, but the specific date is not known.",0,0,0.8935,1.0252,"Melanie painted a lake sunrise last year, but the specific date is not mentioned.",0,1.211,63718,0

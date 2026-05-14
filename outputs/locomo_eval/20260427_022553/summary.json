@@ -1,0 +1,53 @@
+{
+  "n_conversations": 2,
+  "n_samples": 40,
+  "judge_method": "soft_match",
+  "categories_evaluated": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "baselines": [
+    "graph_full",
+    "semantic_only",
+    "full_context"
+  ],
+  "acc_graph_full": 0.05,
+  "acc_semantic_only": 0.375,
+  "acc_delta_graph_minus_semantic": -0.325,
+  "avg_t_graph_s": 1.2154,
+  "avg_t_semantic_s": 1.158,
+  "per_category": {
+    "1": {
+      "n": 13,
+      "acc_graph": 0.0769,
+      "acc_semantic": 0.1538,
+      "acc_full_context": 0.3846
+    },
+    "2": {
+      "n": 23,
+      "acc_graph": 0.0435,
+      "acc_semantic": 0.5217,
+      "acc_full_context": 0.4783
+    },
+    "3": {
+      "n": 2,
+      "acc_graph": 0.0,
+      "acc_semantic": 0.0,
+      "acc_full_context": 0.0
+    },
+    "4": {
+      "n": 2,
+      "acc_graph": 0.0,
+      "acc_semantic": 0.5,
+      "acc_full_context": 0.5
+    }
+  },
+  "llm_model": "openai/gpt-4o-mini",
+  "llm_base_url": "https://api.tokenrouter.com/v1",
+  "acc_full_context": 0.425,
+  "acc_delta_graph_minus_full_ctx": -0.375,
+  "avg_t_full_ctx_s": 3.3452,
+  "n_truncated_convs": 0
+}

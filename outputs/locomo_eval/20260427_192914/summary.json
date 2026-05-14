@@ -1,0 +1,71 @@
+{
+  "n_conversations": 10,
+  "n_samples": 1540,
+  "judge_method": "soft_match",
+  "categories_evaluated": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "baselines": [
+    "graph_full",
+    "semantic_only",
+    "full_context"
+  ],
+  "acc_graph_full": 0.3071,
+  "acc_semantic_only": 0.3584,
+  "acc_delta_graph_minus_semantic": -0.0513,
+  "avg_t_graph_s": 1.1478,
+  "avg_t_semantic_s": 1.1674,
+  "per_category": {
+    "1": {
+      "n": 282,
+      "acc_graph": 0.1631,
+      "acc_semantic": 0.1915,
+      "acc_full_context": 0.2872
+    },
+    "2": {
+      "n": 321,
+      "acc_graph": 0.2773,
+      "acc_semantic": 0.3084,
+      "acc_full_context": 0.1963
+    },
+    "3": {
+      "n": 96,
+      "acc_graph": 0.0833,
+      "acc_semantic": 0.1146,
+      "acc_full_context": 0.1771
+    },
+    "4": {
+      "n": 841,
+      "acc_graph": 0.3924,
+      "acc_semantic": 0.4614,
+      "acc_full_context": 0.6124
+    }
+  },
+  "llm_model": "openai/gpt-4o-mini",
+  "llm_base_url": "https://api.tokenrouter.com/v1",
+  "acc_full_context": 0.439,
+  "acc_delta_graph_minus_full_ctx": -0.1318,
+  "avg_t_full_ctx_s": 2.2905,
+  "n_truncated_convs": 0,
+  "retrieval_diagnostics": {
+    "n_total": 1540,
+    "n_gold_node_found": 1531,
+    "n_gold_in_final_topk": 973,
+    "n_gold_turn_text_in_graph_evidence": 973,
+    "n_graph_wrong_full_right": 319,
+    "n_graph_wrong_full_right_gold_in_topk": 93,
+    "n_graph_wrong_full_right_gold_missing_topk": 226,
+    "rate_gold_node_found": 0.9942,
+    "rate_gold_in_final_topk": 0.6318,
+    "rate_gold_turn_text_in_graph_evidence": 0.6318,
+    "rate_graph_wrong_full_right": 0.2071,
+    "among_graph_wrong_full_right": {
+      "n": 319,
+      "gold_in_topk": 93,
+      "gold_missing_topk": 226
+    }
+  }
+}

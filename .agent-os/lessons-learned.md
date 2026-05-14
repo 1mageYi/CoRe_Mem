@@ -2,7 +2,7 @@
 
 ## Purpose
 
-本文件用于记录失败探索、陷阱、未采用方案及其重试条件。
+Record failed explorations, pitfalls, rejected options, and when to retry.
 
 ## Entries
 
